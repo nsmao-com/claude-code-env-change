@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>环境变量配置管理</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
+            background-color: #f2f2f7;
+            color: #000000;
+            line-height: 1.47;
+            font-size: 17px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .header h1 {
+            font-size: 34px;
+            font-weight: 700;
+            color: #000000;
+            margin-bottom: 8px;
+            letter-spacing: -0.41px;
+        }
+
+        .header p {
+            font-size: 19px;
+            color: #6d6d70;
+            font-weight: 400;
+        }
+
+        .current-env {
+            background: #ffffff;
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+            border: 0.5px solid rgba(0, 0, 0, 0.04);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .current-env h3 {
+            font-size: 22px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #000000;
+            letter-spacing: -0.26px;
+        }
+
+        .current-env-vars {
+            display: grid;
+            gap: 16px;
+        }
+
+        .current-var {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 0;
+            border-bottom: 0.5px solid #c6c6c8;
+        }
+
+        .current-var:last-child {
+            border-bottom: none;
+        }
+
+        .current-var-name {
+            font-weight: 500;
+            color: #000000;
+            font-size: 17px;
+        }
+
+        .current-var-value {
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+            background: #f2f2f7;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 15px;
+            color: #007aff;
+            max-width: 400px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-weight: 500;
+        }
+
+        .current-var-empty {
+            color: #8e8e93;
+            font-style: normal;
+            font-weight: 400;
+        }
+
+        .configs-section {
+            background: #ffffff;
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 20px;
+            border: 0.5px solid rgba(0, 0, 0, 0.04);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .add-config-btn {
+            margin: 16px 0 24px 0;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 0.5px solid #c6c6c8;
+        }
+
+        .section-title {
+            font-size: 22px;
+            font-weight: 600;
+            color: #000000;
+            letter-spacing: -0.26px;
+        }
+
+        .config-list {
+            display: grid;
+            gap: 12px;
+        }
+
+        .config-item {
+            background: #f2f2f7;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            border: none;
+        }
+
+        .config-item:hover {
+            background: #e5e5ea;
+            transform: scale(1.01);
+        }
+
+        .config-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .config-name {
+            font-size: 19px;
+            font-weight: 600;
+            color: #000000;
+            letter-spacing: -0.24px;
+        }
+
+        .config-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .config-vars {
+            display: grid;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .config-var {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            background: #ffffff;
+            border-radius: 8px;
+        }
+
+        .config-var-name {
+            font-weight: 500;
+            color: #000000;
+            font-size: 15px;
+        }
+
+        .config-var-value {
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+            font-size: 13px;
+            color: #007aff;
+            max-width: 300px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-weight: 500;
+        }
+
+        .config-var-empty {
+            color: #8e8e93;
+            font-style: normal;
+            font-weight: 400;
+        }
+
+        .btn {
+            background: #007aff;
+            color: #ffffff;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 12px;
+            font-size: 17px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            min-height: 44px;
+        }
+
+        .btn:hover {
+            background: #0051d5;
+            transform: scale(0.98);
+        }
+
+        .btn:active {
+            transform: scale(0.96);
+        }
+
+        .btn:disabled {
+            background: #8e8e93;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 15px;
+            border-radius: 8px;
+            min-height: 32px;
+            font-weight: 600;
+        }
+
+        .btn-success {
+            background: #34c759;
+        }
+
+        .btn-success:hover {
+            background: #28cd41;
+        }
+
+        .btn-warning {
+            background: #ff9500;
+        }
+
+        .btn-warning:hover {
+            background: #ff8c00;
+        }
+
+        .btn-danger {
+            background: #ff3b30;
+        }
+
+        .btn-danger:hover {
+            background: #ff2d20;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(20px);
+        }
+
+        .modal-content {
+            background-color: #ffffff;
+            margin: 8% auto;
+            padding: 28px;
+            border-radius: 20px;
+            width: 90%;
+            max-width: 480px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+            border: 0.5px solid rgba(0, 0, 0, 0.04);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 28px;
+            padding-bottom: 16px;
+            border-bottom: 0.5px solid #f2f2f7;
+        }
+
+        .modal-title {
+            font-size: 22px;
+            font-weight: 600;
+            color: #000000;
+            letter-spacing: -0.26px;
+        }
+
+        .close {
+            background: #f2f2f7;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+            color: #8e8e93;
+            padding: 8px;
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        .close:hover {
+            background: #e5e5ea;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #000000;
+            font-size: 17px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 0.5px solid #c6c6c8;
+            border-radius: 12px;
+            font-size: 17px;
+            transition: all 0.2s ease;
+            background: #ffffff;
+            min-height: 44px;
+            box-sizing: border-box;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #007aff;
+            box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.1);
+        }
+
+        .form-input::placeholder {
+            color: #8e8e93;
+            font-weight: 400;
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+            margin-top: 32px;
+            padding-top: 20px;
+            border-top: 0.5px solid #f2f2f7;
+        }
+
+        .btn-secondary {
+            background: #f2f2f7;
+            color: #000000;
+        }
+
+        .btn-secondary:hover {
+            background: #e5e5ea;
+        }
+
+        .status {
+            margin-top: 15px;
+            padding: 12px 16px;
+            border-radius: 12px;
+            text-align: center;
+            font-size: 15px;
+            font-weight: 500;
+        }
+
+        .status.success {
+            background: #d1f2eb;
+            color: #00783e;
+        }
+
+        .status.error {
+            background: #ffeaea;
+            color: #d70015;
+        }
+
+        .status.hidden {
+            display: none;
+        }
+
+        .actions {
+            text-align: center;
+            margin-top: 20px;
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .actions .btn {
+            flex: 0 0 auto;
+        }
+
+        /* iOS 18 特有的动画效果 */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .config-item {
+            animation: fadeInUp 0.3s ease-out;
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .container {
+                padding: 16px;
+            }
+
+            .header h1 {
+                font-size: 28px;
+            }
+
+            .header p {
+                font-size: 17px;
+            }
+
+            .config-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 12px;
+            }
+
+            .config-actions {
+                width: 100%;
+                justify-content: flex-start;
+            }
+
+            .current-var {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+
+            .current-var-value {
+                max-width: 100%;
+            }
+
+            .modal-content {
+                margin: 5% auto;
+                width: 95%;
+            }
+        }
+
+        /* 深色模式支持 */
+        @media (prefers-color-scheme: dark) {
+            body {
+                background-color: #000000;
+                color: #ffffff;
+            }
+
+            .current-env, .configs-section, .modal-content {
+                background: #1c1c1e;
+                border-color: rgba(255, 255, 255, 0.1);
+            }
+
+            .current-env h3, .section-title, .modal-title, .config-name, .current-var-name, .config-var-name {
+                color: #ffffff;
+            }
+
+            .current-var {
+                border-bottom-color: #38383a;
+            }
+
+            .current-var-value {
+                background: #2c2c2e;
+            }
+
+            .config-item {
+                background: #2c2c2e;
+            }
+
+            .config-item:hover {
+                background: #3a3a3c;
+            }
+
+            .config-var {
+                background: #1c1c1e;
+            }
+
+            .form-input {
+                background: #2c2c2e;
+                border-color: #38383a;
+                color: #ffffff;
+            }
+
+            .form-label {
+                color: #ffffff;
+            }
+
+            .form-input::placeholder {
+                color: #8e8e93;
+            }
+
+            .btn-secondary {
+                background: #2c2c2e;
+                color: #ffffff;
+            }
+
+            .btn-secondary:hover {
+                background: #3a3a3c;
+            }
+
+            .close {
+                background: #2c2c2e;
+                color: #8e8e93;
+            }
+
+            .close:hover {
+                background: #3a3a3c;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔧 环境变量配置管理</h1>
+            <p>管理多个 Anthropic API 环境变量配置</p>
+        </div>
+
+        <!-- 当前环境变量显示 -->
+        <div class="current-env">
+            <h2>📍 当前本地环境变量</h2>
+            <div class="current-var">
+                <div class="current-var-name">ANTHROPIC_BASE_URL</div>
+                <div class="current-var-value" id="current-base-url">加载中...</div>
+            </div>
+            <div class="current-var">
+                <div class="current-var-name">ANTHROPIC_AUTH_TOKEN</div>
+                <div class="current-var-value" id="current-auth-token">加载中...</div>
+            </div>
+        </div>
+
+        <!-- 配置列表 -->
+        <div class="configs-section">
+            <h2>📋 配置列表</h2>
+            <button class="btn btn-success add-config-btn" onclick="showAddModal()">➕ 新增配置</button>
+            <div class="config-list" id="config-list">
+                <!-- 配置项将在这里动态生成 -->
+            </div>
+        </div>
+
+        <div class="actions">
+            <button class="btn" onclick="refreshCurrentEnv()" id="refresh-btn">
+                🔄 刷新当前环境变量
+            </button>
+        </div>
+
+        <div class="status hidden" id="status"></div>
+    </div>
+
+    <!-- 新增/编辑配置模态框 -->
+    <div id="configModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title" id="modal-title">新增配置</div>
+                <button class="close" onclick="closeModal()">&times;</button>
+            </div>
+            <form id="configForm">
+                <div class="form-group">
+                    <label class="form-label" for="config-name">配置名称:</label>
+                    <input type="text" class="form-input" id="config-name" placeholder="请输入配置名称" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="config-base-url">ANTHROPIC_BASE_URL:</label>
+                    <input type="text" class="form-input" id="config-base-url" placeholder="请输入 Base URL">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="config-auth-token">ANTHROPIC_AUTH_TOKEN:</label>
+                    <input type="text" class="form-input" id="config-auth-token" placeholder="请输入 Auth Token">
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">取消</button>
+                    <button type="submit" class="btn btn-success">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let configs = []; // 存储所有配置
+        let editingConfigIndex = -1; // 正在编辑的配置索引
+        
+        // 页面加载时初始化
+        window.addEventListener('DOMContentLoaded', function() {
+            loadConfigs();
+            refreshCurrentEnv();
+        });
+
+        // 刷新当前环境变量
+        async function refreshCurrentEnv() {
+            const refreshBtn = document.getElementById('refresh-btn');
+            
+            try {
+                refreshBtn.disabled = true;
+                refreshBtn.textContent = '🔄 刷新中...';
+                
+                // 获取当前环境变量
+                const baseUrl = await window.go.main.App.GetEnvVar('ANTHROPIC_BASE_URL');
+                const authToken = await window.go.main.App.GetEnvVar('ANTHROPIC_AUTH_TOKEN');
+                
+                // 更新显示
+                updateCurrentEnvDisplay('current-base-url', baseUrl);
+                updateCurrentEnvDisplay('current-auth-token', authToken);
+                
+                showStatus('当前环境变量刷新成功', 'success');
+                
+            } catch (error) {
+                console.error('获取环境变量失败:', error);
+                showStatus('获取环境变量失败: ' + error.message, 'error');
+            } finally {
+                refreshBtn.disabled = false;
+                refreshBtn.textContent = '🔄 刷新当前环境变量';
+            }
+        }
+        
+        // 更新当前环境变量显示
+        function updateCurrentEnvDisplay(elementId, value) {
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.textContent = value || '未设置';
+                element.className = value ? 'current-var-value' : 'current-var-value current-var-empty';
+            }
+        }
+        
+        // 加载配置列表
+        async function loadConfigs() {
+            try {
+                // 从后端获取配置
+                const config = await window.go.main.App.GetConfig();
+                configs = config.environments || [];
+                renderConfigList();
+            } catch (error) {
+                console.error('加载配置失败:', error);
+                showStatus('加载配置失败: ' + error.message, 'error');
+            }
+        }
+        
+        // 渲染配置列表
+        function renderConfigList() {
+            const configList = document.getElementById('config-list');
+            
+            if (configs.length === 0) {
+                configList.innerHTML = '<div style="text-align: center; color: #999; padding: 40px;">暂无配置，点击上方按钮新增配置</div>';
+                return;
+            }
+            
+            configList.innerHTML = configs.map((config, index) => `
+                <div class="config-item">
+                    <div class="config-header">
+                        <div class="config-name">${config.name}</div>
+                        <div class="config-actions">
+                            <button class="btn btn-sm btn-success" onclick="applyConfig(${index})">🚀 应用</button>
+                            <button class="btn btn-sm btn-warning" onclick="editConfig(${index})">✏️ 编辑</button>
+                            <button class="btn btn-sm btn-danger" onclick="deleteConfig(${index})">🗑️ 删除</button>
+                        </div>
+                    </div>
+                    <div class="config-vars">
+                        <div class="config-var">
+                            <div class="config-var-name">ANTHROPIC_BASE_URL</div>
+                            <div class="config-var-value ${config.variables.ANTHROPIC_BASE_URL ? '' : 'config-var-empty'}">
+                                ${config.variables.ANTHROPIC_BASE_URL || '未设置'}
+                            </div>
+                        </div>
+                        <div class="config-var">
+                            <div class="config-var-name">ANTHROPIC_AUTH_TOKEN</div>
+                            <div class="config-var-value ${config.variables.ANTHROPIC_AUTH_TOKEN ? '' : 'config-var-empty'}">
+                                ${config.variables.ANTHROPIC_AUTH_TOKEN || '未设置'}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        // 显示新增配置模态框
+        function showAddModal() {
+            editingConfigIndex = -1;
+            document.getElementById('modal-title').textContent = '新增配置';
+            document.getElementById('config-name').value = '';
+            document.getElementById('config-base-url').value = '';
+            document.getElementById('config-auth-token').value = '';
+            document.getElementById('configModal').style.display = 'block';
+        }
+        
+        // 编辑配置
+        function editConfig(index) {
+            editingConfigIndex = index;
+            const config = configs[index];
+            document.getElementById('modal-title').textContent = '编辑配置';
+            document.getElementById('config-name').value = config.name;
+            document.getElementById('config-base-url').value = config.variables.ANTHROPIC_BASE_URL || '';
+            document.getElementById('config-auth-token').value = config.variables.ANTHROPIC_AUTH_TOKEN || '';
+            document.getElementById('configModal').style.display = 'block';
+        }
+        
+        // 关闭模态框
+        function closeModal() {
+            document.getElementById('configModal').style.display = 'none';
+        }
+        
+        // 应用配置到本地
+        async function applyConfig(index) {
+            try {
+                const config = configs[index];
+                const baseUrl = config.variables.ANTHROPIC_BASE_URL || '';
+                const authToken = config.variables.ANTHROPIC_AUTH_TOKEN || '';
+                
+                // 设置环境变量
+                if (baseUrl) {
+                    await window.go.main.App.SetEnvVar('ANTHROPIC_BASE_URL', baseUrl);
+                }
+                if (authToken) {
+                    await window.go.main.App.SetEnvVar('ANTHROPIC_AUTH_TOKEN', authToken);
+                }
+                
+                // 刷新当前环境变量显示
+                await refreshCurrentEnv();
+                
+                showStatus(`配置 "${config.name}" 已应用到本地环境变量`, 'success');
+                
+            } catch (error) {
+                console.error('应用配置失败:', error);
+                showStatus('应用配置失败: ' + error.message, 'error');
+            }
+        }
+        
+        // 删除配置
+        async function deleteConfig(index) {
+            if (!confirm('确定要删除这个配置吗？')) {
+                return;
+            }
+            
+            try {
+                const configName = configs[index].name;
+                await window.go.main.App.DeleteEnv(configName);
+                await loadConfigs();
+                showStatus(`配置 "${configName}" 已删除`, 'success');
+            } catch (error) {
+                console.error('删除配置失败:', error);
+                showStatus('删除配置失败: ' + error.message, 'error');
+            }
+        }
+        
+        // 处理配置表单提交
+        document.getElementById('configForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const name = document.getElementById('config-name').value.trim();
+            const baseUrl = document.getElementById('config-base-url').value.trim();
+            const authToken = document.getElementById('config-auth-token').value.trim();
+            
+            if (!name) {
+                showStatus('请输入配置名称', 'error');
+                return;
+            }
+            
+            // 检查名称冲突（编辑时排除自己）
+            const existingIndex = configs.findIndex(config => config.name === name);
+            if (existingIndex !== -1 && existingIndex !== editingConfigIndex) {
+                showStatus('配置名称已存在', 'error');
+                return;
+            }
+            
+            try {
+                const configData = {
+                    name: name,
+                    description: '',
+                    variables: {
+                        ANTHROPIC_BASE_URL: baseUrl,
+                        ANTHROPIC_AUTH_TOKEN: authToken
+                    }
+                };
+                
+                if (editingConfigIndex === -1) {
+                    // 新增配置
+                    await window.go.main.App.AddEnv(configData);
+                    showStatus(`配置 "${name}" 已新增`, 'success');
+                } else {
+                    // 编辑配置 - 先删除旧的，再添加新的
+                    const oldName = configs[editingConfigIndex].name;
+                    if (oldName !== name) {
+                        await window.go.main.App.DeleteEnv(oldName);
+                    }
+                    await window.go.main.App.AddEnv(configData);
+                    showStatus(`配置 "${name}" 已更新`, 'success');
+                }
+                
+                closeModal();
+                await loadConfigs();
+                
+            } catch (error) {
+                console.error('保存配置失败:', error);
+                showStatus('保存配置失败: ' + error.message, 'error');
+            }
+        });
+        
+        // 显示状态信息
+        function showStatus(message, type) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = `status ${type}`;
+            status.classList.remove('hidden');
+            
+            // 3秒后隐藏状态
+            setTimeout(() => {
+                status.classList.add('hidden');
+            }, 3000);
+        }
+        
+        // 点击模态框外部关闭
+        window.addEventListener('click', function(e) {
+            const modal = document.getElementById('configModal');
+            if (e.target === modal) {
+                closeModal();
+            }
+        });
+        
+
+        
+        // 键盘事件处理
+        document.addEventListener('keydown', function(e) {
+            // ESC键关闭模态框
+            if (e.key === 'Escape') {
+                closeModal();
+            }
+        });
+    </script>
+</body>
+</html>

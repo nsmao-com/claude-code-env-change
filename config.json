@@ -1,0 +1,13 @@
+{
+  "current_env": "",
+  "environments": [
+    {
+      "name": "4324",
+      "description": "",
+      "variables": {
+        "ANTHROPIC_AUTH_TOKEN": "432432",
+        "ANTHROPIC_BASE_URL": "432432"
+      }
+    }
+  ]
+}
