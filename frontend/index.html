@@ -565,6 +565,10 @@
                 <div class="current-var-name">ANTHROPIC_AUTH_TOKEN</div>
                 <div class="current-var-value" id="current-auth-token">加载中...</div>
             </div>
+            <div class="current-var">
+                <div class="current-var-name">ANTHROPIC_MODEL</div>
+                <div class="current-var-value" id="current-model">加载中...</div>
+            </div>
         </div>
 
         <!-- 配置列表 -->
@@ -605,6 +609,10 @@
                     <label class="form-label" for="config-auth-token">ANTHROPIC_AUTH_TOKEN:</label>
                     <input type="text" class="form-input" id="config-auth-token" placeholder="请输入 Auth Token">
                 </div>
+                <div class="form-group">
+                    <label class="form-label" for="config-model">ANTHROPIC_MODEL:</label>
+                    <input type="text" class="form-input" id="config-model" placeholder="请输入模型名称 (如: claude-3-5-sonnet-20241022)">
+                </div>
                 <div class="form-actions">
                     <button type="button" class="btn btn-secondary" onclick="closeModal()">取消</button>
                     <button type="submit" class="btn btn-success">保存</button>
@@ -634,10 +642,12 @@
                 // 获取当前环境变量
                 const baseUrl = await window.go.main.App.GetEnvVar('ANTHROPIC_BASE_URL');
                 const authToken = await window.go.main.App.GetEnvVar('ANTHROPIC_AUTH_TOKEN');
+                const model = await window.go.main.App.GetEnvVar('ANTHROPIC_MODEL');
                 
                 // 更新显示
                 updateCurrentEnvDisplay('current-base-url', baseUrl);
                 updateCurrentEnvDisplay('current-auth-token', authToken);
+                updateCurrentEnvDisplay('current-model', model);
                 
                 showStatus('当前环境变量刷新成功', 'success');
                 
@@ -704,6 +714,12 @@
                                 ${config.variables.ANTHROPIC_AUTH_TOKEN || '未设置'}
                             </div>
                         </div>
+                        <div class="config-var">
+                            <div class="config-var-name">ANTHROPIC_MODEL</div>
+                            <div class="config-var-value ${config.variables.ANTHROPIC_MODEL ? '' : 'config-var-empty'}">
+                                ${config.variables.ANTHROPIC_MODEL || '未设置'}
+                            </div>
+                        </div>
                     </div>
                 </div>
             `).join('');
@@ -716,6 +732,7 @@
             document.getElementById('config-name').value = '';
             document.getElementById('config-base-url').value = '';
             document.getElementById('config-auth-token').value = '';
+            document.getElementById('config-model').value = '';
             document.getElementById('configModal').style.display = 'block';
         }
         
@@ -727,6 +744,7 @@
             document.getElementById('config-name').value = config.name;
             document.getElementById('config-base-url').value = config.variables.ANTHROPIC_BASE_URL || '';
             document.getElementById('config-auth-token').value = config.variables.ANTHROPIC_AUTH_TOKEN || '';
+            document.getElementById('config-model').value = config.variables.ANTHROPIC_MODEL || '';
             document.getElementById('configModal').style.display = 'block';
         }
         
@@ -741,6 +759,7 @@
                 const config = configs[index];
                 const baseUrl = config.variables.ANTHROPIC_BASE_URL || '';
                 const authToken = config.variables.ANTHROPIC_AUTH_TOKEN || '';
+                const model = config.variables.ANTHROPIC_MODEL || '';
                 
                 // 设置环境变量
                 if (baseUrl) {
@@ -748,6 +767,9 @@
                 }
                 if (authToken) {
                     await window.go.main.App.SetEnvVar('ANTHROPIC_AUTH_TOKEN', authToken);
+                }
+                if (model) {
+                    await window.go.main.App.SetEnvVar('ANTHROPIC_MODEL', model);
                 }
                 
                 // 刷新当前环境变量显示
@@ -785,6 +807,7 @@
             const name = document.getElementById('config-name').value.trim();
             const baseUrl = document.getElementById('config-base-url').value.trim();
             const authToken = document.getElementById('config-auth-token').value.trim();
+            const model = document.getElementById('config-model').value.trim();
             
             if (!name) {
                 showStatus('请输入配置名称', 'error');
@@ -804,7 +827,8 @@
                     description: '',
                     variables: {
                         ANTHROPIC_BASE_URL: baseUrl,
-                        ANTHROPIC_AUTH_TOKEN: authToken
+                        ANTHROPIC_AUTH_TOKEN: authToken,
+                        ANTHROPIC_MODEL: model
                     }
                 };
                 

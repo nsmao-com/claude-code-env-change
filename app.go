@@ -245,6 +245,7 @@ func (a *App) ClearAllEnv() error {
 	envVars := []string{
 		"ANTHROPIC_BASE_URL",
 		"ANTHROPIC_AUTH_TOKEN",
+		"ANTHROPIC_MODEL",
 		"ANTHROPIC_API_KEY",
 		"CLAUDE_MODEL",
 		"API_BASE_URL",

@@ -69,7 +69,7 @@ wails build
 ### 主要功能
 
 #### 📊 当前环境变量显示
-- 实时显示当前系统中的 `ANTHROPIC_BASE_URL` 和 `ANTHROPIC_AUTH_TOKEN`
+- 实时显示当前系统中的 `ANTHROPIC_BASE_URL`、`ANTHROPIC_AUTH_TOKEN` 和 `ANTHROPIC_MODEL`
 - 支持手动刷新环境变量状态
 - 清晰的状态指示（已设置/未设置）
 
@@ -92,6 +92,7 @@ wails build
 - 配置名称（如：Production、Development）
 - API端点URL
 - API密钥
+- 模型名称（如：claude-3-5-sonnet-20241022）
 - 其他环境变量
 
 ### 切换环境配置
@@ -115,7 +116,8 @@ wails build
       "description": "开发环境配置",
       "variables": {
         "ANTHROPIC_BASE_URL": "https://api.anthropic.com",
-        "ANTHROPIC_AUTH_TOKEN": "your-dev-token"
+        "ANTHROPIC_AUTH_TOKEN": "your-dev-token",
+        "ANTHROPIC_MODEL": "claude-3-5-sonnet-20241022"
       }
     },
     {
@@ -123,7 +125,8 @@ wails build
       "description": "生产环境配置",
       "variables": {
         "ANTHROPIC_BASE_URL": "https://api.anthropic.com",
-        "ANTHROPIC_AUTH_TOKEN": "your-prod-token"
+        "ANTHROPIC_AUTH_TOKEN": "your-prod-token",
+        "ANTHROPIC_MODEL": "claude-3-5-sonnet-20241022"
       }
     }
   ]
@@ -136,6 +139,7 @@ wails build
 
 - **ANTHROPIC_BASE_URL**: Anthropic API的基础URL
 - **ANTHROPIC_AUTH_TOKEN**: Anthropic API的认证令牌
+- **ANTHROPIC_MODEL**: Anthropic API使用的模型名称（如：claude-3-5-sonnet-20241022）
 
 ### 使用场景
 - 在不同的API提供商之间切换（如官方API、代理API等）
