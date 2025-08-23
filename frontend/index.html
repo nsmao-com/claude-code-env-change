@@ -3,428 +3,48 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>环境变量配置管理</title>
+    <title>Claude Code 环境管理器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        /* Simplified Design System */
+        :root {
+            --primary-color: #4a5568;
+            --primary-dark: #2d3748;
+            --primary-light: #718096;
+            --success-color: #48bb78;
+            --danger-color: #f56565;
+            --glass-bg: rgba(255, 255, 255, 0.1);
+            --glass-border: rgba(255, 255, 255, 0.2);
+            --shadow-light: 0 4px 12px rgba(0, 0, 0, 0.15);
+            --shadow-heavy: 0 8px 25px rgba(0, 0, 0, 0.2);
+        }
+
         * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif;
-            background-color: #f2f2f7;
-            color: #000000;
-            line-height: 1.47;
-            font-size: 17px;
+            background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
+            min-height: 100vh;
+            overflow-x: hidden;
         }
 
-        .container {
-            max-width: 1000px;
-            margin: 0 auto;
-            padding: 24px;
-        }
-
-        .header {
-            text-align: center;
-            margin-bottom: 32px;
-        }
-
-        .header h1 {
-            font-size: 34px;
-            font-weight: 700;
-            color: #000000;
-            margin-bottom: 8px;
-            letter-spacing: -0.41px;
-        }
-
-        .header p {
-            font-size: 19px;
-            color: #6d6d70;
-            font-weight: 400;
-        }
-
-        .current-env {
-            background: #ffffff;
-            border-radius: 16px;
-            padding: 24px;
-            margin-bottom: 24px;
-            border: 0.5px solid rgba(0, 0, 0, 0.04);
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        }
-
-        .current-env h3 {
-            font-size: 22px;
-            font-weight: 600;
-            margin-bottom: 20px;
-            color: #000000;
-            letter-spacing: -0.26px;
-        }
-
-        .current-env-vars {
-            display: grid;
-            gap: 16px;
-        }
-
-        .current-var {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 16px 0;
-            border-bottom: 0.5px solid #c6c6c8;
-        }
-
-        .current-var:last-child {
-            border-bottom: none;
-        }
-
-        .current-var-name {
-            font-weight: 500;
-            color: #000000;
-            font-size: 17px;
-        }
-
-        .current-var-value {
-            font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
-            background: #f2f2f7;
-            padding: 8px 12px;
-            border-radius: 8px;
-            font-size: 15px;
-            color: #007aff;
-            max-width: 400px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            font-weight: 500;
-        }
-
-        .current-var-empty {
-            color: #8e8e93;
-            font-style: normal;
-            font-weight: 400;
-        }
-
-        .configs-section {
-            background: #ffffff;
-            border-radius: 16px;
-            padding: 24px;
-            margin-bottom: 20px;
-            border: 0.5px solid rgba(0, 0, 0, 0.04);
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        }
-
-        .add-config-btn {
-            margin: 16px 0 24px 0;
-        }
-
-        .section-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 0.5px solid #c6c6c8;
-        }
-
-        .section-title {
-            font-size: 22px;
-            font-weight: 600;
-            color: #000000;
-            letter-spacing: -0.26px;
-        }
-
-        .config-list {
-            display: grid;
-            gap: 12px;
-        }
-
-        .config-item {
-            background: #f2f2f7;
-            border-radius: 12px;
-            padding: 16px;
-            margin-bottom: 12px;
-            transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-            border: none;
-        }
-
-        .config-item:hover {
-            background: #e5e5ea;
-            transform: scale(1.01);
-        }
-
-        .config-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 12px;
-        }
-
-        .config-name {
-            font-size: 19px;
-            font-weight: 600;
-            color: #000000;
-            letter-spacing: -0.24px;
-        }
-
-        .config-actions {
-            display: flex;
-            gap: 8px;
-        }
-
-        .config-vars {
-            display: grid;
-            gap: 8px;
-            margin-bottom: 10px;
-        }
-
-        .config-var {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px;
-            background: #ffffff;
-            border-radius: 8px;
-        }
-
-        .config-var-name {
-            font-weight: 500;
-            color: #000000;
-            font-size: 15px;
-        }
-
-        .config-var-value {
-            font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
-            font-size: 13px;
-            color: #007aff;
-            max-width: 300px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            font-weight: 500;
-        }
-
-        .config-var-empty {
-            color: #8e8e93;
-            font-style: normal;
-            font-weight: 400;
-        }
-
-        .btn {
-            background: #007aff;
-            color: #ffffff;
-            border: none;
-            padding: 12px 20px;
-            border-radius: 12px;
-            font-size: 17px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            min-height: 44px;
-        }
-
-        .btn:hover {
-            background: #0051d5;
-            transform: scale(0.98);
-        }
-
-        .btn:active {
-            transform: scale(0.96);
-        }
-
-        .btn:disabled {
-            background: #8e8e93;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .btn-sm {
-            padding: 6px 12px;
-            font-size: 15px;
-            border-radius: 8px;
-            min-height: 32px;
-            font-weight: 600;
-        }
-
-        .btn-success {
-            background: #34c759;
-        }
-
-        .btn-success:hover {
-            background: #28cd41;
-        }
-
-        .btn-warning {
-            background: #ff9500;
-        }
-
-        .btn-warning:hover {
-            background: #ff8c00;
-        }
-
-        .btn-danger {
-            background: #ff3b30;
-        }
-
-        .btn-danger:hover {
-            background: #ff2d20;
-        }
-
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.4);
+        /* Glass Morphism Effects */
+        .glass {
+            background: var(--glass-bg);
             backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            box-shadow: var(--shadow-light);
         }
 
-        .modal-content {
-            background-color: #ffffff;
-            margin: 8% auto;
-            padding: 28px;
-            border-radius: 20px;
-            width: 90%;
-            max-width: 480px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
-            border: 0.5px solid rgba(0, 0, 0, 0.04);
-        }
-
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 28px;
-            padding-bottom: 16px;
-            border-bottom: 0.5px solid #f2f2f7;
-        }
-
-        .modal-title {
-            font-size: 22px;
-            font-weight: 600;
-            color: #000000;
-            letter-spacing: -0.26px;
-        }
-
-        .close {
-            background: #f2f2f7;
-            border: none;
-            font-size: 18px;
-            cursor: pointer;
-            color: #8e8e93;
-            padding: 8px;
-            border-radius: 50%;
-            width: 32px;
-            height: 32px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.2s ease;
-        }
-
-        .close:hover {
-            background: #e5e5ea;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        .form-label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 500;
-            color: #000000;
-            font-size: 17px;
-        }
-
-        .form-input {
-            width: 100%;
-            padding: 12px 16px;
-            border: 0.5px solid #c6c6c8;
-            border-radius: 12px;
-            font-size: 17px;
-            transition: all 0.2s ease;
-            background: #ffffff;
-            min-height: 44px;
-            box-sizing: border-box;
-        }
-
-        .form-input:focus {
-            outline: none;
-            border-color: #007aff;
-            box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.1);
-        }
-
-        .form-input::placeholder {
-            color: #8e8e93;
-            font-weight: 400;
-        }
-
-        .form-actions {
-            display: flex;
-            gap: 12px;
-            justify-content: flex-end;
-            margin-top: 32px;
-            padding-top: 20px;
-            border-top: 0.5px solid #f2f2f7;
-        }
-
-        .btn-secondary {
-            background: #f2f2f7;
-            color: #000000;
-        }
-
-        .btn-secondary:hover {
-            background: #e5e5ea;
-        }
-
-        .status {
-            margin-top: 15px;
-            padding: 12px 16px;
-            border-radius: 12px;
-            text-align: center;
-            font-size: 15px;
-            font-weight: 500;
-        }
-
-        .status.success {
-            background: #d1f2eb;
-            color: #00783e;
-        }
-
-        .status.error {
-            background: #ffeaea;
-            color: #d70015;
-        }
-
-        .status.hidden {
-            display: none;
-        }
-
-        .actions {
-            text-align: center;
-            margin-top: 20px;
-            display: flex;
-            gap: 12px;
-            justify-content: center;
-            flex-wrap: wrap;
-        }
-        
-        .actions .btn {
-            flex: 0 0 auto;
-        }
-
-        /* iOS 18 特有的动画效果 */
+        /* Animations */
         @keyframes fadeInUp {
             from {
                 opacity: 0;
-                transform: translateY(20px);
+                transform: translateY(30px);
             }
             to {
                 opacity: 1;
@@ -432,190 +52,782 @@
             }
         }
 
-        .config-item {
-            animation: fadeInUp 0.3s ease-out;
-        }
-
-        /* 响应式设计 */
-        @media (max-width: 768px) {
-            .container {
-                padding: 16px;
+        @keyframes slideInLeft {
+            from {
+                opacity: 0;
+                transform: translateX(-30px);
             }
-
-            .header h1 {
-                font-size: 28px;
-            }
-
-            .header p {
-                font-size: 17px;
-            }
-
-            .config-header {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 12px;
-            }
-
-            .config-actions {
-                width: 100%;
-                justify-content: flex-start;
-            }
-
-            .current-var {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 8px;
-            }
-
-            .current-var-value {
-                max-width: 100%;
-            }
-
-            .modal-content {
-                margin: 5% auto;
-                width: 95%;
+            to {
+                opacity: 1;
+                transform: translateX(0);
             }
         }
 
-        /* 深色模式支持 */
-        @media (prefers-color-scheme: dark) {
-            body {
-                background-color: #000000;
-                color: #ffffff;
-            }
+        .animate-fade-in-up {
+            animation: fadeInUp 0.6s ease-out;
+        }
 
-            .current-env, .configs-section, .modal-content {
-                background: #1c1c1e;
-                border-color: rgba(255, 255, 255, 0.1);
-            }
+        .animate-slide-in-left {
+            animation: slideInLeft 0.6s ease-out;
+        }
 
-            .current-env h3, .section-title, .modal-title, .config-name, .current-var-name, .config-var-name {
-                color: #ffffff;
-            }
+        /* Layout */
+        .app-container {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            min-height: 100vh;
+            gap: 2rem;
+            padding: 2rem;
+        }
 
-            .current-var {
-                border-bottom-color: #38383a;
-            }
+        .sidebar {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 2rem;
+            box-shadow: var(--shadow-light);
+            height: fit-content;
+            position: sticky;
+            top: 2rem;
+        }
 
-            .current-var-value {
-                background: #2c2c2e;
-            }
+        .main-content {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
 
-            .config-item {
-                background: #2c2c2e;
-            }
+        /* Cards */
+        .card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: 24px;
+            border: 1px solid var(--glass-border);
+            box-shadow: var(--shadow-light);
+            transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            overflow: hidden;
+            position: relative;
+        }
 
-            .config-item:hover {
-                background: #3a3a3c;
-            }
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: var(--primary-color);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
 
-            .config-var {
-                background: #1c1c1e;
-            }
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-heavy);
+        }
 
-            .form-input {
-                background: #2c2c2e;
-                border-color: #38383a;
-                color: #ffffff;
-            }
+        .card:hover::before {
+            opacity: 1;
+        }
 
-            .form-label {
-                color: #ffffff;
-            }
+        .card-header {
+            padding: 2rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.05);
+        }
 
-            .form-input::placeholder {
-                color: #8e8e93;
-            }
+        .card-body {
+            padding: 2rem;
+        }
 
-            .btn-secondary {
-                background: #2c2c2e;
-                color: #ffffff;
-            }
+        .card-gradient {
+            background: var(--primary-color);
+            color: white;
+            position: relative;
+            overflow: hidden;
+        }
 
-            .btn-secondary:hover {
-                background: #3a3a3c;
-            }
+        .card-gradient .card-header {
+            background: rgba(255, 255, 255, 0.1);
+            border-bottom-color: rgba(255, 255, 255, 0.2);
+        }
 
-            .close {
-                background: #2c2c2e;
-                color: #8e8e93;
-            }
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.875rem 1.75rem;
+            border-radius: 16px;
+            font-weight: 600;
+            font-size: 0.875rem;
+            transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            border: none;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            text-decoration: none;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
 
-            .close:hover {
-                background: #3a3a3c;
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .btn:hover::before {
+            left: 100%;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+        }
+
+        .btn-primary {
+            background: var(--primary-color);
+            color: white;
+            box-shadow: var(--shadow-light);
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            box-shadow: var(--shadow-heavy);
+        }
+
+        .btn-secondary {
+            background: var(--primary-light);
+            color: white;
+            box-shadow: var(--shadow-light);
+        }
+
+        .btn-secondary:hover {
+            background: var(--primary-color);
+            box-shadow: var(--shadow-heavy);
+        }
+
+        .btn-success {
+            background: var(--success-color);
+            color: white;
+            box-shadow: var(--shadow-light);
+        }
+
+        .btn-success:hover {
+            background: #38a169;
+            box-shadow: var(--shadow-heavy);
+        }
+
+        .btn-danger {
+            background: var(--danger-color);
+            color: white;
+            box-shadow: var(--shadow-light);
+        }
+
+        .btn-danger:hover {
+            background: #e53e3e;
+            box-shadow: var(--shadow-heavy);
+        }
+
+        .btn-outline {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+
+        .btn-outline:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Small Icon Button */
+        .btn-icon-sm {
+            padding: 0;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .btn-icon-md {
+            padding: 0;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        /* Inputs */
+        .input {
+            width: 100%;
+            padding: 1rem 1.25rem;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 16px;
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            color: #ffffff;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .input::placeholder {
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .input:focus {
+            outline: none;
+            border-color: rgba(255, 255, 255, 0.5);
+            box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.1), 0 4px 20px rgba(0, 0, 0, 0.1);
+            background: rgba(255, 255, 255, 0.25);
+            color: #ffffff;
+        }
+
+        /* Utilities */
+        .text-primary { color: rgba(31, 41, 55, 0.9); }
+        .text-secondary { color: rgba(107, 114, 128, 0.8); }
+        .text-blue { color: #667eea; }
+        .text-green { color: #10b981; }
+        .text-red { color: #ef4444; }
+        .text-white { color: white; }
+
+        .bg-gray-50 { 
+            background: rgba(255, 255, 255, 0.1); 
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+        .bg-gray-100 { 
+            background: rgba(255, 255, 255, 0.15); 
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+
+        /* Environment Variable Display */
+        .env-var-display {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 12px;
+            padding: 1rem;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 0.8125rem;
+            color: rgba(255, 255, 255, 0.9);
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .env-var-display.empty {
+            color: rgba(255, 255, 255, 0.4);
+            font-style: italic;
+        }
+
+        /* Modal Improvements */
+        .modal-backdrop {
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
+
+        .modal-content {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            box-shadow: var(--shadow-heavy);
+        }
+
+        /* Toast Message System */
+        .toast-container {
+            position: fixed;
+            top: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            pointer-events: none;
+        }
+
+        .toast {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 1rem 1.5rem;
+            margin-bottom: 0.75rem;
+            box-shadow: var(--shadow-heavy);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            color: white;
+            font-weight: 500;
+            font-size: 0.875rem;
+            min-width: 300px;
+            pointer-events: auto;
+            opacity: 0;
+            transform: translateY(-20px);
+            transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .toast.success {
+            border-left: 4px solid var(--success-color);
+            background: rgba(72, 187, 120, 0.1);
+        }
+
+        .toast.error {
+            border-left: 4px solid var(--danger-color);
+            background: rgba(245, 101, 101, 0.1);
+        }
+
+        .toast.info {
+            border-left: 4px solid var(--primary-color);
+            background: rgba(74, 85, 104, 0.1);
+        }
+
+        .toast-icon {
+            font-size: 1.125rem;
+            flex-shrink: 0;
+        }
+
+        .toast-content {
+            flex: 1;
+        }
+
+        .toast-close {
+            background: none;
+            border: none;
+            color: white;
+            opacity: 0.7;
+            cursor: pointer;
+            padding: 0;
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+        }
+
+        .toast-close:hover {
+            opacity: 1;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        /* Tab Slider Styles */
+        .tab-container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 4px;
+            margin-bottom: 1.5rem;
+            position: relative;
+            max-width: 100%;
+            width: 100%;
+            transition: height 0.3s ease;
+        }
+        
+        .tab-content {
+            display: flex;
+            gap: 4px;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            overflow-y: hidden;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+            transition: all 0.3s ease;
+        }
+        
+        .tab-content.expanded {
+            flex-wrap: wrap;
+            overflow: visible;
+        }
+        
+        .tab-content::-webkit-scrollbar {
+            display: none;
+        }
+        
+        .expand-toggle {
+            flex: none;
+            min-width: 120px;
+            max-width: 180px;
+            padding: 0.75rem 1rem;
+            border: none;
+            background: transparent;
+            color: rgba(255, 255, 255, 0.7);
+            border-radius: 16px;
+            font-weight: 500;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            z-index: 2;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+        
+        .expand-toggle:hover {
+            color: rgba(255, 255, 255, 0.9);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .tab-button {
+            flex: none;
+            max-width: 180px;
+            min-width: 80px;
+            padding: 0.75rem 1rem;
+            border: none;
+            background: transparent;
+            color: rgba(255, 255, 255, 0.7);
+            border-radius: 16px;
+            font-weight: 500;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            z-index: 2;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+        
+        .tab-button .tab-text {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            flex: 1;
+            text-align: center;
+        }
+
+        .tab-button:hover {
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .tab-button.active {
+            color: white;
+            font-weight: 600;
+        }
+
+        .tab-slider {
+            position: absolute;
+            background: var(--primary-color);
+            border-radius: 16px;
+            transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            z-index: 1;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        /* Pagination dots */
+        .pagination-dots {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-top: 1.5rem;
+        }
+
+        .pagination-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .pagination-dot.active {
+            background: white;
+            transform: scale(1.2);
+        }
+
+        /* Config grid for tab view */
+        .config-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 1.5rem;
+            min-height: 300px;
+            align-content: start;
+        }
+        
+        /* 当配置数量少时，确保卡片不会过度拉伸 */
+        @media (min-width: 768px) {
+            .config-grid {
+                grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+                max-width: none;
+            }
+        }
+        
+        @media (min-width: 1200px) {
+            .config-grid {
+                grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
             }
         }
     </style>
 </head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>🔧 环境变量配置管理</h1>
-            <p>管理多个 Anthropic API 环境变量配置</p>
+<body class="text-white">
+    <!-- Toast Container -->
+    <div class="toast-container" id="toast-container"></div>
+    
+    <div class="app-container">
+        <!-- Sidebar -->
+        <div class="sidebar animate-slide-in-left">
+            <div class="text-center mb-8">
+                <div class="relative mb-4">
+                    <div class="w-16 h-16 mx-auto bg-white bg-opacity-20 rounded-2xl flex items-center justify-center">
+                        <i class="fas fa-cogs text-2xl text-white"></i>
+                    </div>
+                </div>
+                <h1 class="text-2xl font-bold text-white mb-2">
+                    Claude Code
+                </h1>
+                <p class="text-white opacity-80 text-sm">环境管理器</p>
+            </div>
+            
+            <div class="space-y-4 mb-8">
+                <button class="btn btn-primary w-full" onclick="refreshCurrentEnv()" id="refresh-btn">
+                    <i class="fas fa-sync-alt"></i>
+                    刷新环境变量
+                </button>
+                <button class="btn btn-danger w-full" onclick="clearAllEnvVars()">
+                    <i class="fas fa-broom"></i>
+                    清除所有变量
+                </button>
+            </div>
+
+            <div class="border-t border-white border-opacity-20 pt-6">
+                <h3 class="font-semibold text-white mb-4 flex items-center">
+                    <i class="fas fa-bolt mr-2"></i>
+                    快捷操作
+                </h3>
+                <button class="btn btn-success w-full" onclick="showAddModal()">
+                    <i class="fas fa-plus-circle"></i>
+                    新增配置
+                </button>
+            </div>
         </div>
 
-        <!-- 当前环境变量显示 -->
-        <div class="current-env">
-            <h2>📍 当前本地环境变量</h2>
-            <div class="current-var">
-                <div class="current-var-name">ANTHROPIC_BASE_URL</div>
-                <div class="current-var-value" id="current-base-url">加载中...</div>
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- 当前环境变量显示 -->
+            <div class="card card-gradient animate-fade-in-up">
+                <div class="card-header relative z-10">
+                    <h2 class="text-xl font-bold text-white flex items-center">
+                        <i class="fas fa-desktop mr-3"></i>
+                        当前环境变量
+                    </h2>
+                    <p class="text-white opacity-80 text-sm mt-1">本地环境变量状态</p>
+                </div>
+                <div class="card-body relative z-10">
+                    <div class="grid grid-cols-1 gap-4">
+                        <div class="flex justify-between items-center p-4 rounded-xl bg-white bg-opacity-10 backdrop-blur-sm">
+                            <div class="flex items-center">
+                                <i class="fas fa-link text-white opacity-70 mr-3"></i>
+                                <div>
+                                    <div class="font-semibold text-white">ANTHROPIC_BASE_URL</div>
+                                    <div class="text-white opacity-70 text-sm">API 基础地址</div>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <div class="env-var-display" id="current-base-url">加载中...</div>
+                                <button class="btn btn-outline btn-icon-sm text-xs" onclick="clearEnvVar('ANTHROPIC_BASE_URL')">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="flex justify-between items-center p-4 rounded-xl bg-white bg-opacity-10 backdrop-blur-sm">
+                            <div class="flex items-center">
+                                <i class="fas fa-key text-white opacity-70 mr-3"></i>
+                                <div>
+                                    <div class="font-semibold text-white">ANTHROPIC_AUTH_TOKEN</div>
+                                    <div class="text-white opacity-70 text-sm">认证令牌</div>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <div class="env-var-display" id="current-auth-token">加载中...</div>
+                                <button class="btn btn-outline btn-icon-sm text-xs" onclick="clearEnvVar('ANTHROPIC_AUTH_TOKEN')">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="flex justify-between items-center p-4 rounded-xl bg-white bg-opacity-10 backdrop-blur-sm">
+                            <div class="flex items-center">
+                                <i class="fas fa-brain text-white opacity-70 mr-3"></i>
+                                <div>
+                                    <div class="font-semibold text-white">ANTHROPIC_MODEL</div>
+                                    <div class="text-white opacity-70 text-sm">模型版本</div>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <div class="env-var-display" id="current-model">加载中...</div>
+                                <button class="btn btn-outline btn-icon-sm text-xs" onclick="clearEnvVar('ANTHROPIC_MODEL')">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="flex justify-between items-center p-4 rounded-xl bg-white bg-opacity-10 backdrop-blur-sm">
+                            <div class="flex items-center">
+                                <i class="fas fa-code text-white opacity-70 mr-3"></i>
+                                <div>
+                                    <div class="font-semibold text-white">ANTHROPIC_API_KEY</div>
+                                    <div class="text-white opacity-70 text-sm">API 密钥</div>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <div class="env-var-display" id="current-api-key">加载中...</div>
+                                <button class="btn btn-outline btn-icon-sm text-xs" onclick="clearEnvVar('ANTHROPIC_API_KEY')">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="current-var">
-                <div class="current-var-name">ANTHROPIC_AUTH_TOKEN</div>
-                <div class="current-var-value" id="current-auth-token">加载中...</div>
-            </div>
-            <div class="current-var">
-                <div class="current-var-name">ANTHROPIC_MODEL</div>
-                <div class="current-var-value" id="current-model">加载中...</div>
-            </div>
-        </div>
 
-        <!-- 配置列表 -->
-        <div class="configs-section">
-            <h2>📋 配置列表</h2>
-            <button class="btn btn-success add-config-btn" onclick="showAddModal()">➕ 新增配置</button>
-            <div class="config-list" id="config-list">
-                <!-- 配置项将在这里动态生成 -->
+            <!-- 配置列表 -->
+            <div class="card animate-fade-in-up">
+                <div class="card-header flex justify-between items-center">
+                    <div>
+                        <h2 class="text-xl font-bold text-white flex items-center">
+                            <i class="fas fa-layer-group mr-3"></i>
+                            配置列表
+                        </h2>
+                        <p class="text-white opacity-70 text-sm mt-1">管理你的环境配置</p>
+                    </div>
+                    <button class="btn btn-success" onclick="showAddModal()">
+                        <i class="fas fa-plus-circle"></i>
+                        新增配置
+                    </button>
+                </div>
+                <div class="card-body">
+                    <!-- Tab切换器 -->
+                    <div class="tab-container" id="tab-container">
+                        <div class="tab-slider" id="tab-slider"></div>
+                        <button class="tab-button active" data-tab="0">
+                            <i class="fas fa-th-large"></i>
+                            <span class="tab-text">全部配置</span>
+                        </button>
+                    </div>
+                    
+                    <!-- 配置内容区域 -->
+                    <div class="config-grid" id="config-list">
+                        <!-- 配置项将在这里动态生成 -->
+                    </div>
+                    
+                    <!-- 分页点 -->
+                    <div class="pagination-dots" id="pagination-dots" style="display: none;">
+                        <!-- 分页点将在这里动态生成 -->
+                    </div>
+                </div>
             </div>
-        </div>
 
-        <div class="actions">
-            <button class="btn" onclick="refreshCurrentEnv()" id="refresh-btn">
-                🔄 刷新当前环境变量
-            </button>
         </div>
-
-        <div class="status hidden" id="status"></div>
     </div>
 
     <!-- 新增/编辑配置模态框 -->
-    <div id="configModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <div class="modal-title" id="modal-title">新增配置</div>
-                <button class="close" onclick="closeModal()">&times;</button>
+    <div id="configModal" class="fixed inset-0 z-50 hidden">
+        <div class="modal-backdrop fixed inset-0" onclick="closeModal()"></div>
+        <div class="fixed left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 modal-content p-8 w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-3xl">
+            <div class="flex justify-between items-center mb-8 pb-6 border-b border-white border-opacity-20">
+                <div>
+                    <div class="text-2xl font-bold text-white flex items-center" id="modal-title">
+                        <i class="fas fa-cog mr-3"></i>
+                        新增配置
+                    </div>
+                    <p class="text-white opacity-70 text-sm mt-1">创建新的环境配置</p>
+                </div>
+                <button class="btn btn-outline btn-icon-md rounded-2xl" onclick="closeModal()">
+                    <i class="fas fa-times"></i>
+                </button>
             </div>
-            <form id="configForm">
-                <div class="form-group">
-                    <label class="form-label" for="config-name">配置名称:</label>
-                    <input type="text" class="form-input" id="config-name" placeholder="请输入配置名称" required>
+            
+            <form id="configForm" class="space-y-6">
+                <div>
+                    <label class="block text-white font-semibold mb-3 flex items-center" for="config-name">
+                        <i class="fas fa-tag mr-2"></i>
+                        配置名称
+                    </label>
+                    <input type="text" class="input" id="config-name" placeholder="为你的配置起个名字..." required>
                 </div>
-                <div class="form-group">
-                    <label class="form-label" for="config-base-url">ANTHROPIC_BASE_URL:</label>
-                    <input type="text" class="form-input" id="config-base-url" placeholder="请输入 Base URL">
+                
+                <div class="grid grid-cols-1 gap-6">
+                    <div>
+                        <label class="block text-white font-semibold mb-3 flex items-center" for="config-base-url">
+                            <i class="fas fa-link mr-2"></i>
+                            ANTHROPIC_BASE_URL
+                        </label>
+                        <input type="text" class="input" id="config-base-url" placeholder="https://api.anthropic.com">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-white font-semibold mb-3 flex items-center" for="config-auth-token">
+                            <i class="fas fa-key mr-2"></i>
+                            ANTHROPIC_AUTH_TOKEN
+                        </label>
+                        <input type="text" class="input" id="config-auth-token" placeholder="你的认证令牌">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-white font-semibold mb-3 flex items-center" for="config-model">
+                            <i class="fas fa-brain mr-2"></i>
+                            ANTHROPIC_MODEL
+                        </label>
+                        <input type="text" class="input" id="config-model" placeholder="claude-3-5-sonnet-20241022">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-white font-semibold mb-3 flex items-center" for="config-api-key">
+                            <i class="fas fa-code mr-2"></i>
+                            ANTHROPIC_API_KEY
+                        </label>
+                        <input type="text" class="input" id="config-api-key" placeholder="你的 API 密钥">
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label class="form-label" for="config-auth-token">ANTHROPIC_AUTH_TOKEN:</label>
-                    <input type="text" class="form-input" id="config-auth-token" placeholder="请输入 Auth Token">
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="config-model">ANTHROPIC_MODEL:</label>
-                    <input type="text" class="form-input" id="config-model" placeholder="请输入模型名称 (如: claude-3-5-sonnet-20241022)">
-                </div>
-                <div class="form-actions">
-                    <button type="button" class="btn btn-secondary" onclick="closeModal()">取消</button>
-                    <button type="submit" class="btn btn-success">保存</button>
+                
+                <div class="flex gap-4 justify-end mt-8 pt-6 border-t border-white border-opacity-20">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">
+                        <i class="fas fa-times mr-2"></i>
+                        取消
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save mr-2"></i>
+                        保存配置
+                    </button>
                 </div>
             </form>
         </div>
@@ -624,6 +836,7 @@
     <script>
         let configs = []; // 存储所有配置
         let editingConfigIndex = -1; // 正在编辑的配置索引
+        let currentTab = 0; // 当前选中的配置索引
         
         // 页面加载时初始化
         window.addEventListener('DOMContentLoaded', function() {
@@ -637,26 +850,28 @@
             
             try {
                 refreshBtn.disabled = true;
-                refreshBtn.textContent = '🔄 刷新中...';
+                refreshBtn.innerHTML = '<i class="fas fa-sync-alt fa-spin"></i> 刷新中...';
                 
                 // 获取当前环境变量
                 const baseUrl = await window.go.main.App.GetEnvVar('ANTHROPIC_BASE_URL');
                 const authToken = await window.go.main.App.GetEnvVar('ANTHROPIC_AUTH_TOKEN');
                 const model = await window.go.main.App.GetEnvVar('ANTHROPIC_MODEL');
+                const apiKey = await window.go.main.App.GetEnvVar('ANTHROPIC_API_KEY');
                 
                 // 更新显示
                 updateCurrentEnvDisplay('current-base-url', baseUrl);
                 updateCurrentEnvDisplay('current-auth-token', authToken);
                 updateCurrentEnvDisplay('current-model', model);
+                updateCurrentEnvDisplay('current-api-key', apiKey);
                 
-                showStatus('当前环境变量刷新成功', 'success');
+                showToast('当前环境变量刷新成功', 'success');
                 
             } catch (error) {
                 console.error('获取环境变量失败:', error);
-                showStatus('获取环境变量失败: ' + error.message, 'error');
+                showToast('获取环境变量失败: ' + error.message, 'error');
             } finally {
                 refreshBtn.disabled = false;
-                refreshBtn.textContent = '🔄 刷新当前环境变量';
+                refreshBtn.innerHTML = '<i class="fas fa-sync-alt"></i> 刷新当前环境变量';
             }
         }
         
@@ -665,7 +880,11 @@
             const element = document.getElementById(elementId);
             if (element) {
                 element.textContent = value || '未设置';
-                element.className = value ? 'current-var-value' : 'current-var-value current-var-empty';
+                if (value) {
+                    element.className = 'env-var-display';
+                } else {
+                    element.className = 'env-var-display empty';
+                }
             }
         }
         
@@ -675,54 +894,310 @@
                 // 从后端获取配置
                 const config = await window.go.main.App.GetConfig();
                 configs = config.environments || [];
+                
+                // 重置当前tab到第一页
+                currentTab = 0;
+                
+                // 生成tabs和渲染配置列表
+                generateTabs();
                 renderConfigList();
             } catch (error) {
                 console.error('加载配置失败:', error);
-                showStatus('加载配置失败: ' + error.message, 'error');
+                showToast('加载配置失败: ' + error.message, 'error');
             }
         }
         
-        // 渲染配置列表
-        function renderConfigList() {
-            const configList = document.getElementById('config-list');
+        let isTabsExpanded = false; // 记录tab是否已展开
+        
+        // 生成tab按钮
+        function generateTabs() {
+            const tabContainer = document.getElementById('tab-container');
+            const maxVisibleTabs = 4; // 最多显示4个tab，超过则显示展开按钮
             
             if (configs.length === 0) {
-                configList.innerHTML = '<div style="text-align: center; color: #999; padding: 40px;">暂无配置，点击上方按钮新增配置</div>';
+                // 没有配置时显示默认tab
+                tabContainer.innerHTML = `
+                    <div class="tab-content">
+                        <div class="tab-slider" id="tab-slider"></div>
+                        <button class="tab-button active" data-tab="0">
+                            <i class="fas fa-inbox"></i>
+                            <span class="tab-text">暂无配置</span>
+                        </button>
+                    </div>
+                `;
                 return;
             }
             
-            configList.innerHTML = configs.map((config, index) => `
-                <div class="config-item">
-                    <div class="config-header">
-                        <div class="config-name">${config.name}</div>
-                        <div class="config-actions">
-                            <button class="btn btn-sm btn-success" onclick="applyConfig(${index})">🚀 应用</button>
-                            <button class="btn btn-sm btn-warning" onclick="editConfig(${index})">✏️ 编辑</button>
-                            <button class="btn btn-sm btn-danger" onclick="deleteConfig(${index})">🗑️ 删除</button>
+            if (configs.length <= maxVisibleTabs) {
+                // 少于等于4个配置时，显示正常的tab
+                let tabsHTML = '<div class="tab-content"><div class="tab-slider" id="tab-slider"></div>';
+                configs.forEach((config, index) => {
+                    tabsHTML += `
+                        <button class="tab-button ${index === currentTab ? 'active' : ''}" data-tab="${index}" title="${config.name}">
+                            <i class="fas fa-folder"></i>
+                            <span class="tab-text">${config.name}</span>
+                        </button>
+                    `;
+                });
+                tabsHTML += '</div>';
+                tabContainer.innerHTML = tabsHTML;
+                
+                // 添加事件监听器
+                const tabButtons = tabContainer.querySelectorAll('.tab-button');
+                tabButtons.forEach((button, index) => {
+                    button.addEventListener('click', () => switchTab(index));
+                });
+                
+                // 更新滑块位置
+                setTimeout(() => {
+                    updateTabSlider();
+                }, 50);
+            } else {
+                // 超过4个配置时，显示前4个tab + 展开按钮
+                const tabContentClass = isTabsExpanded ? 'tab-content expanded' : 'tab-content';
+                let tabsHTML = `<div class="${tabContentClass}"><div class="tab-slider" id="tab-slider"></div>`;
+                
+                if (isTabsExpanded) {
+                    // 展开模式：显示所有tab
+                    configs.forEach((config, index) => {
+                        tabsHTML += `
+                            <button class="tab-button ${index === currentTab ? 'active' : ''}" data-tab="${index}" title="${config.name}">
+                                <i class="fas fa-folder"></i>
+                                <span class="tab-text">${config.name}</span>
+                            </button>
+                        `;
+                    });
+                    
+                    // 收起按钮
+                    tabsHTML += `
+                        <button class="expand-toggle" id="expand-toggle">
+                            <i class="fas fa-chevron-up"></i>
+                            <span>收起</span>
+                        </button>
+                    `;
+                } else {
+                    // 收起模式：只显示前4个tab
+                    configs.slice(0, 4).forEach((config, index) => {
+                        tabsHTML += `
+                            <button class="tab-button ${index === currentTab ? 'active' : ''}" data-tab="${index}" title="${config.name}">
+                                <i class="fas fa-folder"></i>
+                                <span class="tab-text">${config.name}</span>
+                            </button>
+                        `;
+                    });
+                    
+                    // 展开按钮
+                    const remainingCount = configs.length - 4;
+                    tabsHTML += `
+                        <button class="expand-toggle" id="expand-toggle">
+                            <i class="fas fa-chevron-down"></i>
+                            <span>更多配置 (${remainingCount})</span>
+                        </button>
+                    `;
+                }
+                
+                tabsHTML += '</div>';
+                tabContainer.innerHTML = tabsHTML;
+                
+                // 添加tab事件监听器
+                const tabButtons = tabContainer.querySelectorAll('.tab-button');
+                tabButtons.forEach((button) => {
+                    const index = parseInt(button.getAttribute('data-tab'));
+                    button.addEventListener('click', () => switchTab(index));
+                });
+                
+                // 添加展开/收起按钮事件监听器
+                const expandToggle = document.getElementById('expand-toggle');
+                if (expandToggle) {
+                    expandToggle.addEventListener('click', toggleTabsExpansion);
+                }
+                
+                // 更新滑块位置
+                setTimeout(() => {
+                    updateTabSlider();
+                }, 50);
+            }
+        }
+        
+        // 切换tab展开/收起状态
+        function toggleTabsExpansion() {
+            isTabsExpanded = !isTabsExpanded;
+            generateTabs(); // 重新生成tab布局
+        }
+        
+        // 切换tab
+        function switchTab(tabIndex) {
+            if (configs.length === 0) return;
+            
+            currentTab = tabIndex;
+            
+            // 更新tab按钮状态
+            const tabButtons = document.querySelectorAll('.tab-button');
+            tabButtons.forEach((button, index) => {
+                if (index === tabIndex) {
+                    button.classList.add('active');
+                } else {
+                    button.classList.remove('active');
+                }
+            });
+            
+            // 更新滑块位置
+            updateTabSlider();
+            
+            // 重新渲染配置详情
+            renderConfigDetail();
+        }
+        
+        // 更新tab滑块位置
+        function updateTabSlider() {
+            const tabSlider = document.getElementById('tab-slider');
+            const tabButtons = document.querySelectorAll('.tab-button');
+            const tabContainer = document.getElementById('tab-container');
+            
+            if (!tabSlider || !tabContainer) return;
+            
+            // 在展开模式或配置数量少于等于4个时，总是显示滑块
+            tabSlider.style.display = 'block';
+            
+            if (tabButtons.length > currentTab && tabButtons.length > 0) {
+                const activeTab = tabButtons[currentTab];
+                
+                if (activeTab) {
+                    // 使用getBoundingClientRect获取精确位置
+                    const containerRect = tabContainer.getBoundingClientRect();
+                    const activeTabRect = activeTab.getBoundingClientRect();
+                    
+                    // 计算相对于tab-container的位置
+                    const offsetLeft = activeTabRect.left - containerRect.left;
+                    const offsetTop = activeTabRect.top - containerRect.top;
+                    const width = activeTabRect.width;
+                    const height = activeTabRect.height;
+                    
+                    tabSlider.style.left = `${offsetLeft}px`;
+                    tabSlider.style.width = `${width}px`;
+                    tabSlider.style.height = `${height}px`;
+                    tabSlider.style.top = `${offsetTop}px`;
+                }
+            }
+        }
+        
+        // 渲染配置详情
+        function renderConfigDetail() {
+            const configList = document.getElementById('config-list');
+            
+            if (configs.length === 0) {
+                configList.innerHTML = `
+                    <div class="col-span-full flex flex-col items-center justify-center py-16">
+                        <div class="w-20 h-20 mx-auto mb-4 bg-white bg-opacity-10 rounded-2xl flex items-center justify-center">
+                            <i class="fas fa-inbox text-3xl text-white opacity-50"></i>
+                        </div>
+                        <p class="text-white opacity-70 text-lg mb-2">暂无配置</p>
+                        <p class="text-white opacity-50 text-sm">点击上方按钮新增你的第一个配置</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            // 获取当前选中的配置
+            const config = configs[currentTab];
+            if (!config) return;
+            
+            configList.innerHTML = `
+                <div class="bg-white bg-opacity-10 backdrop-blur-sm rounded-2xl p-8 border border-white border-opacity-20 hover:bg-opacity-15 transition-all duration-300">
+                    <div class="mb-8">
+                        <div class="flex justify-between items-start mb-4">
+                            <div class="flex-1 min-w-0 pr-4">
+                                <h3 class="text-2xl font-bold text-white mb-3 flex items-center">
+                                    <i class="fas fa-folder-open text-white opacity-70 mr-3 flex-shrink-0"></i>
+                                    <span class="truncate">${config.name}</span>
+                                </h3>
+                                <p class="text-white opacity-70 text-base">环境变量配置详情</p>
+                            </div>
+                            <div class="flex gap-3 flex-wrap flex-shrink-0">
+                                <button class="btn btn-success px-6 py-3" onclick="applyConfig(${currentTab})" title="应用配置">
+                                    <i class="fas fa-play mr-2"></i>
+                                    应用此配置
+                                </button>
+                                <button class="btn btn-primary px-6 py-3" onclick="editConfig(${currentTab})" title="编辑配置">
+                                    <i class="fas fa-edit mr-2"></i>
+                                    编辑
+                                </button>
+                                <button class="btn btn-danger px-6 py-3" onclick="deleteConfig(${currentTab})" title="删除配置">
+                                    <i class="fas fa-trash mr-2"></i>
+                                    删除
+                                </button>
+                            </div>
                         </div>
                     </div>
-                    <div class="config-vars">
-                        <div class="config-var">
-                            <div class="config-var-name">ANTHROPIC_BASE_URL</div>
-                            <div class="config-var-value ${config.variables.ANTHROPIC_BASE_URL ? '' : 'config-var-empty'}">
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="bg-white bg-opacity-5 rounded-xl p-6 border border-white border-opacity-10">
+                            <div class="flex items-center mb-4">
+                                <div class="w-10 h-10 bg-blue-500 bg-opacity-20 rounded-lg flex items-center justify-center mr-3">
+                                    <i class="fas fa-link text-blue-300"></i>
+                                </div>
+                                <div>
+                                    <div class="text-white font-semibold">ANTHROPIC_BASE_URL</div>
+                                    <div class="text-white opacity-60 text-sm">API服务器地址</div>
+                                </div>
+                            </div>
+                            <div class="text-white opacity-90 font-mono text-sm break-all bg-black bg-opacity-20 p-3 rounded-lg ${config.variables.ANTHROPIC_BASE_URL ? '' : 'italic opacity-50'}">
                                 ${config.variables.ANTHROPIC_BASE_URL || '未设置'}
                             </div>
                         </div>
-                        <div class="config-var">
-                            <div class="config-var-name">ANTHROPIC_AUTH_TOKEN</div>
-                            <div class="config-var-value ${config.variables.ANTHROPIC_AUTH_TOKEN ? '' : 'config-var-empty'}">
-                                ${config.variables.ANTHROPIC_AUTH_TOKEN || '未设置'}
+                        
+                        <div class="bg-white bg-opacity-5 rounded-xl p-6 border border-white border-opacity-10">
+                            <div class="flex items-center mb-4">
+                                <div class="w-10 h-10 bg-green-500 bg-opacity-20 rounded-lg flex items-center justify-center mr-3">
+                                    <i class="fas fa-key text-green-300"></i>
+                                </div>
+                                <div>
+                                    <div class="text-white font-semibold">ANTHROPIC_AUTH_TOKEN</div>
+                                    <div class="text-white opacity-60 text-sm">认证令牌</div>
+                                </div>
+                            </div>
+                            <div class="text-white opacity-90 font-mono text-sm break-all bg-black bg-opacity-20 p-3 rounded-lg ${config.variables.ANTHROPIC_AUTH_TOKEN ? '' : 'italic opacity-50'}">
+                                ${config.variables.ANTHROPIC_AUTH_TOKEN ? '••••••••••••••••••••' + config.variables.ANTHROPIC_AUTH_TOKEN.slice(-6) : '未设置'}
                             </div>
                         </div>
-                        <div class="config-var">
-                            <div class="config-var-name">ANTHROPIC_MODEL</div>
-                            <div class="config-var-value ${config.variables.ANTHROPIC_MODEL ? '' : 'config-var-empty'}">
+                        
+                        <div class="bg-white bg-opacity-5 rounded-xl p-6 border border-white border-opacity-10">
+                            <div class="flex items-center mb-4">
+                                <div class="w-10 h-10 bg-purple-500 bg-opacity-20 rounded-lg flex items-center justify-center mr-3">
+                                    <i class="fas fa-brain text-purple-300"></i>
+                                </div>
+                                <div>
+                                    <div class="text-white font-semibold">ANTHROPIC_MODEL</div>
+                                    <div class="text-white opacity-60 text-sm">AI模型版本</div>
+                                </div>
+                            </div>
+                            <div class="text-white opacity-90 font-mono text-sm break-all bg-black bg-opacity-20 p-3 rounded-lg ${config.variables.ANTHROPIC_MODEL ? '' : 'italic opacity-50'}">
                                 ${config.variables.ANTHROPIC_MODEL || '未设置'}
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white bg-opacity-5 rounded-xl p-6 border border-white border-opacity-10">
+                            <div class="flex items-center mb-4">
+                                <div class="w-10 h-10 bg-orange-500 bg-opacity-20 rounded-lg flex items-center justify-center mr-3">
+                                    <i class="fas fa-code text-orange-300"></i>
+                                </div>
+                                <div>
+                                    <div class="text-white font-semibold">ANTHROPIC_API_KEY</div>
+                                    <div class="text-white opacity-60 text-sm">API密钥</div>
+                                </div>
+                            </div>
+                            <div class="text-white opacity-90 font-mono text-sm break-all bg-black bg-opacity-20 p-3 rounded-lg ${config.variables.ANTHROPIC_API_KEY ? '' : 'italic opacity-50'}">
+                                ${config.variables.ANTHROPIC_API_KEY ? '••••••••••••••••••••' + config.variables.ANTHROPIC_API_KEY.slice(-6) : '未设置'}
                             </div>
                         </div>
                     </div>
                 </div>
-            `).join('');
+            `;
+        }
+        
+        // 向后兼容的函数名
+        function renderConfigList() {
+            renderConfigDetail();
         }
         
         // 显示新增配置模态框
@@ -733,7 +1208,8 @@
             document.getElementById('config-base-url').value = '';
             document.getElementById('config-auth-token').value = '';
             document.getElementById('config-model').value = '';
-            document.getElementById('configModal').style.display = 'block';
+            document.getElementById('config-api-key').value = '';
+            document.getElementById('configModal').classList.remove('hidden');
         }
         
         // 编辑配置
@@ -745,12 +1221,13 @@
             document.getElementById('config-base-url').value = config.variables.ANTHROPIC_BASE_URL || '';
             document.getElementById('config-auth-token').value = config.variables.ANTHROPIC_AUTH_TOKEN || '';
             document.getElementById('config-model').value = config.variables.ANTHROPIC_MODEL || '';
-            document.getElementById('configModal').style.display = 'block';
+            document.getElementById('config-api-key').value = config.variables.ANTHROPIC_API_KEY || '';
+            document.getElementById('configModal').classList.remove('hidden');
         }
         
         // 关闭模态框
         function closeModal() {
-            document.getElementById('configModal').style.display = 'none';
+            document.getElementById('configModal').classList.add('hidden');
         }
         
         // 应用配置到本地
@@ -760,6 +1237,7 @@
                 const baseUrl = config.variables.ANTHROPIC_BASE_URL || '';
                 const authToken = config.variables.ANTHROPIC_AUTH_TOKEN || '';
                 const model = config.variables.ANTHROPIC_MODEL || '';
+                const apiKey = config.variables.ANTHROPIC_API_KEY || '';
                 
                 // 设置环境变量
                 if (baseUrl) {
@@ -771,15 +1249,18 @@
                 if (model) {
                     await window.go.main.App.SetEnvVar('ANTHROPIC_MODEL', model);
                 }
+                if (apiKey) {
+                    await window.go.main.App.SetEnvVar('ANTHROPIC_API_KEY', apiKey);
+                }
                 
                 // 刷新当前环境变量显示
                 await refreshCurrentEnv();
                 
-                showStatus(`配置 "${config.name}" 已应用到本地环境变量`, 'success');
+                showToast(`配置 "${config.name}" 已应用到本地环境变量`, 'success');
                 
             } catch (error) {
                 console.error('应用配置失败:', error);
-                showStatus('应用配置失败: ' + error.message, 'error');
+                showToast('应用配置失败: ' + error.message, 'error');
             }
         }
         
@@ -792,11 +1273,19 @@
             try {
                 const configName = configs[index].name;
                 await window.go.main.App.DeleteEnv(configName);
+                
+                // 检查删除后当前tab是否还有效
+                if (currentTab >= configs.length - 1 && configs.length > 1) {
+                    currentTab = configs.length - 2; // 选择前一个配置
+                } else if (configs.length <= 1) {
+                    currentTab = 0; // 只剩下一个或没有配置时重置为0
+                }
+                
                 await loadConfigs();
-                showStatus(`配置 "${configName}" 已删除`, 'success');
+                showToast(`配置 "${configName}" 已删除`, 'success');
             } catch (error) {
                 console.error('删除配置失败:', error);
-                showStatus('删除配置失败: ' + error.message, 'error');
+                showToast('删除配置失败: ' + error.message, 'error');
             }
         }
         
@@ -808,16 +1297,17 @@
             const baseUrl = document.getElementById('config-base-url').value.trim();
             const authToken = document.getElementById('config-auth-token').value.trim();
             const model = document.getElementById('config-model').value.trim();
+            const apiKey = document.getElementById('config-api-key').value.trim();
             
             if (!name) {
-                showStatus('请输入配置名称', 'error');
+                showToast('请输入配置名称', 'error');
                 return;
             }
             
             // 检查名称冲突（编辑时排除自己）
             const existingIndex = configs.findIndex(config => config.name === name);
             if (existingIndex !== -1 && existingIndex !== editingConfigIndex) {
-                showStatus('配置名称已存在', 'error');
+                showToast('配置名称已存在', 'error');
                 return;
             }
             
@@ -828,14 +1318,15 @@
                     variables: {
                         ANTHROPIC_BASE_URL: baseUrl,
                         ANTHROPIC_AUTH_TOKEN: authToken,
-                        ANTHROPIC_MODEL: model
+                        ANTHROPIC_MODEL: model,
+                        ANTHROPIC_API_KEY: apiKey
                     }
                 };
                 
                 if (editingConfigIndex === -1) {
                     // 新增配置
                     await window.go.main.App.AddEnv(configData);
-                    showStatus(`配置 "${name}" 已新增`, 'success');
+                    showToast(`配置 "${name}" 已新增`, 'success');
                 } else {
                     // 编辑配置 - 先删除旧的，再添加新的
                     const oldName = configs[editingConfigIndex].name;
@@ -843,35 +1334,116 @@
                         await window.go.main.App.DeleteEnv(oldName);
                     }
                     await window.go.main.App.AddEnv(configData);
-                    showStatus(`配置 "${name}" 已更新`, 'success');
+                    showToast(`配置 "${name}" 已更新`, 'success');
                 }
                 
                 closeModal();
                 await loadConfigs();
                 
+                // 如果是新增配置，跳转到最后一个配置
+                if (editingConfigIndex === -1) {
+                    currentTab = configs.length - 1; // 新增配置后切换到最后一个
+                    generateTabs();
+                    renderConfigDetail();
+                }
+                
             } catch (error) {
                 console.error('保存配置失败:', error);
-                showStatus('保存配置失败: ' + error.message, 'error');
+                showToast('保存配置失败: ' + error.message, 'error');
             }
         });
         
-        // 显示状态信息
-        function showStatus(message, type) {
-            const status = document.getElementById('status');
-            status.textContent = message;
-            status.className = `status ${type}`;
-            status.classList.remove('hidden');
+        // 清除单个环境变量
+        async function clearEnvVar(varName) {
+            if (!confirm(`确定要清除环境变量 ${varName} 吗？`)) {
+                return;
+            }
             
-            // 3秒后隐藏状态
+            try {
+                await window.go.main.App.ClearEnvVar(varName);
+                await refreshCurrentEnv();
+                showToast(`环境变量 ${varName} 已清除`, 'success');
+            } catch (error) {
+                console.error('清除环境变量失败:', error);
+                showToast(`清除环境变量 ${varName} 失败: ` + error.message, 'error');
+            }
+        }
+        
+        // 清除所有环境变量
+        async function clearAllEnvVars() {
+            if (!confirm('确定要清除所有环境变量吗？')) {
+                return;
+            }
+            
+            try {
+                await window.go.main.App.ClearAllEnv();
+                await refreshCurrentEnv();
+                showToast('所有环境变量已清除', 'success');
+            } catch (error) {
+                console.error('清除所有环境变量失败:', error);
+                showToast('清除所有环境变量失败: ' + error.message, 'error');
+            }
+        }
+        
+        // Toast消息系统
+        function showToast(message, type = 'info', duration = 4000) {
+            const toastContainer = document.getElementById('toast-container');
+            
+            // 创建toast元素
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            
+            // 选择图标
+            let icon = 'fas fa-info-circle';
+            if (type === 'success') icon = 'fas fa-check-circle';
+            else if (type === 'error') icon = 'fas fa-exclamation-circle';
+            else if (type === 'info') icon = 'fas fa-info-circle';
+            
+            toast.innerHTML = `
+                <i class="${icon} toast-icon"></i>
+                <div class="toast-content">${message}</div>
+                <button class="toast-close" onclick="closeToast(this.parentElement)">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+            
+            // 添加到容器
+            toastContainer.appendChild(toast);
+            
+            // 触发显示动画
             setTimeout(() => {
-                status.classList.add('hidden');
-            }, 3000);
+                toast.classList.add('show');
+            }, 100);
+            
+            // 自动消失
+            setTimeout(() => {
+                closeToast(toast);
+            }, duration);
+            
+            return toast;
+        }
+        
+        // 关闭toast
+        function closeToast(toast) {
+            if (!toast) return;
+            
+            toast.classList.remove('show');
+            setTimeout(() => {
+                if (toast.parentElement) {
+                    toast.parentElement.removeChild(toast);
+                }
+            }, 400);
+        }
+        
+        // 兼容原有的showStatus函数
+        function showStatus(message, type) {
+            showToast(message, type);
         }
         
         // 点击模态框外部关闭
         window.addEventListener('click', function(e) {
             const modal = document.getElementById('configModal');
-            if (e.target === modal) {
+            if (e.target === modal || e.target.closest('.bg-black')) {
                 closeModal();
             }
         });
@@ -881,10 +1453,24 @@
         // 键盘事件处理
         document.addEventListener('keydown', function(e) {
             // ESC键关闭模态框
-            if (e.key === 'Escape') {
+            if (e.key === 'Escape' && !document.getElementById('configModal').classList.contains('hidden')) {
                 closeModal();
             }
         });
+        
+        // 窗口resize时重新计算滑块位置
+        window.addEventListener('resize', function() {
+            setTimeout(() => {
+                updateTabSlider();
+            }, 100);
+        });
+        
+        // tab容器滚动时重新计算滑块位置
+        document.addEventListener('scroll', function(e) {
+            if (e.target && (e.target.id === 'tab-container' || e.target.classList.contains('tab-content'))) {
+                updateTabSlider();
+            }
+        }, true);
     </script>
 </body>
 </html>

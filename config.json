@@ -8,6 +8,56 @@
         "ANTHROPIC_AUTH_TOKEN": "432432",
         "ANTHROPIC_BASE_URL": "432432"
       }
+    },
+    {
+      "name": "543543",
+      "description": "",
+      "variables": {
+        "ANTHROPIC_API_KEY": "",
+        "ANTHROPIC_AUTH_TOKEN": "543543",
+        "ANTHROPIC_BASE_URL": "543543",
+        "ANTHROPIC_MODEL": ""
+      }
+    },
+    {
+      "name": "54354335453534534543543543534",
+      "description": "",
+      "variables": {
+        "ANTHROPIC_API_KEY": "",
+        "ANTHROPIC_AUTH_TOKEN": "5354",
+        "ANTHROPIC_BASE_URL": "53453454",
+        "ANTHROPIC_MODEL": ""
+      }
+    },
+    {
+      "name": "54354335453534534543543555543534",
+      "description": "",
+      "variables": {
+        "ANTHROPIC_API_KEY": "",
+        "ANTHROPIC_AUTH_TOKEN": "643643634",
+        "ANTHROPIC_BASE_URL": "643643643634",
+        "ANTHROPIC_MODEL": ""
+      }
+    },
+    {
+      "name": "52534636347542824825484",
+      "description": "",
+      "variables": {
+        "ANTHROPIC_API_KEY": "",
+        "ANTHROPIC_AUTH_TOKEN": "754754",
+        "ANTHROPIC_BASE_URL": "64363464364364364363466346",
+        "ANTHROPIC_MODEL": ""
+      }
+    },
+    {
+      "name": "67574865385836585",
+      "description": "",
+      "variables": {
+        "ANTHROPIC_API_KEY": "",
+        "ANTHROPIC_AUTH_TOKEN": "765375637",
+        "ANTHROPIC_BASE_URL": "7465376537567",
+        "ANTHROPIC_MODEL": ""
+      }
     }
   ]
 }

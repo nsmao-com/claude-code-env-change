@@ -16,10 +16,10 @@
   },
   "info": {
     "companyName": "",
-    "productName": "Claude Code 环境变量切换器",
+    "productName": "Claude Code 环境管理器",
     "productVersion": "1.0.0",
     "copyright": "",
-    "comments": "Claude Code环境变量管理工具"
+    "comments": "Claude Code环境变量管理工具 - 现代化UI版本"
   },
   "nsisType": "multiple",
   "obfuscated": false,

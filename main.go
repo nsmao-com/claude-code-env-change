@@ -17,9 +17,9 @@ func main() {
 
 	// Create application with options
 	err := wails.Run(&options.App{
-		Title:  "Claude Code 环境变量切换器",
-		Width:  1024,
-		Height: 768,
+		Title:  "Claude Code 环境管理器",
+		Width:  1200,
+		Height: 800,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},
