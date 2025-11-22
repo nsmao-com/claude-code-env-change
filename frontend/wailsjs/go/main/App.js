@@ -41,3 +41,7 @@ export function SetEnvVar(arg1, arg2) {
 export function SwitchToEnv(arg1) {
   return window['go']['main']['App']['SwitchToEnv'](arg1);
 }
+
+export function TestLatency(arg1) {
+  return window['go']['main']['App']['TestLatency'](arg1);
+}

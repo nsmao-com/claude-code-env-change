@@ -1,1476 +1,1215 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Claude Code 环境管理器</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        /* Simplified Design System */
-        :root {
-            --primary-color: #4a5568;
-            --primary-dark: #2d3748;
-            --primary-light: #718096;
-            --success-color: #48bb78;
-            --danger-color: #f56565;
-            --glass-bg: rgba(255, 255, 255, 0.1);
-            --glass-border: rgba(255, 255, 255, 0.2);
-            --shadow-light: 0 4px 12px rgba(0, 0, 0, 0.15);
-            --shadow-heavy: 0 8px 25px rgba(0, 0, 0, 0.2);
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        border: "var(--border)",
+                        input: "var(--input)",
+                        ring: "var(--ring)",
+                        background: "var(--background)",
+                        foreground: "var(--foreground)",
+                        primary: {
+                            DEFAULT: "var(--primary)",
+                            foreground: "var(--primary-foreground)",
+                        },
+                        secondary: {
+                            DEFAULT: "var(--secondary)",
+                            foreground: "var(--secondary-foreground)",
+                        },
+                        destructive: {
+                            DEFAULT: "var(--destructive)",
+                            foreground: "var(--destructive-foreground)",
+                        },
+                        muted: {
+                            DEFAULT: "var(--muted)",
+                            foreground: "var(--muted-foreground)",
+                        },
+                        accent: {
+                            DEFAULT: "var(--accent)",
+                            foreground: "var(--accent-foreground)",
+                        },
+                        card: {
+                            DEFAULT: "var(--card)",
+                            foreground: "var(--card-foreground)",
+                        },
+                    },
+                }
+            }
         }
-
-        * {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    </script>
+    <style>
+        :root {
+            --background: #ffffff;
+            --foreground: #09090b;
+            --card: #ffffff;
+            --card-foreground: #09090b;
+            --popover: #ffffff;
+            --popover-foreground: #09090b;
+            --primary: #18181b;
+            --primary-foreground: #fafafa;
+            --secondary: #f4f4f5;
+            --secondary-foreground: #18181b;
+            --muted: #f4f4f5;
+            --muted-foreground: #71717a;
+            --accent: #f4f4f5;
+            --accent-foreground: #18181b;
+            --destructive: #ef4444;
+            --destructive-foreground: #fafafa;
+            --border: #e4e4e7;
+            --input: #e4e4e7;
+            --ring: #18181b;
+            --radius: 0.75rem;
+            
+            --grid-pattern: url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23000000' fill-opacity='0.03' fill-rule='evenodd'%3E%3Cpath d='M0 40L40 0H20L0 20M40 40V20L20 40'/%3E%3C/g%3E%3C/svg%3E");
+        }
+    
+        .dark {
+            --background: #09090b;
+            --foreground: #fafafa;
+            --card: #18181b;
+            --card-foreground: #fafafa;
+            --popover: #09090b;
+            --popover-foreground: #fafafa;
+            --primary: #fafafa;
+            --primary-foreground: #18181b;
+            --secondary: #27272a;
+            --secondary-foreground: #fafafa;
+            --muted: #27272a;
+            --muted-foreground: #a1a1aa;
+            --accent: #27272a;
+            --accent-foreground: #fafafa;
+            --destructive: #7f1d1d;
+            --destructive-foreground: #fafafa;
+            --border: #27272a;
+            --input: #27272a;
+            --ring: #d4d4d8;
+            
+            --grid-pattern: url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='0.03' fill-rule='evenodd'%3E%3Cpath d='M0 40L40 0H20L0 20M40 40V20L20 40'/%3E%3C/g%3E%3C/svg%3E");
         }
 
         body {
-            background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
-            min-height: 100vh;
-            overflow-x: hidden;
-        }
-
-        /* Glass Morphism Effects */
-        .glass {
-            background: var(--glass-bg);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid var(--glass-border);
-            box-shadow: var(--shadow-light);
-        }
-
-        /* Animations */
-        @keyframes fadeInUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        @keyframes slideInLeft {
-            from {
-                opacity: 0;
-                transform: translateX(-30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateX(0);
-            }
-        }
-
-        .animate-fade-in-up {
-            animation: fadeInUp 0.6s ease-out;
-        }
-
-        .animate-slide-in-left {
-            animation: slideInLeft 0.6s ease-out;
-        }
-
-        /* Layout */
-        .app-container {
-            display: grid;
-            grid-template-columns: 320px 1fr;
-            min-height: 100vh;
-            gap: 2rem;
-            padding: 2rem;
-        }
-
-        .sidebar {
-            background: var(--glass-bg);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid var(--glass-border);
-            border-radius: 24px;
-            padding: 2rem;
-            box-shadow: var(--shadow-light);
-            height: fit-content;
-            position: sticky;
-            top: 2rem;
-        }
-
-        .main-content {
-            display: flex;
-            flex-direction: column;
-            gap: 2rem;
-        }
-
-        /* Cards */
-        .card {
-            background: var(--glass-bg);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border-radius: 24px;
-            border: 1px solid var(--glass-border);
-            box-shadow: var(--shadow-light);
-            transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            background-color: var(--background);
+            color: var(--foreground);
+            font-family: 'Inter', sans-serif;
+            transition: background-color 0.3s, color 0.3s;
             overflow: hidden;
-            position: relative;
         }
-
-        .card::before {
-            content: '';
-            position: absolute;
+        
+        .bg-pattern {
+            background-image: var(--grid-pattern);
+            position: fixed;
             top: 0;
             left: 0;
-            right: 0;
-            height: 2px;
-            background: var(--primary-color);
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        }
-
-        .card:hover {
-            transform: translateY(-4px);
-            box-shadow: var(--shadow-heavy);
-        }
-
-        .card:hover::before {
-            opacity: 1;
-        }
-
-        .card-header {
-            padding: 2rem;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            background: rgba(255, 255, 255, 0.05);
-        }
-
-        .card-body {
-            padding: 2rem;
-        }
-
-        .card-gradient {
-            background: var(--primary-color);
-            color: white;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .card-gradient .card-header {
-            background: rgba(255, 255, 255, 0.1);
-            border-bottom-color: rgba(255, 255, 255, 0.2);
-        }
-
-        /* Buttons */
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.875rem 1.75rem;
-            border-radius: 16px;
-            font-weight: 600;
-            font-size: 0.875rem;
-            transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-            border: none;
-            cursor: pointer;
-            position: relative;
-            overflow: hidden;
-            text-decoration: none;
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-        }
-
-        .btn::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
             width: 100%;
             height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-            transition: left 0.5s;
-        }
-
-        .btn:hover::before {
-            left: 100%;
-        }
-
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
-        }
-
-        .btn-primary {
-            background: var(--primary-color);
-            color: white;
-            box-shadow: var(--shadow-light);
-        }
-
-        .btn-primary:hover {
-            background: var(--primary-dark);
-            box-shadow: var(--shadow-heavy);
-        }
-
-        .btn-secondary {
-            background: var(--primary-light);
-            color: white;
-            box-shadow: var(--shadow-light);
-        }
-
-        .btn-secondary:hover {
-            background: var(--primary-color);
-            box-shadow: var(--shadow-heavy);
-        }
-
-        .btn-success {
-            background: var(--success-color);
-            color: white;
-            box-shadow: var(--shadow-light);
-        }
-
-        .btn-success:hover {
-            background: #38a169;
-            box-shadow: var(--shadow-heavy);
-        }
-
-        .btn-danger {
-            background: var(--danger-color);
-            color: white;
-            box-shadow: var(--shadow-light);
-        }
-
-        .btn-danger:hover {
-            background: #e53e3e;
-            box-shadow: var(--shadow-heavy);
-        }
-
-        .btn-outline {
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            color: white;
-        }
-
-        .btn-outline:hover {
-            background: rgba(255, 255, 255, 0.2);
-            border-color: rgba(255, 255, 255, 0.3);
-        }
-
-        /* Small Icon Button */
-        .btn-icon-sm {
-            padding: 0;
-            width: 32px;
-            height: 32px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-        }
-
-        .btn-icon-md {
-            padding: 0;
-            width: 40px;
-            height: 40px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-        }
-
-        .hidden {
-            display: none;
-        }
-
-        /* Inputs */
-        .input {
-            width: 100%;
-            padding: 1rem 1.25rem;
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            border-radius: 16px;
-            transition: all 0.3s ease;
-            background: rgba(255, 255, 255, 0.15);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            color: #ffffff;
-            font-size: 0.875rem;
-            font-weight: 500;
-        }
-
-        .input::placeholder {
-            color: rgba(255, 255, 255, 0.6);
-        }
-
-        .input:focus {
-            outline: none;
-            border-color: rgba(255, 255, 255, 0.5);
-            box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.1), 0 4px 20px rgba(0, 0, 0, 0.1);
-            background: rgba(255, 255, 255, 0.25);
-            color: #ffffff;
-        }
-
-        /* Utilities */
-        .text-primary { color: rgba(31, 41, 55, 0.9); }
-        .text-secondary { color: rgba(107, 114, 128, 0.8); }
-        .text-blue { color: #667eea; }
-        .text-green { color: #10b981; }
-        .text-red { color: #ef4444; }
-        .text-white { color: white; }
-
-        .bg-gray-50 { 
-            background: rgba(255, 255, 255, 0.1); 
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-        }
-        .bg-gray-100 { 
-            background: rgba(255, 255, 255, 0.15); 
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-        }
-
-        /* Environment Variable Display */
-        .env-var-display {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            border-radius: 12px;
-            padding: 1rem;
-            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-            font-size: 0.8125rem;
-            color: rgba(255, 255, 255, 0.9);
-            max-width: 200px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        .env-var-display.empty {
-            color: rgba(255, 255, 255, 0.4);
-            font-style: italic;
-        }
-
-        /* Modal Improvements */
-        .modal-backdrop {
-            background: rgba(0, 0, 0, 0.5);
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
-        }
-
-        .modal-content {
-            background: var(--glass-bg);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid var(--glass-border);
-            box-shadow: var(--shadow-heavy);
-        }
-
-        /* Toast Message System */
-        .toast-container {
-            position: fixed;
-            top: 2rem;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 1000;
+            z-index: -1;
             pointer-events: none;
         }
 
-        .toast {
-            background: var(--glass-bg);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid var(--glass-border);
-            border-radius: 16px;
-            padding: 1rem 1.5rem;
-            margin-bottom: 0.75rem;
-            box-shadow: var(--shadow-heavy);
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--muted-foreground); }
+
+        /* Bento Grid Layout */
+        .bento-grid {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            grid-template-rows: auto 1fr;
+            gap: 1.5rem;
+            padding: 1.5rem;
+            max-width: 1600px;
+            margin: 0 auto;
+            height: 100vh;
+            overflow: hidden; /* Prevent body scroll */
+        }
+
+        .bento-item {
+            background-color: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1.5rem;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
             display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            color: white;
-            font-weight: 500;
-            font-size: 0.875rem;
-            min-width: 300px;
-            pointer-events: auto;
-            opacity: 0;
-            transform: translateY(-20px);
-            transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            flex-direction: column;
+        }
+        
+        .bento-item:hover {
+            border-color: var(--primary);
+            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.1);
+        }
+        
+        .dark .bento-item:hover {
+            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
         }
 
-        .toast.show {
-            opacity: 1;
-            transform: translateY(0);
+        /* Specific Grid Areas */
+        .area-sidebar { 
+            grid-column: span 3; 
+            grid-row: span 2; 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: space-between;
+            overflow-y: auto;
+        }
+        .area-current { 
+            grid-column: span 9; 
+            grid-row: span 1; 
+            min-height: 180px;
+        }
+        .area-configs { 
+            grid-column: span 9; 
+            grid-row: span 1; 
+            overflow-y: auto; /* Allow scrolling inside configs */
         }
 
-        .toast.success {
-            border-left: 4px solid var(--success-color);
-            background: rgba(72, 187, 120, 0.1);
+        @media (max-width: 1024px) {
+            .bento-grid { display: flex; flex-direction: column; height: 100vh; overflow-y: auto; }
+            .area-sidebar, .area-current, .area-configs { width: 100%; grid-column: auto; grid-row: auto; overflow: visible; }
+            .area-configs { flex: 1; }
         }
 
-        .toast.error {
-            border-left: 4px solid var(--danger-color);
-            background: rgba(245, 101, 101, 0.1);
-        }
-
-        .toast.info {
-            border-left: 4px solid var(--primary-color);
-            background: rgba(74, 85, 104, 0.1);
-        }
-
-        .toast-icon {
-            font-size: 1.125rem;
-            flex-shrink: 0;
-        }
-
-        .toast-content {
-            flex: 1;
-        }
-
-        .toast-close {
-            background: none;
-            border: none;
-            color: white;
-            opacity: 0.7;
-            cursor: pointer;
-            padding: 0;
-            border-radius: 50%;
-            width: 32px;
-            height: 32px;
-            display: flex;
+        /* UI Components */
+        .btn {
+            display: inline-flex;
             align-items: center;
             justify-content: center;
-            transition: all 0.2s ease;
-            flex-shrink: 0;
+            border-radius: calc(var(--radius) - 0.25rem);
+            font-size: 0.875rem;
+            font-weight: 500;
+            height: 2.5rem;
+            padding-left: 1rem;
+            padding-right: 1rem;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        
+        .btn-primary {
+            background-color: var(--primary);
+            color: var(--primary-foreground);
+        }
+        .btn-primary:hover { opacity: 0.9; }
+        
+        .btn-secondary {
+            background-color: var(--secondary);
+            color: var(--secondary-foreground);
+        }
+        .btn-secondary:hover { background-color: var(--muted); }
+        
+        .btn-outline {
+            border: 1px solid var(--border);
+            background: transparent;
+        }
+        .btn-outline:hover { background-color: var(--accent); }
+        
+        .btn-ghost {
+            background: transparent;
+            color: var(--muted-foreground);
+        }
+        .btn-ghost:hover { 
+            background-color: var(--accent); 
+            color: var(--accent-foreground);
         }
 
-        .toast-close:hover {
-            opacity: 1;
-            background: rgba(255, 255, 255, 0.1);
-        }
-
-        /* Tab Slider Styles */
-        .tab-container {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            border-radius: 20px;
-            padding: 4px;
-            margin-bottom: 1.5rem;
-            position: relative;
-            max-width: 100%;
+        .input {
+            height: 2.5rem;
             width: 100%;
-            transition: height 0.3s ease;
-        }
-        
-        .tab-content {
-            display: flex;
-            gap: 4px;
-            flex-wrap: nowrap;
-            overflow-x: auto;
-            overflow-y: hidden;
-            scrollbar-width: none;
-            -ms-overflow-style: none;
-            transition: all 0.3s ease;
-        }
-        
-        .tab-content.expanded {
-            flex-wrap: wrap;
-            overflow: visible;
-        }
-        
-        .tab-content::-webkit-scrollbar {
-            display: none;
-        }
-        
-        .expand-toggle {
-            flex: none;
-            min-width: 120px;
-            max-width: 180px;
-            padding: 0.75rem 1rem;
-            border: none;
-            background: transparent;
-            color: rgba(255, 255, 255, 0.7);
-            border-radius: 16px;
-            font-weight: 500;
+            border-radius: calc(var(--radius) - 0.25rem);
+            border: 1px solid var(--input);
+            background-color: transparent;
+            padding-left: 0.75rem;
+            padding-right: 0.75rem;
             font-size: 0.875rem;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            position: relative;
-            z-index: 2;
+            transition: border-color 0.2s;
+        }
+        .input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 1px var(--primary);
+        }
+
+        /* Env Var Styling */
+        .env-card {
+            background-color: var(--muted);
+            border-radius: calc(var(--radius) - 0.25rem);
+            padding: 1rem;
             display: flex;
             align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
-            white-space: nowrap;
-            overflow: hidden;
+            gap: 1rem;
+            border: 1px solid transparent;
+            transition: all 0.2s;
+        }
+        .env-card:hover {
+            border-color: var(--border);
+            background-color: var(--accent);
         }
         
-        .expand-toggle:hover {
-            color: rgba(255, 255, 255, 0.9);
-            background: rgba(255, 255, 255, 0.05);
+        .env-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: var(--foreground);
+            background-color: var(--background);
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            border: 1px solid var(--border);
         }
 
-        .tab-button {
-            flex: none;
-            max-width: 180px;
-            min-width: 80px;
-            padding: 0.75rem 1rem;
-            border: none;
-            background: transparent;
-            color: rgba(255, 255, 255, 0.7);
-            border-radius: 16px;
-            font-weight: 500;
-            font-size: 0.875rem;
+        /* Config Grid */
+        .config-grid-layout {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 1rem;
+        }
+        
+        .config-item {
+            background-color: var(--background);
+            border: 1px solid var(--border);
+            border-radius: calc(var(--radius) - 0.25rem);
+            padding: 1.25rem;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: all 0.2s;
             position: relative;
-            z-index: 2;
+        }
+        .config-item:hover {
+            border-color: var(--primary);
+            transform: translateY(-2px);
+        }
+        .config-item.active {
+            border-color: var(--primary);
+            background-color: var(--accent);
+        }
+        .config-item.active::after {
+            content: 'Active';
+            position: absolute;
+            top: 0.75rem;
+            right: 0.75rem;
+            font-size: 0.65rem;
+            font-weight: 600;
+            background-color: var(--primary);
+            color: var(--primary-foreground);
+            padding: 0.1rem 0.4rem;
+            border-radius: 999px;
+        }
+
+        /* Config Filter Tabs */
+        .filter-tabs {
             display: flex;
-            align-items: center;
-            justify-content: center;
             gap: 0.5rem;
-            white-space: nowrap;
-            overflow: hidden;
+            background-color: var(--muted);
+            padding: 0.25rem;
+            border-radius: 0.5rem;
         }
-        
-        .tab-button .tab-text {
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            flex: 1;
-            text-align: center;
+        .filter-tab {
+            padding: 0.35rem 0.75rem;
+            border-radius: 0.35rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: var(--muted-foreground);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .filter-tab:hover {
+            color: var(--foreground);
+        }
+        .filter-tab.active {
+            background-color: var(--background);
+            color: var(--foreground);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
         }
 
-        .tab-button:hover {
-            color: rgba(255, 255, 255, 0.9);
+        /* Theme Toggle */
+        .theme-toggle {
+            position: relative;
+            width: 3rem;
+            height: 1.5rem;
+            border-radius: 999px;
+            background-color: var(--input);
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .theme-toggle::after {
+            content: '';
+            position: absolute;
+            top: 0.125rem;
+            left: 0.125rem;
+            width: 1.25rem;
+            height: 1.25rem;
+            border-radius: 50%;
+            background-color: var(--background);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            transition: transform 0.3s;
+        }
+        .dark .theme-toggle::after {
+            transform: translateX(1.5rem);
         }
 
-        .tab-button.active {
-            color: white;
+        /* Modal */
+        .modal-overlay {
+            background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+        }
+        .modal-content {
+            background-color: var(--background);
+            border: 1px solid var(--border);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+
+        /* Provider Tabs */
+        .provider-tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 0.5rem;
+        }
+        .provider-tab {
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--muted-foreground);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .provider-tab:hover {
+            background-color: var(--accent);
+            color: var(--foreground);
+        }
+        .provider-tab.active {
+            background-color: var(--secondary);
+            color: var(--foreground);
             font-weight: 600;
         }
 
-        .tab-slider {
-            position: absolute;
-            background: var(--primary-color);
-            border-radius: 16px;
-            transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-            z-index: 1;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-        }
-
-        /* Pagination dots */
-        .pagination-dots {
-            display: flex;
-            justify-content: center;
-            gap: 0.5rem;
-            margin-top: 1.5rem;
-        }
-
-        .pagination-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: rgba(255, 255, 255, 0.3);
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .pagination-dot.active {
-            background: white;
-            transform: scale(1.2);
-        }
-
-        /* Config grid for tab view */
-        .config-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-            gap: 1.5rem;
-            min-height: 300px;
-            align-content: start;
-        }
-        
-        /* 当配置数量少时，确保卡片不会过度拉伸 */
-        @media (min-width: 768px) {
-            .config-grid {
-                grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-                max-width: none;
-            }
-        }
-        
-        @media (min-width: 1200px) {
-            .config-grid {
-                grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
-            }
+        /* Toast */
+        .toast {
+            background-color: var(--background);
+            border: 1px solid var(--border);
+            color: var(--foreground);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
         }
     </style>
 </head>
-<body class="text-white">
-    <!-- Toast Container -->
-    <div class="toast-container" id="toast-container"></div>
-    
-    <div class="app-container">
-        <!-- Sidebar -->
-        <div class="sidebar animate-slide-in-left">
-            <div class="text-center mb-8">
-                <div class="relative mb-4">
-                    <div class="w-16 h-16 mx-auto bg-white bg-opacity-20 rounded-2xl flex items-center justify-center">
-                        <i class="fas fa-cogs text-2xl text-white"></i>
+<body>
+    <div class="bg-pattern"></div>
+
+    <div class="bento-grid">
+        <!-- Sidebar Area -->
+        <div class="bento-item area-sidebar">
+            <div>
+                <div class="flex items-center gap-3 mb-8 px-2">
+                    <div class="w-10 h-10 rounded-xl bg-primary text-primary-foreground flex items-center justify-center text-xl shadow-lg">
+                        <i class="fas fa-cube"></i>
+                    </div>
+                    <div>
+                        <h1 class="font-bold text-lg tracking-tight">Claude Code</h1>
+                        <p class="text-xs text-muted-foreground">Environment Manager</p>
                     </div>
                 </div>
-                <h1 class="text-2xl font-bold text-white mb-2">
-                    Claude Code
-                </h1>
-                <p class="text-white opacity-80 text-sm">环境管理器</p>
+
+                <nav class="space-y-2">
+                    <button class="btn btn-secondary w-full justify-start gap-3" onclick="refreshCurrentEnv()" id="refresh-btn">
+                        <i class="fas fa-sync-alt text-muted-foreground"></i>
+                        刷新状态
+                    </button>
+                    <button class="btn btn-primary w-full justify-start gap-3 shadow-md" onclick="showAddModal()">
+                        <i class="fas fa-plus"></i>
+                        新建配置
+                    </button>
+                </nav>
+                
+                <!-- Stats Placeholder -->
+                <div class="mt-8 p-4 rounded-lg bg-muted/50 border border-border">
+                    <div class="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wider">System Status</div>
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-sm">API Latency</span>
+                        <span class="text-sm font-mono text-green-500">45ms</span>
+                    </div>
+                    <div class="w-full bg-border h-1.5 rounded-full overflow-hidden">
+                        <div class="bg-green-500 h-full w-[85%]"></div>
+                    </div>
+                </div>
             </div>
-            
-            <div class="space-y-4 mb-8">
-                <button class="btn btn-primary w-full" onclick="refreshCurrentEnv()" id="refresh-btn">
-                    <i class="fas fa-sync-alt"></i>
-                    刷新环境变量
-                </button>
-                <button class="btn btn-danger w-full" onclick="clearAllEnvVars()">
-                    <i class="fas fa-broom"></i>
+
+            <div class="mt-auto pt-6 border-t border-border space-y-4">
+                <div class="flex items-center justify-between px-2">
+                    <span class="text-sm font-medium">Dark Mode</span>
+                    <div class="theme-toggle" onclick="toggleTheme()"></div>
+                </div>
+                <button class="btn btn-ghost w-full justify-start gap-3 text-destructive hover:text-destructive hover:bg-destructive/10" onclick="clearAllEnvVars()">
+                    <i class="fas fa-trash-alt"></i>
                     清除所有变量
                 </button>
             </div>
+        </div>
 
-            <div class="border-t border-white border-opacity-20 pt-6">
-                <h3 class="font-semibold text-white mb-4 flex items-center">
-                    <i class="fas fa-bolt mr-2"></i>
-                    快捷操作
-                </h3>
-                <button class="btn btn-success w-full" onclick="showAddModal()">
-                    <i class="fas fa-plus-circle"></i>
-                    新增配置
-                </button>
+        <!-- Current Environment Area -->
+        <div class="bento-item area-current">
+            <div class="flex items-center justify-between mb-6">
+                <div>
+                    <h2 class="text-xl font-bold flex items-center gap-2">
+                        <i class="fas fa-bolt text-yellow-500"></i>
+                        当前环境
+                    </h2>
+                    <p class="text-sm text-muted-foreground mt-1">正在生效的系统环境变量</p>
+                </div>
+                <div class="flex gap-2">
+                    <span class="px-3 py-1 rounded-full bg-green-500/10 text-green-600 dark:text-green-400 text-xs font-medium border border-green-500/20 flex items-center gap-2">
+                        <span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+                        Active
+                    </span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="current-env-grid">
+                <!-- Dynamic Content -->
             </div>
         </div>
 
-        <!-- Main Content -->
-        <div class="main-content">
-            <!-- 当前环境变量显示 -->
-            <div class="card card-gradient animate-fade-in-up">
-                <div class="card-header relative z-10">
-                    <h2 class="text-xl font-bold text-white flex items-center">
-                        <i class="fas fa-desktop mr-3"></i>
-                        当前环境变量
+        <!-- Configs Area -->
+        <div class="bento-item area-configs">
+            <div class="flex items-center justify-between mb-6">
+                <div>
+                    <h2 class="text-xl font-bold flex items-center gap-2">
+                        <i class="fas fa-layer-group text-primary"></i>
+                        配置库
                     </h2>
-                    <p class="text-white opacity-80 text-sm mt-1">本地环境变量状态</p>
+                    <p class="text-sm text-muted-foreground mt-1">管理您的预设环境配置</p>
                 </div>
-                <div class="card-body relative z-10">
-                    <div class="grid grid-cols-1 gap-4">
-                        <div class="flex justify-between items-center p-4 rounded-xl bg-white bg-opacity-10 backdrop-blur-sm">
-                            <div class="flex items-center">
-                                <i class="fas fa-link text-white opacity-70 mr-3"></i>
-                                <div>
-                                    <div class="font-semibold text-white">ANTHROPIC_BASE_URL</div>
-                                    <div class="text-white opacity-70 text-sm">API 基础地址</div>
-                                </div>
-                            </div>
-                            <div class="flex items-center gap-3">
-                                <div class="env-var-display" id="current-base-url">加载中...</div>
-                                <button class="btn btn-outline btn-icon-sm text-xs" onclick="clearEnvVar('ANTHROPIC_BASE_URL')">
-                                    <i class="fas fa-times"></i>
-                                </button>
-                            </div>
-                        </div>
-                        
-                        <div class="flex justify-between items-center p-4 rounded-xl bg-white bg-opacity-10 backdrop-blur-sm">
-                            <div class="flex items-center">
-                                <i class="fas fa-key text-white opacity-70 mr-3"></i>
-                                <div>
-                                    <div class="font-semibold text-white">ANTHROPIC_AUTH_TOKEN</div>
-                                    <div class="text-white opacity-70 text-sm">认证令牌</div>
-                                </div>
-                            </div>
-                            <div class="flex items-center gap-3">
-                                <div class="env-var-display" id="current-auth-token">加载中...</div>
-                                <button class="btn btn-outline btn-icon-sm text-xs" onclick="clearEnvVar('ANTHROPIC_AUTH_TOKEN')">
-                                    <i class="fas fa-times"></i>
-                                </button>
-                            </div>
-                        </div>
-                        
-                        <div class="flex justify-between items-center p-4 rounded-xl bg-white bg-opacity-10 backdrop-blur-sm">
-                            <div class="flex items-center">
-                                <i class="fas fa-brain text-white opacity-70 mr-3"></i>
-                                <div>
-                                    <div class="font-semibold text-white">ANTHROPIC_MODEL</div>
-                                    <div class="text-white opacity-70 text-sm">模型版本</div>
-                                </div>
-                            </div>
-                            <div class="flex items-center gap-3">
-                                <div class="env-var-display" id="current-model">加载中...</div>
-                                <button class="btn btn-outline btn-icon-sm text-xs" onclick="clearEnvVar('ANTHROPIC_MODEL')">
-                                    <i class="fas fa-times"></i>
-                                </button>
-                            </div>
-                        </div>
-                        
-                        <div class="flex justify-between items-center p-4 rounded-xl bg-white bg-opacity-10 backdrop-blur-sm">
-                            <div class="flex items-center">
-                                <i class="fas fa-code text-white opacity-70 mr-3"></i>
-                                <div>
-                                    <div class="font-semibold text-white">ANTHROPIC_API_KEY</div>
-                                    <div class="text-white opacity-70 text-sm">API 密钥</div>
-                                </div>
-                            </div>
-                            <div class="flex items-center gap-3">
-                                <div class="env-var-display" id="current-api-key">加载中...</div>
-                                <button class="btn btn-outline btn-icon-sm text-xs" onclick="clearEnvVar('ANTHROPIC_API_KEY')">
-                                    <i class="fas fa-times"></i>
-                                </button>
-                            </div>
-                        </div>
+                
+                <div class="flex items-center gap-4">
+                    <!-- Filter Tabs -->
+                    <div class="filter-tabs">
+                        <div class="filter-tab active" onclick="filterConfigs('all')"><i class="fas fa-th-large mr-1.5"></i>All</div>
+                        <div class="filter-tab" onclick="filterConfigs('claude')"><i class="fas fa-robot mr-1.5"></i>Claude</div>
+                        <div class="filter-tab" onclick="filterConfigs('codex')"><i class="fas fa-code mr-1.5"></i>Codex</div>
+                        <div class="filter-tab" onclick="filterConfigs('gemini')"><i class="fas fa-star mr-1.5"></i>Gemini</div>
+                    </div>
+                    
+                    <div class="relative">
+                        <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs"></i>
+                        <input type="text" placeholder="搜索配置..." class="input pl-8 w-48 h-9 text-xs" oninput="searchConfigs(this.value)">
                     </div>
                 </div>
             </div>
 
-            <!-- 配置列表 -->
-            <div class="card animate-fade-in-up">
-                <div class="card-header flex justify-between items-center">
-                    <div>
-                        <h2 class="text-xl font-bold text-white flex items-center">
-                            <i class="fas fa-layer-group mr-3"></i>
-                            配置列表
-                        </h2>
-                        <p class="text-white opacity-70 text-sm mt-1">管理你的环境配置</p>
-                    </div>
-                    <button class="btn btn-success" onclick="showAddModal()">
-                        <i class="fas fa-plus-circle"></i>
-                        新增配置
-                    </button>
-                </div>
-                <div class="card-body">
-                    <!-- Tab切换器 -->
-                    <div class="tab-container" id="tab-container">
-                        <div class="tab-slider" id="tab-slider"></div>
-                        <button class="tab-button active" data-tab="0">
-                            <i class="fas fa-th-large"></i>
-                            <span class="tab-text">全部配置</span>
-                        </button>
-                    </div>
-                    
-                    <!-- 配置内容区域 -->
-                    <div class="config-grid" id="config-list">
-                        <!-- 配置项将在这里动态生成 -->
-                    </div>
-                    
-                    <!-- 分页点 -->
-                    <div class="pagination-dots" id="pagination-dots" style="display: none;">
-                        <!-- 分页点将在这里动态生成 -->
-                    </div>
-                </div>
+            <div class="config-grid-layout" id="config-grid">
+                <!-- Config items will be injected here -->
             </div>
-
+            
+            <!-- Empty State -->
+            <div id="empty-state" class="hidden flex flex-col items-center justify-center h-64 text-muted-foreground">
+                <div class="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
+                    <i class="fas fa-inbox text-2xl opacity-50"></i>
+                </div>
+                <p class="font-medium">暂无配置</p>
+                <p class="text-sm opacity-70 mt-1">点击左侧 "新建配置" 开始使用</p>
+            </div>
         </div>
     </div>
 
-    <!-- 新增/编辑配置模态框 -->
+    <!-- Modal -->
     <div id="configModal" class="fixed inset-0 z-50 hidden">
-        <div class="modal-backdrop fixed inset-0" onclick="closeModal()"></div>
-        <div class="fixed left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 modal-content p-8 w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-3xl">
-            <div class="flex justify-between items-center mb-8 pb-6 border-b border-white border-opacity-20">
-                <div>
-                    <div class="text-2xl font-bold text-white flex items-center" id="modal-title">
-                        <i class="fas fa-cog mr-3"></i>
-                        新增配置
-                    </div>
-                    <p class="text-white opacity-70 text-sm mt-1">创建新的环境配置</p>
-                </div>
-                <button class="btn btn-outline btn-icon-md rounded-2xl" onclick="closeModal()">
+        <div class="modal-overlay fixed inset-0 transition-opacity duration-300" onclick="closeModal()"></div>
+        <div class="fixed left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 modal-content w-full max-w-lg rounded-xl overflow-hidden shadow-2xl transition-all duration-300 scale-95 opacity-0" id="modal-panel">
+            <div class="p-6 border-b border-border flex justify-between items-center bg-muted/30">
+                <h3 class="font-bold text-lg" id="modal-title">新建配置</h3>
+                <button class="text-muted-foreground hover:text-foreground transition-colors" onclick="closeModal()">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
             
-            <form id="configForm" class="space-y-6">
-                <div>
-                    <label class="block text-white font-semibold mb-3 flex items-center" for="config-name">
-                        <i class="fas fa-tag mr-2"></i>
-                        配置名称
-                    </label>
-                    <input type="text" class="input" id="config-name" placeholder="为你的配置起个名字..." required>
-                </div>
-                
-                <div class="grid grid-cols-1 gap-6">
+            <div class="p-6 max-h-[70vh] overflow-y-auto">
+                <form id="configForm" class="space-y-4">
                     <div>
-                        <label class="block text-white font-semibold mb-3 flex items-center" for="config-base-url">
-                            <i class="fas fa-link mr-2"></i>
-                            ANTHROPIC_BASE_URL
-                        </label>
-                        <input type="text" class="input" id="config-base-url" placeholder="https://api.anthropic.com">
+                        <label class="block text-sm font-medium mb-1.5">配置名称 <span class="text-destructive">*</span></label>
+                        <input type="text" class="input" id="config-name" placeholder="例如: Production" required>
                     </div>
+
+                    <!-- Provider Selection -->
+                    <div class="provider-tabs">
+                        <div class="provider-tab active" onclick="switchProvider('claude')">Claude</div>
+                        <div class="provider-tab" onclick="switchProvider('codex')">Codex</div>
+                        <div class="provider-tab" onclick="switchProvider('gemini')">Gemini CLI</div>
+                    </div>
+                    <input type="hidden" id="config-provider" value="claude">
                     
-                    <div>
-                        <label class="block text-white font-semibold mb-3 flex items-center" for="config-auth-token">
-                            <i class="fas fa-key mr-2"></i>
-                            ANTHROPIC_AUTH_TOKEN
-                        </label>
-                        <input type="text" class="input" id="config-auth-token" placeholder="你的认证令牌">
+                    <!-- Claude Fields -->
+                    <div id="fields-claude" class="provider-fields space-y-4">
+                        <div>
+                            <label class="block text-xs font-medium text-muted-foreground mb-1.5 uppercase">Base URL</label>
+                            <input type="text" class="input font-mono text-xs" id="claude-base-url" placeholder="https://api.anthropic.com">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-muted-foreground mb-1.5 uppercase">Auth Token</label>
+                            <input type="text" class="input font-mono text-xs" id="claude-auth-token" placeholder="sk-ant-...">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-muted-foreground mb-1.5 uppercase">Model</label>
+                            <input type="text" class="input font-mono text-xs" id="claude-model" placeholder="claude-3-5-sonnet-20241022">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-muted-foreground mb-1.5 uppercase">API Key</label>
+                            <input type="text" class="input font-mono text-xs" id="claude-api-key" placeholder="sk-...">
+                        </div>
                     </div>
-                    
-                    <div>
-                        <label class="block text-white font-semibold mb-3 flex items-center" for="config-model">
-                            <i class="fas fa-brain mr-2"></i>
-                            ANTHROPIC_MODEL
-                        </label>
-                        <input type="text" class="input" id="config-model" placeholder="claude-3-5-sonnet-20241022">
+
+                    <!-- Codex Fields -->
+                    <div id="fields-codex" class="provider-fields space-y-4 hidden">
+                        <div>
+                            <label class="block text-xs font-medium text-muted-foreground mb-1.5 uppercase">Base URL</label>
+                            <input type="text" class="input font-mono text-xs" id="codex-base-url" placeholder="输入基础域名">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-muted-foreground mb-1.5 uppercase">API Key</label>
+                            <input type="text" class="input font-mono text-xs" id="codex-api-key" placeholder="CodeX专用分组令牌key">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-muted-foreground mb-1.5 uppercase">Model</label>
+                            <input type="text" class="input font-mono text-xs" id="codex-model" placeholder="gpt-5.1-codex">
+                        </div>
+                        
+                        <!-- Templates -->
+                        <div class="pt-2 border-t border-border">
+                            <button type="button" class="text-xs flex items-center gap-1 text-muted-foreground hover:text-foreground mb-2" onclick="toggleTemplates('codex')">
+                                <i class="fas fa-code"></i> 自定义配置文件模板
+                                <i class="fas fa-chevron-down text-[10px] transition-transform" id="icon-codex-templates"></i>
+                            </button>
+                            <div id="templates-codex" class="hidden space-y-3">
+                                <div>
+                                    <label class="block text-[10px] font-medium text-muted-foreground mb-1">config.toml</label>
+                                    <textarea id="codex-tmpl-config" class="input h-24 py-2 text-[10px] font-mono leading-tight resize-none" placeholder="默认模板..."></textarea>
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-medium text-muted-foreground mb-1">auth.json</label>
+                                    <textarea id="codex-tmpl-auth" class="input h-16 py-2 text-[10px] font-mono leading-tight resize-none" placeholder="默认模板..."></textarea>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    
-                    <div>
-                        <label class="block text-white font-semibold mb-3 flex items-center" for="config-api-key">
-                            <i class="fas fa-code mr-2"></i>
-                            ANTHROPIC_API_KEY
-                        </label>
-                        <input type="text" class="input" id="config-api-key" placeholder="你的 API 密钥">
+
+                    <!-- Gemini CLI Fields -->
+                    <div id="fields-gemini" class="provider-fields space-y-4 hidden">
+                        <div>
+                            <label class="block text-xs font-medium text-muted-foreground mb-1.5 uppercase">Base URL</label>
+                            <input type="text" class="input font-mono text-xs" id="gemini-base-url" placeholder="输入基础域名">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-muted-foreground mb-1.5 uppercase">API Key</label>
+                            <input type="text" class="input font-mono text-xs" id="gemini-api-key" placeholder="Gemini CLI专用分组令牌key">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-muted-foreground mb-1.5 uppercase">Model</label>
+                            <input type="text" class="input font-mono text-xs" id="gemini-model" placeholder="gemini-3-pro-preview">
+                        </div>
+
+                        <!-- Templates -->
+                        <div class="pt-2 border-t border-border">
+                            <button type="button" class="text-xs flex items-center gap-1 text-muted-foreground hover:text-foreground mb-2" onclick="toggleTemplates('gemini')">
+                                <i class="fas fa-code"></i> 自定义配置文件模板
+                                <i class="fas fa-chevron-down text-[10px] transition-transform" id="icon-gemini-templates"></i>
+                            </button>
+                            <div id="templates-gemini" class="hidden space-y-3">
+                                <div>
+                                    <label class="block text-[10px] font-medium text-muted-foreground mb-1">.env</label>
+                                    <textarea id="gemini-tmpl-env" class="input h-20 py-2 text-[10px] font-mono leading-tight resize-none" placeholder="默认模板..."></textarea>
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-medium text-muted-foreground mb-1">settings.json</label>
+                                    <textarea id="gemini-tmpl-settings" class="input h-24 py-2 text-[10px] font-mono leading-tight resize-none" placeholder="默认模板..."></textarea>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                </div>
-                
-                <div class="flex gap-4 justify-end mt-8 pt-6 border-t border-white border-opacity-20">
-                    <button type="button" class="btn btn-secondary" onclick="closeModal()">
-                        <i class="fas fa-times mr-2"></i>
-                        取消
-                    </button>
-                    <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-save mr-2"></i>
-                        保存配置
-                    </button>
-                </div>
-            </form>
+                </form>
+            </div>
+            
+            <div class="p-4 border-t border-border bg-muted/30 flex justify-end gap-3">
+                <button type="button" class="btn btn-secondary" onclick="closeModal()">取消</button>
+                <button type="button" class="btn btn-primary" onclick="document.getElementById('configForm').dispatchEvent(new Event('submit'))">保存配置</button>
+            </div>
         </div>
     </div>
 
+    <!-- Toast Container -->
+    <div class="fixed bottom-6 right-6 z-50 flex flex-col gap-2" id="toast-container"></div>
+
     <script>
-        let configs = []; // 存储所有配置
-        let editingConfigIndex = -1; // 正在编辑的配置索引
-        let currentTab = 0; // 当前选中的配置索引
+        let configs = [];
+        let activeEnvs = {
+            claude: '',
+            codex: '',
+            gemini: ''
+        };
+        let editingConfigIndex = -1;
+        let currentFilter = 'all';
+        let currentSearch = '';
         
-        // 页面加载时初始化
+        // Theme Management
+        function initTheme() {
+            const savedTheme = localStorage.getItem('theme') || 'dark';
+            document.documentElement.className = savedTheme;
+        }
+        
+        function toggleTheme() {
+            const html = document.documentElement;
+            const newTheme = html.classList.contains('dark') ? 'light' : 'dark';
+            html.className = newTheme;
+            localStorage.setItem('theme', newTheme);
+        }
+
+        // Init
         window.addEventListener('DOMContentLoaded', function() {
+            initTheme();
             loadConfigs();
             refreshCurrentEnv();
         });
 
-        // 刷新当前环境变量
-        async function refreshCurrentEnv() {
-            const refreshBtn = document.getElementById('refresh-btn');
+        // Provider Switching
+        function switchProvider(provider) {
+            document.getElementById('config-provider').value = provider;
             
-            try {
-                refreshBtn.disabled = true;
-                refreshBtn.innerHTML = '<i class="fas fa-sync-alt fa-spin"></i> 刷新中...';
-                
-                // 获取当前环境变量
-                const baseUrl = await window.go.main.App.GetEnvVar('ANTHROPIC_BASE_URL');
-                const authToken = await window.go.main.App.GetEnvVar('ANTHROPIC_AUTH_TOKEN');
-                const model = await window.go.main.App.GetEnvVar('ANTHROPIC_MODEL');
-                const apiKey = await window.go.main.App.GetEnvVar('ANTHROPIC_API_KEY');
-                
-                // 更新显示
-                updateCurrentEnvDisplay('current-base-url', baseUrl);
-                updateCurrentEnvDisplay('current-auth-token', authToken);
-                updateCurrentEnvDisplay('current-model', model);
-                updateCurrentEnvDisplay('current-api-key', apiKey);
-                
-                showToast('当前环境变量刷新成功', 'success');
-                
-            } catch (error) {
-                console.error('获取环境变量失败:', error);
-                showToast('获取环境变量失败: ' + error.message, 'error');
-            } finally {
-                refreshBtn.disabled = false;
-                refreshBtn.innerHTML = '<i class="fas fa-sync-alt"></i> 刷新当前环境变量';
-            }
-        }
-        
-        // 更新当前环境变量显示
-        function updateCurrentEnvDisplay(elementId, value) {
-            const element = document.getElementById(elementId);
-            if (element) {
-                element.textContent = value || '未设置';
-                if (value) {
-                    element.className = 'env-var-display';
-                } else {
-                    element.className = 'env-var-display empty';
-                }
-            }
-        }
-        
-        // 加载配置列表
-        async function loadConfigs() {
-            try {
-                // 从后端获取配置
-                const config = await window.go.main.App.GetConfig();
-                configs = config.environments || [];
-                
-                // 重置当前tab到第一页
-                currentTab = 0;
-                
-                // 生成tabs和渲染配置列表
-                generateTabs();
-                renderConfigList();
-            } catch (error) {
-                console.error('加载配置失败:', error);
-                showToast('加载配置失败: ' + error.message, 'error');
-            }
-        }
-        
-        let isTabsExpanded = false; // 记录tab是否已展开
-        
-        // 生成tab按钮
-        function generateTabs() {
-            const tabContainer = document.getElementById('tab-container');
-            const maxVisibleTabs = 4; // 最多显示4个tab，超过则显示展开按钮
-            
-            if (configs.length === 0) {
-                // 没有配置时显示默认tab
-                tabContainer.innerHTML = `
-                    <div class="tab-content">
-                        <div class="tab-slider" id="tab-slider"></div>
-                        <button class="tab-button active" data-tab="0">
-                            <i class="fas fa-inbox"></i>
-                            <span class="tab-text">暂无配置</span>
-                        </button>
-                    </div>
-                `;
-                return;
-            }
-            
-            if (configs.length <= maxVisibleTabs) {
-                // 少于等于4个配置时，显示正常的tab
-                let tabsHTML = '<div class="tab-content"><div class="tab-slider" id="tab-slider"></div>';
-                configs.forEach((config, index) => {
-                    tabsHTML += `
-                        <button class="tab-button ${index === currentTab ? 'active' : ''}" data-tab="${index}" title="${config.name}">
-                            <i class="fas fa-folder"></i>
-                            <span class="tab-text">${config.name}</span>
-                        </button>
-                    `;
-                });
-                tabsHTML += '</div>';
-                tabContainer.innerHTML = tabsHTML;
-                
-                // 添加事件监听器
-                const tabButtons = tabContainer.querySelectorAll('.tab-button');
-                tabButtons.forEach((button, index) => {
-                    button.addEventListener('click', () => switchTab(index));
-                });
-                
-                // 更新滑块位置
-                setTimeout(() => {
-                    updateTabSlider();
-                }, 50);
-            } else {
-                // 超过4个配置时，显示前4个tab + 展开按钮
-                const tabContentClass = isTabsExpanded ? 'tab-content expanded' : 'tab-content';
-                let tabsHTML = `<div class="${tabContentClass}"><div class="tab-slider" id="tab-slider"></div>`;
-                
-                if (isTabsExpanded) {
-                    // 展开模式：显示所有tab
-                    configs.forEach((config, index) => {
-                        tabsHTML += `
-                            <button class="tab-button ${index === currentTab ? 'active' : ''}" data-tab="${index}" title="${config.name}">
-                                <i class="fas fa-folder"></i>
-                                <span class="tab-text">${config.name}</span>
-                            </button>
-                        `;
-                    });
-                    
-                    // 收起按钮
-                    tabsHTML += `
-                        <button class="expand-toggle" id="expand-toggle">
-                            <i class="fas fa-chevron-up"></i>
-                            <span>收起</span>
-                        </button>
-                    `;
-                } else {
-                    // 收起模式：只显示前4个tab
-                    configs.slice(0, 4).forEach((config, index) => {
-                        tabsHTML += `
-                            <button class="tab-button ${index === currentTab ? 'active' : ''}" data-tab="${index}" title="${config.name}">
-                                <i class="fas fa-folder"></i>
-                                <span class="tab-text">${config.name}</span>
-                            </button>
-                        `;
-                    });
-                    
-                    // 展开按钮
-                    const remainingCount = configs.length - 4;
-                    tabsHTML += `
-                        <button class="expand-toggle" id="expand-toggle">
-                            <i class="fas fa-chevron-down"></i>
-                            <span>更多配置 (${remainingCount})</span>
-                        </button>
-                    `;
-                }
-                
-                tabsHTML += '</div>';
-                tabContainer.innerHTML = tabsHTML;
-                
-                // 添加tab事件监听器
-                const tabButtons = tabContainer.querySelectorAll('.tab-button');
-                tabButtons.forEach((button) => {
-                    const index = parseInt(button.getAttribute('data-tab'));
-                    button.addEventListener('click', () => switchTab(index));
-                });
-                
-                // 添加展开/收起按钮事件监听器
-                const expandToggle = document.getElementById('expand-toggle');
-                if (expandToggle) {
-                    expandToggle.addEventListener('click', toggleTabsExpansion);
-                }
-                
-                // 更新滑块位置
-                setTimeout(() => {
-                    updateTabSlider();
-                }, 50);
-            }
-        }
-        
-        // 切换tab展开/收起状态
-        function toggleTabsExpansion() {
-            isTabsExpanded = !isTabsExpanded;
-            generateTabs(); // 重新生成tab布局
-        }
-        
-        // 切换tab
-        function switchTab(tabIndex) {
-            if (configs.length === 0) return;
-            
-            currentTab = tabIndex;
-            
-            // 更新tab按钮状态
-            const tabButtons = document.querySelectorAll('.tab-button');
-            tabButtons.forEach((button, index) => {
-                if (index === tabIndex) {
-                    button.classList.add('active');
-                } else {
-                    button.classList.remove('active');
+            // Update Tabs
+            document.querySelectorAll('.provider-tab').forEach(tab => {
+                tab.classList.remove('active');
+                if (tab.textContent.toLowerCase().includes(provider)) {
+                    tab.classList.add('active');
                 }
             });
             
-            // 更新滑块位置
-            updateTabSlider();
-            
-            // 重新渲染配置详情
-            renderConfigDetail();
+            // Show/Hide Fields
+            document.querySelectorAll('.provider-fields').forEach(field => field.classList.add('hidden'));
+            document.getElementById(`fields-${provider}`).classList.remove('hidden');
         }
-        
-        // 更新tab滑块位置
-        function updateTabSlider() {
-            const tabSlider = document.getElementById('tab-slider');
-            const tabButtons = document.querySelectorAll('.tab-button');
-            const tabContainer = document.getElementById('tab-container');
-            
-            if (!tabSlider || !tabContainer) return;
-            
-            // 在展开模式或配置数量少于等于4个时，总是显示滑块
-            tabSlider.style.display = 'block';
-            
-            if (tabButtons.length > currentTab && tabButtons.length > 0) {
-                const activeTab = tabButtons[currentTab];
-                
-                if (activeTab) {
-                    // 使用getBoundingClientRect获取精确位置
-                    const containerRect = tabContainer.getBoundingClientRect();
-                    const activeTabRect = activeTab.getBoundingClientRect();
-                    
-                    // 计算相对于tab-container的位置
-                    const offsetLeft = activeTabRect.left - containerRect.left;
-                    const offsetTop = activeTabRect.top - containerRect.top;
-                    const width = activeTabRect.width;
-                    const height = activeTabRect.height;
-                    
-                    tabSlider.style.left = `${offsetLeft}px`;
-                    tabSlider.style.width = `${width}px`;
-                    tabSlider.style.height = `${height}px`;
-                    tabSlider.style.top = `${offsetTop}px`;
+
+        function toggleTemplates(provider) {
+            const el = document.getElementById(`templates-${provider}`);
+            const icon = document.getElementById(`icon-${provider}-templates`);
+            if (el.classList.contains('hidden')) {
+                el.classList.remove('hidden');
+                icon.style.transform = 'rotate(180deg)';
+            } else {
+                el.classList.add('hidden');
+                icon.style.transform = 'rotate(0deg)';
+            }
+        }
+
+        // Filter & Search
+        function filterConfigs(provider) {
+            currentFilter = provider;
+            document.querySelectorAll('.filter-tab').forEach(tab => {
+                tab.classList.remove('active');
+                if (tab.textContent.toLowerCase() === provider) {
+                    tab.classList.add('active');
                 }
+            });
+            renderConfigGrid();
+        }
+
+        function searchConfigs(query) {
+            currentSearch = query.toLowerCase();
+            renderConfigGrid();
+        }
+
+        // Refresh Env Vars
+        async function refreshCurrentEnv() {
+            const refreshBtn = document.getElementById('refresh-btn');
+            const originalContent = refreshBtn.innerHTML;
+            
+            try {
+                refreshBtn.disabled = true;
+                refreshBtn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> 刷新中...';
+                
+                const vars = ['ANTHROPIC_BASE_URL', 'ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_MODEL', 'ANTHROPIC_API_KEY'];
+                const values = await Promise.all(vars.map(v => window.go.main.App.GetEnvVar(v)));
+                
+                const container = document.getElementById('current-env-grid');
+                container.innerHTML = `
+                    ${renderEnvCard('Base URL', 'globe', 'blue', values[0], 'ANTHROPIC_BASE_URL')}
+                    ${renderEnvCard('Auth Token', 'fingerprint', 'purple', values[1], 'ANTHROPIC_AUTH_TOKEN')}
+                    ${renderEnvCard('Model', 'microchip', 'pink', values[2], 'ANTHROPIC_MODEL')}
+                    ${renderEnvCard('API Key', 'key', 'orange', values[3], 'ANTHROPIC_API_KEY')}
+                `;
+                
+                showToast('环境状态已同步', 'success');
+            } catch (error) {
+                console.error('Error:', error);
+                showToast('获取环境变量失败', 'error');
+            } finally {
+                refreshBtn.disabled = false;
+                refreshBtn.innerHTML = originalContent;
             }
         }
         
-        // 渲染配置详情
-        function renderConfigDetail() {
-            const configList = document.getElementById('config-list');
-            
-            if (configs.length === 0) {
-                configList.innerHTML = `
-                    <div class="col-span-full flex flex-col items-center justify-center py-16">
-                        <div class="w-20 h-20 mx-auto mb-4 bg-white bg-opacity-10 rounded-2xl flex items-center justify-center">
-                            <i class="fas fa-inbox text-3xl text-white opacity-50"></i>
-                        </div>
-                        <p class="text-white opacity-70 text-lg mb-2">暂无配置</p>
-                        <p class="text-white opacity-50 text-sm">点击上方按钮新增你的第一个配置</p>
+        function renderEnvCard(label, icon, color, value, key) {
+            return `
+                <div class="env-card group">
+                    <div class="w-8 h-8 rounded-lg bg-${color}-500/10 text-${color}-500 flex items-center justify-center flex-shrink-0">
+                        <i class="fas fa-${icon}"></i>
                     </div>
-                `;
-                return;
-            }
-            
-            // 获取当前选中的配置
-            const config = configs[currentTab];
-            if (!config) return;
-            
-            configList.innerHTML = `
-                <div class="bg-white bg-opacity-10 backdrop-blur-sm rounded-2xl p-8 border border-white border-opacity-20 hover:bg-opacity-15 transition-all duration-300">
-                    <div class="mb-8">
-                        <div class="flex justify-between items-start mb-4">
-                            <div class="flex-1 min-w-0 pr-4">
-                                <h3 class="text-2xl font-bold text-white mb-3 flex items-center">
-                                    <i class="fas fa-folder-open text-white opacity-70 mr-3 flex-shrink-0"></i>
-                                    <span class="truncate">${config.name}</span>
-                                </h3>
-                                <p class="text-white opacity-70 text-base">环境变量配置详情</p>
-                            </div>
-                            <div class="flex gap-3 flex-wrap flex-shrink-0">
-                                <button class="btn btn-success px-6 py-3" onclick="applyConfig(${currentTab})" title="应用配置">
-                                    <i class="fas fa-play mr-2"></i>
-                                    应用此配置
-                                </button>
-                                <button class="btn btn-primary px-6 py-3" onclick="editConfig(${currentTab})" title="编辑配置">
-                                    <i class="fas fa-edit mr-2"></i>
-                                    编辑
-                                </button>
-                                <button class="btn btn-danger px-6 py-3" onclick="deleteConfig(${currentTab})" title="删除配置">
-                                    <i class="fas fa-trash mr-2"></i>
-                                    删除
-                                </button>
-                            </div>
-                        </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="text-xs font-medium text-muted-foreground mb-1">${label}</div>
+                        <div class="env-value truncate" title="${value || ''}">${value || 'Not Set'}</div>
                     </div>
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div class="bg-white bg-opacity-5 rounded-xl p-6 border border-white border-opacity-10">
-                            <div class="flex items-center mb-4">
-                                <div class="w-10 h-10 bg-blue-500 bg-opacity-20 rounded-lg flex items-center justify-center mr-3">
-                                    <i class="fas fa-link text-blue-300"></i>
-                                </div>
-                                <div>
-                                    <div class="text-white font-semibold">ANTHROPIC_BASE_URL</div>
-                                    <div class="text-white opacity-60 text-sm">API服务器地址</div>
-                                </div>
-                            </div>
-                            <div class="text-white opacity-90 font-mono text-sm break-all bg-black bg-opacity-20 p-3 rounded-lg ${config.variables.ANTHROPIC_BASE_URL ? '' : 'italic opacity-50'}">
-                                ${config.variables.ANTHROPIC_BASE_URL || '未设置'}
-                            </div>
-                        </div>
-                        
-                        <div class="bg-white bg-opacity-5 rounded-xl p-6 border border-white border-opacity-10">
-                            <div class="flex items-center mb-4">
-                                <div class="w-10 h-10 bg-green-500 bg-opacity-20 rounded-lg flex items-center justify-center mr-3">
-                                    <i class="fas fa-key text-green-300"></i>
-                                </div>
-                                <div>
-                                    <div class="text-white font-semibold">ANTHROPIC_AUTH_TOKEN</div>
-                                    <div class="text-white opacity-60 text-sm">认证令牌</div>
-                                </div>
-                            </div>
-                            <div class="text-white opacity-90 font-mono text-sm break-all bg-black bg-opacity-20 p-3 rounded-lg ${config.variables.ANTHROPIC_AUTH_TOKEN ? '' : 'italic opacity-50'}">
-                                ${config.variables.ANTHROPIC_AUTH_TOKEN ? '••••••••••••••••••••' + config.variables.ANTHROPIC_AUTH_TOKEN.slice(-6) : '未设置'}
-                            </div>
-                        </div>
-                        
-                        <div class="bg-white bg-opacity-5 rounded-xl p-6 border border-white border-opacity-10">
-                            <div class="flex items-center mb-4">
-                                <div class="w-10 h-10 bg-purple-500 bg-opacity-20 rounded-lg flex items-center justify-center mr-3">
-                                    <i class="fas fa-brain text-purple-300"></i>
-                                </div>
-                                <div>
-                                    <div class="text-white font-semibold">ANTHROPIC_MODEL</div>
-                                    <div class="text-white opacity-60 text-sm">AI模型版本</div>
-                                </div>
-                            </div>
-                            <div class="text-white opacity-90 font-mono text-sm break-all bg-black bg-opacity-20 p-3 rounded-lg ${config.variables.ANTHROPIC_MODEL ? '' : 'italic opacity-50'}">
-                                ${config.variables.ANTHROPIC_MODEL || '未设置'}
-                            </div>
-                        </div>
-                        
-                        <div class="bg-white bg-opacity-5 rounded-xl p-6 border border-white border-opacity-10">
-                            <div class="flex items-center mb-4">
-                                <div class="w-10 h-10 bg-orange-500 bg-opacity-20 rounded-lg flex items-center justify-center mr-3">
-                                    <i class="fas fa-code text-orange-300"></i>
-                                </div>
-                                <div>
-                                    <div class="text-white font-semibold">ANTHROPIC_API_KEY</div>
-                                    <div class="text-white opacity-60 text-sm">API密钥</div>
-                                </div>
-                            </div>
-                            <div class="text-white opacity-90 font-mono text-sm break-all bg-black bg-opacity-20 p-3 rounded-lg ${config.variables.ANTHROPIC_API_KEY ? '' : 'italic opacity-50'}">
-                                ${config.variables.ANTHROPIC_API_KEY ? '••••••••••••••••••••' + config.variables.ANTHROPIC_API_KEY.slice(-6) : '未设置'}
-                            </div>
-                        </div>
-                    </div>
+                    <button class="opacity-0 group-hover:opacity-100 transition-opacity p-2 text-muted-foreground hover:text-destructive" onclick="clearEnvVar('${key}')">
+                        <i class="fas fa-times"></i>
+                    </button>
                 </div>
             `;
         }
         
-        // 向后兼容的函数名
-        function renderConfigList() {
-            renderConfigDetail();
-        }
-        
-        // 显示新增配置模态框
-        function showAddModal() {
-            editingConfigIndex = -1;
-            document.getElementById('modal-title').textContent = '新增配置';
-            document.getElementById('config-name').value = '';
-            document.getElementById('config-base-url').value = '';
-            document.getElementById('config-auth-token').value = '';
-            document.getElementById('config-model').value = '';
-            document.getElementById('config-api-key').value = '';
-            document.getElementById('configModal').classList.remove('hidden');
-        }
-        
-        // 编辑配置
-        function editConfig(index) {
-            editingConfigIndex = index;
-            const config = configs[index];
-            document.getElementById('modal-title').textContent = '编辑配置';
-            document.getElementById('config-name').value = config.name;
-            document.getElementById('config-base-url').value = config.variables.ANTHROPIC_BASE_URL || '';
-            document.getElementById('config-auth-token').value = config.variables.ANTHROPIC_AUTH_TOKEN || '';
-            document.getElementById('config-model').value = config.variables.ANTHROPIC_MODEL || '';
-            document.getElementById('config-api-key').value = config.variables.ANTHROPIC_API_KEY || '';
-            document.getElementById('configModal').classList.remove('hidden');
-        }
-        
-        // 关闭模态框
-        function closeModal() {
-            document.getElementById('configModal').classList.add('hidden');
-        }
-        
-        // 应用配置到本地
-        async function applyConfig(index) {
+        // Load Configs
+        async function loadConfigs() {
             try {
-                const config = configs[index];
-                const baseUrl = config.variables.ANTHROPIC_BASE_URL || '';
-                const authToken = config.variables.ANTHROPIC_AUTH_TOKEN || '';
-                const model = config.variables.ANTHROPIC_MODEL || '';
-                const apiKey = config.variables.ANTHROPIC_API_KEY || '';
+                const config = await window.go.main.App.GetConfig();
+                configs = config.environments || [];
                 
-                // 设置环境变量
-                if (baseUrl) {
-                    await window.go.main.App.SetEnvVar('ANTHROPIC_BASE_URL', baseUrl);
-                }
-                if (authToken) {
-                    await window.go.main.App.SetEnvVar('ANTHROPIC_AUTH_TOKEN', authToken);
-                }
-                if (model) {
-                    await window.go.main.App.SetEnvVar('ANTHROPIC_MODEL', model);
-                }
-                if (apiKey) {
-                    await window.go.main.App.SetEnvVar('ANTHROPIC_API_KEY', apiKey);
+                // Load active envs per provider
+                activeEnvs.claude = config.current_env_claude || '';
+                activeEnvs.codex = config.current_env_codex || '';
+                activeEnvs.gemini = config.current_env_gemini || '';
+                
+                // Fallback for backward compatibility
+                if (!activeEnvs.claude && !activeEnvs.codex && !activeEnvs.gemini && config.current_env) {
+                    // Try to guess provider of current_env
+                    const env = configs.find(c => c.name === config.current_env);
+                    if (env) {
+                        const p = env.provider || 'claude';
+                        activeEnvs[p] = config.current_env;
+                    }
                 }
                 
-                // 刷新当前环境变量显示
-                await refreshCurrentEnv();
-                
-                showToast(`配置 "${config.name}" 已应用到本地环境变量`, 'success');
-                
+                renderConfigGrid();
             } catch (error) {
-                console.error('应用配置失败:', error);
-                showToast('应用配置失败: ' + error.message, 'error');
+                console.error('Load configs failed:', error);
+                showToast('加载配置失败', 'error');
             }
         }
         
-        // 删除配置
-        async function deleteConfig(index) {
-            if (!confirm('确定要删除这个配置吗？')) {
+        // Render Grid
+        function renderConfigGrid() {
+            const container = document.getElementById('config-grid');
+            const emptyState = document.getElementById('empty-state');
+            
+            // Filter configs
+            const filteredConfigs = configs.filter(config => {
+                const provider = config.provider || 'claude';
+                const matchesFilter = currentFilter === 'all' || provider === currentFilter;
+                const matchesSearch = config.name.toLowerCase().includes(currentSearch);
+                return matchesFilter && matchesSearch;
+            });
+            
+            if (filteredConfigs.length === 0) {
+                container.innerHTML = '';
+                emptyState.classList.remove('hidden');
                 return;
             }
             
-            try {
-                const configName = configs[index].name;
-                await window.go.main.App.DeleteEnv(configName);
+            emptyState.classList.add('hidden');
+            let html = '';
+            
+            filteredConfigs.forEach((config) => {
+                // Find original index for actions
+                const index = configs.indexOf(config);
+                const provider = config.provider || 'claude';
+                const isActive = config.name === activeEnvs[provider];
                 
-                // 检查删除后当前tab是否还有效
-                if (currentTab >= configs.length - 1 && configs.length > 1) {
-                    currentTab = configs.length - 2; // 选择前一个配置
-                } else if (configs.length <= 1) {
-                    currentTab = 0; // 只剩下一个或没有配置时重置为0
+                let providerBadge = '';
+                let details = '';
+                let baseUrl = '';
+
+                if (provider === 'codex') {
+                    baseUrl = config.variables.base_url;
+                    providerBadge = '<span class="text-[10px] px-2 py-0.5 rounded bg-blue-500/10 text-blue-500 font-mono border border-blue-500/20">CODEX</span>';
+                    details = `
+                        <div class="grid grid-cols-2 gap-2 mt-3">
+                            <div class="bg-muted/50 p-2 rounded text-xs">
+                                <div class="text-muted-foreground text-[10px] uppercase">Model</div>
+                                <div class="font-mono truncate" title="${config.variables.model}">${config.variables.model || '-'}</div>
+                            </div>
+                            <div class="bg-muted/50 p-2 rounded text-xs">
+                                <div class="text-muted-foreground text-[10px] uppercase">Base URL</div>
+                                <div class="font-mono truncate" title="${config.variables.base_url}">${config.variables.base_url || '-'}</div>
+                            </div>
+                        </div>
+                    `;
+                } else if (provider === 'gemini') {
+                    baseUrl = config.variables.GOOGLE_GEMINI_BASE_URL;
+                    providerBadge = '<span class="text-[10px] px-2 py-0.5 rounded bg-purple-500/10 text-purple-500 font-mono border border-purple-500/20">GEMINI</span>';
+                    details = `
+                        <div class="grid grid-cols-2 gap-2 mt-3">
+                            <div class="bg-muted/50 p-2 rounded text-xs">
+                                <div class="text-muted-foreground text-[10px] uppercase">Model</div>
+                                <div class="font-mono truncate" title="${config.variables.GEMINI_MODEL}">${config.variables.GEMINI_MODEL || '-'}</div>
+                            </div>
+                            <div class="bg-muted/50 p-2 rounded text-xs">
+                                <div class="text-muted-foreground text-[10px] uppercase">Base URL</div>
+                                <div class="font-mono truncate" title="${config.variables.GOOGLE_GEMINI_BASE_URL}">${config.variables.GOOGLE_GEMINI_BASE_URL || '-'}</div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    baseUrl = config.variables.ANTHROPIC_BASE_URL;
+                    providerBadge = '<span class="text-[10px] px-2 py-0.5 rounded bg-muted text-muted-foreground font-mono border border-border">CLAUDE</span>';
+                    details = `
+                        <div class="grid grid-cols-2 gap-2 mt-3">
+                            <div class="bg-muted/50 p-2 rounded text-xs">
+                                <div class="text-muted-foreground text-[10px] uppercase">Model</div>
+                                <div class="font-mono truncate" title="${config.variables.ANTHROPIC_MODEL}">${config.variables.ANTHROPIC_MODEL || '-'}</div>
+                            </div>
+                            <div class="bg-muted/50 p-2 rounded text-xs">
+                                <div class="text-muted-foreground text-[10px] uppercase">Base URL</div>
+                                <div class="font-mono truncate" title="${config.variables.ANTHROPIC_BASE_URL}">${config.variables.ANTHROPIC_BASE_URL || '-'}</div>
+                            </div>
+                        </div>
+                    `;
                 }
+
+                html += `
+                    <div class="config-item group ${isActive ? 'active' : ''}" onclick="applyConfig(${index})">
+                        <div class="flex justify-between items-start mb-2">
+                            <div class="flex items-center gap-2 min-w-0 flex-1 mr-2">
+                                <div class="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
+                                    <i class="fas fa-cube text-sm"></i>
+                                </div>
+                                <div class="min-w-0 flex-1">
+                                    <h3 class="font-bold text-foreground text-sm truncate" title="${config.name}">${config.name}</h3>
+                                    ${providerBadge}
+                                </div>
+                            </div>
+                            <div class="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 flex-shrink-0" onclick="event.stopPropagation()">
+                                <button class="w-7 h-7 rounded hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground" onclick="testLatency('${baseUrl}', this)" title="测速">
+                                    <i class="fas fa-tachometer-alt text-xs"></i>
+                                </button>
+                                <button class="w-7 h-7 rounded hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground" onclick="editConfig(${index})">
+                                    <i class="fas fa-pen text-xs"></i>
+                                </button>
+                                <button class="w-7 h-7 rounded hover:bg-destructive/10 flex items-center justify-center text-muted-foreground hover:text-destructive" onclick="deleteConfig(${index})">
+                                    <i class="fas fa-trash text-xs"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        ${details}
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
+        // Modal Functions
+        function showAddModal() {
+            editingConfigIndex = -1;
+            document.getElementById('modal-title').textContent = '新建配置';
+            document.getElementById('configForm').reset();
+            
+            // Set default templates
+            document.getElementById('codex-tmpl-config').value = `model_provider = "duckcoding"
+model = "{{model}}"
+model_reasoning_effort = "high"
+network_access = "enabled"
+disable_response_storage = true
+
+[model_providers.duckcoding]
+name = "duckcoding"
+base_url = "{{base_url}}"
+wire_api = "responses"
+requires_openai_auth = true`;
+
+            document.getElementById('codex-tmpl-auth').value = `{
+  "OPENAI_API_KEY": "{{OPENAI_API_KEY}}"
+}`;
+
+            document.getElementById('gemini-tmpl-env').value = `GOOGLE_GEMINI_BASE_URL={{GOOGLE_GEMINI_BASE_URL}}
+GEMINI_API_KEY={{GEMINI_API_KEY}}
+GEMINI_MODEL={{GEMINI_MODEL}}`;
+
+            document.getElementById('gemini-tmpl-settings').value = `{
+  "ide": {
+    "enabled": true
+  },
+  "security": {
+    "auth": {
+      "selectedType": "gemini-api-key"
+    }
+  }
+}`;
+
+            switchProvider('claude'); // Default
+            
+            const modal = document.getElementById('configModal');
+            const panel = document.getElementById('modal-panel');
+            modal.classList.remove('hidden');
+            requestAnimationFrame(() => {
+                panel.classList.remove('scale-95', 'opacity-0');
+                panel.classList.add('scale-100', 'opacity-100');
+            });
+        }
+        
+        function editConfig(index) {
+            editingConfigIndex = index;
+            const config = configs[index];
+            const provider = config.provider || 'claude';
+            
+            document.getElementById('modal-title').textContent = '编辑配置';
+            document.getElementById('config-name').value = config.name;
+            
+            switchProvider(provider);
+            
+            if (provider === 'claude') {
+                document.getElementById('claude-base-url').value = config.variables.ANTHROPIC_BASE_URL || '';
+                document.getElementById('claude-auth-token').value = config.variables.ANTHROPIC_AUTH_TOKEN || '';
+                document.getElementById('claude-model').value = config.variables.ANTHROPIC_MODEL || '';
+                document.getElementById('claude-api-key').value = config.variables.ANTHROPIC_API_KEY || '';
+            } else if (provider === 'codex') {
+                document.getElementById('codex-base-url').value = config.variables.base_url || '';
+                document.getElementById('codex-api-key').value = config.variables.OPENAI_API_KEY || '';
+                document.getElementById('codex-model').value = config.variables.model || '';
                 
-                await loadConfigs();
-                showToast(`配置 "${configName}" 已删除`, 'success');
-            } catch (error) {
-                console.error('删除配置失败:', error);
-                showToast('删除配置失败: ' + error.message, 'error');
+                // Load templates
+                const tmpls = config.templates || {};
+                document.getElementById('codex-tmpl-config').value = tmpls['config.toml'] || '';
+                document.getElementById('codex-tmpl-auth').value = tmpls['auth.json'] || '';
+                
+            } else if (provider === 'gemini') {
+                document.getElementById('gemini-base-url').value = config.variables.GOOGLE_GEMINI_BASE_URL || '';
+                document.getElementById('gemini-api-key').value = config.variables.GEMINI_API_KEY || '';
+                document.getElementById('gemini-model').value = config.variables.GEMINI_MODEL || '';
+                
+                // Load templates
+                const tmpls = config.templates || {};
+                document.getElementById('gemini-tmpl-env').value = tmpls['.env'] || '';
+                document.getElementById('gemini-tmpl-settings').value = tmpls['settings.json'] || '';
+            }
+            
+            const modal = document.getElementById('configModal');
+            const panel = document.getElementById('modal-panel');
+            modal.classList.remove('hidden');
+            requestAnimationFrame(() => {
+                panel.classList.remove('scale-95', 'opacity-0');
+                panel.classList.add('scale-100', 'opacity-100');
+            });
+        }
+        
+        function closeModal() {
+            const modal = document.getElementById('configModal');
+            const panel = document.getElementById('modal-panel');
+            
+            panel.classList.remove('scale-100', 'opacity-100');
+            panel.classList.add('scale-95', 'opacity-0');
+            
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        }
+        
+        // Actions
+        async function applyConfig(index) {
+            try {
+                const config = configs[index];
+                const provider = config.provider || 'claude';
+                
+                // Call backend to switch env
+                await window.go.main.App.SwitchToEnv(config.name);
+                await window.go.main.App.ApplyCurrentEnv();
+                
+                // Update local state and re-render
+                activeEnvs[provider] = config.name;
+                renderConfigGrid();
+                
+                await refreshCurrentEnv();
+                showToast(`已应用配置: ${config.name}`, 'success');
+            } catch (e) {
+                showToast('应用失败: ' + e.message, 'error');
+            }
+        }
+
+        async function testLatency(url, btn) {
+            if (!url) return showToast('Base URL 为空', 'error');
+            
+            const icon = btn.querySelector('i');
+            const originalClass = icon.className;
+            
+            try {
+                icon.className = 'fas fa-circle-notch fa-spin text-xs';
+                btn.disabled = true;
+                
+                const ms = await window.go.main.App.TestLatency(url);
+                
+                let color = 'text-green-500';
+                if (ms > 300) color = 'text-yellow-500';
+                if (ms > 1000) color = 'text-red-500';
+                
+                showToast(`延迟: ${ms}ms`, 'success');
+                
+                // Temporary show result on button
+                btn.innerHTML = `<span class="text-[10px] font-mono ${color}">${ms}ms</span>`;
+                setTimeout(() => {
+                    btn.innerHTML = `<i class="${originalClass}"></i>`;
+                    btn.disabled = false;
+                }, 3000);
+                
+            } catch (e) {
+                showToast('测速失败', 'error');
+                icon.className = originalClass;
+                btn.disabled = false;
             }
         }
         
-        // 处理配置表单提交
+        async function deleteConfig(index) {
+            if (!confirm('确定要删除此配置吗？')) return;
+            try {
+                await window.go.main.App.DeleteEnv(configs[index].name);
+                await loadConfigs();
+                showToast('配置已删除', 'success');
+            } catch (e) {
+                showToast('删除失败: ' + e.message, 'error');
+            }
+        }
+        
+        async function clearEnvVar(name) {
+            if (!confirm(`清除 ${name}?`)) return;
+            try {
+                await window.go.main.App.ClearEnvVar(name);
+                await refreshCurrentEnv();
+                showToast('变量已清除', 'success');
+            } catch (e) {
+                showToast('操作失败', 'error');
+            }
+        }
+        
+        async function clearAllEnvVars() {
+            if (!confirm('确定要清除所有环境变量吗？')) return;
+            try {
+                await window.go.main.App.ClearAllEnv();
+                await refreshCurrentEnv();
+                showToast('所有变量已清除', 'success');
+            } catch (e) {
+                showToast('操作失败', 'error');
+            }
+        }
+
+        // Form Submit
         document.getElementById('configForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
             const name = document.getElementById('config-name').value.trim();
-            const baseUrl = document.getElementById('config-base-url').value.trim();
-            const authToken = document.getElementById('config-auth-token').value.trim();
-            const model = document.getElementById('config-model').value.trim();
-            const apiKey = document.getElementById('config-api-key').value.trim();
+            const provider = document.getElementById('config-provider').value;
             
-            if (!name) {
-                showToast('请输入配置名称', 'error');
-                return;
-            }
+            if (!name) return showToast('请输入配置名称', 'error');
             
-            // 检查名称冲突（编辑时排除自己）
-            const existingIndex = configs.findIndex(config => config.name === name);
-            if (existingIndex !== -1 && existingIndex !== editingConfigIndex) {
-                showToast('配置名称已存在', 'error');
-                return;
-            }
+            const exists = configs.some((c, i) => c.name === name && i !== editingConfigIndex);
+            if (exists) return showToast('配置名称已存在', 'error');
             
-            try {
-                const configData = {
-                    name: name,
-                    description: '',
-                    variables: {
-                        ANTHROPIC_BASE_URL: baseUrl,
-                        ANTHROPIC_AUTH_TOKEN: authToken,
-                        ANTHROPIC_MODEL: model,
-                        ANTHROPIC_API_KEY: apiKey
-                    }
+            let variables = {};
+            let templates = {};
+            
+            if (provider === 'claude') {
+                variables = {
+                    ANTHROPIC_BASE_URL: document.getElementById('claude-base-url').value.trim(),
+                    ANTHROPIC_AUTH_TOKEN: document.getElementById('claude-auth-token').value.trim(),
+                    ANTHROPIC_MODEL: document.getElementById('claude-model').value.trim(),
+                    ANTHROPIC_API_KEY: document.getElementById('claude-api-key').value.trim()
+                };
+            } else if (provider === 'codex') {
+                variables = {
+                    base_url: document.getElementById('codex-base-url').value.trim(),
+                    OPENAI_API_KEY: document.getElementById('codex-api-key').value.trim(),
+                    model: document.getElementById('codex-model').value.trim()
                 };
                 
-                if (editingConfigIndex === -1) {
-                    // 新增配置
-                    await window.go.main.App.AddEnv(configData);
-                    showToast(`配置 "${name}" 已新增`, 'success');
-                } else {
-                    // 编辑配置 - 先删除旧的，再添加新的
+                // Save templates if not empty
+                const configTmpl = document.getElementById('codex-tmpl-config').value;
+                const authTmpl = document.getElementById('codex-tmpl-auth').value;
+                if (configTmpl) templates['config.toml'] = configTmpl;
+                if (authTmpl) templates['auth.json'] = authTmpl;
+                
+            } else if (provider === 'gemini') {
+                variables = {
+                    GOOGLE_GEMINI_BASE_URL: document.getElementById('gemini-base-url').value.trim(),
+                    GEMINI_API_KEY: document.getElementById('gemini-api-key').value.trim(),
+                    GEMINI_MODEL: document.getElementById('gemini-model').value.trim()
+                };
+                
+                // Save templates if not empty
+                const envTmpl = document.getElementById('gemini-tmpl-env').value;
+                const settingsTmpl = document.getElementById('gemini-tmpl-settings').value;
+                if (envTmpl) templates['.env'] = envTmpl;
+                if (settingsTmpl) templates['settings.json'] = settingsTmpl;
+            }
+            
+            const configData = {
+                name: name,
+                description: '',
+                provider: provider,
+                variables: variables,
+                templates: templates
+            };
+            
+            try {
+                if (editingConfigIndex !== -1) {
                     const oldName = configs[editingConfigIndex].name;
-                    if (oldName !== name) {
-                        await window.go.main.App.DeleteEnv(oldName);
-                    }
-                    await window.go.main.App.AddEnv(configData);
-                    showToast(`配置 "${name}" 已更新`, 'success');
+                    if (oldName !== name) await window.go.main.App.DeleteEnv(oldName);
                 }
                 
+                await window.go.main.App.AddEnv(configData);
                 closeModal();
                 await loadConfigs();
-                
-                // 如果是新增配置，跳转到最后一个配置
-                if (editingConfigIndex === -1) {
-                    currentTab = configs.length - 1; // 新增配置后切换到最后一个
-                    generateTabs();
-                    renderConfigDetail();
-                }
-                
-            } catch (error) {
-                console.error('保存配置失败:', error);
-                showToast('保存配置失败: ' + error.message, 'error');
+                showToast('配置已保存', 'success');
+            } catch (e) {
+                showToast('保存失败: ' + e.message, 'error');
             }
         });
-        
-        // 清除单个环境变量
-        async function clearEnvVar(varName) {
-            if (!confirm(`确定要清除环境变量 ${varName} 吗？`)) {
-                return;
-            }
-            
-            try {
-                await window.go.main.App.ClearEnvVar(varName);
-                await refreshCurrentEnv();
-                showToast(`环境变量 ${varName} 已清除`, 'success');
-            } catch (error) {
-                console.error('清除环境变量失败:', error);
-                showToast(`清除环境变量 ${varName} 失败: ` + error.message, 'error');
-            }
-        }
-        
-        // 清除所有环境变量
-        async function clearAllEnvVars() {
-            if (!confirm('确定要清除所有环境变量吗？')) {
-                return;
-            }
-            
-            try {
-                await window.go.main.App.ClearAllEnv();
-                await refreshCurrentEnv();
-                showToast('所有环境变量已清除', 'success');
-            } catch (error) {
-                console.error('清除所有环境变量失败:', error);
-                showToast('清除所有环境变量失败: ' + error.message, 'error');
-            }
-        }
-        
-        // Toast消息系统
-        function showToast(message, type = 'info', duration = 4000) {
-            const toastContainer = document.getElementById('toast-container');
-            
-            // 创建toast元素
+
+        // Toast System
+        function showToast(msg, type = 'info') {
+            const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
-            toast.className = `toast ${type}`;
+            toast.className = `toast p-4 rounded-lg shadow-lg flex items-center gap-3 transform transition-all duration-300 translate-y-10 opacity-0`;
             
-            // 选择图标
-            let icon = 'fas fa-info-circle';
-            if (type === 'success') icon = 'fas fa-check-circle';
-            else if (type === 'error') icon = 'fas fa-exclamation-circle';
-            else if (type === 'info') icon = 'fas fa-info-circle';
+            let icon = 'info-circle';
+            let colorClass = 'text-primary';
+            
+            if (type === 'success') { icon = 'check-circle'; colorClass = 'text-green-500'; }
+            if (type === 'error') { icon = 'exclamation-circle'; colorClass = 'text-red-500'; }
             
             toast.innerHTML = `
-                <i class="${icon} toast-icon"></i>
-                <div class="toast-content">${message}</div>
-                <button class="toast-close" onclick="closeToast(this.parentElement)">
-                    <i class="fas fa-times"></i>
-                </button>
+                <i class="fas fa-${icon} ${colorClass}"></i>
+                <span class="text-sm font-medium">${msg}</span>
             `;
             
-            // 添加到容器
-            toastContainer.appendChild(toast);
+            container.appendChild(toast);
             
-            // 触发显示动画
+            requestAnimationFrame(() => {
+                toast.classList.remove('translate-y-10', 'opacity-0');
+            });
+            
             setTimeout(() => {
-                toast.classList.add('show');
-            }, 100);
-            
-            // 自动消失
-            setTimeout(() => {
-                closeToast(toast);
-            }, duration);
-            
-            return toast;
+                toast.classList.add('translate-y-10', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
         }
         
-        // 关闭toast
-        function closeToast(toast) {
-            if (!toast) return;
-            
-            toast.classList.remove('show');
-            setTimeout(() => {
-                if (toast.parentElement) {
-                    toast.parentElement.removeChild(toast);
-                }
-            }, 400);
-        }
-        
-        // 兼容原有的showStatus函数
-        function showStatus(message, type) {
-            showToast(message, type);
-        }
-        
-        // 点击模态框外部关闭
-        window.addEventListener('click', function(e) {
+        // Close modal on outside click
+        window.onclick = function(event) {
             const modal = document.getElementById('configModal');
-            if (e.target === modal || e.target.closest('.bg-black')) {
-                closeModal();
-            }
-        });
-        
-
-        
-        // 键盘事件处理
-        document.addEventListener('keydown', function(e) {
-            // ESC键关闭模态框
-            if (e.key === 'Escape' && !document.getElementById('configModal').classList.contains('hidden')) {
-                closeModal();
-            }
-        });
-        
-        // 窗口resize时重新计算滑块位置
-        window.addEventListener('resize', function() {
-            setTimeout(() => {
-                updateTabSlider();
-            }, 100);
-        });
-        
-        // tab容器滚动时重新计算滑块位置
-        document.addEventListener('scroll', function(e) {
-            if (e.target && (e.target.id === 'tab-container' || e.target.classList.contains('tab-content'))) {
-                updateTabSlider();
-            }
-        }, true);
+            if (event.target === modal.querySelector('.modal-overlay')) closeModal();
+        }
     </script>
 </body>
 </html>

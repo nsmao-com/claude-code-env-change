@@ -21,3 +21,5 @@ export function RefreshConfig():Promise<void>;
 export function SetEnvVar(arg1:string,arg2:string):Promise<void>;
 
 export function SwitchToEnv(arg1:string):Promise<void>;
+
+export function TestLatency(arg1:string):Promise<number>;

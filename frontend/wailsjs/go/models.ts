@@ -4,6 +4,8 @@ export namespace main {
 	    name: string;
 	    description: string;
 	    variables: Record<string, string>;
+	    provider: string;
+	    templates?: Record<string, string>;
 	
 	    static createFrom(source: any = {}) {
 	        return new EnvConfig(source);
@@ -14,10 +16,15 @@ export namespace main {
 	        this.name = source["name"];
 	        this.description = source["description"];
 	        this.variables = source["variables"];
+	        this.provider = source["provider"];
+	        this.templates = source["templates"];
 	    }
 	}
 	export class Config {
 	    current_env: string;
+	    current_env_claude: string;
+	    current_env_codex: string;
+	    current_env_gemini: string;
 	    environments: EnvConfig[];
 	
 	    static createFrom(source: any = {}) {
@@ -27,6 +34,9 @@ export namespace main {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.current_env = source["current_env"];
+	        this.current_env_claude = source["current_env_claude"];
+	        this.current_env_codex = source["current_env_codex"];
+	        this.current_env_gemini = source["current_env_gemini"];
 	        this.environments = this.convertValues(source["environments"], EnvConfig);
 	    }
 	
