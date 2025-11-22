@@ -12,9 +12,13 @@ export function ClearEnvVar(arg1:string):Promise<void>;
 
 export function DeleteEnv(arg1:string):Promise<void>;
 
+export function ExportConfig(arg1:string):Promise<void>;
+
 export function GetConfig():Promise<main.Config>;
 
 export function GetEnvVar(arg1:string):Promise<string>;
+
+export function ImportConfig(arg1:string):Promise<void>;
 
 export function RefreshConfig():Promise<void>;
 
@@ -25,3 +29,5 @@ export function SetEnvVar(arg1:string,arg2:string):Promise<void>;
 export function SwitchToEnv(arg1:string):Promise<void>;
 
 export function TestLatency(arg1:string):Promise<number>;
+
+export function UpdateEnv(arg1:string,arg2:main.EnvConfig):Promise<void>;
