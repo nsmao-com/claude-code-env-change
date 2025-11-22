@@ -217,6 +217,33 @@ func (a *App) DeleteEnv(name string) error {
 	return fmt.Errorf("environment '%s' not found", name)
 }
 
+// ReorderEnvs reorders the environments based on the provided list of names
+func (a *App) ReorderEnvs(names []string) error {
+	if len(names) != len(a.config.Environments) {
+		return fmt.Errorf("environment count mismatch")
+	}
+
+	newEnvs := make([]EnvConfig, 0, len(names))
+	envMap := make(map[string]EnvConfig)
+
+	// Create a map for quick lookup
+	for _, env := range a.config.Environments {
+		envMap[env.Name] = env
+	}
+
+	// Reconstruct the slice in the new order
+	for _, name := range names {
+		if env, ok := envMap[name]; ok {
+			newEnvs = append(newEnvs, env)
+		} else {
+			return fmt.Errorf("environment '%s' not found in current config", name)
+		}
+	}
+
+	a.config.Environments = newEnvs
+	return a.saveConfig()
+}
+
 // TestLatency 测试 URL 延迟
 func (a *App) TestLatency(urlStr string) (int64, error) {
 	if urlStr == "" {

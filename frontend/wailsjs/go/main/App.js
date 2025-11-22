@@ -34,6 +34,10 @@ export function RefreshConfig() {
   return window['go']['main']['App']['RefreshConfig']();
 }
 
+export function ReorderEnvs(arg1) {
+  return window['go']['main']['App']['ReorderEnvs'](arg1);
+}
+
 export function SetEnvVar(arg1, arg2) {
   return window['go']['main']['App']['SetEnvVar'](arg1, arg2);
 }

@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Claude Code 环境管理器</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <script>
@@ -290,6 +291,14 @@
         .config-item:hover {
             border-color: var(--primary);
             transform: translateY(-2px);
+        }
+        .config-item.sortable-ghost {
+            opacity: 0.5;
+            background: var(--accent);
+            border: 1px dashed var(--primary);
+        }
+        .config-item.sortable-drag {
+            cursor: grabbing;
         }
         .config-item.active {
             border-color: var(--primary);
@@ -680,7 +689,54 @@
             initTheme();
             loadConfigs();
             refreshCurrentEnv();
+            initSortable();
         });
+
+        // Sortable
+        function initSortable() {
+            const grid = document.getElementById('config-grid');
+            new Sortable(grid, {
+                animation: 150,
+                ghostClass: 'sortable-ghost',
+                dragClass: 'sortable-drag',
+                delay: 100, // Prevent accidental drags
+                delayOnTouchOnly: true,
+                onEnd: async function (evt) {
+                    // Only update if order changed
+                    if (evt.oldIndex === evt.newIndex) return;
+                    
+                    // Get new order
+                    const newOrder = [];
+                    const items = grid.querySelectorAll('.config-item');
+                    items.forEach(item => {
+                        const name = item.getAttribute('data-name');
+                        if (name) newOrder.push(name);
+                    });
+                    
+                    // Update local configs array to match new order
+                    const newConfigs = [];
+                    newOrder.forEach(name => {
+                        const config = configs.find(c => c.name === name);
+                        if (config) newConfigs.push(config);
+                    });
+                    
+                    // Add any missing configs (e.g. filtered out ones)
+                    configs.forEach(c => {
+                        if (!newConfigs.includes(c)) newConfigs.push(c);
+                    });
+                    
+                    configs = newConfigs;
+                    
+                    // Save to backend
+                    try {
+                        await window.go.main.App.ReorderEnvs(newOrder);
+                    } catch (e) {
+                        console.error('Reorder failed:', e);
+                        showToast('排序保存失败', 'error');
+                    }
+                }
+            });
+        }
 
         // Provider Switching
         function switchProvider(provider) {
@@ -883,7 +939,7 @@
                 }
 
                 html += `
-                    <div class="config-item group ${isActive ? 'active' : ''}" onclick="applyConfig(${index})">
+                    <div class="config-item group ${isActive ? 'active' : ''}" data-name="${config.name}" onclick="applyConfig(${index})">
                         <div class="flex justify-between items-start mb-2">
                             <div class="flex items-center gap-2 min-w-0 flex-1 mr-2">
                                 <div class="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">

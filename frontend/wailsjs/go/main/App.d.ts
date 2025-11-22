@@ -18,6 +18,8 @@ export function GetEnvVar(arg1:string):Promise<string>;
 
 export function RefreshConfig():Promise<void>;
 
+export function ReorderEnvs(arg1:Array<string>):Promise<void>;
+
 export function SetEnvVar(arg1:string,arg2:string):Promise<void>;
 
 export function SwitchToEnv(arg1:string):Promise<void>;
