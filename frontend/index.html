@@ -127,6 +127,90 @@
         ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
         ::-webkit-scrollbar-thumb:hover { background: var(--muted-foreground); }
 
+        /* macOS 风格标题栏 */
+        .custom-titlebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 40px;
+            background: var(--card);
+            border-bottom: 1px solid var(--border);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 15px;
+            user-select: none;
+        }
+
+        .titlebar-controls {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .titlebar-btn {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            position: relative;
+            padding: 0;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .titlebar-btn .btn-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: block;
+        }
+
+        .titlebar-btn.close-btn .btn-dot {
+            background: #ff5f57;
+        }
+
+        .titlebar-btn.minimize-btn .btn-dot {
+            background: #ffbd2e;
+        }
+
+        .titlebar-btn.maximize-btn .btn-dot {
+            background: #28c840;
+        }
+
+        .titlebar-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .titlebar-btn:active {
+            transform: scale(0.95);
+        }
+
+        .titlebar-title {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--foreground);
+        }
+
+        .titlebar-title i {
+            font-size: 14px;
+        }
+
+        .titlebar-spacer {
+            width: 80px; /* 平衡左侧控制按钮的宽度 */
+        }
+
         /* Bento Grid Layout */
         .bento-grid {
             display: grid;
@@ -136,7 +220,8 @@
             padding: 1.5rem;
             max-width: 1600px;
             margin: 0 auto;
-            height: 100vh;
+            height: calc(100vh - 40px); /* 减去标题栏高度 */
+            margin-top: 40px; /* 标题栏高度 */
             overflow: hidden; /* Prevent body scroll */
         }
 
@@ -419,6 +504,26 @@
 <body>
     <div class="bg-pattern"></div>
 
+    <!-- macOS 风格标题栏 -->
+    <div class="custom-titlebar" style="--wails-draggable:drag">
+        <div class="titlebar-controls" style="--wails-draggable:no-drag">
+            <button class="titlebar-btn close-btn" onclick="closeWindow()" title="关闭">
+                <span class="btn-dot"></span>
+            </button>
+            <button class="titlebar-btn minimize-btn" onclick="minimizeWindow()" title="最小化">
+                <span class="btn-dot"></span>
+            </button>
+            <button class="titlebar-btn maximize-btn" onclick="toggleMaximize()" title="最大化">
+                <span class="btn-dot"></span>
+            </button>
+        </div>
+        <div class="titlebar-title">
+            <i class="fas fa-cube"></i>
+            <span>Claude Code 环境管理器</span>
+        </div>
+        <div class="titlebar-spacer"></div>
+    </div>
+
     <div class="bento-grid">
         <!-- Sidebar Area -->
         <div class="bento-item area-sidebar">
@@ -442,6 +547,18 @@
                         <i class="fas fa-plus"></i>
                         新建配置
                     </button>
+
+                    <!-- 导入/导出配置 -->
+                    <div class="mt-4 pt-4 border-t border-border">
+                        <button class="btn btn-outline w-full justify-start gap-3" onclick="exportConfig()">
+                            <i class="fas fa-download text-muted-foreground"></i>
+                            导出配置
+                        </button>
+                        <button class="btn btn-outline w-full justify-start gap-3 mt-2" onclick="importConfig()">
+                            <i class="fas fa-upload text-muted-foreground"></i>
+                            导入配置
+                        </button>
+                    </div>
                 </nav>
                 
                 <!-- Stats Placeholder -->
@@ -668,6 +785,7 @@
             gemini: ''
         };
         let editingConfigIndex = -1;
+        let editingConfigOldName = ''; // Store original name for editing
         let currentFilter = 'all';
         let currentSearch = '';
         
@@ -692,6 +810,121 @@
             initSortable();
         });
 
+        // 窗口控制函数
+        function minimizeWindow() {
+            window.runtime.WindowMinimise();
+        }
+
+        function toggleMaximize() {
+            window.runtime.WindowToggleMaximise();
+        }
+
+        function closeWindow() {
+            window.runtime.Quit();
+        }
+
+        // 导出配置
+        async function exportConfig() {
+            try {
+                // 使用浏览器的文件保存对话框
+                const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+                const defaultFilename = `claude-config-${timestamp}.json`;
+
+                // 创建配置的 JSON 字符串
+                const config = await window.go.main.App.GetConfig();
+                const configJson = JSON.stringify(config, null, 2);
+
+                // 创建下载链接
+                const blob = new Blob([configJson], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = defaultFilename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                showToast('配置导出成功', 'success');
+            } catch (e) {
+                console.error('Export failed:', e);
+                showToast('导出失败: ' + e.message, 'error');
+            }
+        }
+
+        // 导入配置
+        function importConfig() {
+            // 创建隐藏的文件输入元素
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.style.display = 'none';
+
+            input.onchange = async function(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                try {
+                    const reader = new FileReader();
+                    reader.onload = async function(event) {
+                        try {
+                            const configJson = event.target.result;
+                            const importedConfig = JSON.parse(configJson);
+
+                            // 验证配置格式
+                            if (!importedConfig.environments || !Array.isArray(importedConfig.environments)) {
+                                throw new Error('配置文件格式无效');
+                            }
+
+                            // 确认导入
+                            const confirmMsg = `即将导入 ${importedConfig.environments.length} 个配置。\n重名配置会自动添加后缀。\n\n确定要导入吗？`;
+                            if (!confirm(confirmMsg)) return;
+
+                            // 合并导入：逐个添加配置
+                            let importCount = 0;
+                            const existingNames = configs.map(c => c.name);
+
+                            for (const env of importedConfig.environments) {
+                                let name = env.name;
+
+                                // 检查重名，添加后缀
+                                if (existingNames.includes(name)) {
+                                    let suffix = 1;
+                                    while (existingNames.includes(`${name}_imported_${suffix}`)) {
+                                        suffix++;
+                                    }
+                                    env.name = `${name}_imported_${suffix}`;
+                                }
+
+                                try {
+                                    await window.go.main.App.AddEnv(env);
+                                    existingNames.push(env.name);
+                                    importCount++;
+                                } catch (err) {
+                                    console.error('Failed to import config:', env.name, err);
+                                }
+                            }
+
+                            // 重新加载配置
+                            await loadConfigs();
+                            showToast(`成功导入 ${importCount} 个配置`, 'success');
+                        } catch (err) {
+                            console.error('Import parse failed:', err);
+                            showToast('导入失败: ' + err.message, 'error');
+                        }
+                    };
+                    reader.readAsText(file);
+                } catch (err) {
+                    console.error('Import failed:', err);
+                    showToast('导入失败: ' + err.message, 'error');
+                }
+            };
+
+            document.body.appendChild(input);
+            input.click();
+            document.body.removeChild(input);
+        }
+
         // Sortable
         function initSortable() {
             const grid = document.getElementById('config-grid');
@@ -704,7 +937,7 @@
                 onEnd: async function (evt) {
                     // Only update if order changed
                     if (evt.oldIndex === evt.newIndex) return;
-                    
+
                     // Get new order
                     const newOrder = [];
                     const items = grid.querySelectorAll('.config-item');
@@ -712,21 +945,24 @@
                         const name = item.getAttribute('data-name');
                         if (name) newOrder.push(name);
                     });
-                    
+
                     // Update local configs array to match new order
                     const newConfigs = [];
                     newOrder.forEach(name => {
                         const config = configs.find(c => c.name === name);
                         if (config) newConfigs.push(config);
                     });
-                    
+
                     // Add any missing configs (e.g. filtered out ones)
                     configs.forEach(c => {
                         if (!newConfigs.includes(c)) newConfigs.push(c);
                     });
-                    
+
                     configs = newConfigs;
-                    
+
+                    // Re-render to update indices
+                    renderConfigGrid();
+
                     // Save to backend
                     try {
                         await window.go.main.App.ReorderEnvs(newOrder);
@@ -973,6 +1209,7 @@
         // Modal Functions
         function showAddModal() {
             editingConfigIndex = -1;
+            editingConfigOldName = '';
             document.getElementById('modal-title').textContent = '新建配置';
             document.getElementById('configForm').reset();
             
@@ -1022,8 +1259,9 @@ GEMINI_MODEL={{GEMINI_MODEL}}`;
         function editConfig(index) {
             editingConfigIndex = index;
             const config = configs[index];
+            editingConfigOldName = config.name; // Store original name
             const provider = config.provider || 'claude';
-            
+
             document.getElementById('modal-title').textContent = '编辑配置';
             document.getElementById('config-name').value = config.name;
             
@@ -1219,11 +1457,13 @@ GEMINI_MODEL={{GEMINI_MODEL}}`;
             
             try {
                 if (editingConfigIndex !== -1) {
-                    const oldName = configs[editingConfigIndex].name;
-                    if (oldName !== name) await window.go.main.App.DeleteEnv(oldName);
+                    // Use UpdateEnv to maintain position
+                    await window.go.main.App.UpdateEnv(editingConfigOldName, configData);
+                } else {
+                    // Add new config
+                    await window.go.main.App.AddEnv(configData);
                 }
-                
-                await window.go.main.App.AddEnv(configData);
+
                 closeModal();
                 await loadConfigs();
                 showToast('配置已保存', 'success');

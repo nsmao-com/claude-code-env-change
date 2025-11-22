@@ -5,17 +5,6 @@
   "current_env_gemini": "323",
   "environments": [
     {
-      "name": "54354335453534534543543543534",
-      "description": "",
-      "variables": {
-        "ANTHROPIC_API_KEY": "",
-        "ANTHROPIC_AUTH_TOKEN": "5354",
-        "ANTHROPIC_BASE_URL": "53453454",
-        "ANTHROPIC_MODEL": ""
-      },
-      "provider": ""
-    },
-    {
       "name": "4324",
       "description": "",
       "variables": {
@@ -27,7 +16,7 @@
       "provider": "claude"
     },
     {
-      "name": "54354335453534534543543555543534",
+      "name": "修改1",
       "description": "",
       "variables": {
         "ANTHROPIC_API_KEY": "",
@@ -35,7 +24,7 @@
         "ANTHROPIC_BASE_URL": "643643643634",
         "ANTHROPIC_MODEL": ""
       },
-      "provider": ""
+      "provider": "claude"
     },
     {
       "name": "543543",
@@ -92,6 +81,17 @@
         ".env": "GOOGLE_GEMINI_BASE_URL={{GOOGLE_GEMINI_BASE_URL}}\nGEMINI_API_KEY={{GEMINI_API_KEY}}\nGEMINI_MODEL={{GEMINI_MODEL}}",
         "settings.json": "{\n  \"ide\": {\n    \"enabled\": true\n  },\n  \"security\": {\n    \"auth\": {\n      \"selectedType\": \"gemini-api-key\"\n    }\n  }\n}"
       }
+    },
+    {
+      "name": "修改",
+      "description": "",
+      "variables": {
+        "ANTHROPIC_API_KEY": "",
+        "ANTHROPIC_AUTH_TOKEN": "5354",
+        "ANTHROPIC_BASE_URL": "53453454",
+        "ANTHROPIC_MODEL": ""
+      },
+      "provider": "claude"
     }
   ]
 }

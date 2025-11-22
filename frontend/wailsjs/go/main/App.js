@@ -22,12 +22,20 @@ export function DeleteEnv(arg1) {
   return window['go']['main']['App']['DeleteEnv'](arg1);
 }
 
+export function ExportConfig(arg1) {
+  return window['go']['main']['App']['ExportConfig'](arg1);
+}
+
 export function GetConfig() {
   return window['go']['main']['App']['GetConfig']();
 }
 
 export function GetEnvVar(arg1) {
   return window['go']['main']['App']['GetEnvVar'](arg1);
+}
+
+export function ImportConfig(arg1) {
+  return window['go']['main']['App']['ImportConfig'](arg1);
 }
 
 export function RefreshConfig() {
@@ -48,4 +56,8 @@ export function SwitchToEnv(arg1) {
 
 export function TestLatency(arg1) {
   return window['go']['main']['App']['TestLatency'](arg1);
+}
+
+export function UpdateEnv(arg1, arg2) {
+  return window['go']['main']['App']['UpdateEnv'](arg1, arg2);
 }

@@ -190,6 +190,35 @@ func (a *App) AddEnv(env EnvConfig) error {
 	return a.saveConfig()
 }
 
+// UpdateEnv updates an existing environment configuration by old name
+func (a *App) UpdateEnv(oldName string, newEnv EnvConfig) error {
+	for i, existing := range a.config.Environments {
+		if existing.Name == oldName {
+			// Update in place to maintain order
+			a.config.Environments[i] = newEnv
+
+			// Update current env references if name changed
+			if oldName != newEnv.Name {
+				if a.config.CurrentEnv == oldName {
+					a.config.CurrentEnv = newEnv.Name
+				}
+				if a.config.CurrentEnvClaude == oldName {
+					a.config.CurrentEnvClaude = newEnv.Name
+				}
+				if a.config.CurrentEnvCodex == oldName {
+					a.config.CurrentEnvCodex = newEnv.Name
+				}
+				if a.config.CurrentEnvGemini == oldName {
+					a.config.CurrentEnvGemini = newEnv.Name
+				}
+			}
+
+			return a.saveConfig()
+		}
+	}
+	return fmt.Errorf("environment '%s' not found", oldName)
+}
+
 // DeleteEnv deletes an environment configuration by name
 func (a *App) DeleteEnv(name string) error {
 	for i, env := range a.config.Environments {
@@ -519,6 +548,70 @@ func (a *App) ClearAllEnv() error {
 // RefreshConfig 刷新配置
 func (a *App) RefreshConfig() error {
 	return a.loadConfig()
+}
+
+// ExportConfig 导出配置到指定路径
+func (a *App) ExportConfig(filePath string) error {
+	data, err := json.MarshalIndent(a.config, "", "  ")
+	if err != nil {
+		return fmt.Errorf("序列化配置失败: %v", err)
+	}
+
+	err = os.WriteFile(filePath, data, 0644)
+	if err != nil {
+		return fmt.Errorf("导出配置文件失败: %v", err)
+	}
+
+	return nil
+}
+
+// ImportConfig 从指定路径导入配置
+func (a *App) ImportConfig(filePath string) error {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return fmt.Errorf("读取配置文件失败: %v", err)
+	}
+
+	var importedConfig Config
+	err = json.Unmarshal(data, &importedConfig)
+	if err != nil {
+		return fmt.Errorf("解析配置文件失败: %v", err)
+	}
+
+	// 合并配置：检查是否有重名的环境配置
+	existingNames := make(map[string]bool)
+	for _, env := range a.config.Environments {
+		existingNames[env.Name] = true
+	}
+
+	// 导入新配置，重名的配置添加后缀
+	importCount := 0
+	for _, importedEnv := range importedConfig.Environments {
+		name := importedEnv.Name
+		if existingNames[name] {
+			// 如果重名，添加后缀
+			suffix := 1
+			for {
+				newName := fmt.Sprintf("%s_imported_%d", name, suffix)
+				if !existingNames[newName] {
+					importedEnv.Name = newName
+					break
+				}
+				suffix++
+			}
+		}
+		a.config.Environments = append(a.config.Environments, importedEnv)
+		existingNames[importedEnv.Name] = true
+		importCount++
+	}
+
+	// 保存合并后的配置
+	err = a.saveConfig()
+	if err != nil {
+		return fmt.Errorf("保存配置失败: %v", err)
+	}
+
+	return nil
 }
 
 func (a *App) loadConfig() error {

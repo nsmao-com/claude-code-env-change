@@ -6,6 +6,7 @@ import (
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+	"github.com/wailsapp/wails/v2/pkg/options/windows"
 )
 
 //go:embed all:frontend
@@ -29,6 +30,14 @@ func main() {
 		OnBeforeClose:    nil,
 		OnShutdown:       nil,
 		WindowStartState: options.Normal,
+		Frameless:        true, // 启用无边框模式
+		Windows: &windows.Options{
+			WebviewIsTransparent:              false,
+			WindowIsTranslucent:               false,
+			DisableWindowIcon:                 false,
+			DisableFramelessWindowDecorations: false,
+			Theme:                             windows.SystemDefault,
+		},
 		Bind: []interface{}{
 			app,
 		},
