@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -69,6 +70,13 @@ func (a *App) GetEnvVar(key string) string {
 func (a *App) getWindowsEnvVar(key string) string {
 	// 使用reg query命令查询用户环境变量
 	cmd := exec.Command("reg", "query", "HKCU\\Environment", "/v", key)
+
+	// 隐藏CMD窗口
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		HideWindow:    true,
+		CreationFlags: 0x08000000, // CREATE_NO_WINDOW
+	}
+
 	output, err := cmd.Output()
 	if err != nil {
 		// 如果用户环境变量不存在，尝试读取进程环境变量
@@ -120,6 +128,12 @@ func (a *App) setWindowsEnvVar(key, value string) error {
 	// 使用setx命令设置用户环境变量，不添加双引号
 	cmd_exec := exec.Command("setx", key, value)
 
+	// 隐藏CMD窗口
+	cmd_exec.SysProcAttr = &syscall.SysProcAttr{
+		HideWindow:    true,
+		CreationFlags: 0x08000000, // CREATE_NO_WINDOW
+	}
+
 	output, err := cmd_exec.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("执行setx命令失败: %v, 输出: %s", err, string(output))
@@ -131,6 +145,12 @@ func (a *App) setWindowsEnvVar(key, value string) error {
 func (a *App) deleteWindowsEnvVar(key string) error {
 	// 使用reg命令删除用户环境变量
 	cmd_exec := exec.Command("reg", "delete", "HKCU\\Environment", "/v", key, "/f")
+
+	// 隐藏CMD窗口
+	cmd_exec.SysProcAttr = &syscall.SysProcAttr{
+		HideWindow:    true,
+		CreationFlags: 0x08000000, // CREATE_NO_WINDOW
+	}
 
 	output, err := cmd_exec.CombinedOutput()
 	if err != nil {
