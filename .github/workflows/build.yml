@@ -31,10 +31,13 @@ jobs:
         run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
 
       - name: Build for macOS (amd64)
-        run: wails build -platform darwin/amd64
+        run: wails build -platform darwin/amd64 -o claude-env-switcher
 
       - name: Build for macOS (arm64)
         run: wails build -platform darwin/arm64 -o claude-env-switcher-arm64
+
+      - name: List build output
+        run: ls -la build/bin/
 
       - name: Upload macOS amd64 artifact
         uses: actions/upload-artifact@v4
@@ -106,6 +109,9 @@ jobs:
 
       - name: Build for Windows (amd64)
         run: wails build -platform windows/amd64 -nsis
+
+      - name: List build output
+        run: dir build\bin\
 
       - name: Upload Windows exe artifact
         uses: actions/upload-artifact@v4
