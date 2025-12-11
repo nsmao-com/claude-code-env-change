@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(dir:*)",
-      "Bash(go build:*)",
-      "Bash(mkdir:*)"
-    ]
-  }
-}
