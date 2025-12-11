@@ -1,4 +1,4 @@
-name: Build macOS
+name: Build
 
 on:
   push:
@@ -83,3 +83,40 @@ jobs:
           path: |
             claude-env-switcher-amd64.dmg
             claude-env-switcher-arm64.dmg
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Build for Windows (amd64)
+        run: wails build -platform windows/amd64 -nsis
+
+      - name: Upload Windows exe artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: claude-env-switcher-windows-amd64
+          path: build/bin/claude-env-switcher.exe
+          if-no-files-found: error
+
+      - name: Upload Windows installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: claude-env-switcher-windows-installer
+          path: build/bin/*-installer.exe
+          if-no-files-found: warn
