@@ -1,4 +1,4 @@
-name: Build
+name: Build and Release
 
 on:
   push:
@@ -31,61 +31,40 @@ jobs:
         run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
 
       - name: Build for macOS (amd64)
-        run: wails build -platform darwin/amd64 -o claude-env-switcher
-
-      - name: Build for macOS (arm64)
-        run: wails build -platform darwin/arm64 -o claude-env-switcher-arm64
+        run: wails build -platform darwin/amd64
 
       - name: List build output
         run: ls -la build/bin/
 
-      - name: Upload macOS amd64 artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: claude-env-switcher-macos-amd64
-          path: build/bin/claude-env-switcher.app
-          if-no-files-found: error
-
-      - name: Upload macOS arm64 artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: claude-env-switcher-macos-arm64
-          path: build/bin/claude-env-switcher-arm64.app
-          if-no-files-found: error
-
-      - name: Create DMG (amd64)
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: Prepare macOS amd64 artifact
         run: |
-          brew install create-dmg
-          create-dmg \
-            --volname "Claude Env Switcher" \
-            --window-pos 200 120 \
-            --window-size 600 400 \
-            --icon-size 100 \
-            --app-drop-link 425 178 \
-            "claude-env-switcher-amd64.dmg" \
-            "build/bin/claude-env-switcher.app"
+          cd build/bin
+          # Find the .app directory and zip it
+          APP_NAME=$(ls -d *.app | head -1)
+          echo "Found app: $APP_NAME"
+          zip -r claude-env-switcher-macos-amd64.zip "$APP_NAME"
 
-      - name: Create DMG (arm64)
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: Build for macOS (arm64)
         run: |
-          create-dmg \
-            --volname "Claude Env Switcher" \
-            --window-pos 200 120 \
-            --window-size 600 400 \
-            --icon-size 100 \
-            --app-drop-link 425 178 \
-            "claude-env-switcher-arm64.dmg" \
-            "build/bin/claude-env-switcher-arm64.app"
+          # Clean previous build
+          rm -rf build/bin/*.app
+          wails build -platform darwin/arm64
 
-      - name: Upload DMG artifacts
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: Prepare macOS arm64 artifact
+        run: |
+          cd build/bin
+          APP_NAME=$(ls -d *.app | head -1)
+          echo "Found app: $APP_NAME"
+          zip -r claude-env-switcher-macos-arm64.zip "$APP_NAME"
+
+      - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: claude-env-switcher-macos-dmg
+          name: macos-builds
           path: |
-            claude-env-switcher-amd64.dmg
-            claude-env-switcher-arm64.dmg
+            build/bin/claude-env-switcher-macos-amd64.zip
+            build/bin/claude-env-switcher-macos-arm64.zip
+          if-no-files-found: error
 
   build-windows:
     runs-on: windows-latest
@@ -108,21 +87,48 @@ jobs:
         run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
 
       - name: Build for Windows (amd64)
-        run: wails build -platform windows/amd64 -nsis
+        run: wails build -platform windows/amd64
 
       - name: List build output
         run: dir build\bin\
 
-      - name: Upload Windows exe artifact
+      - name: Prepare Windows artifact
+        shell: pwsh
+        run: |
+          cd build/bin
+          $exeName = Get-ChildItem -Filter "*.exe" | Select-Object -First 1 -ExpandProperty Name
+          Write-Host "Found exe: $exeName"
+          Compress-Archive -Path $exeName -DestinationPath "claude-env-switcher-windows-amd64.zip"
+
+      - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
-          name: claude-env-switcher-windows-amd64
-          path: build/bin/claude-env-switcher.exe
+          name: windows-builds
+          path: build/bin/claude-env-switcher-windows-amd64.zip
           if-no-files-found: error
 
-      - name: Upload Windows installer artifact
-        uses: actions/upload-artifact@v4
+  release:
+    needs: [build-macos, build-windows]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
         with:
-          name: claude-env-switcher-windows-installer
-          path: build/bin/*-installer.exe
-          if-no-files-found: warn
+          path: artifacts
+
+      - name: List downloaded artifacts
+        run: find artifacts -type f
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/macos-builds/claude-env-switcher-macos-amd64.zip
+            artifacts/macos-builds/claude-env-switcher-macos-arm64.zip
+            artifacts/windows-builds/claude-env-switcher-windows-amd64.zip
+          generate_release_notes: true
+          draft: false
+          prerelease: false
