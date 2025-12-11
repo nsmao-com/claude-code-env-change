@@ -6,6 +6,7 @@ export namespace main {
 	    variables: Record<string, string>;
 	    provider: string;
 	    templates?: Record<string, string>;
+	    icon?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new EnvConfig(source);
@@ -18,6 +19,7 @@ export namespace main {
 	        this.variables = source["variables"];
 	        this.provider = source["provider"];
 	        this.templates = source["templates"];
+	        this.icon = source["icon"];
 	    }
 	}
 	export class Config {

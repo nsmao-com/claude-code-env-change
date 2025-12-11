@@ -8,6 +8,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <!-- Emoji Picker -->
+    <script type="module" src="https://cdn.jsdelivr.net/npm/emoji-picker-element@1/index.js"></script>
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -499,6 +501,80 @@
             color: var(--foreground);
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
         }
+
+        /* Emoji Picker */
+        .emoji-picker-container {
+            position: relative;
+        }
+        .emoji-picker-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            z-index: 100;
+            margin-top: 0.5rem;
+        }
+        emoji-picker {
+            --background: var(--card);
+            --border-color: var(--border);
+            --indicator-color: var(--primary);
+            --input-border-color: var(--border);
+            --input-font-color: var(--foreground);
+            --input-placeholder-color: var(--muted-foreground);
+            --outline-color: var(--primary);
+            --category-font-color: var(--muted-foreground);
+            --button-active-background: var(--accent);
+            --button-hover-background: var(--muted);
+            height: 300px;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+        }
+        .emoji-btn {
+            width: 3rem;
+            height: 2.5rem;
+            border-radius: calc(var(--radius) - 0.25rem);
+            border: 1px solid var(--input);
+            background: transparent;
+            font-size: 1.25rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        .emoji-btn:hover {
+            border-color: var(--primary);
+            background: var(--accent);
+        }
+
+        /* Apply Success Animation */
+        @keyframes applyPulse {
+            0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+        }
+        .config-item.apply-success {
+            animation: applyPulse 0.6s ease-out;
+            border-color: #22c55e !important;
+        }
+        .config-item.apply-success::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, transparent 50%);
+            border-radius: inherit;
+            pointer-events: none;
+        }
+
+        /* Latency Status */
+        .latency-item {
+            padding: 0.5rem;
+            border-radius: 0.5rem;
+            background: var(--background);
+            border: 1px solid var(--border);
+        }
+        .latency-item + .latency-item {
+            margin-top: 0.5rem;
+        }
     </style>
 </head>
 <body>
@@ -562,14 +638,18 @@
                 </nav>
                 
                 <!-- Stats Placeholder -->
-                <div class="mt-8 p-4 rounded-lg bg-muted/50 border border-border">
-                    <div class="text-xs font-medium text-muted-foreground mb-3 uppercase tracking-wider">System Status</div>
-                    <div class="flex items-center justify-between mb-2">
-                        <span class="text-sm">API Latency</span>
-                        <span class="text-sm font-mono text-green-500">45ms</span>
+                <div class="mt-8 p-4 rounded-lg bg-muted/50 border border-border" id="system-status">
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="text-xs font-medium text-muted-foreground uppercase tracking-wider">System Status</div>
+                        <button class="w-6 h-6 rounded hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors" onclick="testAllLatency()" title="刷新测速">
+                            <i class="fas fa-sync-alt text-xs" id="status-refresh-icon"></i>
+                        </button>
                     </div>
-                    <div class="w-full bg-border h-1.5 rounded-full overflow-hidden">
-                        <div class="bg-green-500 h-full w-[85%]"></div>
+                    <div id="latency-status" class="space-y-3">
+                        <div class="text-xs text-muted-foreground text-center py-4">
+                            <i class="fas fa-tachometer-alt mb-2 text-lg opacity-30"></i>
+                            <p>点击刷新测速</p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -581,31 +661,44 @@
                 </div>
                 <button class="btn btn-ghost w-full justify-start gap-3 text-destructive hover:text-destructive hover:bg-destructive/10" onclick="clearAllEnvVars()">
                     <i class="fas fa-trash-alt"></i>
-                    清除所有变量
+                    清除所有配置
                 </button>
             </div>
         </div>
 
         <!-- Current Environment Area -->
         <div class="bento-item area-current">
-            <div class="flex items-center justify-between mb-6">
+            <div class="flex items-center justify-between mb-4">
                 <div>
                     <h2 class="text-xl font-bold flex items-center gap-2">
                         <i class="fas fa-bolt text-yellow-500"></i>
-                        当前环境
+                        当前配置状态
                     </h2>
-                    <p class="text-sm text-muted-foreground mt-1">正在生效的系统环境变量</p>
-                </div>
-                <div class="flex gap-2">
-                    <span class="px-3 py-1 rounded-full bg-green-500/10 text-green-600 dark:text-green-400 text-xs font-medium border border-green-500/20 flex items-center gap-2">
-                        <span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
-                        Active
-                    </span>
+                    <p class="text-sm text-muted-foreground mt-1">各服务配置文件中的设置</p>
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="current-env-grid">
-                <!-- Dynamic Content -->
+            <!-- Provider Tabs for Current Env -->
+            <div class="flex gap-2 mb-4">
+                <button class="current-env-tab px-3 py-1.5 rounded-lg text-xs font-medium bg-muted text-foreground" onclick="showCurrentEnvTab('claude')">
+                    <i class="fas fa-robot mr-1"></i>Claude
+                </button>
+                <button class="current-env-tab px-3 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:bg-muted/50" onclick="showCurrentEnvTab('codex')">
+                    <i class="fas fa-code mr-1"></i>Codex
+                </button>
+                <button class="current-env-tab px-3 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:bg-muted/50" onclick="showCurrentEnvTab('gemini')">
+                    <i class="fas fa-star mr-1"></i>Gemini
+                </button>
+            </div>
+
+            <div id="current-env-claude" class="current-env-panel grid grid-cols-1 md:grid-cols-2 gap-3">
+                <!-- Claude configs -->
+            </div>
+            <div id="current-env-codex" class="current-env-panel hidden grid grid-cols-1 md:grid-cols-2 gap-3">
+                <!-- Codex configs -->
+            </div>
+            <div id="current-env-gemini" class="current-env-panel hidden grid grid-cols-1 md:grid-cols-2 gap-3">
+                <!-- Gemini configs -->
             </div>
         </div>
 
@@ -664,9 +757,27 @@
             
             <div class="p-6 max-h-[70vh] overflow-y-auto">
                 <form id="configForm" class="space-y-4">
+                    <div class="flex gap-3">
+                        <!-- Icon Picker -->
+                        <div class="emoji-picker-container">
+                            <label class="block text-sm font-medium mb-1.5">图标</label>
+                            <button type="button" class="emoji-btn" id="emoji-btn" onclick="toggleEmojiPicker()">
+                                <span id="selected-emoji">📦</span>
+                            </button>
+                            <div class="emoji-picker-dropdown hidden" id="emoji-picker-dropdown">
+                                <emoji-picker id="emoji-picker"></emoji-picker>
+                            </div>
+                            <input type="hidden" id="config-icon" value="📦">
+                        </div>
+                        <div class="flex-1">
+                            <label class="block text-sm font-medium mb-1.5">配置名称 <span class="text-destructive">*</span></label>
+                            <input type="text" class="input" id="config-name" placeholder="例如: Production" required>
+                        </div>
+                    </div>
+
                     <div>
-                        <label class="block text-sm font-medium mb-1.5">配置名称 <span class="text-destructive">*</span></label>
-                        <input type="text" class="input" id="config-name" placeholder="例如: Production" required>
+                        <label class="block text-sm font-medium mb-1.5">备注说明</label>
+                        <input type="text" class="input text-sm" id="config-description" placeholder="可选，简要描述此配置的用途">
                     </div>
 
                     <!-- Provider Selection -->
@@ -777,6 +888,28 @@
     <!-- Toast Container -->
     <div class="fixed bottom-6 right-6 z-50 flex flex-col gap-2" id="toast-container"></div>
 
+    <!-- Confirm Modal -->
+    <div id="confirmModal" class="fixed inset-0 z-[60] hidden">
+        <div class="modal-overlay fixed inset-0 transition-opacity duration-300" onclick="closeConfirmModal(false)"></div>
+        <div class="fixed left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 modal-content w-full max-w-sm rounded-xl overflow-hidden shadow-2xl transition-all duration-300 scale-95 opacity-0" id="confirm-panel">
+            <div class="p-6">
+                <div class="flex items-center gap-4 mb-4">
+                    <div class="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center flex-shrink-0" id="confirm-icon-container">
+                        <i class="fas fa-exclamation-triangle text-destructive text-xl" id="confirm-icon"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-lg" id="confirm-title">确认操作</h3>
+                        <p class="text-sm text-muted-foreground mt-1" id="confirm-message">确定要执行此操作吗？</p>
+                    </div>
+                </div>
+            </div>
+            <div class="p-4 border-t border-border bg-muted/30 flex justify-end gap-3">
+                <button type="button" class="btn btn-secondary" onclick="closeConfirmModal(false)">取消</button>
+                <button type="button" class="btn btn-primary bg-destructive hover:bg-destructive/90" id="confirm-btn" onclick="closeConfirmModal(true)">确定</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         let configs = [];
         let activeEnvs = {
@@ -788,7 +921,60 @@
         let editingConfigOldName = ''; // Store original name for editing
         let currentFilter = 'all';
         let currentSearch = '';
-        
+        let confirmResolve = null; // For confirm modal promise
+
+        // Custom Confirm Modal
+        function showConfirm(title, message, type = 'danger') {
+            return new Promise((resolve) => {
+                confirmResolve = resolve;
+
+                document.getElementById('confirm-title').textContent = title;
+                document.getElementById('confirm-message').textContent = message;
+
+                const iconContainer = document.getElementById('confirm-icon-container');
+                const icon = document.getElementById('confirm-icon');
+                const btn = document.getElementById('confirm-btn');
+
+                if (type === 'danger') {
+                    iconContainer.className = 'w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center flex-shrink-0';
+                    icon.className = 'fas fa-exclamation-triangle text-destructive text-xl';
+                    btn.className = 'btn btn-primary bg-destructive hover:bg-destructive/90';
+                } else if (type === 'warning') {
+                    iconContainer.className = 'w-12 h-12 rounded-full bg-yellow-500/10 flex items-center justify-center flex-shrink-0';
+                    icon.className = 'fas fa-exclamation-circle text-yellow-500 text-xl';
+                    btn.className = 'btn btn-primary bg-yellow-500 hover:bg-yellow-600';
+                } else {
+                    iconContainer.className = 'w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0';
+                    icon.className = 'fas fa-question-circle text-primary text-xl';
+                    btn.className = 'btn btn-primary';
+                }
+
+                const modal = document.getElementById('confirmModal');
+                const panel = document.getElementById('confirm-panel');
+                modal.classList.remove('hidden');
+                requestAnimationFrame(() => {
+                    panel.classList.remove('scale-95', 'opacity-0');
+                    panel.classList.add('scale-100', 'opacity-100');
+                });
+            });
+        }
+
+        function closeConfirmModal(result) {
+            const modal = document.getElementById('confirmModal');
+            const panel = document.getElementById('confirm-panel');
+
+            panel.classList.remove('scale-100', 'opacity-100');
+            panel.classList.add('scale-95', 'opacity-0');
+
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                if (confirmResolve) {
+                    confirmResolve(result);
+                    confirmResolve = null;
+                }
+            }, 300);
+        }
+
         // Theme Management
         function initTheme() {
             const savedTheme = localStorage.getItem('theme') || 'dark';
@@ -808,7 +994,151 @@
             loadConfigs();
             refreshCurrentEnv();
             initSortable();
+            initEmojiPicker();
         });
+
+        // Emoji Picker
+        function initEmojiPicker() {
+            const picker = document.getElementById('emoji-picker');
+            if (picker) {
+                picker.addEventListener('emoji-click', event => {
+                    const emoji = event.detail.unicode;
+                    document.getElementById('selected-emoji').textContent = emoji;
+                    document.getElementById('config-icon').value = emoji;
+                    toggleEmojiPicker();
+                });
+            }
+
+            // 点击外部关闭
+            document.addEventListener('click', function(e) {
+                const dropdown = document.getElementById('emoji-picker-dropdown');
+                const btn = document.getElementById('emoji-btn');
+                if (dropdown && !dropdown.contains(e.target) && !btn.contains(e.target)) {
+                    dropdown.classList.add('hidden');
+                }
+            });
+        }
+
+        function toggleEmojiPicker() {
+            const dropdown = document.getElementById('emoji-picker-dropdown');
+            dropdown.classList.toggle('hidden');
+        }
+
+        // 批量测速 - 测试当前配置文件中的实际配置
+        async function testAllLatency() {
+            const icon = document.getElementById('status-refresh-icon');
+            const container = document.getElementById('latency-status');
+
+            icon.classList.add('fa-spin');
+
+            // 从配置文件读取当前实际配置
+            const activeConfigs = [];
+
+            try {
+                const claudeSettings = await window.go.main.App.GetClaudeSettings();
+                if (claudeSettings && claudeSettings['ANTHROPIC_BASE_URL']) {
+                    activeConfigs.push({ name: 'Claude', url: claudeSettings['ANTHROPIC_BASE_URL'], provider: 'claude' });
+                }
+            } catch (e) {}
+
+            try {
+                const codexSettings = await window.go.main.App.GetCodexSettings();
+                if (codexSettings && codexSettings['base_url']) {
+                    activeConfigs.push({ name: 'Codex', url: codexSettings['base_url'], provider: 'codex' });
+                }
+            } catch (e) {}
+
+            try {
+                const geminiSettings = await window.go.main.App.GetGeminiSettings();
+                if (geminiSettings && geminiSettings['GOOGLE_GEMINI_BASE_URL']) {
+                    activeConfigs.push({ name: 'Gemini', url: geminiSettings['GOOGLE_GEMINI_BASE_URL'], provider: 'gemini' });
+                }
+            } catch (e) {}
+
+            if (activeConfigs.length === 0) {
+                container.innerHTML = `
+                    <div class="text-xs text-muted-foreground text-center py-4">
+                        <i class="fas fa-info-circle mb-2 text-lg opacity-30"></i>
+                        <p>无已应用的配置</p>
+                    </div>
+                `;
+                icon.classList.remove('fa-spin');
+                return;
+            }
+
+            // 显示测速中状态
+            container.innerHTML = activeConfigs.map(c => `
+                <div class="latency-item" id="latency-${c.provider}">
+                    <div class="flex items-center justify-between mb-1.5">
+                        <span class="text-xs font-medium">${c.name}</span>
+                        <span class="text-xs font-mono text-muted-foreground latency-value">
+                            <i class="fas fa-circle-notch fa-spin"></i>
+                        </span>
+                    </div>
+                    <div class="w-full bg-border h-1.5 rounded-full overflow-hidden">
+                        <div class="h-full bg-muted-foreground/30 latency-bar" style="width: 0%"></div>
+                    </div>
+                </div>
+            `).join('');
+
+            // 并行测速
+            for (const config of activeConfigs) {
+                try {
+                    if (!config.url) {
+                        updateLatencyDisplay(config.provider, -1, 'N/A');
+                        continue;
+                    }
+                    const ms = await window.go.main.App.TestLatency(config.url);
+                    updateLatencyDisplay(config.provider, ms);
+                } catch (e) {
+                    updateLatencyDisplay(config.provider, -1, 'Error');
+                }
+            }
+
+            icon.classList.remove('fa-spin');
+        }
+
+        function updateLatencyDisplay(provider, ms, label) {
+            const el = document.getElementById(`latency-${provider}`);
+            if (!el) return;
+
+            const valueEl = el.querySelector('.latency-value');
+            const barEl = el.querySelector('.latency-bar');
+
+            let color = 'text-green-500';
+            let barColor = 'bg-green-500';
+            let text = label || `${ms}ms`;
+            let width = '100%';
+
+            if (ms === -1) {
+                color = 'text-muted-foreground';
+                barColor = 'bg-muted-foreground/30';
+                width = '0%';
+            } else if (ms > 1000) {
+                color = 'text-red-500';
+                barColor = 'bg-red-500';
+                width = '100%';
+                text = label || `${(ms/1000).toFixed(1)}s`;
+            } else if (ms > 500) {
+                color = 'text-orange-500';
+                barColor = 'bg-orange-500';
+                width = '80%';
+            } else if (ms > 300) {
+                color = 'text-yellow-500';
+                barColor = 'bg-yellow-500';
+                width = '60%';
+            } else if (ms > 100) {
+                width = '40%';
+            } else {
+                width = '25%';
+            }
+
+            valueEl.className = `text-xs font-mono ${color} latency-value`;
+            valueEl.textContent = text;
+
+            barEl.className = `h-full ${barColor} latency-bar transition-all duration-500`;
+            barEl.style.width = width;
+        }
 
         // 窗口控制函数
         function minimizeWindow() {
@@ -877,8 +1207,12 @@
                             }
 
                             // 确认导入
-                            const confirmMsg = `即将导入 ${importedConfig.environments.length} 个配置。\n重名配置会自动添加后缀。\n\n确定要导入吗？`;
-                            if (!confirm(confirmMsg)) return;
+                            const confirmed = await showConfirm(
+                                '导入配置',
+                                `即将导入 ${importedConfig.environments.length} 个配置。重名配置会自动添加后缀。`,
+                                'info'
+                            );
+                            if (!confirmed) return;
 
                             // 合并导入：逐个添加配置
                             let importCount = 0;
@@ -938,34 +1272,54 @@
                     // Only update if order changed
                     if (evt.oldIndex === evt.newIndex) return;
 
-                    // Get new order
-                    const newOrder = [];
+                    // Get displayed items order
+                    const displayedOrder = [];
                     const items = grid.querySelectorAll('.config-item');
                     items.forEach(item => {
                         const name = item.getAttribute('data-name');
-                        if (name) newOrder.push(name);
+                        if (name) displayedOrder.push(name);
                     });
 
-                    // Update local configs array to match new order
+                    // Build new full order maintaining non-displayed items in their relative positions
                     const newConfigs = [];
-                    newOrder.forEach(name => {
-                        const config = configs.find(c => c.name === name);
-                        if (config) newConfigs.push(config);
-                    });
+                    const displayedSet = new Set(displayedOrder);
 
-                    // Add any missing configs (e.g. filtered out ones)
-                    configs.forEach(c => {
-                        if (!newConfigs.includes(c)) newConfigs.push(c);
-                    });
+                    // If showing all, just use displayed order
+                    if (currentFilter === 'all' && !currentSearch) {
+                        displayedOrder.forEach(name => {
+                            const config = configs.find(c => c.name === name);
+                            if (config) newConfigs.push(config);
+                        });
+                    } else {
+                        // Partial view: merge displayed order with non-displayed items
+                        let displayedIndex = 0;
+                        const displayedConfigs = displayedOrder.map(name => configs.find(c => c.name === name));
+
+                        configs.forEach(c => {
+                            if (displayedSet.has(c.name)) {
+                                // Insert next item from displayed order
+                                if (displayedIndex < displayedConfigs.length) {
+                                    newConfigs.push(displayedConfigs[displayedIndex]);
+                                    displayedIndex++;
+                                }
+                            } else {
+                                // Keep non-displayed items in place
+                                newConfigs.push(c);
+                            }
+                        });
+                    }
 
                     configs = newConfigs;
+
+                    // Build full order for backend
+                    const fullOrder = configs.map(c => c.name);
 
                     // Re-render to update indices
                     renderConfigGrid();
 
                     // Save to backend
                     try {
-                        await window.go.main.App.ReorderEnvs(newOrder);
+                        await window.go.main.App.ReorderEnvs(fullOrder);
                     } catch (e) {
                         console.error('Reorder failed:', e);
                         showToast('排序保存失败', 'error');
@@ -1020,37 +1374,77 @@
             renderConfigGrid();
         }
 
-        // Refresh Env Vars
+        // Refresh Env Vars - 从配置文件读取
         async function refreshCurrentEnv() {
             const refreshBtn = document.getElementById('refresh-btn');
             const originalContent = refreshBtn.innerHTML;
-            
+
             try {
                 refreshBtn.disabled = true;
                 refreshBtn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> 刷新中...';
-                
-                const vars = ['ANTHROPIC_BASE_URL', 'ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_MODEL', 'ANTHROPIC_API_KEY'];
-                const values = await Promise.all(vars.map(v => window.go.main.App.GetEnvVar(v)));
-                
-                const container = document.getElementById('current-env-grid');
-                container.innerHTML = `
-                    ${renderEnvCard('Base URL', 'globe', 'blue', values[0], 'ANTHROPIC_BASE_URL')}
-                    ${renderEnvCard('Auth Token', 'fingerprint', 'purple', values[1], 'ANTHROPIC_AUTH_TOKEN')}
-                    ${renderEnvCard('Model', 'microchip', 'pink', values[2], 'ANTHROPIC_MODEL')}
-                    ${renderEnvCard('API Key', 'key', 'orange', values[3], 'ANTHROPIC_API_KEY')}
+
+                // 读取 Claude 配置
+                const claudeSettings = await window.go.main.App.GetClaudeSettings() || {};
+                const claudeContainer = document.getElementById('current-env-claude');
+                claudeContainer.innerHTML = `
+                    ${renderEnvCard('Base URL', 'globe', 'blue', claudeSettings['ANTHROPIC_BASE_URL'], 'claude')}
+                    ${renderEnvCard('Auth Token', 'fingerprint', 'green', claudeSettings['ANTHROPIC_AUTH_TOKEN'], 'claude')}
+                    ${renderEnvCard('Model', 'microchip', 'pink', claudeSettings['ANTHROPIC_MODEL'], 'claude')}
+                    ${renderEnvCard('API Key', 'key', 'orange', claudeSettings['ANTHROPIC_API_KEY'], 'claude')}
                 `;
-                
-                showToast('环境状态已同步', 'success');
+
+                // 读取 Codex 配置
+                const codexSettings = await window.go.main.App.GetCodexSettings() || {};
+                const codexContainer = document.getElementById('current-env-codex');
+                codexContainer.innerHTML = `
+                    ${renderEnvCard('Base URL', 'globe', 'blue', codexSettings['base_url'], 'codex')}
+                    ${renderEnvCard('Model', 'microchip', 'pink', codexSettings['model'], 'codex')}
+                    ${renderEnvCard('API Key', 'key', 'orange', codexSettings['OPENAI_API_KEY'], 'codex')}
+                `;
+
+                // 读取 Gemini 配置
+                const geminiSettings = await window.go.main.App.GetGeminiSettings() || {};
+                const geminiContainer = document.getElementById('current-env-gemini');
+                geminiContainer.innerHTML = `
+                    ${renderEnvCard('Base URL', 'globe', 'blue', geminiSettings['GOOGLE_GEMINI_BASE_URL'], 'gemini')}
+                    ${renderEnvCard('Model', 'microchip', 'pink', geminiSettings['GEMINI_MODEL'], 'gemini')}
+                    ${renderEnvCard('API Key', 'key', 'orange', geminiSettings['GEMINI_API_KEY'], 'gemini')}
+                `;
+
+                showToast('配置状态已同步', 'success');
             } catch (error) {
                 console.error('Error:', error);
-                showToast('获取环境变量失败', 'error');
+                showToast('获取配置状态失败', 'error');
             } finally {
                 refreshBtn.disabled = false;
                 refreshBtn.innerHTML = originalContent;
             }
         }
-        
-        function renderEnvCard(label, icon, color, value, key) {
+
+        // Tab 切换
+        function showCurrentEnvTab(provider) {
+            // 更新 Tab 样式
+            document.querySelectorAll('.current-env-tab').forEach(tab => {
+                tab.classList.remove('bg-muted', 'text-foreground');
+                tab.classList.add('text-muted-foreground');
+            });
+            event.currentTarget.classList.remove('text-muted-foreground');
+            event.currentTarget.classList.add('bg-muted', 'text-foreground');
+
+            // 显示对应面板
+            document.querySelectorAll('.current-env-panel').forEach(panel => panel.classList.add('hidden'));
+            document.getElementById(`current-env-${provider}`).classList.remove('hidden');
+        }
+
+        function renderEnvCard(label, icon, color, value, provider) {
+            const isSensitive = ['Auth Token', 'API Key'].includes(label);
+            const displayValue = value ? (isSensitive ? maskValue(value) : value) : 'Not Set';
+            const eyeIcon = isSensitive && value ? `
+                <button class="ml-2 text-muted-foreground hover:text-foreground transition-colors" onclick="toggleSensitiveValue(this, '${escapeHtml(value)}')" title="显示/隐藏">
+                    <i class="fas fa-eye text-xs"></i>
+                </button>
+            ` : '';
+
             return `
                 <div class="env-card group">
                     <div class="w-8 h-8 rounded-lg bg-${color}-500/10 text-${color}-500 flex items-center justify-center flex-shrink-0">
@@ -1058,13 +1452,42 @@
                     </div>
                     <div class="flex-1 min-w-0">
                         <div class="text-xs font-medium text-muted-foreground mb-1">${label}</div>
-                        <div class="env-value truncate" title="${value || ''}">${value || 'Not Set'}</div>
+                        <div class="flex items-center">
+                            <div class="env-value truncate flex-1" title="${isSensitive ? '点击眼睛图标查看' : (value || '')}" data-masked="${isSensitive}" data-value="${escapeHtml(value || '')}">${displayValue}</div>
+                            ${eyeIcon}
+                        </div>
                     </div>
-                    <button class="opacity-0 group-hover:opacity-100 transition-opacity p-2 text-muted-foreground hover:text-destructive" onclick="clearEnvVar('${key}')">
-                        <i class="fas fa-times"></i>
-                    </button>
                 </div>
             `;
+        }
+
+        function maskValue(value) {
+            if (!value) return 'Not Set';
+            if (value.length <= 8) return '••••••••';
+            return value.substring(0, 4) + '••••••••' + value.substring(value.length - 4);
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+        }
+
+        function toggleSensitiveValue(btn, realValue) {
+            const container = btn.parentElement;
+            const valueEl = container.querySelector('.env-value');
+            const icon = btn.querySelector('i');
+
+            if (icon.classList.contains('fa-eye')) {
+                valueEl.textContent = realValue;
+                valueEl.title = realValue;
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                valueEl.textContent = maskValue(realValue);
+                valueEl.title = '点击眼睛图标查看';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
         }
         
         // Load Configs
@@ -1178,8 +1601,8 @@
                     <div class="config-item group ${isActive ? 'active' : ''}" data-name="${config.name}" onclick="applyConfig(${index})">
                         <div class="flex justify-between items-start mb-2">
                             <div class="flex items-center gap-2 min-w-0 flex-1 mr-2">
-                                <div class="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
-                                    <i class="fas fa-cube text-sm"></i>
+                                <div class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 text-lg">
+                                    ${config.icon || '📦'}
                                 </div>
                                 <div class="min-w-0 flex-1">
                                     <h3 class="font-bold text-foreground text-sm truncate" title="${config.name}">${config.name}</h3>
@@ -1190,15 +1613,18 @@
                                 <button class="w-7 h-7 rounded hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground" onclick="testLatency('${baseUrl}', this)" title="测速">
                                     <i class="fas fa-tachometer-alt text-xs"></i>
                                 </button>
-                                <button class="w-7 h-7 rounded hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground" onclick="editConfig(${index})">
+                                <button class="w-7 h-7 rounded hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground" onclick="duplicateConfig(${index})" title="复制">
+                                    <i class="fas fa-copy text-xs"></i>
+                                </button>
+                                <button class="w-7 h-7 rounded hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground" onclick="editConfig(${index})" title="编辑">
                                     <i class="fas fa-pen text-xs"></i>
                                 </button>
-                                <button class="w-7 h-7 rounded hover:bg-destructive/10 flex items-center justify-center text-muted-foreground hover:text-destructive" onclick="deleteConfig(${index})">
+                                <button class="w-7 h-7 rounded hover:bg-destructive/10 flex items-center justify-center text-muted-foreground hover:text-destructive" onclick="deleteConfig(${index})" title="删除">
                                     <i class="fas fa-trash text-xs"></i>
                                 </button>
                             </div>
                         </div>
-                        
+                        ${config.description ? `<p class="text-xs text-muted-foreground mb-2 truncate" title="${escapeHtml(config.description)}">${escapeHtml(config.description)}</p>` : ''}
                         ${details}
                     </div>
                 `;
@@ -1212,7 +1638,11 @@
             editingConfigOldName = '';
             document.getElementById('modal-title').textContent = '新建配置';
             document.getElementById('configForm').reset();
-            
+
+            // Reset emoji to default
+            document.getElementById('selected-emoji').textContent = '📦';
+            document.getElementById('config-icon').value = '📦';
+
             // Set default templates
             document.getElementById('codex-tmpl-config').value = `model_provider = "duckcoding"
 model = "{{model}}"
@@ -1264,9 +1694,15 @@ GEMINI_MODEL={{GEMINI_MODEL}}`;
 
             document.getElementById('modal-title').textContent = '编辑配置';
             document.getElementById('config-name').value = config.name;
-            
+            document.getElementById('config-description').value = config.description || '';
+
+            // Load icon
+            const icon = config.icon || '📦';
+            document.getElementById('selected-emoji').textContent = icon;
+            document.getElementById('config-icon').value = icon;
+
             switchProvider(provider);
-            
+
             if (provider === 'claude') {
                 document.getElementById('claude-base-url').value = config.variables.ANTHROPIC_BASE_URL || '';
                 document.getElementById('claude-auth-token').value = config.variables.ANTHROPIC_AUTH_TOKEN || '';
@@ -1317,15 +1753,22 @@ GEMINI_MODEL={{GEMINI_MODEL}}`;
             try {
                 const config = configs[index];
                 const provider = config.provider || 'claude';
-                
+
                 // Call backend to switch env
                 await window.go.main.App.SwitchToEnv(config.name);
                 await window.go.main.App.ApplyCurrentEnv();
-                
+
                 // Update local state and re-render
                 activeEnvs[provider] = config.name;
                 renderConfigGrid();
-                
+
+                // Add success animation
+                const configItem = document.querySelector(`.config-item[data-name="${config.name}"]`);
+                if (configItem) {
+                    configItem.classList.add('apply-success');
+                    setTimeout(() => configItem.classList.remove('apply-success'), 600);
+                }
+
                 await refreshCurrentEnv();
                 showToast(`已应用配置: ${config.name}`, 'success');
             } catch (e) {
@@ -1366,7 +1809,8 @@ GEMINI_MODEL={{GEMINI_MODEL}}`;
         }
         
         async function deleteConfig(index) {
-            if (!confirm('确定要删除此配置吗？')) return;
+            const confirmed = await showConfirm('删除配置', '确定要删除此配置吗？此操作不可撤销。', 'danger');
+            if (!confirmed) return;
             try {
                 await window.go.main.App.DeleteEnv(configs[index].name);
                 await loadConfigs();
@@ -1375,41 +1819,97 @@ GEMINI_MODEL={{GEMINI_MODEL}}`;
                 showToast('删除失败: ' + e.message, 'error');
             }
         }
-        
-        async function clearEnvVar(name) {
-            if (!confirm(`清除 ${name}?`)) return;
+
+        async function duplicateConfig(index) {
+            const config = configs[index];
+            // 生成新名称
+            let newName = config.name + ' - 副本';
+            let suffix = 1;
+            while (configs.some(c => c.name === newName)) {
+                newName = config.name + ' - 副本 ' + suffix;
+                suffix++;
+            }
+
+            const newConfig = {
+                name: newName,
+                description: config.description || '',
+                provider: config.provider || 'claude',
+                variables: { ...config.variables },
+                templates: config.templates ? { ...config.templates } : {},
+                icon: config.icon || '📦'
+            };
+
             try {
-                await window.go.main.App.ClearEnvVar(name);
-                await refreshCurrentEnv();
-                showToast('变量已清除', 'success');
+                await window.go.main.App.AddEnv(newConfig);
+                await loadConfigs();
+                showToast('配置已复制', 'success');
             } catch (e) {
-                showToast('操作失败', 'error');
+                showToast('复制失败: ' + e.message, 'error');
             }
         }
-        
+
         async function clearAllEnvVars() {
-            if (!confirm('确定要清除所有环境变量吗？')) return;
+            const confirmed = await showConfirm('清除所有配置', '这将清除 Claude、Codex、Gemini 的配置文件。确定要继续吗？', 'danger');
+            if (!confirmed) return;
             try {
                 await window.go.main.App.ClearAllEnv();
                 await refreshCurrentEnv();
-                showToast('所有变量已清除', 'success');
+                showToast('所有配置已清除', 'success');
             } catch (e) {
-                showToast('操作失败', 'error');
+                showToast('操作失败: ' + e.message, 'error');
+            }
+        }
+
+        async function clearClaudeSettings() {
+            const confirmed = await showConfirm('清除 Claude 配置', '确定要清除 Claude 配置文件吗？', 'warning');
+            if (!confirmed) return;
+            try {
+                await window.go.main.App.ClearClaudeSettings();
+                await refreshCurrentEnv();
+                showToast('Claude 配置已清除', 'success');
+            } catch (e) {
+                showToast('操作失败: ' + e.message, 'error');
+            }
+        }
+
+        async function clearCodexSettings() {
+            const confirmed = await showConfirm('清除 Codex 配置', '确定要清除 Codex 配置文件吗？', 'warning');
+            if (!confirmed) return;
+            try {
+                await window.go.main.App.ClearCodexSettings();
+                await refreshCurrentEnv();
+                showToast('Codex 配置已清除', 'success');
+            } catch (e) {
+                showToast('操作失败: ' + e.message, 'error');
+            }
+        }
+
+        async function clearGeminiSettings() {
+            const confirmed = await showConfirm('清除 Gemini 配置', '确定要清除 Gemini 配置文件吗？', 'warning');
+            if (!confirmed) return;
+            try {
+                await window.go.main.App.ClearGeminiSettings();
+                await refreshCurrentEnv();
+                showToast('Gemini 配置已清除', 'success');
+            } catch (e) {
+                showToast('操作失败: ' + e.message, 'error');
             }
         }
 
         // Form Submit
         document.getElementById('configForm').addEventListener('submit', async function(e) {
             e.preventDefault();
-            
+
             const name = document.getElementById('config-name').value.trim();
+            const description = document.getElementById('config-description').value.trim();
             const provider = document.getElementById('config-provider').value;
-            
+            const icon = document.getElementById('config-icon').value;
+
             if (!name) return showToast('请输入配置名称', 'error');
-            
+
             const exists = configs.some((c, i) => c.name === name && i !== editingConfigIndex);
             if (exists) return showToast('配置名称已存在', 'error');
-            
+
             let variables = {};
             let templates = {};
             
@@ -1449,10 +1949,11 @@ GEMINI_MODEL={{GEMINI_MODEL}}`;
             
             const configData = {
                 name: name,
-                description: '',
+                description: description,
                 provider: provider,
                 variables: variables,
-                templates: templates
+                templates: templates,
+                icon: icon
             };
             
             try {

@@ -6,14 +6,15 @@
   "environments": [
     {
       "name": "4324",
-      "description": "",
+      "description": "345",
       "variables": {
         "ANTHROPIC_API_KEY": "",
         "ANTHROPIC_AUTH_TOKEN": "432432",
         "ANTHROPIC_BASE_URL": "https://www.baidu.com",
         "ANTHROPIC_MODEL": ""
       },
-      "provider": "claude"
+      "provider": "claude",
+      "icon": "😄"
     },
     {
       "name": "修改1",
@@ -24,7 +25,17 @@
         "ANTHROPIC_BASE_URL": "643643643634",
         "ANTHROPIC_MODEL": ""
       },
-      "provider": "claude"
+      "provider": "claude",
+      "icon": "😄"
+    },
+    {
+      "name": "123",
+      "description": "",
+      "variables": {
+        "base_url": "4234",
+        "model": "423"
+      },
+      "provider": "codex"
     },
     {
       "name": "543543",
@@ -36,15 +47,6 @@
         "ANTHROPIC_MODEL": ""
       },
       "provider": ""
-    },
-    {
-      "name": "123",
-      "description": "",
-      "variables": {
-        "base_url": "4234",
-        "model": "423"
-      },
-      "provider": "codex"
     },
     {
       "name": "52534636347542824825484",
@@ -92,6 +94,16 @@
         "ANTHROPIC_MODEL": ""
       },
       "provider": "claude"
+    },
+    {
+      "name": "123 - 副本",
+      "description": "",
+      "variables": {
+        "base_url": "4234",
+        "model": "423"
+      },
+      "provider": "codex",
+      "icon": "📦"
     }
   ]
 }

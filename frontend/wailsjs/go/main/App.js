@@ -14,8 +14,16 @@ export function ClearAllEnv() {
   return window['go']['main']['App']['ClearAllEnv']();
 }
 
-export function ClearEnvVar(arg1) {
-  return window['go']['main']['App']['ClearEnvVar'](arg1);
+export function ClearClaudeSettings() {
+  return window['go']['main']['App']['ClearClaudeSettings']();
+}
+
+export function ClearCodexSettings() {
+  return window['go']['main']['App']['ClearCodexSettings']();
+}
+
+export function ClearGeminiSettings() {
+  return window['go']['main']['App']['ClearGeminiSettings']();
 }
 
 export function DeleteEnv(arg1) {
@@ -26,12 +34,24 @@ export function ExportConfig(arg1) {
   return window['go']['main']['App']['ExportConfig'](arg1);
 }
 
+export function GetClaudeSettings() {
+  return window['go']['main']['App']['GetClaudeSettings']();
+}
+
+export function GetCodexSettings() {
+  return window['go']['main']['App']['GetCodexSettings']();
+}
+
 export function GetConfig() {
   return window['go']['main']['App']['GetConfig']();
 }
 
 export function GetEnvVar(arg1) {
   return window['go']['main']['App']['GetEnvVar'](arg1);
+}
+
+export function GetGeminiSettings() {
+  return window['go']['main']['App']['GetGeminiSettings']();
 }
 
 export function ImportConfig(arg1) {

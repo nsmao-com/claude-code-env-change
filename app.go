@@ -6,11 +6,8 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
-	"syscall"
 	"time"
 )
 
@@ -21,6 +18,7 @@ type EnvConfig struct {
 	Variables   map[string]string `json:"variables"`
 	Provider    string            `json:"provider"`            // "claude", "codex", "gemini"
 	Templates   map[string]string `json:"templates,omitempty"` // 自定义模板内容，key为文件名
+	Icon        string            `json:"icon,omitempty"`      // emoji 图标
 }
 
 // Config 主配置
@@ -59,52 +57,7 @@ func (a *App) GetConfig() Config {
 
 // GetEnvVar 获取环境变量
 func (a *App) GetEnvVar(key string) string {
-	// 在Windows系统上，直接从注册表读取最新值
-	if runtime.GOOS == "windows" {
-		return a.getWindowsEnvVar(key)
-	}
-	return os.Getenv(key)
-}
-
-// getWindowsEnvVar 从Windows注册表读取环境变量
-func (a *App) getWindowsEnvVar(key string) string {
-	// 使用reg query命令查询用户环境变量
-	cmd := exec.Command("reg", "query", "HKCU\\Environment", "/v", key)
-
-	// 隐藏CMD窗口
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		HideWindow:    true,
-		CreationFlags: 0x08000000, // CREATE_NO_WINDOW
-	}
-
-	output, err := cmd.Output()
-	if err != nil {
-		// 如果用户环境变量不存在，尝试读取进程环境变量
-		return os.Getenv(key)
-	}
-
-	// 解析reg命令的输出
-	lines := strings.Split(string(output), "\n")
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		// 查找包含变量名和REG_SZ的行
-		if strings.Contains(line, key) && strings.Contains(line, "REG_SZ") {
-			// 使用正则表达式或字符串分割来解析
-			// 格式通常是: "变量名    REG_SZ    值"
-			regSzIndex := strings.Index(line, "REG_SZ")
-			if regSzIndex != -1 {
-				// 获取REG_SZ后面的值
-				valueStart := regSzIndex + len("REG_SZ")
-				if valueStart < len(line) {
-					value := strings.TrimSpace(line[valueStart:])
-					return value
-				}
-			}
-		}
-	}
-
-	// 如果解析失败，返回进程环境变量
-	return os.Getenv(key)
+	return a.getPlatformEnvVar(key)
 }
 
 // SetEnvVar 设置环境变量
@@ -115,51 +68,8 @@ func (a *App) SetEnvVar(key, value string) error {
 		return fmt.Errorf("设置环境变量失败: %v", err)
 	}
 
-	// 在Windows系统上，同时设置系统环境变量
-	if runtime.GOOS == "windows" {
-		return a.setWindowsEnvVar(key, value)
-	}
-
-	return nil
-}
-
-// setWindowsEnvVar 在Windows系统上设置环境变量
-func (a *App) setWindowsEnvVar(key, value string) error {
-	// 使用setx命令设置用户环境变量，不添加双引号
-	cmd_exec := exec.Command("setx", key, value)
-
-	// 隐藏CMD窗口
-	cmd_exec.SysProcAttr = &syscall.SysProcAttr{
-		HideWindow:    true,
-		CreationFlags: 0x08000000, // CREATE_NO_WINDOW
-	}
-
-	output, err := cmd_exec.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("执行setx命令失败: %v, 输出: %s", err, string(output))
-	}
-	return nil
-}
-
-// deleteWindowsEnvVar 在Windows系统上删除环境变量
-func (a *App) deleteWindowsEnvVar(key string) error {
-	// 使用reg命令删除用户环境变量
-	cmd_exec := exec.Command("reg", "delete", "HKCU\\Environment", "/v", key, "/f")
-
-	// 隐藏CMD窗口
-	cmd_exec.SysProcAttr = &syscall.SysProcAttr{
-		HideWindow:    true,
-		CreationFlags: 0x08000000, // CREATE_NO_WINDOW
-	}
-
-	output, err := cmd_exec.CombinedOutput()
-	if err != nil {
-		// 如果环境变量不存在，reg命令会返回错误，但这不是真正的错误
-		if !strings.Contains(string(output), "无法找到指定的注册表项或值") && !strings.Contains(string(output), "The system was unable to find the specified registry key or value") {
-			return fmt.Errorf("执行reg delete命令失败: %v, 输出: %s", err, string(output))
-		}
-	}
-	return nil
+	// 调用平台特定的持久化方法
+	return a.setPlatformEnvVar(key, value)
 }
 
 // SwitchToEnv 切换环境
@@ -369,42 +279,154 @@ func (a *App) findEnv(name string) *EnvConfig {
 	return nil
 }
 
-// applyClaudeEnv 应用 Claude 环境变量配置
-func (a *App) applyClaudeEnv(env *EnvConfig) (string, error) {
-	// 设置当前进程的环境变量
-	for key, value := range env.Variables {
-		a.SetEnvVar(key, value)
-	}
+// ClaudeSettings Claude settings.json 结构
+type ClaudeSettings struct {
+	Env map[string]string `json:"env"`
+}
 
-	// 生成环境变量设置脚本 (保留原有逻辑作为备份/导出)
-	var script strings.Builder
-	var filename string
-
-	if runtime.GOOS == "windows" {
-		script.WriteString("@echo off\n")
-		script.WriteString("echo 正在设置 Claude Code 环境变量...\n")
-		for key, value := range env.Variables {
-			script.WriteString(fmt.Sprintf("set %s=%s\n", key, value))
-		}
-		script.WriteString("echo 环境变量设置完成！\n")
-		script.WriteString("pause\n")
-		filename = "claude_env_setup.bat"
-	} else {
-		script.WriteString("#!/bin/bash\n")
-		script.WriteString("echo \"正在设置 Claude Code 环境变量...\"\n")
-		for key, value := range env.Variables {
-			script.WriteString(fmt.Sprintf("export %s=%s\n", key, value))
-		}
-		script.WriteString("echo \"环境变量设置完成！\"\n")
-		filename = "claude_env_setup.sh"
-	}
-
-	err := os.WriteFile(filename, []byte(script.String()), 0755)
+// GetClaudeSettings 读取 Claude settings.json 配置
+func (a *App) GetClaudeSettings() map[string]string {
+	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		return "", fmt.Errorf("保存脚本文件失败: %v", err)
+		return nil
 	}
 
-	return "环境变量已应用", nil
+	settingsFile := filepath.Join(homeDir, ".claude", "settings.json")
+	data, err := os.ReadFile(settingsFile)
+	if err != nil {
+		return nil
+	}
+
+	var settings map[string]interface{}
+	if err := json.Unmarshal(data, &settings); err != nil {
+		return nil
+	}
+
+	// 提取 env 字段
+	if envData, ok := settings["env"]; ok {
+		if envMap, ok := envData.(map[string]interface{}); ok {
+			result := make(map[string]string)
+			for k, v := range envMap {
+				if str, ok := v.(string); ok {
+					result[k] = str
+				}
+			}
+			return result
+		}
+	}
+
+	return nil
+}
+
+// GetCodexSettings 读取 Codex 配置
+func (a *App) GetCodexSettings() map[string]string {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return nil
+	}
+
+	result := make(map[string]string)
+
+	// 读取 auth.json
+	authFile := filepath.Join(homeDir, ".codex", "auth.json")
+	if data, err := os.ReadFile(authFile); err == nil {
+		var authData map[string]string
+		if json.Unmarshal(data, &authData) == nil {
+			for k, v := range authData {
+				result[k] = v
+			}
+		}
+	}
+
+	// 读取 config.toml 的关键字段
+	configFile := filepath.Join(homeDir, ".codex", "config.toml")
+	if data, err := os.ReadFile(configFile); err == nil {
+		lines := strings.Split(string(data), "\n")
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if strings.HasPrefix(line, "model =") {
+				result["model"] = strings.Trim(strings.TrimPrefix(line, "model ="), " \"")
+			}
+			if strings.HasPrefix(line, "base_url =") {
+				result["base_url"] = strings.Trim(strings.TrimPrefix(line, "base_url ="), " \"")
+			}
+		}
+	}
+
+	return result
+}
+
+// GetGeminiSettings 读取 Gemini 配置
+func (a *App) GetGeminiSettings() map[string]string {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return nil
+	}
+
+	result := make(map[string]string)
+
+	// 读取 .env 文件
+	envFile := filepath.Join(homeDir, ".gemini", ".env")
+	if data, err := os.ReadFile(envFile); err == nil {
+		lines := strings.Split(string(data), "\n")
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if line == "" || strings.HasPrefix(line, "#") {
+				continue
+			}
+			parts := strings.SplitN(line, "=", 2)
+			if len(parts) == 2 {
+				result[parts[0]] = parts[1]
+			}
+		}
+	}
+
+	return result
+}
+
+// applyClaudeEnv 应用 Claude 配置到 ~/.claude/settings.json
+func (a *App) applyClaudeEnv(env *EnvConfig) (string, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("获取用户目录失败: %v", err)
+	}
+
+	claudeDir := filepath.Join(homeDir, ".claude")
+	if err := os.MkdirAll(claudeDir, 0755); err != nil {
+		return "", fmt.Errorf("创建 .claude 目录失败: %v", err)
+	}
+
+	settingsFile := filepath.Join(claudeDir, "settings.json")
+
+	// 读取现有的 settings.json (如果存在)
+	var settings map[string]interface{}
+	if data, err := os.ReadFile(settingsFile); err == nil {
+		json.Unmarshal(data, &settings)
+	}
+	if settings == nil {
+		settings = make(map[string]interface{})
+	}
+
+	// 更新 env 字段
+	envMap := make(map[string]string)
+	for key, value := range env.Variables {
+		if value != "" {
+			envMap[key] = value
+		}
+	}
+	settings["env"] = envMap
+
+	// 写入 settings.json
+	settingsContent, err := json.MarshalIndent(settings, "", "  ")
+	if err != nil {
+		return "", fmt.Errorf("序列化配置失败: %v", err)
+	}
+
+	if err := os.WriteFile(settingsFile, settingsContent, 0644); err != nil {
+		return "", fmt.Errorf("写入 settings.json 失败: %v", err)
+	}
+
+	return "Claude 配置已应用到 ~/.claude/settings.json", nil
 }
 
 // applyCodexEnv 应用 Codex 配置
@@ -523,43 +545,89 @@ GEMINI_MODEL=%s
 	return "Gemini CLI 配置已应用", nil
 }
 
-// ClearEnvVar 清除特定环境变量
-func (a *App) ClearEnvVar(key string) error {
-	// 清除当前进程的环境变量
-	err := os.Unsetenv(key)
+// ClearClaudeSettings 清除 Claude settings.json 中的 env 配置
+func (a *App) ClearClaudeSettings() error {
+	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		return fmt.Errorf("清除进程环境变量失败: %v", err)
+		return fmt.Errorf("获取用户目录失败: %v", err)
 	}
 
-	// 在Windows系统上，同时删除系统环境变量
-	if runtime.GOOS == "windows" {
-		return a.deleteWindowsEnvVar(key)
+	settingsFile := filepath.Join(homeDir, ".claude", "settings.json")
+
+	// 读取现有的 settings.json
+	var settings map[string]interface{}
+	if data, err := os.ReadFile(settingsFile); err == nil {
+		json.Unmarshal(data, &settings)
+	}
+	if settings == nil {
+		return nil // 文件不存在，无需清除
+	}
+
+	// 清除 env 字段
+	delete(settings, "env")
+
+	// 写回文件
+	settingsContent, err := json.MarshalIndent(settings, "", "  ")
+	if err != nil {
+		return fmt.Errorf("序列化配置失败: %v", err)
+	}
+
+	if err := os.WriteFile(settingsFile, settingsContent, 0644); err != nil {
+		return fmt.Errorf("写入 settings.json 失败: %v", err)
 	}
 
 	return nil
 }
 
-// ClearAllEnv 清除所有相关环境变量
-func (a *App) ClearAllEnv() error {
-	// 定义需要清除的环境变量
-	envVars := []string{
-		"ANTHROPIC_BASE_URL",
-		"ANTHROPIC_AUTH_TOKEN",
-		"ANTHROPIC_MODEL",
-		"ANTHROPIC_API_KEY",
-		"CLAUDE_MODEL",
-		"API_BASE_URL",
-		"CLAUDE_MAX_TOKENS",
-		"CLAUDE_TEMPERATURE",
+// ClearCodexSettings 清除 Codex 配置文件
+func (a *App) ClearCodexSettings() error {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("获取用户目录失败: %v", err)
 	}
 
-	// 逐个清除环境变量
-	for _, key := range envVars {
-		err := a.ClearEnvVar(key)
-		if err != nil {
-			// 记录错误但继续清除其他变量
-			fmt.Printf("清除环境变量 %s 时出错: %v\n", key, err)
-		}
+	codexDir := filepath.Join(homeDir, ".codex")
+
+	// 删除配置文件
+	os.Remove(filepath.Join(codexDir, "config.toml"))
+	os.Remove(filepath.Join(codexDir, "auth.json"))
+
+	return nil
+}
+
+// ClearGeminiSettings 清除 Gemini 配置文件
+func (a *App) ClearGeminiSettings() error {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("获取用户目录失败: %v", err)
+	}
+
+	geminiDir := filepath.Join(homeDir, ".gemini")
+
+	// 删除配置文件
+	os.Remove(filepath.Join(geminiDir, ".env"))
+
+	return nil
+}
+
+// ClearAllEnv 清除所有配置 (Claude/Codex/Gemini)
+func (a *App) ClearAllEnv() error {
+	var errors []string
+
+	if err := a.ClearClaudeSettings(); err != nil {
+		errors = append(errors, fmt.Sprintf("Claude: %v", err))
+	}
+
+	if err := a.ClearCodexSettings(); err != nil {
+		errors = append(errors, fmt.Sprintf("Codex: %v", err))
+	}
+
+	if err := a.ClearGeminiSettings(); err != nil {
+		errors = append(errors, fmt.Sprintf("Gemini: %v", err))
+	}
+
+	if len(errors) > 0 {
+		return fmt.Errorf("部分清除失败: %s", strings.Join(errors, "; "))
 	}
 
 	return nil

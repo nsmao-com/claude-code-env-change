@@ -8,15 +8,25 @@ export function ApplyCurrentEnv():Promise<string>;
 
 export function ClearAllEnv():Promise<void>;
 
-export function ClearEnvVar(arg1:string):Promise<void>;
+export function ClearClaudeSettings():Promise<void>;
+
+export function ClearCodexSettings():Promise<void>;
+
+export function ClearGeminiSettings():Promise<void>;
 
 export function DeleteEnv(arg1:string):Promise<void>;
 
 export function ExportConfig(arg1:string):Promise<void>;
 
+export function GetClaudeSettings():Promise<Record<string, string>>;
+
+export function GetCodexSettings():Promise<Record<string, string>>;
+
 export function GetConfig():Promise<main.Config>;
 
 export function GetEnvVar(arg1:string):Promise<string>;
+
+export function GetGeminiSettings():Promise<Record<string, string>>;
 
 export function ImportConfig(arg1:string):Promise<void>;
 
