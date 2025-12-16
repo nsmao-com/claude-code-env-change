@@ -1,6 +1,36 @@
-import { ref, onMounted, watch } from 'vue'
+import { ref, watch } from 'vue'
 
 const isDark = ref(false)
+let initialized = false
+
+// 立即初始化主题（不等待 mounted）
+function initTheme() {
+  if (initialized) return
+  initialized = true
+
+  const stored = localStorage.getItem('theme')
+  if (stored) {
+    isDark.value = stored === 'dark'
+  } else {
+    // 默认使用亮色模式
+    isDark.value = false
+  }
+
+  // 立即应用
+  applyTheme(isDark.value)
+}
+
+function applyTheme(dark: boolean) {
+  if (dark) {
+    document.documentElement.classList.add('dark')
+  } else {
+    document.documentElement.classList.remove('dark')
+  }
+  localStorage.setItem('theme', dark ? 'dark' : 'light')
+}
+
+// 初始化
+initTheme()
 
 export function useTheme() {
   const toggle = () => {
@@ -11,27 +41,10 @@ export function useTheme() {
     isDark.value = value
   }
 
-  // 初始化时从 localStorage 读取
-  onMounted(() => {
-    const stored = localStorage.getItem('theme')
-    if (stored) {
-      isDark.value = stored === 'dark'
-    } else {
-      // 默认跟随系统偏好，如果没有则使用亮色
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-      isDark.value = prefersDark
-    }
-  })
-
   // 监听变化并更新 DOM 和 localStorage
   watch(isDark, (value) => {
-    if (value) {
-      document.documentElement.classList.add('dark')
-    } else {
-      document.documentElement.classList.remove('dark')
-    }
-    localStorage.setItem('theme', value ? 'dark' : 'light')
-  }, { immediate: true })
+    applyTheme(value)
+  })
 
   return {
     isDark,
