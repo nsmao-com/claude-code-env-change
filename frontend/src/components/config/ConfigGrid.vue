@@ -178,33 +178,54 @@ function initSortable() {
     sortableInstance = null
   }
 
-  // Only create sortable when no search active and no filter active (filter = 'all')
-  // Sorting with filters active is complex and error-prone
-  if (canSort.value && currentFilter.value === 'all') {
+  // Only create sortable when no search active
+  if (canSort.value) {
     sortableInstance = Sortable.create(gridRef.value, {
       animation: 150,
       ghostClass: 'sortable-ghost',
       dragClass: 'sortable-drag',
       onEnd: async (evt: { oldIndex?: number; newIndex?: number }) => {
-        if (evt.oldIndex !== undefined && evt.newIndex !== undefined) {
-          // Get ALL environment names from store (not filtered props.configs)
+        if (evt.oldIndex !== undefined && evt.newIndex !== undefined && evt.oldIndex !== evt.newIndex) {
           const allEnvs = configStore.environments
           const allNames = allEnvs.map(c => c.name)
-
-          // Get the displayed names (same as allNames when filter is 'all')
           const displayedNames = filteredConfigs.value.map(c => c.name)
+
           const movedName = displayedNames[evt.oldIndex]
-
-          const fromIndex = allNames.indexOf(movedName)
           const targetName = displayedNames[evt.newIndex]
-          const toIndex = allNames.indexOf(targetName)
 
-          // Reorder
-          const newOrder = [...allNames]
-          newOrder.splice(fromIndex, 1)
-          newOrder.splice(toIndex, 0, movedName)
+          if (currentFilter.value === 'all') {
+            // Simple case: reorder in full list
+            const fromIndex = allNames.indexOf(movedName)
+            const toIndex = allNames.indexOf(targetName)
+            const newOrder = [...allNames]
+            newOrder.splice(fromIndex, 1)
+            newOrder.splice(toIndex, 0, movedName)
+            await configStore.reorderEnvs(newOrder)
+          } else {
+            // Filtered case: reorder within the same provider
+            // Build new order by replacing filtered items in their new order
+            const newFilteredOrder = [...displayedNames]
+            newFilteredOrder.splice(evt.oldIndex, 1)
+            newFilteredOrder.splice(evt.newIndex, 0, movedName)
 
-          await configStore.reorderEnvs(newOrder)
+            // Rebuild full list: keep non-filtered items in place, update filtered items order
+            const newOrder: string[] = []
+            let filteredIdx = 0
+
+            for (const name of allNames) {
+              const env = allEnvs.find(e => e.name === name)
+              if (env && env.provider === currentFilter.value) {
+                // This is a filtered item, use new order
+                newOrder.push(newFilteredOrder[filteredIdx])
+                filteredIdx++
+              } else {
+                // Keep non-filtered item in place
+                newOrder.push(name)
+              }
+            }
+
+            await configStore.reorderEnvs(newOrder)
+          }
         }
       }
     })
