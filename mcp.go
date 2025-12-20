@@ -19,13 +19,16 @@ import (
 	"github.com/pelletier/go-toml/v2"
 )
 const (
-	mcpStoreDir     = ".claude-env-switcher"
-	mcpStoreFile    = "mcp.json"
-	claudeMcpFile   = ".claude.json"
-	codexDirName    = ".codex"
-	codexConfigFile = "config.toml"
-	platClaudeCode  = "claude-code"
-	platCodex       = "codex"
+	mcpStoreDir      = ".claude-env-switcher"
+	mcpStoreFile     = "mcp.json"
+	claudeMcpFile    = ".claude.json"
+	codexDirName     = ".codex"
+	codexConfigFile  = "config.toml"
+	geminiDirName    = ".gemini"
+	geminiConfigFile = "settings.json"
+	platClaudeCode   = "claude-code"
+	platCodex        = "codex"
+	platGemini       = "gemini"
 )
 
 var placeholderPattern = regexp.MustCompile(`\{([a-zA-Z0-9_]+)\}`)
@@ -53,6 +56,7 @@ type MCPServer struct {
 	EnablePlatform      []string          `json:"enable_platform"`
 	EnabledInClaude     bool              `json:"enabled_in_claude"`
 	EnabledInCodex      bool              `json:"enabled_in_codex"`
+	EnabledInGemini     bool              `json:"enabled_in_gemini"`
 	MissingPlaceholders []string          `json:"missing_placeholders"`
 }
 
@@ -99,6 +103,7 @@ func (ms *MCPService) ListServers() ([]MCPServer, error) {
 
 	claudeEnabled := loadClaudeEnabledServers()
 	codexEnabled := loadCodexEnabledServers()
+	geminiEnabled := loadGeminiEnabledServers()
 
 	names := make([]string, 0, len(config))
 	for name := range config {
@@ -123,6 +128,7 @@ func (ms *MCPService) ListServers() ([]MCPServer, error) {
 			EnablePlatform:  platforms,
 			EnabledInClaude: containsNormalized(claudeEnabled, name),
 			EnabledInCodex:  containsNormalized(codexEnabled, name),
+			EnabledInGemini: containsNormalized(geminiEnabled, name),
 		}
 		server.MissingPlaceholders = detectPlaceholders(server.URL, server.Args)
 		servers = append(servers, server)
@@ -171,6 +177,7 @@ func (ms *MCPService) SaveServers(servers []MCPServer) error {
 			EnablePlatform:  platforms,
 			EnabledInClaude: server.EnabledInClaude,
 			EnabledInCodex:  server.EnabledInCodex,
+			EnabledInGemini: server.EnabledInGemini,
 		}
 
 		raw[name] = rawMCPServer{
@@ -201,6 +208,9 @@ func (ms *MCPService) SaveServers(servers []MCPServer) error {
 		return err
 	}
 	if err := ms.syncCodexServers(normalized); err != nil {
+		return err
+	}
+	if err := ms.syncGeminiServers(normalized); err != nil {
 		return err
 	}
 	return nil
@@ -241,12 +251,32 @@ func (ms *MCPService) loadConfig() (map[string]rawMCPServer, error) {
 		payload[name] = normalizeRawEntry(entry)
 	}
 
+	changed := false
+
 	// 从 Claude 配置导入
 	if imported, err := ms.importFromClaude(payload); err == nil {
 		if ms.mergeImportedServers(payload, imported) {
-			if err := ms.saveConfig(payload); err != nil {
-				return payload, err
-			}
+			changed = true
+		}
+	}
+
+	// 从 Codex 配置导入
+	if imported, err := ms.importFromCodex(payload); err == nil {
+		if ms.mergeImportedServers(payload, imported) {
+			changed = true
+		}
+	}
+
+	// 从 Gemini 配置导入
+	if imported, err := ms.importFromGemini(payload); err == nil {
+		if ms.mergeImportedServers(payload, imported) {
+			changed = true
+		}
+	}
+
+	if changed {
+		if err := ms.saveConfig(payload); err != nil {
+			return payload, err
 		}
 	}
 
@@ -398,6 +428,187 @@ func (ms *MCPService) syncCodexServers(servers []MCPServer) error {
 	return os.WriteFile(path, data, 0o644)
 }
 
+// syncGeminiServers 同步到 Gemini 配置
+func (ms *MCPService) syncGeminiServers(servers []MCPServer) error {
+	path, err := geminiConfigPath()
+	if err != nil {
+		return err
+	}
+
+	desired := make(map[string]claudeDesktopServer)
+	for _, server := range servers {
+		if !platformContains(server.EnablePlatform, platGemini) {
+			continue
+		}
+		desired[server.Name] = buildClaudeDesktopEntry(server) // Gemini 使用相同的 JSON 格式
+	}
+
+	payload := make(map[string]any)
+	if data, err := os.ReadFile(path); err == nil && len(data) > 0 {
+		if err := json.Unmarshal(data, &payload); err != nil {
+			payload = make(map[string]any)
+		}
+	} else if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+
+	payload["mcpServers"] = desired
+	data, err := json.MarshalIndent(payload, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0o644)
+}
+
+// importFromCodex 从 Codex 配置导入
+func (ms *MCPService) importFromCodex(existing map[string]rawMCPServer) (map[string]rawMCPServer, error) {
+	path, err := codexConfigPath()
+	if err != nil {
+		return nil, err
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return map[string]rawMCPServer{}, nil
+		}
+		return nil, err
+	}
+	if len(data) == 0 {
+		return map[string]rawMCPServer{}, nil
+	}
+
+	var payload codexMcpFilePayload
+	if err := toml.Unmarshal(data, &payload); err != nil {
+		return nil, err
+	}
+
+	result := make(map[string]rawMCPServer, len(payload.Servers))
+	for name, entry := range payload.Servers {
+		trimmedName := strings.TrimSpace(name)
+		if trimmedName == "" {
+			continue
+		}
+		if _, exists := existing[trimmedName]; exists {
+			continue
+		}
+
+		// 解析 Codex 格式
+		command, _ := entry["command"].(string)
+		url, _ := entry["url"].(string)
+		typeHint, _ := entry["type"].(string)
+
+		if strings.TrimSpace(typeHint) == "" {
+			if strings.TrimSpace(url) != "" {
+				typeHint = "http"
+			} else {
+				typeHint = "stdio"
+			}
+		}
+
+		typ := normalizeServerType(typeHint)
+		if (typ == "http" || typ == "sse") && url == "" {
+			continue
+		}
+		if typ == "stdio" && command == "" {
+			continue
+		}
+
+		// 解析 args
+		var args []string
+		if argsRaw, ok := entry["args"].([]interface{}); ok {
+			for _, arg := range argsRaw {
+				if s, ok := arg.(string); ok {
+					args = append(args, s)
+				}
+			}
+		}
+
+		// 解析 env
+		env := make(map[string]string)
+		if envRaw, ok := entry["env"].(map[string]interface{}); ok {
+			for k, v := range envRaw {
+				if s, ok := v.(string); ok {
+					env[k] = s
+				}
+			}
+		}
+
+		result[trimmedName] = rawMCPServer{
+			Type:           typ,
+			Command:        strings.TrimSpace(command),
+			Args:           cleanArgs(args),
+			Env:            cleanEnv(env),
+			URL:            strings.TrimSpace(url),
+			EnablePlatform: []string{platCodex},
+		}
+	}
+	return result, nil
+}
+
+// importFromGemini 从 Gemini 配置导入
+func (ms *MCPService) importFromGemini(existing map[string]rawMCPServer) (map[string]rawMCPServer, error) {
+	path, err := geminiConfigPath()
+	if err != nil {
+		return nil, err
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return map[string]rawMCPServer{}, nil
+		}
+		return nil, err
+	}
+	if len(data) == 0 {
+		return map[string]rawMCPServer{}, nil
+	}
+
+	var payload struct {
+		Servers map[string]claudeDesktopServer `json:"mcpServers"`
+	}
+	if err := json.Unmarshal(data, &payload); err != nil {
+		return nil, err
+	}
+
+	result := make(map[string]rawMCPServer, len(payload.Servers))
+	for name, entry := range payload.Servers {
+		trimmedName := strings.TrimSpace(name)
+		if trimmedName == "" {
+			continue
+		}
+		if _, exists := existing[trimmedName]; exists {
+			continue
+		}
+
+		typeHint := entry.Type
+		if strings.TrimSpace(typeHint) == "" {
+			if strings.TrimSpace(entry.URL) != "" {
+				typeHint = "http"
+			}
+		}
+		if strings.TrimSpace(typeHint) == "" {
+			typeHint = "stdio"
+		}
+
+		typ := normalizeServerType(typeHint)
+		if (typ == "http" || typ == "sse") && entry.URL == "" {
+			continue
+		}
+		if typ == "stdio" && entry.Command == "" {
+			continue
+		}
+
+		result[trimmedName] = rawMCPServer{
+			Type:           typ,
+			Command:        strings.TrimSpace(entry.Command),
+			Args:           cleanArgs(entry.Args),
+			Env:            cleanEnv(entry.Env),
+			URL:            strings.TrimSpace(entry.URL),
+			EnablePlatform: []string{platGemini},
+		}
+	}
+	return result, nil
+}
+
 // mergeImportedServers 合并导入的服务器
 func (ms *MCPService) mergeImportedServers(target, imported map[string]rawMCPServer) bool {
 	changed := false
@@ -451,6 +662,8 @@ func normalizePlatform(value string) (string, bool) {
 		return "claude-code", true
 	case "codex":
 		return "codex", true
+	case "gemini":
+		return "gemini", true
 	default:
 		return "", false
 	}
@@ -574,6 +787,27 @@ func loadCodexEnabledServers() map[string]struct{} {
 	return result
 }
 
+func loadGeminiEnabledServers() map[string]struct{} {
+	result := map[string]struct{}{}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return result
+	}
+	path := filepath.Join(home, geminiDirName, geminiConfigFile)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return result
+	}
+	var payload claudeMcpFilePayload // Gemini 使用相同的 mcpServers 格式
+	if err := json.Unmarshal(data, &payload); err != nil {
+		return result
+	}
+	for name := range payload.Servers {
+		result[strings.ToLower(strings.TrimSpace(name))] = struct{}{}
+	}
+	return result
+}
+
 func platformContains(platforms []string, target string) bool {
 	for _, value := range platforms {
 		if value == target {
@@ -634,6 +868,18 @@ func codexConfigPath() (string, error) {
 		return "", err
 	}
 	return filepath.Join(dir, codexConfigFile), nil
+}
+
+func geminiConfigPath() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	dir := filepath.Join(home, geminiDirName)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, geminiConfigFile), nil
 }
 
 func detectPlaceholders(url string, args []string) []string {
@@ -909,13 +1155,17 @@ func (ms *MCPService) AddServers(newServers []MCPServer) error {
 	if err := ms.syncClaudeServers(servers); err != nil {
 		return err
 	}
-	return ms.syncCodexServers(servers)
+	if err := ms.syncCodexServers(servers); err != nil {
+		return err
+	}
+	return ms.syncGeminiServers(servers)
 }
 
 // buildServersFromConfig 从配置构建服务器列表（内部使用，不加锁）
 func (ms *MCPService) buildServersFromConfig(config map[string]rawMCPServer) []MCPServer {
 	claudeEnabled := loadClaudeEnabledServers()
 	codexEnabled := loadCodexEnabledServers()
+	geminiEnabled := loadGeminiEnabledServers()
 
 	names := make([]string, 0, len(config))
 	for name := range config {
@@ -940,6 +1190,7 @@ func (ms *MCPService) buildServersFromConfig(config map[string]rawMCPServer) []M
 			EnablePlatform:  platforms,
 			EnabledInClaude: containsNormalized(claudeEnabled, name),
 			EnabledInCodex:  containsNormalized(codexEnabled, name),
+			EnabledInGemini: containsNormalized(geminiEnabled, name),
 		}
 		server.MissingPlaceholders = detectPlaceholders(server.URL, server.Args)
 		servers = append(servers, server)

@@ -1,7 +1,38 @@
 <template>
   <AppModal v-model="isOpen" title="使用统计" size="xl">
-    <!-- Stats Summary Cards -->
-    <div class="stats-summary">
+    <!-- Platform Tabs with Glider -->
+    <div class="relative mb-4 p-1 bg-secondary/50 border border-border/50 rounded-full inline-flex backdrop-blur-sm">
+      <!-- Glider -->
+      <div
+        class="absolute top-1 bottom-1 bg-white rounded-full transition-all duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] shadow-[0_2px_8px_rgba(0,0,0,0.08)] border border-black/5 dark:border-white/10"
+        :style="gliderStyle"
+      ></div>
+
+      <button
+        v-for="p in platforms"
+        :key="p.value"
+        ref="tabRefs"
+        :disabled="loading"
+        :class="['relative z-10 px-5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide transition-colors duration-200 flex items-center gap-1.5', { 'text-foreground': platform === p.value, 'text-muted-foreground hover:text-foreground/80': platform !== p.value, 'opacity-50 cursor-not-allowed': loading }]"
+        @click="setPlatform(p.value)"
+      >
+        <i :class="p.icon"></i>
+        {{ p.label }}
+      </button>
+    </div>
+
+    <!-- Content with Loading Overlay -->
+    <div class="stats-content">
+      <!-- Loading Overlay -->
+      <div v-if="loading" class="loading-overlay">
+        <div class="loading-spinner">
+          <i class="fas fa-circle-notch fa-spin text-2xl text-primary"></i>
+          <span class="text-sm text-muted-foreground mt-2">加载中...</span>
+        </div>
+      </div>
+
+      <!-- Stats Summary Cards -->
+      <div class="stats-summary" :class="{ 'opacity-30 pointer-events-none': loading }">
       <div class="stat-card">
         <div class="stat-label">总请求</div>
         <div class="stat-value">{{ formatNumber(stats?.total_requests || 0) }}</div>
@@ -157,6 +188,7 @@
         <code class="font-mono text-[10px] bg-muted px-1.5 py-0.5 rounded">{{ logDirectory || '未检测到' }}</code>
       </div>
     </div>
+    </div>
 
     <template #footer>
       <button class="btn btn-secondary" @click="isOpen = false">关闭</button>
@@ -165,7 +197,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
 import { Line } from 'vue-chartjs'
 import {
   Chart as ChartJS,
@@ -179,7 +211,7 @@ import {
   Filler
 } from 'chart.js'
 import AppModal from '@/components/common/AppModal.vue'
-import { getUsageStats, getHeatmapData, getLogDirectory, type UsageStats, type HeatmapData, type ModelStats } from '@/services/logService'
+import { getUsageStats, getHeatmapData, getLogDirectory, type UsageStats, type HeatmapData, type ModelStats, type StatsPlatform } from '@/services/logService'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler)
 
@@ -200,10 +232,34 @@ const isOpen = computed({
 
 const loading = ref(false)
 const days = ref(7)
+const platform = ref<StatsPlatform>('all')
 const stats = ref<UsageStats | null>(null)
 const heatmap = ref<HeatmapData[]>([])
 const logDirectory = ref('')
 const heatmapWeeks = 26 // ~6 months
+
+const platforms = [
+  { value: 'all' as StatsPlatform, label: '全部', icon: 'fas fa-layer-group' },
+  { value: 'claude' as StatsPlatform, label: 'Claude', icon: 'fas fa-robot' },
+  { value: 'gemini' as StatsPlatform, label: 'Gemini', icon: 'fas fa-gem' }
+]
+
+// Glider for tabs
+const tabRefs = ref<HTMLElement[]>([])
+const gliderStyle = ref({ left: '4px', width: '0px' })
+
+function updateGlider() {
+  nextTick(() => {
+    const activeIndex = platforms.findIndex(p => p.value === platform.value)
+    if (activeIndex !== -1 && tabRefs.value[activeIndex]) {
+      const el = tabRefs.value[activeIndex]
+      gliderStyle.value = {
+        left: `${el.offsetLeft}px`,
+        width: `${el.offsetWidth}px`
+      }
+    }
+  })
+}
 
 const totalTokens = computed(() => {
   if (!stats.value) return 0
@@ -427,6 +483,12 @@ async function setDays(d: number) {
   await loadData()
 }
 
+async function setPlatform(p: StatsPlatform) {
+  platform.value = p
+  updateGlider()
+  await loadData()
+}
+
 async function refresh() {
   await loadData()
 }
@@ -435,8 +497,8 @@ async function loadData() {
   loading.value = true
   try {
     const [statsData, heatmapData] = await Promise.all([
-      getUsageStats(days.value),
-      getHeatmapData(heatmapWeeks * 7)
+      getUsageStats(days.value, platform.value),
+      getHeatmapData(heatmapWeeks * 7, platform.value)
     ])
     stats.value = statsData
     heatmap.value = heatmapData
@@ -456,11 +518,21 @@ async function loadData() {
 watch(isOpen, (open) => {
   if (open) {
     loadData()
+    // Update glider after modal opens
+    setTimeout(updateGlider, 100)
+  } else {
+    // 关闭时重置平台
+    platform.value = 'all'
   }
 })
 </script>
 
 <style scoped>
+.stats-content {
+  position: relative;
+  min-height: 200px;
+}
+
 .stats-summary {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -593,7 +665,7 @@ watch(isOpen, (open) => {
 /* GitHub-style Heatmap */
 .heatmap-months {
   display: flex;
-  margin-bottom: 4px;
+  margin-bottom: 8px;
   margin-left: 24px;
 }
 
@@ -603,11 +675,13 @@ watch(isOpen, (open) => {
   font-size: 9px;
   color: var(--muted-foreground);
   position: relative;
+  height: 16px;
 }
 
 .month-label {
   white-space: nowrap;
   position: absolute;
+  top: 0;
   transform: translateX(-50%);
 }
 
@@ -690,5 +764,30 @@ watch(isOpen, (open) => {
   width: 11px;
   height: 11px;
   border-radius: 2px;
+}
+
+/* Loading Overlay */
+.loading-overlay {
+  position: absolute;
+  inset: 0;
+  background: var(--background);
+  background: color-mix(in srgb, var(--background) 92%, transparent);
+  backdrop-filter: blur(2px);
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+}
+
+.loading-spinner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Dark mode glider fix */
+:global(.dark) .bg-white {
+  background: var(--background) !important;
 }
 </style>

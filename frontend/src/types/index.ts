@@ -30,6 +30,7 @@ export interface MCPServer {
   enable_platform: string[]
   enabled_in_claude: boolean
   enabled_in_codex: boolean
+  enabled_in_gemini: boolean
   missing_placeholders: string[]
 }
 

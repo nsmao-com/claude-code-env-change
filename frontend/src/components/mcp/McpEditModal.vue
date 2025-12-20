@@ -80,26 +80,37 @@
           placeholder="服务器说明..."
         />
 
-        <!-- Platform Checkboxes -->
+        <!-- Platform Selection -->
         <div>
           <label class="block text-sm font-medium mb-2">启用平台</label>
-          <div class="flex gap-4">
-            <label class="flex items-center gap-2 cursor-pointer">
-              <input
-                v-model="form.platforms.claude"
-                type="checkbox"
-                class="w-4 h-4 rounded border-border"
-              />
-              <span class="text-sm">Claude Code</span>
-            </label>
-            <label class="flex items-center gap-2 cursor-pointer">
-              <input
-                v-model="form.platforms.codex"
-                type="checkbox"
-                class="w-4 h-4 rounded border-border"
-              />
-              <span class="text-sm">Codex</span>
-            </label>
+          <div class="flex gap-2">
+            <button
+              type="button"
+              :class="['platform-btn', { active: form.platforms.claude }]"
+              @click="form.platforms.claude = !form.platforms.claude"
+            >
+              <i class="fas fa-robot"></i>
+              <span>Claude</span>
+              <i v-if="form.platforms.claude" class="fas fa-check check-icon"></i>
+            </button>
+            <button
+              type="button"
+              :class="['platform-btn', { active: form.platforms.codex }]"
+              @click="form.platforms.codex = !form.platforms.codex"
+            >
+              <i class="fas fa-terminal"></i>
+              <span>Codex</span>
+              <i v-if="form.platforms.codex" class="fas fa-check check-icon"></i>
+            </button>
+            <button
+              type="button"
+              :class="['platform-btn', { active: form.platforms.gemini }]"
+              @click="form.platforms.gemini = !form.platforms.gemini"
+            >
+              <i class="fas fa-gem"></i>
+              <span>Gemini</span>
+              <i v-if="form.platforms.gemini" class="fas fa-check check-icon"></i>
+            </button>
           </div>
         </div>
       </div>
@@ -160,7 +171,8 @@ const defaultForm = () => ({
   tips: '',
   platforms: {
     claude: true,
-    codex: false
+    codex: false,
+    gemini: false
   }
 })
 
@@ -182,6 +194,7 @@ watch(() => props.editServer, (server) => {
     const platforms = server.enable_platform || []
     form.value.platforms.claude = platforms.includes('claude-code')
     form.value.platforms.codex = platforms.includes('codex')
+    form.value.platforms.gemini = platforms.includes('gemini')
   } else {
     form.value = defaultForm()
   }
@@ -224,6 +237,7 @@ async function handleSubmit() {
   const enablePlatform: string[] = []
   if (form.value.platforms.claude) enablePlatform.push('claude-code')
   if (form.value.platforms.codex) enablePlatform.push('codex')
+  if (form.value.platforms.gemini) enablePlatform.push('gemini')
 
   // Parse args
   const args = form.value.args.trim()
@@ -255,6 +269,7 @@ async function handleSubmit() {
     enable_platform: enablePlatform,
     enabled_in_claude: false,
     enabled_in_codex: false,
+    enabled_in_gemini: false,
     missing_placeholders: []
   }
 
@@ -276,5 +291,21 @@ async function handleSubmit() {
 <style scoped>
 textarea.input {
   resize: vertical;
+}
+
+.platform-btn {
+  @apply flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 border-border bg-background text-muted-foreground text-sm font-medium transition-all duration-200 cursor-pointer relative;
+}
+
+.platform-btn:hover {
+  @apply border-foreground/30 text-foreground;
+}
+
+.platform-btn.active {
+  @apply border-primary bg-primary/10 text-primary;
+}
+
+.platform-btn .check-icon {
+  @apply absolute -top-1.5 -right-1.5 w-4 h-4 bg-primary text-primary-foreground rounded-full text-[10px] flex items-center justify-center;
 }
 </style>

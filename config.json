@@ -14,24 +14,24 @@
       "provider": "codex"
     },
     {
-      "name": "修改1",
-      "description": "",
-      "variables": {
-        "ANTHROPIC_API_KEY": "",
-        "ANTHROPIC_AUTH_TOKEN": "54354354",
-        "ANTHROPIC_BASE_URL": "54343",
-        "ANTHROPIC_MODEL": ""
-      },
-      "provider": "claude",
-      "icon": "😄"
-    },
-    {
       "name": "4324",
       "description": "345",
       "variables": {
         "ANTHROPIC_API_KEY": "",
         "ANTHROPIC_AUTH_TOKEN": "432432",
         "ANTHROPIC_BASE_URL": "https://www.baidu.com",
+        "ANTHROPIC_MODEL": ""
+      },
+      "provider": "claude",
+      "icon": "😄"
+    },
+    {
+      "name": "修改1",
+      "description": "",
+      "variables": {
+        "ANTHROPIC_API_KEY": "",
+        "ANTHROPIC_AUTH_TOKEN": "54354354",
+        "ANTHROPIC_BASE_URL": "54343",
         "ANTHROPIC_MODEL": ""
       },
       "provider": "claude",

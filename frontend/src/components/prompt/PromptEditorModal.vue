@@ -77,7 +77,7 @@
               <div class="flex-1 p-4 overflow-hidden">
                 <textarea
                   v-model="content"
-                  class="w-full h-full resize-none bg-background border border-border rounded-xl p-4 text-sm font-mono text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all"
+                  class="w-full h-full resize-y min-h-[200px] bg-background border border-border rounded-xl p-4 text-sm font-mono text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all"
                   :placeholder="getPlaceholder()"
                   spellcheck="false"
                 ></textarea>

@@ -123,14 +123,17 @@ var modelPricing = map[string]struct {
 	"gpt-4-turbo":                  {Input: 10.0, Output: 30.0, CacheCreate: 0, CacheRead: 0},
 	"gpt-4o":                       {Input: 2.5, Output: 10.0, CacheCreate: 0, CacheRead: 0},
 	"gpt-4o-mini":                  {Input: 0.15, Output: 0.6, CacheCreate: 0, CacheRead: 0},
-	// Gemini series
-	"gemini-1.5-pro":               {Input: 1.25, Output: 5.0, CacheCreate: 0, CacheRead: 0},
-	"gemini-1.5-flash":             {Input: 0.075, Output: 0.3, CacheCreate: 0, CacheRead: 0},
-	"gemini-2.0-flash":             {Input: 0.1, Output: 0.4, CacheCreate: 0, CacheRead: 0},
+	// Gemini series (https://ai.google.dev/gemini-api/docs/pricing)
+	"gemini-2.5-pro":               {Input: 1.25, Output: 10.0, CacheCreate: 0.3125, CacheRead: 0},
+	"gemini-2.5-flash":             {Input: 0.15, Output: 0.60, CacheCreate: 0.0375, CacheRead: 0},
+	"gemini-2.0-flash":             {Input: 0.10, Output: 0.40, CacheCreate: 0.025, CacheRead: 0},
+	"gemini-1.5-pro":               {Input: 1.25, Output: 5.0, CacheCreate: 0.3125, CacheRead: 0},
+	"gemini-1.5-flash":             {Input: 0.075, Output: 0.3, CacheCreate: 0.01875, CacheRead: 0},
+	"gemini-3-pro":                 {Input: 2.5, Output: 15.0, CacheCreate: 0.625, CacheRead: 0},
 }
 
-// GetUsageStats 获取使用统计 (最近N天)
-func (ls *LogService) GetUsageStats(days int) (UsageStats, error) {
+// GetUsageStats 获取使用统计 (最近N天, 按平台筛选)
+func (ls *LogService) GetUsageStats(days int, platform string) (UsageStats, error) {
 	if days <= 0 {
 		days = 7
 	}
@@ -140,9 +143,32 @@ func (ls *LogService) GetUsageStats(days int) (UsageStats, error) {
 		Series:  make([]HourlyStat, 0),
 	}
 
-	records, err := ls.readClaudeLogs(days)
-	if err != nil {
-		return stats, nil // 返回空统计而不是错误
+	var records []UsageRecord
+
+	// 根据平台筛选
+	switch platform {
+	case "claude":
+		claudeRecords, err := ls.readClaudeLogs(days)
+		if err != nil {
+			claudeRecords = []UsageRecord{}
+		}
+		records = claudeRecords
+	case "gemini":
+		geminiRecords, err := ls.readGeminiLogs(days)
+		if err != nil {
+			geminiRecords = []UsageRecord{}
+		}
+		records = geminiRecords
+	default: // "all" 或其他
+		claudeRecords, err := ls.readClaudeLogs(days)
+		if err != nil {
+			claudeRecords = []UsageRecord{}
+		}
+		geminiRecords, err := ls.readGeminiLogs(days)
+		if err != nil {
+			geminiRecords = []UsageRecord{}
+		}
+		records = append(claudeRecords, geminiRecords...)
 	}
 
 	if len(records) == 0 {
@@ -194,15 +220,38 @@ func (ls *LogService) GetUsageStats(days int) (UsageStats, error) {
 	return stats, nil
 }
 
-// GetHeatmapData 获取热力图数据 (最近N天)
-func (ls *LogService) GetHeatmapData(days int) ([]HeatmapData, error) {
+// GetHeatmapData 获取热力图数据 (最近N天, 按平台筛选)
+func (ls *LogService) GetHeatmapData(days int, platform string) ([]HeatmapData, error) {
 	if days <= 0 {
 		days = 30
 	}
 
-	records, err := ls.readClaudeLogs(days)
-	if err != nil {
-		return []HeatmapData{}, nil
+	var records []UsageRecord
+
+	// 根据平台筛选
+	switch platform {
+	case "claude":
+		claudeRecords, err := ls.readClaudeLogs(days)
+		if err != nil {
+			claudeRecords = []UsageRecord{}
+		}
+		records = claudeRecords
+	case "gemini":
+		geminiRecords, err := ls.readGeminiLogs(days)
+		if err != nil {
+			geminiRecords = []UsageRecord{}
+		}
+		records = geminiRecords
+	default: // "all" 或其他
+		claudeRecords, err := ls.readClaudeLogs(days)
+		if err != nil {
+			claudeRecords = []UsageRecord{}
+		}
+		geminiRecords, err := ls.readGeminiLogs(days)
+		if err != nil {
+			geminiRecords = []UsageRecord{}
+		}
+		records = append(claudeRecords, geminiRecords...)
 	}
 
 	if len(records) == 0 {
@@ -239,15 +288,38 @@ func (ls *LogService) GetHeatmapData(days int) ([]HeatmapData, error) {
 	return result, nil
 }
 
-// GetRecentLogs 获取最近的日志记录
-func (ls *LogService) GetRecentLogs(limit int) ([]UsageRecord, error) {
+// GetRecentLogs 获取最近的日志记录 (按平台筛选)
+func (ls *LogService) GetRecentLogs(limit int, platform string) ([]UsageRecord, error) {
 	if limit <= 0 {
 		limit = 50
 	}
 
-	records, err := ls.readClaudeLogs(7)
-	if err != nil {
-		return []UsageRecord{}, nil
+	var records []UsageRecord
+
+	// 根据平台筛选
+	switch platform {
+	case "claude":
+		claudeRecords, err := ls.readClaudeLogs(7)
+		if err != nil {
+			claudeRecords = []UsageRecord{}
+		}
+		records = claudeRecords
+	case "gemini":
+		geminiRecords, err := ls.readGeminiLogs(7)
+		if err != nil {
+			geminiRecords = []UsageRecord{}
+		}
+		records = geminiRecords
+	default: // "all" 或其他
+		claudeRecords, err := ls.readClaudeLogs(7)
+		if err != nil {
+			claudeRecords = []UsageRecord{}
+		}
+		geminiRecords, err := ls.readGeminiLogs(7)
+		if err != nil {
+			geminiRecords = []UsageRecord{}
+		}
+		records = append(claudeRecords, geminiRecords...)
 	}
 
 	if len(records) == 0 {
@@ -321,6 +393,169 @@ func (ls *LogService) readClaudeLogs(days int) ([]UsageRecord, error) {
 	}
 
 	return records, nil
+}
+
+// Gemini 会话文件结构
+type geminiSession struct {
+	SessionID   string           `json:"sessionId"`
+	ProjectHash string           `json:"projectHash"`
+	StartTime   string           `json:"startTime"`
+	LastUpdated string           `json:"lastUpdated"`
+	Messages    []geminiMessage  `json:"messages"`
+}
+
+type geminiMessage struct {
+	ID        string       `json:"id"`
+	Timestamp string       `json:"timestamp"`
+	Type      string       `json:"type"` // "user" or "gemini"
+	Content   string       `json:"content"`
+	Model     string       `json:"model"`
+	Tokens    *geminiTokens `json:"tokens"`
+}
+
+type geminiTokens struct {
+	Input    int `json:"input"`
+	Output   int `json:"output"`
+	Cached   int `json:"cached"`
+	Thoughts int `json:"thoughts"`
+	Tool     int `json:"tool"`
+	Total    int `json:"total"`
+}
+
+// readGeminiLogs 读取 Gemini CLI 日志文件
+func (ls *LogService) readGeminiLogs(days int) ([]UsageRecord, error) {
+	geminiDir := ls.getGeminiTmpDir()
+	if geminiDir == "" {
+		return []UsageRecord{}, nil
+	}
+
+	// 检查目录是否存在
+	if _, err := os.Stat(geminiDir); os.IsNotExist(err) {
+		return []UsageRecord{}, nil
+	}
+
+	// 计算时间范围
+	cutoff := time.Now().AddDate(0, 0, -days)
+
+	var records []UsageRecord
+
+	// 遍历 tmp 目录下的所有项目 hash 目录
+	entries, err := os.ReadDir(geminiDir)
+	if err != nil {
+		return []UsageRecord{}, nil
+	}
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		// 检查 chats 子目录
+		chatsDir := filepath.Join(geminiDir, entry.Name(), "chats")
+		if _, err := os.Stat(chatsDir); os.IsNotExist(err) {
+			continue
+		}
+
+		// 遍历 session 文件
+		sessionFiles, err := os.ReadDir(chatsDir)
+		if err != nil {
+			continue
+		}
+
+		for _, sessionFile := range sessionFiles {
+			if sessionFile.IsDir() || !strings.HasSuffix(sessionFile.Name(), ".json") {
+				continue
+			}
+
+			sessionPath := filepath.Join(chatsDir, sessionFile.Name())
+			info, err := sessionFile.Info()
+			if err != nil || info.ModTime().Before(cutoff) {
+				continue
+			}
+
+			// 解析会话文件
+			sessionRecords, err := ls.parseGeminiSession(sessionPath, entry.Name(), cutoff)
+			if err != nil {
+				continue
+			}
+
+			records = append(records, sessionRecords...)
+		}
+	}
+
+	if records == nil {
+		records = []UsageRecord{}
+	}
+
+	return records, nil
+}
+
+// parseGeminiSession 解析 Gemini 会话文件
+func (ls *LogService) parseGeminiSession(path string, projectHash string, cutoff time.Time) ([]UsageRecord, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	var session geminiSession
+	if err := json.Unmarshal(data, &session); err != nil {
+		return nil, err
+	}
+
+	var records []UsageRecord
+
+	for _, msg := range session.Messages {
+		// 只处理有 token 统计的 gemini 响应
+		if msg.Type != "gemini" || msg.Tokens == nil {
+			continue
+		}
+
+		// 解析时间戳
+		ts, err := parseTimestamp(msg.Timestamp)
+		if err != nil || ts.Before(cutoff) {
+			continue
+		}
+
+		model := msg.Model
+		if model == "" {
+			model = "gemini-2.5-pro" // 默认模型
+		}
+
+		// 计算成本
+		cost := ls.calculateCost(
+			model,
+			msg.Tokens.Input,
+			msg.Tokens.Output,
+			0, // Gemini 没有 cache create 概念
+			msg.Tokens.Cached,
+		)
+
+		record := UsageRecord{
+			Timestamp:        ts.Format("2006-01-02 15:04:05"),
+			Model:            model,
+			InputTokens:      msg.Tokens.Input,
+			OutputTokens:     msg.Tokens.Output,
+			CacheReadTokens:  msg.Tokens.Cached,
+			CacheWriteTokens: 0,
+			TotalCost:        cost,
+			SessionID:        session.SessionID,
+			ProjectPath:      projectHash,
+		}
+
+		records = append(records, record)
+	}
+
+	return records, nil
+}
+
+// getGeminiTmpDir 获取 Gemini CLI 临时目录路径
+func (ls *LogService) getGeminiTmpDir() string {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+
+	return filepath.Join(homeDir, ".gemini", "tmp")
 }
 
 // getClaudeProjectsDir 获取 Claude Code 项目目录路径 (跨平台)

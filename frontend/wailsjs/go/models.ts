@@ -111,6 +111,7 @@ export namespace main {
 	    enable_platform: string[];
 	    enabled_in_claude: boolean;
 	    enabled_in_codex: boolean;
+	    enabled_in_gemini: boolean;
 	    missing_placeholders: string[];
 	
 	    static createFrom(source: any = {}) {
@@ -130,6 +131,7 @@ export namespace main {
 	        this.enable_platform = source["enable_platform"];
 	        this.enabled_in_claude = source["enabled_in_claude"];
 	        this.enabled_in_codex = source["enabled_in_codex"];
+	        this.enabled_in_gemini = source["enabled_in_gemini"];
 	        this.missing_placeholders = source["missing_placeholders"];
 	    }
 	}

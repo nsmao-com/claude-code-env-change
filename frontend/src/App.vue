@@ -65,7 +65,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, nextTick } from 'vue'
 import type { EnvConfig } from '@/types'
 import { useConfigStore } from '@/stores/configStore'
 import { useConfirm } from '@/composables/useConfirm'
@@ -114,8 +114,12 @@ function openAddConfig() {
   showConfigModal.value = true
 }
 
-function openEditConfig(index: number) {
-  editingConfig.value = configStore.filteredEnvironments[index]
+async function openEditConfig(index: number) {
+  // Reset first to ensure watch triggers properly
+  editingConfig.value = null
+  await nextTick()
+  // Deep clone to avoid reference issues
+  editingConfig.value = JSON.parse(JSON.stringify(configStore.filteredEnvironments[index]))
   showConfigModal.value = true
 }
 
