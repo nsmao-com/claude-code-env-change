@@ -122,11 +122,8 @@ jobs:
   release:
     needs: [build-macos, build-windows]
     runs-on: ubuntu-latest
-    # 触发条件: tag 推送 / push main / 手动触发并勾选发布
-    if: |
-      startsWith(github.ref, 'refs/tags/v') ||
-      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-      (github.event_name == 'workflow_dispatch' && inputs.release == true)
+    # 只在推送 tag 时发布正式版本
+    if: startsWith(github.ref, 'refs/tags/v')
     permissions:
       contents: write
     steps:
@@ -138,38 +135,15 @@ jobs:
       - name: List downloaded artifacts
         run: find artifacts -type f
 
-      - name: Get version info
-        id: version
-        run: |
-          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            VERSION="${{ github.ref_name }}"
-            PRERELEASE=false
-          else
-            VERSION="dev-$(date +'%Y%m%d-%H%M%S')-${GITHUB_SHA::7}"
-            PRERELEASE=true
-          fi
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "prerelease=$PRERELEASE" >> $GITHUB_OUTPUT
-          echo "Version: $VERSION, Prerelease: $PRERELEASE"
-
-      - name: Delete existing dev release
-        if: steps.version.outputs.prerelease == 'true'
-        uses: dev-drprasad/delete-tag-and-release@v1.1
-        with:
-          tag_name: dev-latest
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          delete_release: true
-        continue-on-error: true
-
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.version.outputs.prerelease == 'true' && 'dev-latest' || github.ref_name }}
-          name: ${{ steps.version.outputs.prerelease == 'true' && format('Development Build ({0})', steps.version.outputs.version) || steps.version.outputs.version }}
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
           files: |
             artifacts/macos-builds/claude-env-switcher-macos-amd64.zip
             artifacts/macos-builds/claude-env-switcher-macos-arm64.zip
             artifacts/windows-builds/claude-env-switcher-windows-amd64.zip
           generate_release_notes: true
           draft: false
-          prerelease: ${{ steps.version.outputs.prerelease }}
+          prerelease: false
