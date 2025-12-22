@@ -330,53 +330,27 @@ A: 请访问 Microsoft 官网下载并安装 WebView2 运行时，这是 Wails �
 
 ## 📝 更新日志
 
-### v2.0.0 (最新版本)
-**🚀 多 Provider 支持**
-- 新增 Codex CLI 配置管理
-- 新增 Gemini CLI 配置管理
-- 每个 Provider 独立激活和管理
-- 自动生成对应工具的配置文件
+### v1.0.1 (2025-12-22)
+**🔧 Bug 修复**
+- 修复 Codex 日志解析结构，正确读取 `event_msg.payload.info.total_token_usage`
+- 修复 Codex 日志路径，支持 `~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl` 结构
+- 新增 `gpt-5.1-codex-max` 模型定价支持
 
-**✨ 功能增强**
-- 配置拖拽排序功能
-- 按 Provider 筛选配置
-- 实时搜索配置
-- API 端点测速功能
-- 自定义配置文件模板（Codex/Gemini）
-- 编辑配置保持原有位置
-
-**🎨 UI 升级**
-- 采用 Bento Grid 卡片式布局
-- Dark/Light 主题切换
-- Provider 颜色标签区分
-- 改进配置卡片设计
-- 优化交互体验
-
-**🔧 技术改进**
-- 引入 Sortable.js 实现拖拽
-- 新增 UpdateEnv 后端接口
-- 优化配置保序更新逻辑
-- 改进状态管理
-- 代码结构优化
-
-### v1.1.0
-**🎨 UI 全面重构**
-- 采用现代毛玻璃(Glassmorphism)设计风格
-- 统一灰蓝色调，去除花哨配色
-- 优化按钮尺寸，确保视觉一致性
-- 改进卡片布局和交互反馈
-
-**✨ 功能优化**
-- 新增顶部Toast消息提示系统
-- 改进敏感信息显示（API密钥部分隐藏）
-- 优化环境变量监控界面
-- 增强表单输入体验
+**📊 统计功能**
+- 新增 Codex 平台统计支持
+- 新增 Gemini 平台统计支持
+- 统计弹窗支持按平台筛选（全部/Claude/Gemini/Codex）
 
 ### v1.0.0 (初始版本)
-- 基础环境变量管理功能
-- 多配置支持
+**🚀 核心功能**
+- 多 Provider 支持（Claude/Codex/Gemini CLI）
+- 配置拖拽排序
+- 按 Provider 筛选和搜索配置
+- API 端点测速功能
+- 自定义配置文件模板（Codex/Gemini）
+- 基础环境变量管理
 - 跨平台桌面应用
-- JSON配置文件存储
+- JSON 配置文件存储
 
 ## 📄 许可证
 
