@@ -43,7 +43,7 @@ type App struct {
 // NewApp creates a new App application struct
 func NewApp() *App {
 	return &App{
-		configPath: "config.json",
+		configPath: resolveMainConfigPath(),
 	}
 }
 
@@ -886,12 +886,12 @@ func (a *App) loadConfig() error {
 	// 读取配置文件
 	data, err := os.ReadFile(a.configPath)
 	if err != nil {
-		return fmt.Errorf("读取配置文件失败: %v", err)
+		return fmt.Errorf("读取配置文件失败 (%s): %v", a.configPath, err)
 	}
 
 	err = json.Unmarshal(data, &a.config)
 	if err != nil {
-		return fmt.Errorf("解析配置文件失败: %v", err)
+		return fmt.Errorf("解析配置文件失败 (%s): %v", a.configPath, err)
 	}
 
 	return nil
@@ -903,9 +903,15 @@ func (a *App) saveConfig() error {
 		return fmt.Errorf("序列化配置失败: %v", err)
 	}
 
+	if dir := filepath.Dir(a.configPath); dir != "" && dir != "." {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return fmt.Errorf("创建配置目录失败 (%s): %v", dir, err)
+		}
+	}
+
 	err = os.WriteFile(a.configPath, data, 0644)
 	if err != nil {
-		return fmt.Errorf("保存配置文件失败: %v", err)
+		return fmt.Errorf("保存配置文件失败 (%s): %v", a.configPath, err)
 	}
 
 	return nil
