@@ -73,6 +73,18 @@ type HeatmapData struct {
 	Cost     float64 `json:"cost"`
 }
 
+// EnvUsageSummary 单个配置的用量汇总（按“配置切换时间线”近似归因）
+type EnvUsageSummary struct {
+	Provider        string  `json:"provider"`
+	Requests        int     `json:"requests"`
+	InputTokens     int64   `json:"input_tokens"`
+	OutputTokens    int64   `json:"output_tokens"`
+	CacheReadTokens int64   `json:"cache_read_tokens"`
+	CacheWriteTokens int64  `json:"cache_write_tokens"`
+	TotalCost       float64 `json:"total_cost"`
+	LastTimestamp   string  `json:"last_timestamp,omitempty"`
+}
+
 // Claude Code 日志条目结构
 type claudeLogEntry struct {
 	Type      string        `json:"type"`
@@ -381,6 +393,79 @@ func (ls *LogService) GetRecentLogs(limit int, platform string) ([]UsageRecord, 
 	return records, nil
 }
 
+// GetEnvUsageSummary 获取按“配置”聚合的用量统计（最近 N 天）
+//
+// 说明：日志本身不包含“使用的是哪个配置”，这里通过本软件记录的“切换/应用配置时间线”来近似归因。
+// 如果你平时不是通过本软件切换配置，或历史记录不完整，结果会偏差。
+func (ls *LogService) GetEnvUsageSummary(days int) (map[string]EnvUsageSummary, error) {
+	if days <= 0 {
+		days = 7
+	}
+
+	byEnv := map[string]EnvUsageSummary{}
+
+	activations, err := LoadEnvActivations()
+	if err != nil {
+		activations = map[string][]EnvActivationEvent{}
+	}
+
+	cutoff := time.Now().AddDate(0, 0, -days)
+	cutoffUnix := cutoff.Unix()
+
+	providers := []string{"claude", "codex", "gemini"}
+	prepared := map[string][]EnvActivationEvent{}
+	for _, p := range providers {
+		events := activations[p]
+		if len(events) == 0 {
+			prepared[p] = events
+			continue
+		}
+		// 若最早事件晚于 cutoff，则用最早 env 回填一个 cutoff 事件，让区间内的日志都有归属
+		if events[0].At > cutoffUnix {
+			events = append([]EnvActivationEvent{{At: cutoffUnix, Provider: p, EnvName: events[0].EnvName}}, events...)
+		}
+		prepared[p] = events
+	}
+
+	accumulate := func(provider string, records []UsageRecord) {
+		events := prepared[provider]
+		for _, record := range records {
+			ts, _ := parseTimestamp(record.Timestamp)
+			if ts.IsZero() || ts.Before(cutoff) {
+				continue
+			}
+			envName := activeEnvAt(events, ts.Unix())
+			if strings.TrimSpace(envName) == "" {
+				continue
+			}
+
+			item := byEnv[envName]
+			item.Provider = provider
+			item.Requests++
+			item.InputTokens += int64(record.InputTokens)
+			item.OutputTokens += int64(record.OutputTokens)
+			item.CacheReadTokens += int64(record.CacheReadTokens)
+			item.CacheWriteTokens += int64(record.CacheWriteTokens)
+			item.TotalCost += record.TotalCost
+			if item.LastTimestamp == "" || record.Timestamp > item.LastTimestamp {
+				item.LastTimestamp = record.Timestamp
+			}
+			byEnv[envName] = item
+		}
+	}
+
+	claudeRecords, _ := ls.readClaudeLogs(days)
+	accumulate("claude", claudeRecords)
+
+	codexRecords, _ := ls.readCodexLogs(days)
+	accumulate("codex", codexRecords)
+
+	geminiRecords, _ := ls.readGeminiLogs(days)
+	accumulate("gemini", geminiRecords)
+
+	return byEnv, nil
+}
+
 // readClaudeLogs 读取 Claude Code 日志文件
 func (ls *LogService) readClaudeLogs(days int) ([]UsageRecord, error) {
 	projectsDir := ls.getClaudeProjectsDir()
@@ -436,6 +521,18 @@ func (ls *LogService) readClaudeLogs(days int) ([]UsageRecord, error) {
 	}
 
 	return records, nil
+}
+
+func activeEnvAt(events []EnvActivationEvent, atUnix int64) string {
+	if len(events) == 0 {
+		return ""
+	}
+	// 找到第一个 events[i].At > atUnix 的位置，然后回退 1
+	idx := sort.Search(len(events), func(i int) bool { return events[i].At > atUnix }) - 1
+	if idx < 0 || idx >= len(events) {
+		return ""
+	}
+	return events[idx].EnvName
 }
 
 // Gemini 会话文件结构

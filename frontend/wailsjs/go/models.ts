@@ -185,6 +185,136 @@ export namespace main {
 	        this.exists = source["exists"];
 	    }
 	}
+	export class RotationGroup {
+	    name: string;
+	    provider: string;
+	    env_names: string[];
+	    enabled: boolean;
+	    failure_threshold: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new RotationGroup(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.provider = source["provider"];
+	        this.env_names = source["env_names"];
+	        this.enabled = source["enabled"];
+	        this.failure_threshold = source["failure_threshold"];
+	    }
+	}
+	export class Skill {
+	    name: string;
+	    content: string;
+	    enable_platform: string[];
+	    enabled_in_claude: boolean;
+	    enabled_in_codex: boolean;
+	    enabled_in_gemini: boolean;
+	    frontmatter_name: string;
+	    description: string;
+	    has_frontmatter: boolean;
+	    has_name: boolean;
+	    has_description: boolean;
+	    frontmatter_error: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Skill(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.content = source["content"];
+	        this.enable_platform = source["enable_platform"];
+	        this.enabled_in_claude = source["enabled_in_claude"];
+	        this.enabled_in_codex = source["enabled_in_codex"];
+	        this.enabled_in_gemini = source["enabled_in_gemini"];
+	        this.frontmatter_name = source["frontmatter_name"];
+	        this.description = source["description"];
+	        this.has_frontmatter = source["has_frontmatter"];
+	        this.has_name = source["has_name"];
+	        this.has_description = source["has_description"];
+	        this.frontmatter_error = source["frontmatter_error"];
+	    }
+	}
+	export class UptimeCheck {
+	    at: number;
+	    success: boolean;
+	    status_code: number;
+	    latency_ms: number;
+	    error?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new UptimeCheck(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.at = source["at"];
+	        this.success = source["success"];
+	        this.status_code = source["status_code"];
+	        this.latency_ms = source["latency_ms"];
+	        this.error = source["error"];
+	    }
+	}
+	export class UptimeSettings {
+	    enabled: boolean;
+	    interval_seconds: number;
+	    timeout_seconds: number;
+	    keep_last: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new UptimeSettings(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.enabled = source["enabled"];
+	        this.interval_seconds = source["interval_seconds"];
+	        this.timeout_seconds = source["timeout_seconds"];
+	        this.keep_last = source["keep_last"];
+	    }
+	}
+	export class UptimeSnapshot {
+	    settings: UptimeSettings;
+	    groups: RotationGroup[];
+	    history: Record<string, Array<UptimeCheck>>;
+	    urls: Record<string, string>;
+	    now: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new UptimeSnapshot(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.settings = this.convertValues(source["settings"], UptimeSettings);
+	        this.groups = this.convertValues(source["groups"], RotationGroup);
+	        this.history = this.convertValues(source["history"], Array<UptimeCheck>, true);
+	        this.urls = source["urls"];
+	        this.now = source["now"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class UsageRecord {
 	    timestamp: string;
 	    model: string;

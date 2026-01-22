@@ -41,6 +41,54 @@ export interface MCPTestResult {
   latency: number
 }
 
+// Skills 类型
+export interface Skill {
+  name: string
+  content: string
+  enable_platform: string[]
+  enabled_in_claude: boolean
+  enabled_in_codex: boolean
+  enabled_in_gemini: boolean
+  frontmatter_name: string
+  description: string
+  has_frontmatter: boolean
+  has_name: boolean
+  has_description: boolean
+  frontmatter_error: string
+}
+
+// Uptime / 轮换
+export interface UptimeSettings {
+  enabled: boolean
+  interval_seconds: number
+  timeout_seconds: number
+  keep_last: number
+}
+
+export interface RotationGroup {
+  name: string
+  provider: string // 'claude' | 'codex' | 'gemini'
+  env_names: string[]
+  enabled: boolean
+  failure_threshold: number
+}
+
+export interface UptimeCheck {
+  at: number
+  success: boolean
+  status_code: number
+  latency_ms: number
+  error?: string
+}
+
+export interface UptimeSnapshot {
+  settings: UptimeSettings
+  groups: RotationGroup[]
+  history: Record<string, UptimeCheck[]>
+  urls: Record<string, string>
+  now: number
+}
+
 // Provider 类型
 export type Provider = string  // 'claude' | 'codex' | 'gemini'
 

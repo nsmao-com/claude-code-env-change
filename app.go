@@ -51,6 +51,9 @@ func NewApp() *App {
 func (a *App) OnStartup(ctx context.Context) {
 	a.ctx = ctx
 	a.loadConfig()
+	_ = RecordEnvActivation("claude", a.config.CurrentEnvClaude, time.Now())
+	_ = RecordEnvActivation("codex", a.config.CurrentEnvCodex, time.Now())
+	_ = RecordEnvActivation("gemini", a.config.CurrentEnvGemini, time.Now())
 }
 
 // GetConfig 获取配置
@@ -270,6 +273,11 @@ func (a *App) ApplyCurrentEnv() (string, error) {
 		return "没有激活的环境可应用", nil
 	}
 
+	now := time.Now()
+	_ = RecordEnvActivation("claude", a.config.CurrentEnvClaude, now)
+	_ = RecordEnvActivation("codex", a.config.CurrentEnvCodex, now)
+	_ = RecordEnvActivation("gemini", a.config.CurrentEnvGemini, now)
+
 	return strings.Join(msgs, "\n"), nil
 }
 
@@ -344,14 +352,57 @@ func (a *App) GetCodexSettings() map[string]string {
 	// 读取 config.toml 的关键字段
 	configFile := filepath.Join(homeDir, ".codex", "config.toml")
 	if data, err := os.ReadFile(configFile); err == nil {
-		lines := strings.Split(string(data), "\n")
-		for _, line := range lines {
-			line = strings.TrimSpace(line)
-			if strings.HasPrefix(line, "model =") {
-				result["model"] = strings.Trim(strings.TrimPrefix(line, "model ="), " \"")
+		// 优先用 TOML 解析，避免出现单引号/双引号包裹导致前端显示 "'xxx'"
+		var payload map[string]any
+		if err := toml.Unmarshal(data, &payload); err == nil && payload != nil {
+			if v, ok := payload["model"].(string); ok {
+				result["model"] = strings.TrimSpace(v)
 			}
-			if strings.HasPrefix(line, "base_url =") {
-				result["base_url"] = strings.Trim(strings.TrimPrefix(line, "base_url ="), " \"")
+
+			// base_url 可能位于:
+			// 1) 顶层 base_url
+			// 2) [model_providers.<model_provider>].base_url
+			// 3) 其他 provider 表（兜底取第一个找到的 base_url）
+			if v, ok := payload["base_url"].(string); ok && strings.TrimSpace(v) != "" {
+				result["base_url"] = strings.TrimSpace(v)
+			}
+
+			modelProvider := ""
+			if v, ok := payload["model_provider"].(string); ok {
+				modelProvider = strings.TrimSpace(v)
+			}
+			if strings.TrimSpace(result["base_url"]) == "" {
+				if mp, ok := payload["model_providers"].(map[string]any); ok && len(mp) > 0 {
+					if modelProvider != "" {
+						if pv, ok := mp[modelProvider].(map[string]any); ok {
+							if v, ok := pv["base_url"].(string); ok && strings.TrimSpace(v) != "" {
+								result["base_url"] = strings.TrimSpace(v)
+							}
+						}
+					}
+					if strings.TrimSpace(result["base_url"]) == "" {
+						for _, pv := range mp {
+							if t, ok := pv.(map[string]any); ok {
+								if v, ok := t["base_url"].(string); ok && strings.TrimSpace(v) != "" {
+									result["base_url"] = strings.TrimSpace(v)
+									break
+								}
+							}
+						}
+					}
+				}
+			}
+		} else {
+			// 兜底：旧逻辑按行提取，同时去掉单双引号
+			lines := strings.Split(string(data), "\n")
+			for _, line := range lines {
+				line = strings.TrimSpace(line)
+				if strings.HasPrefix(line, "model =") {
+					result["model"] = strings.Trim(strings.TrimPrefix(line, "model ="), " \"'")
+				}
+				if strings.HasPrefix(line, "base_url =") {
+					result["base_url"] = strings.Trim(strings.TrimPrefix(line, "base_url ="), " \"'")
+				}
 			}
 		}
 	}
@@ -562,30 +613,58 @@ GEMINI_MODEL=%s
 		return "", fmt.Errorf("写入 .env 失败: %v", err)
 	}
 
-	// 2. 处理 settings.json 文件
-	var settingsContent string
-	if tmpl, ok := env.Templates["settings.json"]; ok && tmpl != "" {
-		settingsContent = tmpl
-		// settings.json 目前没有变量需要替换，但保留扩展性
+	settingsFile := filepath.Join(geminiDir, "settings.json")
+	desiredSettings := map[string]any{}
+	if tmpl, ok := env.Templates["settings.json"]; ok && strings.TrimSpace(tmpl) != "" {
+		if err := json.Unmarshal([]byte(tmpl), &desiredSettings); err != nil {
+			return "", fmt.Errorf("解析 settings.json 模板失败: %v", err)
+		}
 	} else {
-		settingsContent = `{
-  "ide": {
-    "enabled": true
-  },
-  "security": {
-    "auth": {
-      "selectedType": "gemini-api-key"
-    }
-  }
-}`
+		desiredSettings = map[string]any{
+			"ide": map[string]any{
+				"enabled": true,
+			},
+			"security": map[string]any{
+				"auth": map[string]any{
+					"selectedType": "gemini-api-key",
+				},
+			},
+		}
 	}
 
-	settingsFile := filepath.Join(geminiDir, "settings.json")
-	if err := os.WriteFile(settingsFile, []byte(settingsContent), 0644); err != nil {
+	// 保留现有 settings.json 中的其他设置（如 mcpServers / experimental.skills 等）
+	existingSettings := map[string]any{}
+	if data, err := os.ReadFile(settingsFile); err == nil && len(data) > 0 {
+		if err := json.Unmarshal(data, &existingSettings); err != nil {
+			existingSettings = map[string]any{}
+		}
+	} else if err != nil && !os.IsNotExist(err) {
+		return "", fmt.Errorf("读取 settings.json 失败: %v", err)
+	}
+
+	deepMergeMap(existingSettings, desiredSettings)
+	settingsContent, err := json.MarshalIndent(existingSettings, "", "  ")
+	if err != nil {
+		return "", fmt.Errorf("序列化 settings.json 失败: %v", err)
+	}
+
+	if err := os.WriteFile(settingsFile, settingsContent, 0644); err != nil {
 		return "", fmt.Errorf("写入 settings.json 失败: %v", err)
 	}
 
 	return "Gemini CLI 配置已应用", nil
+}
+
+func deepMergeMap(dst, src map[string]any) {
+	for key, srcVal := range src {
+		if srcMap, ok := srcVal.(map[string]any); ok && srcMap != nil {
+			if dstMap, ok := dst[key].(map[string]any); ok && dstMap != nil {
+				deepMergeMap(dstMap, srcMap)
+				continue
+			}
+		}
+		dst[key] = srcVal
+	}
 }
 
 // ClearClaudeSettings 清除 Claude settings.json 中的 env 配置

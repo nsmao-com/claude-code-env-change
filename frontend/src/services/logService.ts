@@ -1,4 +1,4 @@
-import { GetUsageStats, GetHeatmapData, GetRecentLogs, GetLogDirectory } from '../../wailsjs/go/main/LogService'
+import { GetUsageStats, GetHeatmapData, GetRecentLogs, GetLogDirectory, GetEnvUsageSummary } from '../../wailsjs/go/main/LogService'
 
 export type StatsPlatform = 'all' | 'claude' | 'gemini' | 'codex'
 
@@ -46,6 +46,17 @@ export interface HeatmapData {
   cost: number
 }
 
+export interface EnvUsageSummary {
+  provider: string
+  requests: number
+  input_tokens: number
+  output_tokens: number
+  cache_read_tokens: number
+  cache_write_tokens: number
+  total_cost: number
+  last_timestamp?: string
+}
+
 export async function getUsageStats(days: number = 7, platform: StatsPlatform = 'all'): Promise<UsageStats> {
   return await GetUsageStats(days, platform)
 }
@@ -60,4 +71,9 @@ export async function getRecentLogs(limit: number = 50, platform: StatsPlatform 
 
 export async function getLogDirectory(): Promise<string> {
   return await GetLogDirectory()
+}
+
+export async function getEnvUsageSummary(days: number = 7): Promise<Record<string, EnvUsageSummary>> {
+  const result = await GetEnvUsageSummary(days)
+  return result || {}
 }

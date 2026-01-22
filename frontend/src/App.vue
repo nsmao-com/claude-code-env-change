@@ -14,6 +14,8 @@
         @open-mcp="showMcpPanel = true"
         @open-stats="showStatsModal = true"
         @open-prompts="showPromptModal = true"
+        @open-skills="showSkillsPanel = true"
+        @open-uptime="showUptimePanel = true"
         @export="exportConfig"
         @import="importConfig"
         @clear-claude="clearClaude"
@@ -56,6 +58,12 @@
       @saved="onPromptSaved"
     />
 
+    <!-- Skills Panel -->
+    <SkillsPanel v-model="showSkillsPanel" />
+
+    <!-- Uptime Panel -->
+    <UptimePanel v-model="showUptimePanel" />
+
     <!-- Toast Container -->
     <AppToast />
 
@@ -65,12 +73,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick } from 'vue'
-import type { EnvConfig } from '@/types'
-import { useConfigStore } from '@/stores/configStore'
-import { useConfirm } from '@/composables/useConfirm'
-import { useToast } from '@/composables/useToast'
-import { useTheme } from '@/composables/useTheme'
+ import { ref, onMounted, nextTick } from 'vue'
+ import type { EnvConfig } from '@/types'
+ import { useConfigStore } from '@/stores/configStore'
+ import { useUptimeStore } from '@/stores/uptimeStore'
+ import { useConfirm } from '@/composables/useConfirm'
+ import { useToast } from '@/composables/useToast'
+ import { useTheme } from '@/composables/useTheme'
 
 // Components
 import AppTitlebar from '@/components/common/AppTitlebar.vue'
@@ -84,27 +93,43 @@ import ConfigModal from '@/components/config/ConfigModal.vue'
 import McpPanel from '@/components/mcp/McpPanel.vue'
 import StatsModal from '@/components/stats/StatsModal.vue'
 import PromptEditorModal from '@/components/prompt/PromptEditorModal.vue'
+import SkillsPanel from '@/components/skills/SkillsPanel.vue'
+import UptimePanel from '@/components/uptime/UptimePanel.vue'
 
-// Initialize
-const configStore = useConfigStore()
-const confirm = useConfirm()
-const toast = useToast()
-useTheme() // Initialize theme
+ // Initialize
+ const configStore = useConfigStore()
+ const uptimeStore = useUptimeStore()
+ const confirm = useConfirm()
+ const toast = useToast()
+ useTheme() // Initialize theme
 
 // State
 const showConfigModal = ref(false)
 const showMcpPanel = ref(false)
 const showStatsModal = ref(false)
 const showPromptModal = ref(false)
+const showSkillsPanel = ref(false)
+const showUptimePanel = ref(false)
 const editingConfig = ref<EnvConfig | null>(null)
 
 // Load config on mount
 onMounted(async () => {
   try {
     await configStore.loadConfig()
+   } catch (e) {
+     console.error('Failed to load config:', e)
+     toast.error('加载配置失败')
+   }
+
+   try {
+     await uptimeStore.loadSnapshot()
+     if (uptimeStore.settings.enabled) {
+      uptimeStore.runOnce().catch((e: any) => {
+        console.error('Uptime runOnce failed:', e)
+      })
+    }
   } catch (e) {
-    console.error('Failed to load config:', e)
-    toast.error('加载配置失败')
+    console.error('Failed to init uptime:', e)
   }
 })
 

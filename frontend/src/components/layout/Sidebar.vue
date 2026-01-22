@@ -35,6 +35,16 @@
           提示词规则
         </button>
 
+        <button class="btn btn-secondary w-full gap-2 h-10 text-xs font-medium" @click="$emit('openSkills')">
+          <i class="fas fa-layer-group"></i>
+          Skills
+        </button>
+
+        <button class="btn btn-secondary w-full gap-2 h-10 text-xs font-medium" @click="$emit('openUptime')">
+          <i class="fas fa-heartbeat"></i>
+          监控&轮换
+        </button>
+
         <div class="flex gap-3 pt-1">
           <button class="btn btn-outline flex-1 gap-2 h-9 text-xs" @click="$emit('export')">
             <i class="fas fa-download opacity-70"></i>
@@ -152,6 +162,8 @@ const emit = defineEmits<{
   openMcp: []
   openStats: []
   openPrompts: []
+  openSkills: []
+  openUptime: []
   export: []
   import: []
   clearClaude: []

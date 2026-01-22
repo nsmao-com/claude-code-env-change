@@ -17,6 +17,8 @@ func main() {
 	app := NewApp()
 	mcpService := NewMCPService()
 	logService := NewLogService()
+	skillService := NewSkillService()
+	uptimeService := NewUptimeService(app)
 
 	// Create application with options
 	err := wails.Run(&options.App{
@@ -44,6 +46,8 @@ func main() {
 			app,
 			mcpService,
 			logService,
+			skillService,
+			uptimeService,
 		},
 	})
 

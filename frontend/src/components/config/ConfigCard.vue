@@ -44,10 +44,39 @@
       </div>
     </div>
 
+    <!-- Uptime -->
+    <div class="mb-4">
+      <div class="flex items-center justify-between mb-2">
+        <div class="text-[9px] text-muted-foreground uppercase font-bold tracking-widest">Uptime</div>
+        <AppTooltip :content="uptimeBadgeTooltip">
+          <span
+            :class="[
+              'text-[10px] font-mono px-2 py-0.5 rounded-full border border-border',
+              uptimeBadgeClass
+            ]"
+          >
+            {{ uptimeBadgeText }}
+          </span>
+        </AppTooltip>
+      </div>
+      <div class="flex items-center gap-2">
+        <AppTooltip
+          v-for="dot in uptimeDots"
+          :key="dot.key"
+          :content="dot.title"
+        >
+          <span
+            :class="['w-2.5 h-2.5 rounded-md border border-border transition-transform hover:scale-110', dot.class]"
+            tabindex="0"
+          ></span>
+        </AppTooltip>
+      </div>
+    </div>
+
     <!-- Action Bar -->
     <div class="flex items-center gap-2 pt-3 border-t border-dashed border-border mt-auto">
        <button
-        class="flex-1 h-8 rounded border border-border hover:bg-foreground hover:text-background transition-all text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2"
+         class="flex-1 h-8 rounded border border-border hover:bg-foreground hover:text-background transition-all text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2"
         @click.stop="$emit('apply')"
       >
         <i class="fas fa-play text-[10px]"></i> Apply
@@ -89,7 +118,9 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { EnvConfig } from '@/types'
+import type { EnvConfig, UptimeCheck } from '@/types'
+import { useUptimeStore } from '@/stores/uptimeStore'
+import AppTooltip from '@/components/common/AppTooltip.vue'
 
 interface Props {
   config: EnvConfig
@@ -97,6 +128,7 @@ interface Props {
 }
 
 const props = defineProps<Props>()
+const uptimeStore = useUptimeStore()
 
 defineEmits<{
   click: []
@@ -113,11 +145,12 @@ const providerLabel = computed(() => {
     codex: 'Codex',
     gemini: 'Gemini'
   }
-  return labels[props.config.provider] || props.config.provider
+  const provider = (props.config.provider || 'claude').toLowerCase()
+  return labels[provider] || provider
 })
 
 const modelValue = computed(() => {
-  const provider = props.config.provider || 'claude'
+  const provider = (props.config.provider || 'claude').toLowerCase()
   const vars = props.config.variables || {}
 
   if (provider === 'claude') {
@@ -131,16 +164,88 @@ const modelValue = computed(() => {
 })
 
 const baseUrlValue = computed(() => {
-  const provider = props.config.provider || 'claude'
+  const provider = (props.config.provider || 'claude').toLowerCase()
   const vars = props.config.variables || {}
 
   if (provider === 'claude') {
-    return vars.ANTHROPIC_BASE_URL || ''
+    return vars.ANTHROPIC_BASE_URL || vars.API_BASE_URL || ''
   } else if (provider === 'codex') {
     return vars.base_url || ''
   } else if (provider === 'gemini') {
     return vars.GOOGLE_GEMINI_BASE_URL || ''
   }
   return ''
+})
+
+const isUptimeEnabled = computed(() => !!uptimeStore.settings.enabled)
+const hasUptimeURL = computed(() => !!baseUrlValue.value?.trim())
+const uptimeHistory = computed<UptimeCheck[]>(() => uptimeStore.getHistory(props.config.name))
+const latestCheck = computed<UptimeCheck | null>(() => {
+  const list = uptimeHistory.value
+  return list.length ? list[list.length - 1] : null
+})
+
+function formatAgo(atSeconds: number): string {
+  const now = Math.floor(Date.now() / 1000)
+  const diff = Math.max(0, now - atSeconds)
+  if (diff < 60) return `${diff}秒前`
+  if (diff < 3600) return `${Math.floor(diff / 60)}分钟前`
+  return `${Math.floor(diff / 3600)}小时前`
+}
+
+const uptimeBadgeText = computed(() => {
+  if (!isUptimeEnabled.value) return 'OFF'
+  if (!hasUptimeURL.value) return 'NO URL'
+  const last = latestCheck.value
+  if (!last) return '—'
+  if (last.success) return `${last.latency_ms}ms`
+  return 'FAIL'
+})
+
+const uptimeBadgeClass = computed(() => {
+  if (!isUptimeEnabled.value) return 'text-muted-foreground bg-muted/40'
+  if (!hasUptimeURL.value) return 'text-muted-foreground bg-muted/40'
+  const last = latestCheck.value
+  if (!last) return 'text-muted-foreground bg-muted/40'
+  return last.success ? 'text-green-600 bg-green-500/10' : 'text-red-600 bg-red-500/10'
+})
+
+const uptimeBadgeTooltip = computed(() => {
+  if (!isUptimeEnabled.value) return '监控未启用'
+  if (!hasUptimeURL.value) return '未配置 Base URL\n无法检测'
+  const last = latestCheck.value
+  if (!last) return '暂无检测记录'
+  if (last.success) return `成功\nHTTP ${last.status_code}\n延迟 ${last.latency_ms}ms\n${formatAgo(last.at)}`
+  return `失败\n${last.error || '检测失败'}\n${formatAgo(last.at)}`
+})
+
+const uptimeDots = computed(() => {
+  const keep = 10
+  const history = uptimeHistory.value || []
+  const trimmed = history.slice(Math.max(0, history.length - keep))
+  const padded: Array<UptimeCheck | null> = [
+    ...Array.from({ length: Math.max(0, keep - trimmed.length) }).map(() => null),
+    ...trimmed
+  ]
+
+  return padded.map((c, idx) => {
+    if (!isUptimeEnabled.value) {
+      return { key: `off-${idx}`, class: 'bg-muted/30', title: '监控未启用' }
+    }
+    if (!hasUptimeURL.value) {
+      return { key: `nourl-${idx}`, class: 'bg-muted/30', title: '未配置 Base URL' }
+    }
+    if (!c) {
+      return { key: `empty-${idx}`, class: 'bg-muted/30', title: '无记录' }
+    }
+    const title = c.success
+      ? `成功\nHTTP ${c.status_code}\n延迟 ${c.latency_ms}ms\n${formatAgo(c.at)}`
+      : `失败\n${c.error || '失败'}\n${formatAgo(c.at)}`
+    return {
+      key: `check-${c.at}-${idx}`,
+      class: c.success ? 'bg-green-500/60' : 'bg-red-500/60',
+      title
+    }
+  })
 })
 </script>

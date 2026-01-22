@@ -342,6 +342,16 @@ body {
     background: hsl(var(--card));
 }
 
+/* List Row Variant */
+.config-item.config-row {
+    padding: 14px 16px;
+    border-radius: 14px;
+}
+
+.config-item.config-row:hover {
+    transform: translateY(-1px);
+}
+
 /* Gradient Card Variant */
 .config-item.gradient-card {
     background: var(--gradient-primary);

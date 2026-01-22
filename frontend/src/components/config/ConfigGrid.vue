@@ -5,15 +5,37 @@
         <h2 class="text-3xl font-extrabold tracking-tight text-foreground uppercase">配置列表</h2>
         <p class="text-sm text-muted-foreground mt-1 font-mono">{{ filteredConfigs.length }} 个环境</p>
       </div>
-      <!-- Search Input -->
-      <div class="search-box relative group">
-        <i class="fas fa-search search-icon absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground group-focus-within:text-foreground transition-colors"></i>
-        <input
-          v-model="searchQuery"
-          type="text"
-          placeholder="搜索..."
-          class="search-input w-[240px] h-10 pl-9 pr-4 rounded-lg bg-transparent border border-border focus:border-foreground transition-all outline-none text-sm font-mono placeholder:text-muted-foreground/50"
-        />
+      <div class="flex items-center gap-3">
+        <!-- View Mode Toggle -->
+        <div class="flex items-center gap-1 p-1 bg-secondary/50 border border-border/50 rounded-xl">
+          <button
+            class="w-10 h-10 rounded-lg flex items-center justify-center transition-colors"
+            :class="viewMode === 'cards' ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground'"
+            title="卡片视图"
+            @click="setViewMode('cards')"
+          >
+            <i class="fas fa-th-large text-sm"></i>
+          </button>
+          <button
+            class="w-10 h-10 rounded-lg flex items-center justify-center transition-colors"
+            :class="viewMode === 'list' ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground'"
+            title="列表视图"
+            @click="setViewMode('list')"
+          >
+            <i class="fas fa-list text-sm"></i>
+          </button>
+        </div>
+
+        <!-- Search Input -->
+        <div class="search-box relative group">
+          <i class="fas fa-search search-icon absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground group-focus-within:text-foreground transition-colors"></i>
+          <input
+            v-model="searchQuery"
+            type="text"
+            placeholder="搜索..."
+            class="search-input w-[240px] h-10 pl-9 pr-4 rounded-lg bg-transparent border border-border focus:border-foreground transition-all outline-none text-sm font-mono placeholder:text-muted-foreground/50"
+          />
+        </div>
       </div>
     </div>
 
@@ -48,21 +70,38 @@
       <p class="text-sm mt-1 font-mono">创建新配置以开始使用</p>
     </div>
 
-    <!-- Config Grid -->
-    <div v-else ref="gridRef" class="config-grid-layout pb-8">
-      <ConfigCard
-        v-for="config in filteredConfigs"
-        :key="config.name"
-        :config="config"
-        :is-active="isEnvActive(config.name, config.provider)"
-        :data-index="getOriginalIndex(config.name)"
-        @click="$emit('edit', getOriginalIndex(config.name))"
-        @apply="$emit('apply', getOriginalIndex(config.name))"
-        @duplicate="$emit('duplicate', getOriginalIndex(config.name))"
-        @edit="$emit('edit', getOriginalIndex(config.name))"
-        @delete="$emit('delete', getOriginalIndex(config.name))"
-        @test-latency="$emit('testLatency', getOriginalIndex(config.name))"
-      />
+    <!-- Config List / Grid -->
+    <div v-else ref="gridRef" :class="[viewMode === 'cards' ? 'config-grid-layout pb-8' : 'flex flex-col gap-2 pb-8']">
+      <template v-if="viewMode === 'cards'">
+        <ConfigCard
+          v-for="config in filteredConfigs"
+          :key="config.name"
+          :config="config"
+          :is-active="isEnvActive(config.name, config.provider)"
+          :data-index="getOriginalIndex(config.name)"
+          @click="$emit('edit', getOriginalIndex(config.name))"
+          @apply="$emit('apply', getOriginalIndex(config.name))"
+          @duplicate="$emit('duplicate', getOriginalIndex(config.name))"
+          @edit="$emit('edit', getOriginalIndex(config.name))"
+          @delete="$emit('delete', getOriginalIndex(config.name))"
+          @test-latency="$emit('testLatency', getOriginalIndex(config.name))"
+        />
+      </template>
+      <template v-else>
+        <ConfigListItem
+          v-for="config in filteredConfigs"
+          :key="config.name"
+          :config="config"
+          :is-active="isEnvActive(config.name, config.provider)"
+          :data-index="getOriginalIndex(config.name)"
+          @click="$emit('edit', getOriginalIndex(config.name))"
+          @apply="$emit('apply', getOriginalIndex(config.name))"
+          @duplicate="$emit('duplicate', getOriginalIndex(config.name))"
+          @edit="$emit('edit', getOriginalIndex(config.name))"
+          @delete="$emit('delete', getOriginalIndex(config.name))"
+          @test-latency="$emit('testLatency', getOriginalIndex(config.name))"
+        />
+      </template>
     </div>
   </div>
 </template>
@@ -73,6 +112,7 @@ import Sortable from 'sortablejs'
 import type { EnvConfig, Provider } from '@/types'
 import { useConfigStore } from '@/stores/configStore'
 import ConfigCard from './ConfigCard.vue'
+import ConfigListItem from './ConfigListItem.vue'
 
 interface Props {
   configs: EnvConfig[]
@@ -93,6 +133,10 @@ const configStore = useConfigStore()
 const gridRef = ref<HTMLElement>()
 const searchQuery = ref('')
 let sortableInstance: InstanceType<typeof Sortable> | null = null
+
+type ViewMode = 'cards' | 'list'
+const viewMode = ref<ViewMode>('cards')
+const viewModeStorageKey = 'claudia_config_view_mode'
 
 // Tab Refs and Glider Logic
 const tabRefs = ref<HTMLElement[]>([])
@@ -132,6 +176,11 @@ watch(currentFilter, () => {
 
 // Update on mount
 onMounted(() => {
+  try {
+    const saved = localStorage.getItem(viewModeStorageKey)
+    if (saved === 'cards' || saved === 'list') viewMode.value = saved
+  } catch {}
+
   initSortable()
   // Wait for fonts/layout
   setTimeout(updateGlider, 100)
@@ -144,6 +193,15 @@ const canSort = computed(() => {
 
 function setFilter(filter: Provider | 'all') {
   configStore.setFilter(filter)
+}
+
+function setViewMode(mode: ViewMode) {
+  if (viewMode.value === mode) return
+  viewMode.value = mode
+  try {
+    localStorage.setItem(viewModeStorageKey, mode)
+  } catch {}
+  nextTick(() => initSortable())
 }
 
 // Filter configs by search query

@@ -1,4 +1,4 @@
-import type { EnvConfig, Config, MCPServer, MCPTestResult } from '@/types'
+import type { EnvConfig, Config, MCPServer, MCPTestResult, Skill, UptimeSettings, RotationGroup, UptimeSnapshot } from '@/types'
 
 declare global {
   interface Window {
@@ -30,6 +30,18 @@ declare global {
           TestServer(server: MCPServer): Promise<MCPTestResult>
           ImportFromJSON(jsonStr: string): Promise<MCPServer[]>
           AddServers(servers: MCPServer[]): Promise<void>
+        }
+        SkillService: {
+          ListSkills(): Promise<Skill[]>
+          SaveSkill(skill: Skill): Promise<void>
+          DeleteSkill(name: string): Promise<void>
+        }
+        UptimeService: {
+          GetSnapshot(): Promise<UptimeSnapshot>
+          SaveSettings(settings: UptimeSettings): Promise<void>
+          SaveRotationGroup(group: RotationGroup): Promise<void>
+          DeleteRotationGroup(name: string): Promise<void>
+          RunOnce(): Promise<UptimeSnapshot>
         }
       }
     }
