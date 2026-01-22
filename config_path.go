@@ -20,12 +20,12 @@ func resolveMainConfigPath() string {
 	cwd, err := os.Getwd()
 	if err == nil && strings.TrimSpace(cwd) != "" {
 		legacy := filepath.Join(cwd, mainConfigFile)
-		if fileExists(legacy) {
+		if fileExistsFile(legacy) {
 			if canWriteExistingFile(legacy) {
 				return legacy
 			}
 			if userPath, err := ensureUserMainConfigPath(); err == nil {
-				if !fileExists(userPath) {
+				if !fileExistsFile(userPath) {
 					_ = copyFile(legacy, userPath)
 				}
 				return userPath
@@ -53,7 +53,7 @@ func ensureUserMainConfigPath() (string, error) {
 	return filepath.Join(dir, mainConfigFile), nil
 }
 
-func fileExists(path string) bool {
+func fileExistsFile(path string) bool {
 	info, err := os.Stat(path)
 	if err != nil {
 		return false
