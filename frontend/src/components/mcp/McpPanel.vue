@@ -47,14 +47,25 @@
           JSON 导入
         </button>
       </div>
-      <button
-        class="btn btn-outline btn-sm"
-        :disabled="mcpStore.isTestingAll || mcpStore.servers.length === 0"
-        @click="testAll"
-      >
-        <i :class="['fas mr-2', mcpStore.isTestingAll ? 'fa-circle-notch fa-spin' : 'fa-bolt']"></i>
-        {{ mcpStore.isTestingAll ? '检测中...' : '全部检测' }}
-      </button>
+      <div class="flex gap-2">
+        <button
+          class="btn btn-outline btn-sm"
+          :disabled="isRefreshing"
+          @click="refreshServers"
+          title="重新获取 MCP 服务器列表"
+        >
+          <i :class="['fas mr-2', isRefreshing ? 'fa-circle-notch fa-spin' : 'fa-sync-alt']"></i>
+          {{ isRefreshing ? '刷新中...' : '刷新' }}
+        </button>
+        <button
+          class="btn btn-outline btn-sm"
+          :disabled="mcpStore.isTestingAll || mcpStore.servers.length === 0"
+          @click="testAll"
+        >
+          <i :class="['fas mr-2', mcpStore.isTestingAll ? 'fa-circle-notch fa-spin' : 'fa-bolt']"></i>
+          {{ mcpStore.isTestingAll ? '检测中...' : '全部检测' }}
+        </button>
+      </div>
     </div>
 
     <!-- Empty State -->
@@ -140,6 +151,7 @@ const showJsonImport = ref(false)
 const editingServer = ref<MCPServer | null>(null)
 const editingIndex = ref<number | undefined>(undefined)
 const testingIndex = ref<number | null>(null)
+const isRefreshing = ref(false)
 
 // Platform filter
 const currentPlatform = ref<PlatformFilter>('all')
@@ -256,6 +268,22 @@ async function testSingle(index: number) {
 
 function testAll() {
   mcpStore.testAllServers()
+}
+
+async function refreshServers() {
+  isRefreshing.value = true
+  try {
+    await mcpStore.loadServers()
+    toast.success('MCP 服务器列表已刷新')
+    // 刷新后自动检测
+    if (mcpStore.servers.length > 0) {
+      mcpStore.testAllServers()
+    }
+  } catch (e: any) {
+    toast.error('刷新失败: ' + e.message)
+  } finally {
+    isRefreshing.value = false
+  }
 }
 
 function onServerSaved() {
