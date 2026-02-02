@@ -101,6 +101,8 @@ func (ms *MCPService) ListServers() ([]MCPServer, error) {
 		return nil, err
 	}
 
+	fmt.Printf("[ListServers] 从缓存加载了 %d 个服务器\n", len(config))
+
 	claudeEnabled := loadClaudeEnabledServers()
 	codexEnabled := loadCodexEnabledServers()
 	geminiEnabled := loadGeminiEnabledServers()
@@ -132,6 +134,11 @@ func (ms *MCPService) ListServers() ([]MCPServer, error) {
 		}
 		server.MissingPlaceholders = detectPlaceholders(server.URL, server.Args)
 		servers = append(servers, server)
+	}
+
+	fmt.Printf("[ListServers] 返回 %d 个服务器\n", len(servers))
+	for i, s := range servers {
+		fmt.Printf("[ListServers]   %d. %s (platforms: %v)\n", i+1, s.Name, s.EnablePlatform)
 	}
 
 	return servers, nil
@@ -805,6 +812,10 @@ func (ms *MCPService) cleanupDeletedServers(payload map[string]rawMCPServer) boo
 	codexServers := ms.getCurrentCodexServers()
 	geminiServers := ms.getCurrentGeminiServers()
 
+	fmt.Printf("[cleanupDeletedServers] Claude 服务器数量: %d\n", len(claudeServers))
+	fmt.Printf("[cleanupDeletedServers] Codex 服务器数量: %d\n", len(codexServers))
+	fmt.Printf("[cleanupDeletedServers] Gemini 服务器数量: %d\n", len(geminiServers))
+
 	changed := false
 	for name, entry := range payload {
 		shouldDelete := true
@@ -819,6 +830,8 @@ func (ms *MCPService) cleanupDeletedServers(payload map[string]rawMCPServer) boo
 			case platCodex:
 				if _, exists := codexServers[strings.ToLower(strings.TrimSpace(name))]; exists {
 					shouldDelete = false
+				} else {
+					fmt.Printf("[cleanupDeletedServers] %s 不在 Codex 配置中\n", name)
 				}
 			case platGemini:
 				if _, exists := geminiServers[strings.ToLower(strings.TrimSpace(name))]; exists {
@@ -829,6 +842,7 @@ func (ms *MCPService) cleanupDeletedServers(payload map[string]rawMCPServer) boo
 
 		// 如果服务器在所有启用的平台中都不存在，则删除
 		if shouldDelete && len(entry.EnablePlatform) > 0 {
+			fmt.Printf("[cleanupDeletedServers] 删除服务器: %s (platforms: %v)\n", name, entry.EnablePlatform)
 			delete(payload, name)
 			changed = true
 		}
