@@ -1,6 +1,6 @@
 {
-  "current_env": "修改1",
-  "current_env_claude": "修改1",
+  "current_env": "星野AI",
+  "current_env_claude": "星野AI",
   "current_env_codex": "123",
   "current_env_gemini": "323",
   "environments": [
@@ -103,6 +103,18 @@
         "model": "423"
       },
       "provider": "codex",
+      "icon": "📦"
+    },
+    {
+      "name": "星野AI",
+      "description": "",
+      "variables": {
+        "ANTHROPIC_API_KEY": "",
+        "ANTHROPIC_AUTH_TOKEN": "sk-EaWaXSoTrgU3v5WcztUOENvuz7Z8QQ7LMOfbSCCxBlNhB1E9",
+        "ANTHROPIC_BASE_URL": "https://api.feisakura.fun",
+        "ANTHROPIC_MODEL": ""
+      },
+      "provider": "claude",
       "icon": "📦"
     }
   ]
