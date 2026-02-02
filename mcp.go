@@ -142,6 +142,11 @@ func (ms *MCPService) SaveServers(servers []MCPServer) error {
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
 
+	fmt.Printf("[MCP Service] SaveServers 被调用，服务器数量: %d\n", len(servers))
+	for i, s := range servers {
+		fmt.Printf("[MCP Service]   %d. %s (platforms: %v)\n", i+1, s.Name, s.EnablePlatform)
+	}
+
 	normalized := make([]MCPServer, len(servers))
 	raw := make(map[string]rawMCPServer, len(servers))
 
@@ -201,18 +206,35 @@ func (ms *MCPService) SaveServers(servers []MCPServer) error {
 		}
 	}
 
+	fmt.Printf("[MCP Service] 保存到缓存文件...\n")
 	if err := ms.saveConfig(raw); err != nil {
+		fmt.Printf("[MCP Service] 保存缓存文件失败: %v\n", err)
 		return err
 	}
+	fmt.Printf("[MCP Service] 缓存文件保存成功\n")
+
+	fmt.Printf("[MCP Service] 同步到 Claude 配置...\n")
 	if err := ms.syncClaudeServers(normalized); err != nil {
+		fmt.Printf("[MCP Service] 同步 Claude 失败: %v\n", err)
 		return err
 	}
+	fmt.Printf("[MCP Service] Claude 同步成功\n")
+
+	fmt.Printf("[MCP Service] 同步到 Codex 配置...\n")
 	if err := ms.syncCodexServers(normalized); err != nil {
+		fmt.Printf("[MCP Service] 同步 Codex 失败: %v\n", err)
 		return err
 	}
+	fmt.Printf("[MCP Service] Codex 同步成功\n")
+
+	fmt.Printf("[MCP Service] 同步到 Gemini 配置...\n")
 	if err := ms.syncGeminiServers(normalized); err != nil {
+		fmt.Printf("[MCP Service] 同步 Gemini 失败: %v\n", err)
 		return err
 	}
+	fmt.Printf("[MCP Service] Gemini 同步成功\n")
+
+	fmt.Printf("[MCP Service] SaveServers 完成\n")
 	return nil
 }
 
@@ -453,13 +475,17 @@ func (ms *MCPService) syncCodexServers(servers []MCPServer) error {
 		return err
 	}
 
+	fmt.Printf("[syncCodexServers] 开始同步，服务器数量: %d\n", len(servers))
+
 	desired := make(map[string]map[string]any)
 	for _, server := range servers {
 		if !platformContains(server.EnablePlatform, platCodex) {
 			continue
 		}
 		desired[server.Name] = buildCodexEntry(server)
+		fmt.Printf("[syncCodexServers] 添加到 desired: %s\n", server.Name)
 	}
+	fmt.Printf("[syncCodexServers] desired 数量: %d\n", len(desired))
 
 	payload := make(map[string]any)
 	existingServers := map[string]map[string]any{}
@@ -474,6 +500,7 @@ func (ms *MCPService) syncCodexServers(servers []MCPServer) error {
 	} else if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
+	fmt.Printf("[syncCodexServers] 现有服务器数量: %d\n", len(existingServers))
 
 	// 构建所有被管理的服务器集合（包括启用和未启用 Codex 的）
 	managed := map[string]struct{}{}
@@ -484,6 +511,7 @@ func (ms *MCPService) syncCodexServers(servers []MCPServer) error {
 		}
 		managed[strings.ToLower(name)] = struct{}{}
 	}
+	fmt.Printf("[syncCodexServers] managed 数量: %d\n", len(managed))
 
 	// 只保留不在管理列表中的现有服务器（即外部手动添加的服务器）
 	merged := make(map[string]map[string]any)
@@ -494,10 +522,12 @@ func (ms *MCPService) syncCodexServers(servers []MCPServer) error {
 		}
 		// 如果服务器在管理列表中，跳过（由 desired 决定是否添加）
 		if _, ok := managed[strings.ToLower(trimmed)]; ok {
+			fmt.Printf("[syncCodexServers] 跳过管理的服务器: %s\n", name)
 			continue
 		}
 		// 保留外部手动添加的服务器
 		merged[name] = entry
+		fmt.Printf("[syncCodexServers] 保留外部服务器: %s\n", name)
 	}
 
 	// 添加所有启用 Codex 的服务器
@@ -507,13 +537,18 @@ func (ms *MCPService) syncCodexServers(servers []MCPServer) error {
 			continue
 		}
 		merged[trimmed] = entry
+		fmt.Printf("[syncCodexServers] 添加到 merged: %s\n", trimmed)
 	}
+
+	fmt.Printf("[syncCodexServers] 最终 merged 数量: %d\n", len(merged))
 
 	payload["mcp_servers"] = merged
 	data, err := toml.Marshal(payload)
 	if err != nil {
 		return err
 	}
+
+	fmt.Printf("[syncCodexServers] 写入配置文件: %s\n", path)
 	return os.WriteFile(path, data, 0o644)
 }
 
