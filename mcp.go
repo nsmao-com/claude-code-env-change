@@ -495,67 +495,22 @@ func (ms *MCPService) syncCodexServers(servers []MCPServer) error {
 	fmt.Printf("[syncCodexServers] desired 数量: %d\n", len(desired))
 
 	payload := make(map[string]any)
-	existingServers := map[string]map[string]any{}
 	if data, err := os.ReadFile(path); err == nil && len(data) > 0 {
 		if err := toml.Unmarshal(data, &payload); err != nil {
 			payload = make(map[string]any)
 		}
-		var mcpPayload codexMcpFilePayload
-		if err := toml.Unmarshal(data, &mcpPayload); err == nil && len(mcpPayload.Servers) > 0 {
-			existingServers = mcpPayload.Servers
-		}
 	} else if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
-	fmt.Printf("[syncCodexServers] 现有服务器数量: %d\n", len(existingServers))
 
-	// 构建所有被管理的服务器集合（包括启用和未启用 Codex 的）
-	managed := map[string]struct{}{}
-	for _, server := range servers {
-		name := strings.TrimSpace(server.Name)
-		if name == "" {
-			continue
-		}
-		managed[strings.ToLower(name)] = struct{}{}
-	}
-	fmt.Printf("[syncCodexServers] managed 数量: %d\n", len(managed))
-
-	// 只保留不在管理列表中的现有服务器（即外部手动添加的服务器）
-	merged := make(map[string]map[string]any)
-	for name, entry := range existingServers {
-		trimmed := strings.TrimSpace(name)
-		if trimmed == "" {
-			continue
-		}
-		// 如果服务器在管理列表中，跳过（由 desired 决定是否添加）
-		if _, ok := managed[strings.ToLower(trimmed)]; ok {
-			fmt.Printf("[syncCodexServers] 跳过管理的服务器: %s\n", name)
-			continue
-		}
-		// 保留外部手动添加的服务器
-		merged[name] = entry
-		fmt.Printf("[syncCodexServers] 保留外部服务器: %s\n", name)
-	}
-
-	// 添加所有启用 Codex 的服务器
-	for name, entry := range desired {
-		trimmed := strings.TrimSpace(name)
-		if trimmed == "" {
-			continue
-		}
-		merged[trimmed] = entry
-		fmt.Printf("[syncCodexServers] 添加到 merged: %s\n", trimmed)
-	}
-
-	fmt.Printf("[syncCodexServers] 最终 merged 数量: %d\n", len(merged))
-
-	payload["mcp_servers"] = merged
+	// 直接使用 desired，不保留任何现有服务器
+	payload["mcp_servers"] = desired
 	data, err := toml.Marshal(payload)
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("[syncCodexServers] 写入配置文件: %s\n", path)
+	fmt.Printf("[syncCodexServers] 最终写入 %d 个服务器到配置文件: %s\n", len(desired), path)
 	return os.WriteFile(path, data, 0o644)
 }
 
