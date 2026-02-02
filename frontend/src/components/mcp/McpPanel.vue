@@ -176,7 +176,9 @@ const filteredServers = computed(() => {
 
 // Get original index from server name
 function getOriginalIndex(name: string): number {
-  return mcpStore.servers.findIndex(s => s.name === name)
+  const index = mcpStore.servers.findIndex(s => s.name === name)
+  console.log('[McpPanel] getOriginalIndex:', name, '→', index)
+  return index
 }
 
 // Update glider position
@@ -234,6 +236,12 @@ function editServer(index: number) {
 
 async function deleteServer(index: number) {
   const server = mcpStore.servers[index]
+  console.log('[McpPanel] deleteServer 被调用')
+  console.log('[McpPanel] 要删除的索引:', index)
+  console.log('[McpPanel] 要删除的服务器:', server?.name)
+  console.log('[McpPanel] 当前服务器总数:', mcpStore.servers.length)
+  console.log('[McpPanel] 所有服务器名称:', mcpStore.servers.map(s => s.name))
+
   const confirmed = await confirm.show(
     '删除 MCP 服务器',
     `确定要删除 "${server.name}" 吗？`,
