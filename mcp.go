@@ -414,60 +414,16 @@ func (ms *MCPService) syncClaudeServers(servers []MCPServer) error {
 	}
 
 	payload := make(map[string]any)
-	existingServers := make(map[string]json.RawMessage)
 	if data, err := os.ReadFile(path); err == nil && len(data) > 0 {
 		if err := json.Unmarshal(data, &payload); err != nil {
 			payload = make(map[string]any)
-		}
-		// 读取现有的 mcpServers
-		var mcpPayload claudeMcpFilePayload
-		if err := json.Unmarshal(data, &mcpPayload); err == nil && len(mcpPayload.Servers) > 0 {
-			existingServers = mcpPayload.Servers
 		}
 	} else if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
 
-	// 构建所有被管理的服务器集合
-	managed := map[string]struct{}{}
-	for _, server := range servers {
-		name := strings.TrimSpace(server.Name)
-		if name == "" {
-			continue
-		}
-		managed[strings.ToLower(name)] = struct{}{}
-	}
-
-	// 合并服务器：保留外部手动添加的，添加/更新管理的
-	merged := make(map[string]claudeDesktopServer)
-
-	// 先添加现有的外部服务器
-	for name, rawEntry := range existingServers {
-		trimmed := strings.TrimSpace(name)
-		if trimmed == "" {
-			continue
-		}
-		// 如果在管理列表中，跳过（由 desired 决定）
-		if _, ok := managed[strings.ToLower(trimmed)]; ok {
-			continue
-		}
-		// 解析并保留外部服务器
-		var entry claudeDesktopServer
-		if err := json.Unmarshal(rawEntry, &entry); err == nil {
-			merged[name] = entry
-		}
-	}
-
-	// 添加所有启用 Claude 的服务器
-	for name, entry := range desired {
-		trimmed := strings.TrimSpace(name)
-		if trimmed == "" {
-			continue
-		}
-		merged[trimmed] = entry
-	}
-
-	payload["mcpServers"] = merged
+	// 直接使用 desired，不保留任何现有服务器
+	payload["mcpServers"] = desired
 	data, err := json.MarshalIndent(payload, "", "  ")
 	if err != nil {
 		return err

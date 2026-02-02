@@ -1,6 +1,6 @@
 {
-  "current_env": "修改1",
-  "current_env_claude": "修改1",
+  "current_env": "https://api.feisakura.fun/",
+  "current_env_claude": "https://api.feisakura.fun/",
   "current_env_codex": "123",
   "current_env_gemini": "323",
   "environments": [
@@ -112,6 +112,30 @@
         "ANTHROPIC_API_KEY": "",
         "ANTHROPIC_AUTH_TOKEN": "sk-wv6SKVsTMy8lnQ0451ZPaNbW6oJ9MbkrurNsaqOR9sHbLHqP",
         "ANTHROPIC_BASE_URL": "https://free.duckcoding.com",
+        "ANTHROPIC_MODEL": ""
+      },
+      "provider": "claude",
+      "icon": "📦"
+    },
+    {
+      "name": "https://api.feisakura.fun/",
+      "description": "",
+      "variables": {
+        "ANTHROPIC_API_KEY": "",
+        "ANTHROPIC_AUTH_TOKEN": "sk-EaWaXSoTrgU3v5WcztUOENvuz7Z8QQ7LMOfbSCCxBlNhB1E9",
+        "ANTHROPIC_BASE_URL": "https://api.feisakura.fun",
+        "ANTHROPIC_MODEL": ""
+      },
+      "provider": "claude",
+      "icon": "📦"
+    },
+    {
+      "name": "aihubo",
+      "description": "",
+      "variables": {
+        "ANTHROPIC_API_KEY": "",
+        "ANTHROPIC_AUTH_TOKEN": "sk-8efe18e8a3a02ccd9505171ec8625031e73a4f76eba8ec76",
+        "ANTHROPIC_BASE_URL": "https://www.aihubo.com/v1",
         "ANTHROPIC_MODEL": ""
       },
       "provider": "claude",
