@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#2563eb" rx="64"/>
+  <path d="M128 160h256v32H128zm0 64h256v32H128zm0 64h192v32H128z" fill="white"/>
+  <circle cx="384" cy="288" r="24" fill="#10b981"/>
+  <text x="256" y="400" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="48" font-weight="bold">CE</text>
+</svg>

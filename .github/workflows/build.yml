@@ -1,0 +1,149 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      release:
+        description: '发布到 Release'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Build for macOS (amd64)
+        run: wails build -platform darwin/amd64
+
+      - name: List build output
+        run: ls -la build/bin/
+
+      - name: Prepare macOS amd64 artifact
+        run: |
+          cd build/bin
+          # Find the .app directory and zip it
+          APP_NAME=$(ls -d *.app | head -1)
+          echo "Found app: $APP_NAME"
+          zip -r claude-env-switcher-macos-amd64.zip "$APP_NAME"
+
+      - name: Build for macOS (arm64)
+        run: |
+          # Clean previous build
+          rm -rf build/bin/*.app
+          wails build -platform darwin/arm64
+
+      - name: Prepare macOS arm64 artifact
+        run: |
+          cd build/bin
+          APP_NAME=$(ls -d *.app | head -1)
+          echo "Found app: $APP_NAME"
+          zip -r claude-env-switcher-macos-arm64.zip "$APP_NAME"
+
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-builds
+          path: |
+            build/bin/claude-env-switcher-macos-amd64.zip
+            build/bin/claude-env-switcher-macos-arm64.zip
+          if-no-files-found: error
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Build for Windows (amd64)
+        run: wails build -platform windows/amd64
+
+      - name: List build output
+        run: dir build\bin\
+
+      - name: Prepare Windows artifact
+        shell: pwsh
+        run: |
+          cd build/bin
+          $exeName = Get-ChildItem -Filter "*.exe" | Select-Object -First 1 -ExpandProperty Name
+          Write-Host "Found exe: $exeName"
+          Compress-Archive -Path $exeName -DestinationPath "claude-env-switcher-windows-amd64.zip"
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-builds
+          path: build/bin/claude-env-switcher-windows-amd64.zip
+          if-no-files-found: error
+
+  release:
+    needs: [build-macos, build-windows]
+    runs-on: ubuntu-latest
+    # 只在推送 tag 时发布正式版本
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List downloaded artifacts
+        run: find artifacts -type f
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          files: |
+            artifacts/macos-builds/claude-env-switcher-macos-amd64.zip
+            artifacts/macos-builds/claude-env-switcher-macos-arm64.zip
+            artifacts/windows-builds/claude-env-switcher-windows-amd64.zip
+          generate_release_notes: true
+          draft: false
+          prerelease: false

@@ -1,0 +1,109 @@
+{
+  "current_env": "修改1",
+  "current_env_claude": "修改1",
+  "current_env_codex": "123",
+  "current_env_gemini": "323",
+  "environments": [
+    {
+      "name": "123",
+      "description": "",
+      "variables": {
+        "base_url": "4234",
+        "model": "423"
+      },
+      "provider": "codex"
+    },
+    {
+      "name": "4324",
+      "description": "345",
+      "variables": {
+        "ANTHROPIC_API_KEY": "",
+        "ANTHROPIC_AUTH_TOKEN": "432432",
+        "ANTHROPIC_BASE_URL": "https://www.baidu.com",
+        "ANTHROPIC_MODEL": ""
+      },
+      "provider": "claude",
+      "icon": "😄"
+    },
+    {
+      "name": "修改1",
+      "description": "",
+      "variables": {
+        "ANTHROPIC_API_KEY": "",
+        "ANTHROPIC_AUTH_TOKEN": "54354354",
+        "ANTHROPIC_BASE_URL": "54343",
+        "ANTHROPIC_MODEL": ""
+      },
+      "provider": "claude",
+      "icon": "😄"
+    },
+    {
+      "name": "543543",
+      "description": "",
+      "variables": {
+        "ANTHROPIC_API_KEY": "",
+        "ANTHROPIC_AUTH_TOKEN": "543543",
+        "ANTHROPIC_BASE_URL": "543543",
+        "ANTHROPIC_MODEL": ""
+      },
+      "provider": ""
+    },
+    {
+      "name": "52534636347542824825484",
+      "description": "",
+      "variables": {
+        "ANTHROPIC_API_KEY": "",
+        "ANTHROPIC_AUTH_TOKEN": "754754",
+        "ANTHROPIC_BASE_URL": "64363464364364364363466346",
+        "ANTHROPIC_MODEL": ""
+      },
+      "provider": ""
+    },
+    {
+      "name": "67574865385836585",
+      "description": "",
+      "variables": {
+        "ANTHROPIC_API_KEY": "",
+        "ANTHROPIC_AUTH_TOKEN": "765375637",
+        "ANTHROPIC_BASE_URL": "7465376537567",
+        "ANTHROPIC_MODEL": ""
+      },
+      "provider": ""
+    },
+    {
+      "name": "323",
+      "description": "",
+      "variables": {
+        "GEMINI_API_KEY": "32323232",
+        "GEMINI_MODEL": "3233",
+        "GOOGLE_GEMINI_BASE_URL": "232323"
+      },
+      "provider": "gemini",
+      "templates": {
+        ".env": "GOOGLE_GEMINI_BASE_URL={{GOOGLE_GEMINI_BASE_URL}}\nGEMINI_API_KEY={{GEMINI_API_KEY}}\nGEMINI_MODEL={{GEMINI_MODEL}}",
+        "settings.json": "{\n  \"ide\": {\n    \"enabled\": true\n  },\n  \"security\": {\n    \"auth\": {\n      \"selectedType\": \"gemini-api-key\"\n    }\n  }\n}"
+      }
+    },
+    {
+      "name": "修改",
+      "description": "",
+      "variables": {
+        "ANTHROPIC_API_KEY": "",
+        "ANTHROPIC_AUTH_TOKEN": "5354",
+        "ANTHROPIC_BASE_URL": "53453454",
+        "ANTHROPIC_MODEL": ""
+      },
+      "provider": "claude"
+    },
+    {
+      "name": "123 - 副本",
+      "description": "",
+      "variables": {
+        "base_url": "4234",
+        "model": "423"
+      },
+      "provider": "codex",
+      "icon": "📦"
+    }
+  ]
+}
