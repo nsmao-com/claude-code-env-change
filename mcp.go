@@ -274,6 +274,11 @@ func (ms *MCPService) loadConfig() (map[string]rawMCPServer, error) {
 		}
 	}
 
+	// 清理不再存在于任何平台配置中的服务器
+	if ms.cleanupDeletedServers(payload) {
+		changed = true
+	}
+
 	if changed {
 		if err := ms.saveConfig(payload); err != nil {
 			return payload, err
@@ -660,6 +665,107 @@ func (ms *MCPService) mergeImportedServers(target, imported map[string]rawMCPSer
 		changed = true
 	}
 	return changed
+}
+
+// cleanupDeletedServers 清理已从所有平台配置中删除的服务器
+func (ms *MCPService) cleanupDeletedServers(payload map[string]rawMCPServer) bool {
+	// 获取所有平台当前的服务器列表
+	claudeServers := ms.getCurrentClaudeServers()
+	codexServers := ms.getCurrentCodexServers()
+	geminiServers := ms.getCurrentGeminiServers()
+
+	changed := false
+	for name, entry := range payload {
+		shouldDelete := true
+
+		// 检查服务器是否在任何启用的平台中存在
+		for _, platform := range entry.EnablePlatform {
+			switch platform {
+			case platClaudeCode:
+				if _, exists := claudeServers[strings.ToLower(strings.TrimSpace(name))]; exists {
+					shouldDelete = false
+				}
+			case platCodex:
+				if _, exists := codexServers[strings.ToLower(strings.TrimSpace(name))]; exists {
+					shouldDelete = false
+				}
+			case platGemini:
+				if _, exists := geminiServers[strings.ToLower(strings.TrimSpace(name))]; exists {
+					shouldDelete = false
+				}
+			}
+		}
+
+		// 如果服务器在所有启用的平台中都不存在，则删除
+		if shouldDelete && len(entry.EnablePlatform) > 0 {
+			delete(payload, name)
+			changed = true
+		}
+	}
+	return changed
+}
+
+// getCurrentClaudeServers 获取当前 Claude 配置中的服务器列表
+func (ms *MCPService) getCurrentClaudeServers() map[string]struct{} {
+	result := map[string]struct{}{}
+	path, err := claudeConfigPath()
+	if err != nil {
+		return result
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return result
+	}
+	var payload claudeMcpFilePayload
+	if err := json.Unmarshal(data, &payload); err != nil {
+		return result
+	}
+	for name := range payload.Servers {
+		result[strings.ToLower(strings.TrimSpace(name))] = struct{}{}
+	}
+	return result
+}
+
+// getCurrentCodexServers 获取当前 Codex 配置中的服务器列表
+func (ms *MCPService) getCurrentCodexServers() map[string]struct{} {
+	result := map[string]struct{}{}
+	path, err := codexConfigPath()
+	if err != nil {
+		return result
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return result
+	}
+	var payload codexMcpFilePayload
+	if err := toml.Unmarshal(data, &payload); err != nil {
+		return result
+	}
+	for name := range payload.Servers {
+		result[strings.ToLower(strings.TrimSpace(name))] = struct{}{}
+	}
+	return result
+}
+
+// getCurrentGeminiServers 获取当前 Gemini 配置中的服务器列表
+func (ms *MCPService) getCurrentGeminiServers() map[string]struct{} {
+	result := map[string]struct{}{}
+	path, err := geminiConfigPath()
+	if err != nil {
+		return result
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return result
+	}
+	var payload claudeMcpFilePayload // Gemini 使用相同的 mcpServers 格式
+	if err := json.Unmarshal(data, &payload); err != nil {
+		return result
+	}
+	for name := range payload.Servers {
+		result[strings.ToLower(strings.TrimSpace(name))] = struct{}{}
+	}
+	return result
 }
 
 // 辅助函数
