@@ -154,10 +154,10 @@ var modelPricing = map[string]struct {
 	"codex-1":                      {Input: 1.25, Output: 10.0, CacheCreate: 0, CacheRead: 0.125},
 }
 
-// GetUsageStats 获取使用统计 (最近N天, 按平台筛选)
+// GetUsageStats 获取使用统计 (最近N天, 按平台筛选, days=0 表示全部时间)
 func (ls *LogService) GetUsageStats(days int, platform string) (UsageStats, error) {
 	if days <= 0 {
-		days = 7
+		days = 3650 // 约10年，相当于全部
 	}
 
 	stats := UsageStats{
@@ -253,10 +253,10 @@ func (ls *LogService) GetUsageStats(days int, platform string) (UsageStats, erro
 	return stats, nil
 }
 
-// GetHeatmapData 获取热力图数据 (最近N天, 按平台筛选)
+// GetHeatmapData 获取热力图数据 (最近N天, 按平台筛选, days=0 表示全部时间)
 func (ls *LogService) GetHeatmapData(days int, platform string) ([]HeatmapData, error) {
 	if days <= 0 {
-		days = 30
+		days = 3650 // 约10年，相当于全部
 	}
 
 	var records []UsageRecord

@@ -7,9 +7,9 @@
       </div>
       <div class="flex items-center gap-3">
         <!-- View Mode Toggle -->
-        <div class="flex items-center gap-1 p-1 bg-secondary/50 border border-border/50 rounded-xl">
+        <div class="flex items-center gap-1 p-1 bg-secondary/50 border border-border/50 rounded-full">
           <button
-            class="w-10 h-10 rounded-lg flex items-center justify-center transition-colors"
+            class="w-9 h-9 rounded-full flex items-center justify-center transition-colors"
             :class="viewMode === 'cards' ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground'"
             title="卡片视图"
             @click="setViewMode('cards')"
@@ -17,7 +17,7 @@
             <i class="fas fa-th-large text-sm"></i>
           </button>
           <button
-            class="w-10 h-10 rounded-lg flex items-center justify-center transition-colors"
+            class="w-9 h-9 rounded-full flex items-center justify-center transition-colors"
             :class="viewMode === 'list' ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground'"
             title="列表视图"
             @click="setViewMode('list')"
@@ -51,7 +51,7 @@
         v-for="tab in filterTabs"
         :key="tab.value"
         ref="tabRefs"
-        :class="['relative z-10 px-6 py-2 rounded-full text-xs font-bold uppercase tracking-wide transition-colors duration-200', { 'text-foreground': currentFilter === tab.value, 'text-muted-foreground hover:text-foreground/80': currentFilter !== tab.value }]"
+        :class="['relative z-10 px-6 py-2 rounded-full text-xs font-bold uppercase tracking-wide transition-colors duration-200', { 'text-foreground dark:text-gray-900': currentFilter === tab.value, 'text-muted-foreground hover:text-foreground/80': currentFilter !== tab.value }]"
         @click="setFilter(tab.value)"
       >
         {{ tab.label }}

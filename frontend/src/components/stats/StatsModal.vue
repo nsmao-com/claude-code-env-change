@@ -13,7 +13,7 @@
         :key="p.value"
         ref="tabRefs"
         :disabled="loading"
-        :class="['relative z-10 px-5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide transition-colors duration-200 flex items-center gap-1.5', { 'text-foreground': platform === p.value, 'text-muted-foreground hover:text-foreground/80': platform !== p.value, 'opacity-50 cursor-not-allowed': loading }]"
+        :class="['relative z-10 px-5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide transition-colors duration-200 flex items-center gap-1.5', { 'text-foreground dark:text-gray-900': platform === p.value, 'text-muted-foreground hover:text-foreground/80': platform !== p.value, 'opacity-50 cursor-not-allowed': loading }]"
         @click="setPlatform(p.value)"
       >
         <i :class="p.icon"></i>
@@ -36,7 +36,7 @@
       <div class="stat-card">
         <div class="stat-label">总请求</div>
         <div class="stat-value">{{ formatNumber(stats?.total_requests || 0) }}</div>
-        <div class="stat-hint">最近 {{ days }} 天</div>
+        <div class="stat-hint">{{ days === 0 ? '全部时间' : `最近 ${days} 天` }}</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">总 Tokens</div>
@@ -59,12 +59,12 @@
     <div class="flex items-center justify-between my-4">
       <div class="flex gap-2">
         <button
-          v-for="d in [1, 7, 30]"
+          v-for="d in [1, 7, 30, 0]"
           :key="d"
           :class="['btn btn-compact', days === d ? 'btn-primary' : 'btn-secondary']"
           @click="setDays(d)"
         >
-          {{ d === 1 ? '今天' : `${d}天` }}
+          {{ d === 0 ? '全部' : d === 1 ? '今天' : `${d}天` }}
         </button>
       </div>
       <button class="btn btn-ghost btn-compact" :disabled="loading" @click="refresh">
@@ -522,8 +522,8 @@ async function loadData() {
     } catch {
       logDirectory.value = '需要重新编译后端'
     }
-  } catch (e) {
-    console.error('Failed to load stats:', e)
+  } catch {
+    // ignore
   } finally {
     loading.value = false
   }

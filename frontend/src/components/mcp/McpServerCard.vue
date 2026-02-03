@@ -1,16 +1,16 @@
 <template>
-  <div class="p-4 rounded-lg border border-border bg-background hover:border-primary/50 transition-all group">
-    <div class="flex items-start justify-between">
+  <div :class="['rounded-lg border border-border bg-background hover:border-primary/50 transition-all group', compact ? 'p-2.5' : 'p-4']">
+    <div class="flex items-center justify-between gap-3">
       <div class="flex items-center gap-3 min-w-0 flex-1">
         <!-- Icon -->
-        <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-          <i :class="['fas', typeIcon, 'text-primary']"></i>
+        <div :class="['rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0', compact ? 'w-8 h-8' : 'w-10 h-10']">
+          <i :class="['fas', typeIcon, 'text-primary', compact ? 'text-sm' : '']"></i>
         </div>
 
         <!-- Info -->
         <div class="min-w-0 flex-1">
-          <div class="flex items-center gap-2 mb-1">
-            <h4 class="font-semibold text-sm">{{ server.name }}</h4>
+          <div class="flex items-center gap-2 flex-wrap">
+            <h4 :class="['font-semibold', compact ? 'text-xs' : 'text-sm']">{{ server.name }}</h4>
             <!-- Platform badges -->
             <span
               v-if="hasClaude"
@@ -38,22 +38,22 @@
             </span>
           </div>
 
-          <!-- Detail -->
-          <div class="text-xs text-muted-foreground font-mono truncate">
+          <!-- Detail (hidden in compact mode) -->
+          <div v-if="!compact" class="text-xs text-muted-foreground font-mono truncate mt-1">
             {{ detailInfo }}
           </div>
 
-          <!-- Tips -->
-          <div v-if="server.tips" class="text-xs text-muted-foreground mt-1">
+          <!-- Tips (hidden in compact mode) -->
+          <div v-if="!compact && server.tips" class="text-xs text-muted-foreground mt-1">
             {{ server.tips }}
           </div>
         </div>
       </div>
 
       <!-- Actions -->
-      <div class="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 flex-shrink-0 ml-2">
+      <div :class="['transition-opacity flex gap-1 flex-shrink-0', compact ? 'opacity-100' : 'opacity-0 group-hover:opacity-100']">
         <button
-          class="w-7 h-7 rounded hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground"
+          :class="['rounded hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground', compact ? 'w-6 h-6' : 'w-7 h-7']"
           title="测试连接"
           :disabled="isTesting"
           @click="$emit('test')"
@@ -64,20 +64,20 @@
           v-if="server.website"
           :href="server.website"
           target="_blank"
-          class="w-7 h-7 rounded hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground"
+          :class="['rounded hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground', compact ? 'w-6 h-6' : 'w-7 h-7']"
           title="官网"
         >
           <i class="fas fa-external-link-alt text-xs"></i>
         </a>
         <button
-          class="w-7 h-7 rounded hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground"
+          :class="['rounded hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground', compact ? 'w-6 h-6' : 'w-7 h-7']"
           title="编辑"
           @click="$emit('edit')"
         >
           <i class="fas fa-pen text-xs"></i>
         </button>
         <button
-          class="w-7 h-7 rounded hover:bg-destructive/10 flex items-center justify-center text-muted-foreground hover:text-destructive"
+          :class="['rounded hover:bg-destructive/10 flex items-center justify-center text-muted-foreground hover:text-destructive', compact ? 'w-6 h-6' : 'w-7 h-7']"
           title="删除"
           @click="$emit('delete')"
         >
@@ -86,9 +86,9 @@
       </div>
     </div>
 
-    <!-- Placeholder Warning -->
+    <!-- Placeholder Warning (hidden in compact mode) -->
     <div
-      v-if="hasPlaceholder"
+      v-if="!compact && hasPlaceholder"
       class="mt-2 p-2 rounded bg-yellow-500/10 border border-yellow-500/20 text-xs text-yellow-600"
     >
       <i class="fas fa-exclamation-triangle mr-1"></i>
@@ -105,6 +105,7 @@ interface Props {
   server: MCPServer
   testResult?: MCPTestResult
   isTesting?: boolean
+  compact?: boolean
 }
 
 const props = defineProps<Props>()

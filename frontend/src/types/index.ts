@@ -6,6 +6,9 @@ export interface EnvConfig {
   provider: string  // 'claude' | 'codex' | 'gemini'
   templates?: Record<string, string>
   icon?: string
+  // Claude Code 特有配置 (值为 "0" 或 "1"，空字符串表示不设置)
+  attribution_header: string
+  disable_nonessential_traffic: string
 }
 
 // 应用配置类型

@@ -10,6 +10,7 @@ export const useConfigStore = defineStore('config', () => {
   const currentEnvCodex = ref('')
   const currentEnvGemini = ref('')
   const currentFilter = ref<Provider | 'all'>('all')
+  const currentEnvTab = ref<Provider>('claude') // 当前环境面板的tab
   const isLoading = ref(false)
 
   // Getters
@@ -127,6 +128,14 @@ export const useConfigStore = defineStore('config', () => {
 
   function setFilter(filter: Provider | 'all') {
     currentFilter.value = filter
+    // 同步更新当前环境面板的tab（除了'all'）
+    if (filter !== 'all') {
+      currentEnvTab.value = filter
+    }
+  }
+
+  function setEnvTab(tab: Provider) {
+    currentEnvTab.value = tab
   }
 
   function getEnvByName(name: string): EnvConfig | undefined {
@@ -153,6 +162,7 @@ export const useConfigStore = defineStore('config', () => {
     currentEnvCodex,
     currentEnvGemini,
     currentFilter,
+    currentEnvTab,
     isLoading,
 
     // Getters
@@ -178,6 +188,7 @@ export const useConfigStore = defineStore('config', () => {
     importConfig,
     getCurrentSettings,
     setFilter,
+    setEnvTab,
     getEnvByName,
     isEnvActive
   }

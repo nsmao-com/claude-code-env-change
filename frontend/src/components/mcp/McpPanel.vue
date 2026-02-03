@@ -27,7 +27,7 @@
         v-for="tab in platformTabs"
         :key="tab.value"
         ref="tabRefs"
-        :class="['relative z-10 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide transition-colors duration-200', { 'text-foreground': currentPlatform === tab.value, 'text-muted-foreground hover:text-foreground/80': currentPlatform !== tab.value }]"
+        :class="['relative z-10 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide transition-colors duration-200', { 'text-foreground dark:text-gray-900': currentPlatform === tab.value, 'text-muted-foreground hover:text-foreground/80': currentPlatform !== tab.value }]"
         @click="setFilter(tab.value)"
       >
         {{ tab.label }}
@@ -47,7 +47,26 @@
           JSON 导入
         </button>
       </div>
-      <div class="flex gap-2">
+      <div class="flex items-center gap-3">
+        <!-- View Mode Toggle -->
+        <div class="flex items-center gap-1 p-1 bg-secondary/50 border border-border/50 rounded-full">
+          <button
+            class="w-7 h-7 rounded-full flex items-center justify-center transition-colors"
+            :class="viewMode === 'cards' ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground'"
+            title="卡片视图"
+            @click="setViewMode('cards')"
+          >
+            <i class="fas fa-th-large text-xs"></i>
+          </button>
+          <button
+            class="w-7 h-7 rounded-full flex items-center justify-center transition-colors"
+            :class="viewMode === 'list' ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground'"
+            title="列表视图"
+            @click="setViewMode('list')"
+          >
+            <i class="fas fa-list text-xs"></i>
+          </button>
+        </div>
         <button
           class="btn btn-outline btn-sm"
           :disabled="isRefreshing"
@@ -84,13 +103,14 @@
     </div>
 
     <!-- Server List -->
-    <div v-else class="space-y-3 max-h-[50vh] overflow-y-auto pr-2">
+    <div v-else :class="viewMode === 'cards' ? 'grid grid-cols-2 gap-3 max-h-[50vh] overflow-y-auto pr-2' : 'space-y-2 max-h-[50vh] overflow-y-auto pr-2'">
       <McpServerCard
         v-for="server in filteredServers"
         :key="server.name"
         :server="server"
         :test-result="mcpStore.getTestResult(server.name)"
         :is-testing="testingIndex === getOriginalIndex(server.name)"
+        :compact="viewMode === 'list'"
         @test="testSingle(getOriginalIndex(server.name))"
         @edit="editServer(getOriginalIndex(server.name))"
         @delete="deleteServer(getOriginalIndex(server.name))"
@@ -153,6 +173,18 @@ const editingIndex = ref<number | undefined>(undefined)
 const testingIndex = ref<number | null>(null)
 const isRefreshing = ref(false)
 
+// View mode
+type ViewMode = 'cards' | 'list'
+const viewMode = ref<ViewMode>('list')
+const viewModeStorageKey = 'claudia_mcp_view_mode'
+
+function setViewMode(mode: ViewMode) {
+  viewMode.value = mode
+  try {
+    localStorage.setItem(viewModeStorageKey, mode)
+  } catch {}
+}
+
 // Platform filter
 const currentPlatform = ref<PlatformFilter>('all')
 const tabRefs = ref<HTMLElement[]>([])
@@ -176,9 +208,7 @@ const filteredServers = computed(() => {
 
 // Get original index from server name
 function getOriginalIndex(name: string): number {
-  const index = mcpStore.servers.findIndex(s => s.name === name)
-  console.log('[McpPanel] getOriginalIndex:', name, '→', index)
-  return index
+  return mcpStore.servers.findIndex(s => s.name === name)
 }
 
 // Update glider position
@@ -208,6 +238,12 @@ watch(currentPlatform, () => {
 // 打开弹窗时加载服务器并自动检测
 watch(isOpen, async (open) => {
   if (open) {
+    // 加载保存的视图模式
+    try {
+      const saved = localStorage.getItem(viewModeStorageKey)
+      if (saved === 'cards' || saved === 'list') viewMode.value = saved
+    } catch {}
+
     await mcpStore.loadServers()
     // 自动检测所有服务器
     if (mcpStore.servers.length > 0) {
@@ -236,11 +272,6 @@ function editServer(index: number) {
 
 async function deleteServer(index: number) {
   const server = mcpStore.servers[index]
-  console.log('[McpPanel] deleteServer 被调用')
-  console.log('[McpPanel] 要删除的索引:', index)
-  console.log('[McpPanel] 要删除的服务器:', server?.name)
-  console.log('[McpPanel] 当前服务器总数:', mcpStore.servers.length)
-  console.log('[McpPanel] 所有服务器名称:', mcpStore.servers.map(s => s.name))
 
   const confirmed = await confirm.show(
     '删除 MCP 服务器',
