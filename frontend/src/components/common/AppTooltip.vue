@@ -23,11 +23,11 @@
               <span :class="['font-bold tracking-wide', toneTextClass]">{{ header }}</span>
             </div>
 
-            <div v-if="bodyLines.length" class="mt-2.5 space-y-2">
+            <div v-if="bodyLines.length" class="mt-2.5 space-y-1.5">
               <div v-for="(row, idx) in bodyRows" :key="`${idx}-${row.raw}`" class="text-[12px]">
-                <div v-if="row.label" class="flex items-center justify-between gap-6 min-w-0">
-                  <span class="text-muted-foreground shrink-0">{{ row.label }}</span>
-                  <span class="font-mono text-foreground/90 min-w-0 text-right break-all">{{ row.value }}</span>
+                <div v-if="row.label" class="flex items-baseline gap-3 whitespace-nowrap">
+                  <span class="text-muted-foreground">{{ row.label }}</span>
+                  <span class="font-mono text-foreground/90">{{ row.value }}</span>
                 </div>
                 <div v-else class="text-muted-foreground break-words">
                   {{ row.value }}

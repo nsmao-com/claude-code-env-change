@@ -7,6 +7,8 @@ export namespace main {
 	    provider: string;
 	    templates?: Record<string, string>;
 	    icon?: string;
+	    attribution_header: string;
+	    disable_nonessential_traffic: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new EnvConfig(source);
@@ -20,6 +22,8 @@ export namespace main {
 	        this.provider = source["provider"];
 	        this.templates = source["templates"];
 	        this.icon = source["icon"];
+	        this.attribution_header = source["attribution_header"];
+	        this.disable_nonessential_traffic = source["disable_nonessential_traffic"];
 	    }
 	}
 	export class Config {

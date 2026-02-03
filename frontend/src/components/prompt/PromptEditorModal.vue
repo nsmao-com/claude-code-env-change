@@ -34,7 +34,7 @@
                 v-for="tab in tabs"
                 :key="tab.value"
                 ref="tabRefs"
-                :class="['relative z-10 px-5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide transition-colors duration-200', { 'text-foreground': activeTab === tab.value, 'text-muted-foreground hover:text-foreground/80': activeTab !== tab.value }]"
+                :class="['relative z-10 px-5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide transition-colors duration-200', { 'text-foreground dark:text-gray-900': activeTab === tab.value, 'text-muted-foreground hover:text-foreground/80': activeTab !== tab.value }]"
                 @click="switchTab(tab.value)"
               >
                 {{ tab.label }}

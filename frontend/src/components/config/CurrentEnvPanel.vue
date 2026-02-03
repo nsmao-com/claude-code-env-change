@@ -31,7 +31,7 @@
           v-for="tab in providerTabs"
           :key="tab.value"
           ref="tabRefs"
-          :class="['relative z-10 flex-1 py-1 rounded-full text-[11px] font-bold uppercase tracking-wide transition-colors duration-200 text-center', { 'text-foreground': activeTab === tab.value, 'text-muted-foreground hover:text-foreground/80': activeTab !== tab.value }]"
+          :class="['relative z-10 flex-1 py-1 rounded-full text-[11px] font-bold uppercase tracking-wide transition-colors duration-200 text-center', { 'text-foreground dark:text-gray-900': activeTab === tab.value, 'text-muted-foreground hover:text-foreground/80': activeTab !== tab.value }]"
           @click="activeTab = tab.value"
         >
           {{ tab.label }}
@@ -107,7 +107,10 @@ const claudeEnvName = computed(() => configStore.currentEnvClaude)
 const codexEnvName = computed(() => configStore.currentEnvCodex)
 const geminiEnvName = computed(() => configStore.currentEnvGemini)
 
-const activeTab = ref<Provider>('claude')
+const activeTab = computed({
+  get: () => configStore.currentEnvTab,
+  set: (val: Provider) => configStore.setEnvTab(val)
+})
 const claudeSettings = ref<Record<string, string> | null>(null)
 const codexSettings = ref<Record<string, string> | null>(null)
 const geminiSettings = ref<Record<string, string> | null>(null)
@@ -156,8 +159,8 @@ async function loadSettings() {
     claudeSettings.value = await configStore.getCurrentSettings('claude')
     codexSettings.value = await configStore.getCurrentSettings('codex')
     geminiSettings.value = await configStore.getCurrentSettings('gemini')
-  } catch (e) {
-    console.error('Failed to load settings:', e)
+  } catch {
+    // ignore
   }
 }
 

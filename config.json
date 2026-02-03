@@ -1,7 +1,7 @@
 {
-  "current_env": "https://api.feisakura.fun/",
-  "current_env_claude": "https://api.feisakura.fun/",
-  "current_env_codex": "123",
+  "current_env": "anyrouter",
+  "current_env_claude": "anyrouter",
+  "current_env_codex": "rightcode",
   "current_env_gemini": "323",
   "environments": [
     {
@@ -11,7 +11,9 @@
         "base_url": "4234",
         "model": "423"
       },
-      "provider": "codex"
+      "provider": "codex",
+      "attribution_header": "",
+      "disable_nonessential_traffic": ""
     },
     {
       "name": "4324",
@@ -23,7 +25,9 @@
         "ANTHROPIC_MODEL": ""
       },
       "provider": "claude",
-      "icon": "😄"
+      "icon": "😄",
+      "attribution_header": "",
+      "disable_nonessential_traffic": ""
     },
     {
       "name": "修改1",
@@ -35,7 +39,9 @@
         "ANTHROPIC_MODEL": ""
       },
       "provider": "claude",
-      "icon": "😄"
+      "icon": "😄",
+      "attribution_header": "",
+      "disable_nonessential_traffic": ""
     },
     {
       "name": "543543",
@@ -46,7 +52,9 @@
         "ANTHROPIC_BASE_URL": "543543",
         "ANTHROPIC_MODEL": ""
       },
-      "provider": ""
+      "provider": "",
+      "attribution_header": "",
+      "disable_nonessential_traffic": ""
     },
     {
       "name": "52534636347542824825484",
@@ -57,7 +65,9 @@
         "ANTHROPIC_BASE_URL": "64363464364364364363466346",
         "ANTHROPIC_MODEL": ""
       },
-      "provider": ""
+      "provider": "",
+      "attribution_header": "",
+      "disable_nonessential_traffic": ""
     },
     {
       "name": "67574865385836585",
@@ -68,7 +78,9 @@
         "ANTHROPIC_BASE_URL": "7465376537567",
         "ANTHROPIC_MODEL": ""
       },
-      "provider": ""
+      "provider": "",
+      "attribution_header": "",
+      "disable_nonessential_traffic": ""
     },
     {
       "name": "323",
@@ -82,7 +94,9 @@
       "templates": {
         ".env": "GOOGLE_GEMINI_BASE_URL={{GOOGLE_GEMINI_BASE_URL}}\nGEMINI_API_KEY={{GEMINI_API_KEY}}\nGEMINI_MODEL={{GEMINI_MODEL}}",
         "settings.json": "{\n  \"ide\": {\n    \"enabled\": true\n  },\n  \"security\": {\n    \"auth\": {\n      \"selectedType\": \"gemini-api-key\"\n    }\n  }\n}"
-      }
+      },
+      "attribution_header": "",
+      "disable_nonessential_traffic": ""
     },
     {
       "name": "修改",
@@ -93,7 +107,9 @@
         "ANTHROPIC_BASE_URL": "53453454",
         "ANTHROPIC_MODEL": ""
       },
-      "provider": "claude"
+      "provider": "claude",
+      "attribution_header": "",
+      "disable_nonessential_traffic": ""
     },
     {
       "name": "123 - 副本",
@@ -103,7 +119,9 @@
         "model": "423"
       },
       "provider": "codex",
-      "icon": "📦"
+      "icon": "📦",
+      "attribution_header": "",
+      "disable_nonessential_traffic": ""
     },
     {
       "name": "https://free.duckcoding.com/",
@@ -111,11 +129,13 @@
       "variables": {
         "ANTHROPIC_API_KEY": "",
         "ANTHROPIC_AUTH_TOKEN": "sk-wv6SKVsTMy8lnQ0451ZPaNbW6oJ9MbkrurNsaqOR9sHbLHqP",
-        "ANTHROPIC_BASE_URL": "https://free.duckcoding.com",
+        "ANTHROPIC_BASE_URL": "https://betterclau.de/claude/free.duckcoding.com",
         "ANTHROPIC_MODEL": ""
       },
       "provider": "claude",
-      "icon": "📦"
+      "icon": "📦",
+      "attribution_header": "",
+      "disable_nonessential_traffic": ""
     },
     {
       "name": "https://api.feisakura.fun/",
@@ -127,7 +147,9 @@
         "ANTHROPIC_MODEL": ""
       },
       "provider": "claude",
-      "icon": "📦"
+      "icon": "📦",
+      "attribution_header": "",
+      "disable_nonessential_traffic": ""
     },
     {
       "name": "aihubo",
@@ -135,11 +157,72 @@
       "variables": {
         "ANTHROPIC_API_KEY": "",
         "ANTHROPIC_AUTH_TOKEN": "sk-8efe18e8a3a02ccd9505171ec8625031e73a4f76eba8ec76",
-        "ANTHROPIC_BASE_URL": "https://www.aihubo.com/v1",
+        "ANTHROPIC_BASE_URL": "https://www.aihubo.com/api",
         "ANTHROPIC_MODEL": ""
       },
       "provider": "claude",
-      "icon": "📦"
+      "icon": "📦",
+      "attribution_header": "",
+      "disable_nonessential_traffic": ""
+    },
+    {
+      "name": "anyrouter",
+      "description": "",
+      "variables": {
+        "ANTHROPIC_API_KEY": "",
+        "ANTHROPIC_AUTH_TOKEN": "sk-VMdLIbnSyuvBuPiw2iNgIj8DOom2yq7qkXRXBoRWIlenr8S8",
+        "ANTHROPIC_BASE_URL": "https://any1.colin1112.me",
+        "ANTHROPIC_MODEL": ""
+      },
+      "provider": "claude",
+      "icon": "📦",
+      "attribution_header": "0",
+      "disable_nonessential_traffic": "1"
+    },
+    {
+      "name": "https://api.bltcy.ai/",
+      "description": "",
+      "variables": {
+        "ANTHROPIC_API_KEY": "",
+        "ANTHROPIC_AUTH_TOKEN": "sk-9JrjUVUNZP7GcRpgEdB9861fAa0a473c9aA34fF5E8E06aCd",
+        "ANTHROPIC_BASE_URL": "https://api.bltcy.ai",
+        "ANTHROPIC_MODEL": ""
+      },
+      "provider": "claude",
+      "icon": "📦",
+      "attribution_header": "",
+      "disable_nonessential_traffic": ""
+    },
+    {
+      "name": "本地",
+      "description": "",
+      "variables": {
+        "ANTHROPIC_API_KEY": "",
+        "ANTHROPIC_AUTH_TOKEN": "sk-8efe18e8a3a02ccd9505171ec8625031e73a4f76eba8ec76",
+        "ANTHROPIC_BASE_URL": "http://127.0.0.1:3000/api",
+        "ANTHROPIC_MODEL": ""
+      },
+      "provider": "claude",
+      "icon": "📦",
+      "attribution_header": "",
+      "disable_nonessential_traffic": ""
+    },
+    {
+      "name": "rightcode",
+      "description": "",
+      "variables": {
+        "OPENAI_API_KEY": "sk-65e6618d00ad46699ff43bbc02693179",
+        "base_url": "https://www.right.codes/codex/v1",
+        "model": "gpt-5.2-xhigh"
+      },
+      "provider": "codex",
+      "templates": {
+        "auth.json": "{\n  \"OPENAI_API_KEY\": \"{{OPENAI_API_KEY}}\"\n}",
+        "config.toml": "model_provider = \"duckcoding\"\nmodel = \"{{model}}\"\nmodel_reasoning_effort = \"high\"\nnetwork_access = \"enabled\"\ndisable_response_storage = true\n\n[model_providers.duckcoding]\nname = \"duckcoding\"\nbase_url = \"{{base_url}}\"\nwire_api = \"responses\"\nrequires_openai_auth = true"
+      },
+      "icon": "📦",
+      "attribution_header": "",
+      "disable_nonessential_traffic": ""
     }
   ]
 }

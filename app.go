@@ -22,6 +22,9 @@ type EnvConfig struct {
 	Provider    string            `json:"provider"`            // "claude", "codex", "gemini"
 	Templates   map[string]string `json:"templates,omitempty"` // 自定义模板内容，key为文件名
 	Icon        string            `json:"icon,omitempty"`      // emoji 图标
+	// Claude Code 特有配置 (值为 "0" 或 "1"，空字符串表示不设置)
+	AttributionHeader          string `json:"attribution_header"`
+	DisableNonessentialTraffic string `json:"disable_nonessential_traffic"`
 }
 
 // Config 主配置
@@ -467,6 +470,13 @@ func (a *App) applyClaudeEnv(env *EnvConfig) (string, error) {
 		if value != "" {
 			envMap[key] = value
 		}
+	}
+	// 根据配置添加 Claude Code 优化选项
+	if env.AttributionHeader != "" {
+		envMap["CLAUDE_CODE_ATTRIBUTION_HEADER"] = env.AttributionHeader
+	}
+	if env.DisableNonessentialTraffic != "" {
+		envMap["CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"] = env.DisableNonessentialTraffic
 	}
 	settings["env"] = envMap
 

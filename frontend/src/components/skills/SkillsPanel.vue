@@ -23,7 +23,7 @@
         v-for="tab in platformTabs"
         :key="tab.value"
         ref="tabRefs"
-        :class="['relative z-10 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide transition-colors duration-200', { 'text-foreground': currentPlatform === tab.value, 'text-muted-foreground hover:text-foreground/80': currentPlatform !== tab.value }]"
+        :class="['relative z-10 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide transition-colors duration-200', { 'text-foreground dark:text-gray-900': currentPlatform === tab.value, 'text-muted-foreground hover:text-foreground/80': currentPlatform !== tab.value }]"
         @click="setFilter(tab.value)"
       >
         {{ tab.label }}

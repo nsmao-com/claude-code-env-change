@@ -83,6 +83,59 @@
           type="password"
           placeholder="sk-ant-..."
         />
+
+        <!-- Claude Code 优化选项 -->
+        <div class="pt-3 border-t border-border space-y-3">
+          <div class="text-xs font-medium text-muted-foreground uppercase tracking-wide">Claude Code 环境变量</div>
+
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="text-sm font-medium">Attribution Header</div>
+              <div class="text-[11px] text-muted-foreground font-mono">CLAUDE_CODE_ATTRIBUTION_HEADER</div>
+            </div>
+            <div class="flex items-center gap-1 p-0.5 bg-muted rounded-lg">
+              <button
+                type="button"
+                :class="['px-3 py-1 text-xs font-medium rounded-md transition-all', form.claude.attributionHeader === '' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground']"
+                @click="form.claude.attributionHeader = ''"
+              >不设置</button>
+              <button
+                type="button"
+                :class="['px-3 py-1 text-xs font-medium rounded-md transition-all', form.claude.attributionHeader === '0' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground']"
+                @click="form.claude.attributionHeader = '0'"
+              >0</button>
+              <button
+                type="button"
+                :class="['px-3 py-1 text-xs font-medium rounded-md transition-all', form.claude.attributionHeader === '1' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground']"
+                @click="form.claude.attributionHeader = '1'"
+              >1</button>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="text-sm font-medium">Disable Nonessential Traffic</div>
+              <div class="text-[11px] text-muted-foreground font-mono">CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC</div>
+            </div>
+            <div class="flex items-center gap-1 p-0.5 bg-muted rounded-lg">
+              <button
+                type="button"
+                :class="['px-3 py-1 text-xs font-medium rounded-md transition-all', form.claude.disableNonessentialTraffic === '' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground']"
+                @click="form.claude.disableNonessentialTraffic = ''"
+              >不设置</button>
+              <button
+                type="button"
+                :class="['px-3 py-1 text-xs font-medium rounded-md transition-all', form.claude.disableNonessentialTraffic === '0' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground']"
+                @click="form.claude.disableNonessentialTraffic = '0'"
+              >0</button>
+              <button
+                type="button"
+                :class="['px-3 py-1 text-xs font-medium rounded-md transition-all', form.claude.disableNonessentialTraffic === '1' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground']"
+                @click="form.claude.disableNonessentialTraffic = '1'"
+              >1</button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Codex Fields -->
@@ -246,7 +299,9 @@ const defaultForm = () => ({
     baseUrl: '',
     authToken: '',
     model: '',
-    apiKey: ''
+    apiKey: '',
+    attributionHeader: '',
+    disableNonessentialTraffic: ''
   },
   codex: {
     baseUrl: '',
@@ -304,6 +359,8 @@ watch(() => props.editConfig, (config) => {
       form.value.claude.authToken = config.variables.ANTHROPIC_AUTH_TOKEN || ''
       form.value.claude.model = config.variables.ANTHROPIC_MODEL || ''
       form.value.claude.apiKey = config.variables.ANTHROPIC_API_KEY || ''
+      form.value.claude.attributionHeader = config.attribution_header || ''
+      form.value.claude.disableNonessentialTraffic = config.disable_nonessential_traffic || ''
     } else if (config.provider === 'codex') {
       form.value.codex.baseUrl = config.variables.base_url || ''
       form.value.codex.apiKey = config.variables.OPENAI_API_KEY || ''
@@ -407,7 +464,10 @@ async function handleSubmit() {
     provider: form.value.provider,
     variables,
     templates,
-    icon: form.value.icon
+    icon: form.value.icon,
+    // Claude Code 特有配置 (始终传递，空字符串表示不设置)
+    attribution_header: form.value.provider === 'claude' ? form.value.claude.attributionHeader : '',
+    disable_nonessential_traffic: form.value.provider === 'claude' ? form.value.claude.disableNonessentialTraffic : ''
   }
 
   try {

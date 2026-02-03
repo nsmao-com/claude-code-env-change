@@ -101,8 +101,6 @@ func (ms *MCPService) ListServers() ([]MCPServer, error) {
 		return nil, err
 	}
 
-	fmt.Printf("[ListServers] 从缓存加载了 %d 个服务器\n", len(config))
-
 	claudeEnabled := loadClaudeEnabledServers()
 	codexEnabled := loadCodexEnabledServers()
 	geminiEnabled := loadGeminiEnabledServers()
@@ -136,11 +134,6 @@ func (ms *MCPService) ListServers() ([]MCPServer, error) {
 		servers = append(servers, server)
 	}
 
-	fmt.Printf("[ListServers] 返回 %d 个服务器\n", len(servers))
-	for i, s := range servers {
-		fmt.Printf("[ListServers]   %d. %s (platforms: %v)\n", i+1, s.Name, s.EnablePlatform)
-	}
-
 	return servers, nil
 }
 
@@ -148,11 +141,6 @@ func (ms *MCPService) ListServers() ([]MCPServer, error) {
 func (ms *MCPService) SaveServers(servers []MCPServer) error {
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
-
-	fmt.Printf("[MCP Service] SaveServers 被调用，服务器数量: %d\n", len(servers))
-	for i, s := range servers {
-		fmt.Printf("[MCP Service]   %d. %s (platforms: %v)\n", i+1, s.Name, s.EnablePlatform)
-	}
 
 	normalized := make([]MCPServer, len(servers))
 	raw := make(map[string]rawMCPServer, len(servers))
@@ -213,35 +201,22 @@ func (ms *MCPService) SaveServers(servers []MCPServer) error {
 		}
 	}
 
-	fmt.Printf("[MCP Service] 保存到缓存文件...\n")
 	if err := ms.saveConfig(raw); err != nil {
-		fmt.Printf("[MCP Service] 保存缓存文件失败: %v\n", err)
 		return err
 	}
-	fmt.Printf("[MCP Service] 缓存文件保存成功\n")
 
-	fmt.Printf("[MCP Service] 同步到 Claude 配置...\n")
 	if err := ms.syncClaudeServers(normalized); err != nil {
-		fmt.Printf("[MCP Service] 同步 Claude 失败: %v\n", err)
 		return err
 	}
-	fmt.Printf("[MCP Service] Claude 同步成功\n")
 
-	fmt.Printf("[MCP Service] 同步到 Codex 配置...\n")
 	if err := ms.syncCodexServers(normalized); err != nil {
-		fmt.Printf("[MCP Service] 同步 Codex 失败: %v\n", err)
 		return err
 	}
-	fmt.Printf("[MCP Service] Codex 同步成功\n")
 
-	fmt.Printf("[MCP Service] 同步到 Gemini 配置...\n")
 	if err := ms.syncGeminiServers(normalized); err != nil {
-		fmt.Printf("[MCP Service] 同步 Gemini 失败: %v\n", err)
 		return err
 	}
-	fmt.Printf("[MCP Service] Gemini 同步成功\n")
 
-	fmt.Printf("[MCP Service] SaveServers 完成\n")
 	return nil
 }
 
@@ -438,17 +413,13 @@ func (ms *MCPService) syncCodexServers(servers []MCPServer) error {
 		return err
 	}
 
-	fmt.Printf("[syncCodexServers] 开始同步，服务器数量: %d\n", len(servers))
-
 	desired := make(map[string]map[string]any)
 	for _, server := range servers {
 		if !platformContains(server.EnablePlatform, platCodex) {
 			continue
 		}
 		desired[server.Name] = buildCodexEntry(server)
-		fmt.Printf("[syncCodexServers] 添加到 desired: %s\n", server.Name)
 	}
-	fmt.Printf("[syncCodexServers] desired 数量: %d\n", len(desired))
 
 	payload := make(map[string]any)
 	if data, err := os.ReadFile(path); err == nil && len(data) > 0 {
@@ -466,7 +437,6 @@ func (ms *MCPService) syncCodexServers(servers []MCPServer) error {
 		return err
 	}
 
-	fmt.Printf("[syncCodexServers] 最终写入 %d 个服务器到配置文件: %s\n", len(desired), path)
 	return os.WriteFile(path, data, 0o644)
 }
 
@@ -723,10 +693,6 @@ func (ms *MCPService) cleanupDeletedServers(payload map[string]rawMCPServer) boo
 	codexServers := ms.getCurrentCodexServers()
 	geminiServers := ms.getCurrentGeminiServers()
 
-	fmt.Printf("[cleanupDeletedServers] Claude 服务器数量: %d\n", len(claudeServers))
-	fmt.Printf("[cleanupDeletedServers] Codex 服务器数量: %d\n", len(codexServers))
-	fmt.Printf("[cleanupDeletedServers] Gemini 服务器数量: %d\n", len(geminiServers))
-
 	changed := false
 	for name, entry := range payload {
 		shouldDelete := true
@@ -741,8 +707,6 @@ func (ms *MCPService) cleanupDeletedServers(payload map[string]rawMCPServer) boo
 			case platCodex:
 				if _, exists := codexServers[strings.ToLower(strings.TrimSpace(name))]; exists {
 					shouldDelete = false
-				} else {
-					fmt.Printf("[cleanupDeletedServers] %s 不在 Codex 配置中\n", name)
 				}
 			case platGemini:
 				if _, exists := geminiServers[strings.ToLower(strings.TrimSpace(name))]; exists {
@@ -753,7 +717,6 @@ func (ms *MCPService) cleanupDeletedServers(payload map[string]rawMCPServer) boo
 
 		// 如果服务器在所有启用的平台中都不存在，则删除
 		if shouldDelete && len(entry.EnablePlatform) > 0 {
-			fmt.Printf("[cleanupDeletedServers] 删除服务器: %s (platforms: %v)\n", name, entry.EnablePlatform)
 			delete(payload, name)
 			changed = true
 		}
