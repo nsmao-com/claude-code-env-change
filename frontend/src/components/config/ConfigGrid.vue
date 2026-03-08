@@ -150,7 +150,8 @@ const filterTabs = [
   { label: '全部', value: 'all' as const },
   { label: 'CLAUDE', value: 'claude' as Provider },
   { label: 'CODEX', value: 'codex' as Provider },
-  { label: 'GEMINI', value: 'gemini' as Provider }
+  { label: 'GEMINI', value: 'gemini' as Provider },
+  { label: 'OPENCLAW', value: 'openclaw' as Provider }
 ]
 
 const currentFilter = computed(() => configStore.currentFilter)

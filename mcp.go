@@ -18,6 +18,7 @@ import (
 
 	"github.com/pelletier/go-toml/v2"
 )
+
 const (
 	mcpStoreDir      = ".claude-env-switcher"
 	mcpStoreFile     = "mcp.json"
@@ -29,6 +30,7 @@ const (
 	platClaudeCode   = "claude-code"
 	platCodex        = "codex"
 	platGemini       = "gemini"
+	platOpenclaw     = "openclaw"
 )
 
 var placeholderPattern = regexp.MustCompile(`\{([a-zA-Z0-9_]+)\}`)
@@ -712,6 +714,9 @@ func (ms *MCPService) cleanupDeletedServers(payload map[string]rawMCPServer) boo
 				if _, exists := geminiServers[strings.ToLower(strings.TrimSpace(name))]; exists {
 					shouldDelete = false
 				}
+			case platOpenclaw:
+				// OpenClaw 暂无官方 mcpServers 配置面，避免误删本地记录
+				shouldDelete = false
 			}
 		}
 
@@ -822,6 +827,8 @@ func normalizePlatform(value string) (string, bool) {
 		return "codex", true
 	case "gemini":
 		return "gemini", true
+	case "openclaw":
+		return "openclaw", true
 	default:
 		return "", false
 	}

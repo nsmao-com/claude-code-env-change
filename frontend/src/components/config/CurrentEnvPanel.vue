@@ -20,7 +20,7 @@
 
     <template v-else>
       <!-- Provider Tabs -->
-      <div class="relative mb-3 p-1 bg-secondary/50 border border-border/50 rounded-full inline-flex flex-none w-full max-w-xs backdrop-blur-sm">
+      <div class="relative mb-3 p-1 bg-secondary/50 border border-border/50 rounded-full inline-flex flex-none w-full max-w-full backdrop-blur-sm">
         <!-- Glider -->
         <div
           class="absolute top-1 bottom-1 bg-white rounded-full transition-all duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] shadow-[0_2px_8px_rgba(0,0,0,0.08)] border border-black/5 dark:border-white/10"
@@ -90,6 +90,23 @@
             <p class="text-xs">暂无变量</p>
           </div>
         </div>
+
+        <!-- OpenClaw Settings -->
+        <div v-if="activeTab === 'openclaw'" class="space-y-2">
+          <div class="flex items-center gap-2 px-3 py-2 rounded-lg border border-border">
+            <div :class="['w-2 h-2 rounded-full border border-foreground', openclawEnvName ? 'bg-foreground' : 'bg-transparent']"></div>
+            <span class="font-bold text-xs font-mono">{{ openclawEnvName || '未配置' }}</span>
+          </div>
+          <div v-if="openclawSettings && Object.keys(openclawSettings).length > 0" class="space-y-0.5">
+            <div v-for="(value, key) in openclawSettings" :key="key" class="flex items-center justify-between px-2 py-1 text-[11px] hover:bg-muted/30 rounded">
+              <span class="text-muted-foreground font-medium uppercase">{{ key }}</span>
+              <span class="font-mono text-foreground truncate ml-2 max-w-[200px]">{{ maskValue(String(key), value) }}</span>
+            </div>
+          </div>
+          <div v-else class="flex items-center justify-center py-4 text-muted-foreground border border-dashed border-border rounded-lg">
+            <p class="text-xs">暂无变量</p>
+          </div>
+        </div>
       </div>
     </template>
   </div>
@@ -106,6 +123,7 @@ const isLoading = computed(() => configStore.isLoading)
 const claudeEnvName = computed(() => configStore.currentEnvClaude)
 const codexEnvName = computed(() => configStore.currentEnvCodex)
 const geminiEnvName = computed(() => configStore.currentEnvGemini)
+const openclawEnvName = computed(() => configStore.currentEnvOpenclaw)
 
 const activeTab = computed({
   get: () => configStore.currentEnvTab,
@@ -114,6 +132,7 @@ const activeTab = computed({
 const claudeSettings = ref<Record<string, string> | null>(null)
 const codexSettings = ref<Record<string, string> | null>(null)
 const geminiSettings = ref<Record<string, string> | null>(null)
+const openclawSettings = ref<Record<string, string> | null>(null)
 
 // Tab Glider Logic
 const tabRefs = ref<HTMLElement[]>([])
@@ -125,7 +144,8 @@ const gliderStyle = ref({
 const providerTabs = [
   { value: 'claude' as Provider, label: 'CLAUDE' },
   { value: 'codex' as Provider, label: 'CODEX' },
-  { value: 'gemini' as Provider, label: 'GEMINI' }
+  { value: 'gemini' as Provider, label: 'GEMINI' },
+  { value: 'openclaw' as Provider, label: 'OPENCLAW' }
 ]
 
 function updateGlider() {
@@ -159,6 +179,7 @@ async function loadSettings() {
     claudeSettings.value = await configStore.getCurrentSettings('claude')
     codexSettings.value = await configStore.getCurrentSettings('codex')
     geminiSettings.value = await configStore.getCurrentSettings('gemini')
+    openclawSettings.value = await configStore.getCurrentSettings('openclaw')
   } catch {
     // ignore
   }
@@ -175,7 +196,7 @@ onMounted(() => {
   setTimeout(updateGlider, 100)
 })
 
-watch([claudeEnvName, codexEnvName, geminiEnvName], () => {
+watch([claudeEnvName, codexEnvName, geminiEnvName, openclawEnvName], () => {
   loadSettings()
 })
 

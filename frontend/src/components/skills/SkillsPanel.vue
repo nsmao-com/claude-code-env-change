@@ -7,7 +7,7 @@
         </div>
         <div>
           <h3 class="text-lg font-semibold">Skills 管理</h3>
-          <p class="text-xs text-muted-foreground">管理 Claude/Codex/Gemini 的自定义 SKILL.md</p>
+          <p class="text-xs text-muted-foreground">管理 Claude/Codex/Gemini/OpenClaw 的自定义 SKILL.md</p>
         </div>
       </div>
     </template>
@@ -96,6 +96,9 @@
               <span class="text-[10px] px-2 py-0.5 rounded-full border border-border text-muted-foreground">
                 Gemini: <span :class="skill.enabled_in_gemini ? 'text-green-600' : 'text-muted-foreground'">{{ skill.enabled_in_gemini ? '已安装' : '未安装' }}</span>
               </span>
+              <span class="text-[10px] px-2 py-0.5 rounded-full border border-border text-muted-foreground">
+                OpenClaw: <span :class="skill.enabled_in_openclaw ? 'text-green-600' : 'text-muted-foreground'">{{ skill.enabled_in_openclaw ? '已安装' : '未安装' }}</span>
+              </span>
             </div>
           </div>
 
@@ -126,7 +129,7 @@ import { useSkillStore } from '@/stores/skillStore'
 import { useConfirm } from '@/composables/useConfirm'
 import { useToast } from '@/composables/useToast'
 
-type PlatformFilter = 'all' | 'claude-code' | 'codex' | 'gemini'
+type PlatformFilter = 'all' | 'claude-code' | 'codex' | 'gemini' | 'openclaw'
 
 interface Props {
   modelValue: boolean
@@ -155,7 +158,8 @@ const platformTabs = computed(() => [
   { label: '全部', value: 'all' as PlatformFilter, count: skillStore.skillCount },
   { label: 'Claude', value: 'claude-code' as PlatformFilter, count: skillStore.claudeCount },
   { label: 'Codex', value: 'codex' as PlatformFilter, count: skillStore.codexCount },
-  { label: 'Gemini', value: 'gemini' as PlatformFilter, count: skillStore.geminiCount }
+  { label: 'Gemini', value: 'gemini' as PlatformFilter, count: skillStore.geminiCount },
+  { label: 'OpenClaw', value: 'openclaw' as PlatformFilter, count: skillStore.openclawCount }
 ])
 
 const filteredSkills = computed(() => {

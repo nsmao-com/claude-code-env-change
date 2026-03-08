@@ -110,7 +110,7 @@
           leave-from-class="transform scale-100 opacity-100 translate-y-0"
           leave-to-class="transform scale-95 opacity-0 translate-y-2"
         >
-          <div v-if="showClearMenu" class="absolute bottom-12 left-0 w-full mb-2 z-[9999] bg-popover border border-border shadow-2xl rounded-xl overflow-hidden ring-1 ring-black/5">
+          <div v-if="showClearMenu" class="clear-menu-panel absolute bottom-12 left-0 w-full mb-2 z-[9999] bg-card border border-border shadow-2xl rounded-xl overflow-hidden ring-1 ring-black/5">
             <button class="w-full text-left px-4 py-2.5 text-xs font-mono hover:bg-muted transition-colors border-b border-border flex items-center justify-between" @click="handleClear('claude')">
               <span>CLAUDE</span>
               <i class="fas fa-arrow-right text-[10px] opacity-0 group-hover:opacity-100"></i>
@@ -120,6 +120,9 @@
             </button>
             <button class="w-full text-left px-4 py-2.5 text-xs font-mono hover:bg-muted transition-colors border-b border-border" @click="handleClear('gemini')">
               <span>GEMINI</span>
+            </button>
+            <button class="w-full text-left px-4 py-2.5 text-xs font-mono hover:bg-muted transition-colors border-b border-border" @click="handleClear('openclaw')">
+              <span>OPENCLAW</span>
             </button>
             <button class="w-full text-left px-4 py-2.5 text-xs font-mono text-destructive hover:bg-destructive hover:text-destructive-foreground transition-colors font-bold" @click="handleClear('all')">
               <span>清除全部</span>
@@ -169,6 +172,7 @@ const emit = defineEmits<{
   clearClaude: []
   clearCodex: []
   clearGemini: []
+  clearOpenclaw: []
   clearAll: []
 }>()
 
@@ -176,11 +180,12 @@ const emit = defineEmits<{
 const showClearMenu = ref(false)
 const dropdownRef = ref<HTMLElement>()
 
-function handleClear(type: 'claude' | 'codex' | 'gemini' | 'all') {
+function handleClear(type: 'claude' | 'codex' | 'gemini' | 'openclaw' | 'all') {
   showClearMenu.value = false
   if (type === 'claude') emit('clearClaude')
   else if (type === 'codex') emit('clearCodex')
   else if (type === 'gemini') emit('clearGemini')
+  else if (type === 'openclaw') emit('clearOpenclaw')
   else emit('clearAll')
 }
 
@@ -246,6 +251,13 @@ async function testAllLatency() {
     }
   } catch { /* ignore */ }
 
+  try {
+    const openclawSettings = await configService.getOpenclawSettings()
+    if (openclawSettings?.['OPENCLAW_GATEWAY_BASE_URL']) {
+      configs.push({ provider: 'openclaw', name: 'OpenClaw', url: openclawSettings['OPENCLAW_GATEWAY_BASE_URL'] })
+    }
+  } catch { /* ignore */ }
+
   if (configs.length === 0) {
     isTesting.value = false
     return
@@ -276,6 +288,14 @@ async function testAllLatency() {
 </script>
 
 <style scoped>
+.clear-menu-panel {
+  background-color: hsl(var(--card));
+  opacity: 1;
+  isolation: isolate;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
 .clear-menu {
   position: absolute;
   bottom: 100%;

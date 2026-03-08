@@ -175,7 +175,8 @@ const isSaving = ref(false)
 const providers = [
   { value: 'claude' as Provider, label: 'Claude', icon: 'fas fa-brain' },
   { value: 'codex' as Provider, label: 'Codex', icon: 'fas fa-code' },
-  { value: 'gemini' as Provider, label: 'Gemini', icon: 'fas fa-gem' }
+  { value: 'gemini' as Provider, label: 'Gemini', icon: 'fas fa-gem' },
+  { value: 'openclaw' as Provider, label: 'OpenClaw', icon: 'fas fa-cubes' }
 ]
 
 function defaultForm(): RotationGroup {
@@ -292,8 +293,14 @@ async function handleSubmit() {
 <style scoped>
 .provider-tabs {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px;
+}
+
+@media (min-width: 640px) {
+  .provider-tabs {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
 }
 
 .provider-tab {
@@ -304,4 +311,3 @@ async function handleSubmit() {
   @apply bg-foreground text-background border-foreground;
 }
 </style>
-

@@ -89,7 +89,7 @@
 
     <!-- Empty State -->
     <div
-      v-if="filteredServers.length === 0 && !mcpStore.isLoading"
+      v-if="filteredServerItems.length === 0 && !mcpStore.isLoading"
       class="flex flex-col items-center justify-center py-12 text-muted-foreground"
     >
       <i class="fas fa-server text-4xl mb-4"></i>
@@ -105,15 +105,15 @@
     <!-- Server List -->
     <div v-else :class="viewMode === 'cards' ? 'grid grid-cols-2 gap-3 max-h-[50vh] overflow-y-auto pr-2' : 'space-y-2 max-h-[50vh] overflow-y-auto pr-2'">
       <McpServerCard
-        v-for="server in filteredServers"
-        :key="server.name"
-        :server="server"
-        :test-result="mcpStore.getTestResult(server.name)"
-        :is-testing="testingIndex === getOriginalIndex(server.name)"
+        v-for="item in filteredServerItems"
+        :key="`${item.server.name}-${item.index}`"
+        :server="item.server"
+        :test-result="mcpStore.getTestResult(item.server.name)"
+        :is-testing="testingIndex === item.index"
         :compact="viewMode === 'list'"
-        @test="testSingle(getOriginalIndex(server.name))"
-        @edit="editServer(getOriginalIndex(server.name))"
-        @delete="deleteServer(getOriginalIndex(server.name))"
+        @test="testSingle(item.index)"
+        @edit="editServer(item.index)"
+        @delete="deleteServer(item.index)"
       />
     </div>
 
@@ -198,18 +198,13 @@ const platformTabs = computed(() => [
   { label: 'Gemini', value: 'gemini' as PlatformFilter, count: mcpStore.servers.filter(s => s.enable_platform?.includes('gemini')).length }
 ])
 
-// Filter servers by platform
-const filteredServers = computed(() => {
+const filteredServerItems = computed(() => {
+  const withIndex = mcpStore.servers.map((server, index) => ({ server, index }))
   if (currentPlatform.value === 'all') {
-    return mcpStore.servers
+    return withIndex
   }
-  return mcpStore.servers.filter(s => s.enable_platform?.includes(currentPlatform.value))
+  return withIndex.filter(item => item.server.enable_platform?.includes(currentPlatform.value))
 })
-
-// Get original index from server name
-function getOriginalIndex(name: string): number {
-  return mcpStore.servers.findIndex(s => s.name === name)
-}
 
 // Update glider position
 function updateGlider() {
@@ -264,8 +259,20 @@ function showAddModal() {
   showEditModal.value = true
 }
 
+function cloneServerForEdit(server: MCPServer): MCPServer {
+  return {
+    ...server,
+    args: [...(server.args || [])],
+    env: { ...(server.env || {}) },
+    enable_platform: [...(server.enable_platform || [])],
+    missing_placeholders: [...(server.missing_placeholders || [])]
+  }
+}
+
 function editServer(index: number) {
-  editingServer.value = mcpStore.servers[index]
+  const server = mcpStore.servers[index]
+  if (!server) return
+  editingServer.value = cloneServerForEdit(server)
   editingIndex.value = index
   showEditModal.value = true
 }

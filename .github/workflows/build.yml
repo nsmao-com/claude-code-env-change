@@ -33,8 +33,47 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install pnpm
-        run: npm install -g pnpm
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Detect macOS signing readiness
+        id: macos_signing
+        shell: bash
+        env:
+          APPLE_DEVELOPER_CERTIFICATE_P12_BASE64: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_P12_BASE64 }}
+          APPLE_DEVELOPER_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+        run: |
+          missing=0
+          for key in APPLE_DEVELOPER_CERTIFICATE_P12_BASE64 APPLE_DEVELOPER_CERTIFICATE_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID APPLE_SIGNING_IDENTITY; do
+            if [ -z "${!key}" ]; then
+              echo "::warning::Missing secret: $key"
+              missing=1
+            fi
+          done
+
+          if [ "$missing" -eq 0 ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Building unsigned macOS artifact (ad-hoc sign only). Users will need manual security override."
+          fi
+
+      - name: Install gon (for macOS notarization)
+        if: steps.macos_signing.outputs.enabled == 'true'
+        run: brew install Bearer/tap/gon
+
+      - name: Import macOS code-signing certificate
+        if: steps.macos_signing.outputs.enabled == 'true'
+        uses: Apple-Actions/import-codesign-certs@v1
+        with:
+          p12-file-base64: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_P12_BASE64 }}
+          p12-password: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_PASSWORD }}
 
       - name: Install Wails
         run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
@@ -46,12 +85,35 @@ jobs:
         run: ls -la build/bin/
 
       - name: Prepare macOS amd64 artifact
+        shell: bash
+        env:
+          SIGNING_ENABLED: ${{ steps.macos_signing.outputs.enabled }}
+          MACOS_BUNDLE_ID: ${{ vars.MACOS_BUNDLE_ID }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
         run: |
           cd build/bin
-          # Find the .app directory and zip it
           APP_NAME=$(ls -d *.app | head -1)
           echo "Found app: $APP_NAME"
-          zip -r claude-env-switcher-macos-amd64.zip "$APP_NAME"
+          BUNDLE_ID="${MACOS_BUNDLE_ID:-com.carefree.claude-env-switcher}"
+          INFO_PLIST="$APP_NAME/Contents/Info.plist"
+
+          /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $BUNDLE_ID" "$INFO_PLIST" || \
+            /usr/libexec/PlistBuddy -c "Add :CFBundleIdentifier string $BUNDLE_ID" "$INFO_PLIST"
+
+          if [ "$SIGNING_ENABLED" = "true" ]; then
+            printf '{\n  "source": ["./%s"],\n  "bundle_id": "%s",\n  "apple_id": {\n    "username": "%s",\n    "password": "%s",\n    "provider": "%s"\n  },\n  "sign": {\n    "application_identity": "%s"\n  }\n}\n' \
+              "$APP_NAME" "$BUNDLE_ID" "$APPLE_ID" "$APPLE_APP_SPECIFIC_PASSWORD" "$APPLE_TEAM_ID" "$APPLE_SIGNING_IDENTITY" > gon-sign.json
+            gon -log-level=info ./gon-sign.json
+            rm -f ./gon-sign.json
+          else
+            codesign --force --deep --sign - "$APP_NAME"
+            echo "::warning::amd64 artifact is not notarized. End users must manually allow opening in macOS."
+          fi
+
+          ditto -c -k --sequesterRsrc --keepParent "$APP_NAME" "claude-env-switcher-macos-amd64.zip"
 
       - name: Build for macOS (arm64)
         run: |
@@ -60,11 +122,35 @@ jobs:
           wails build -platform darwin/arm64
 
       - name: Prepare macOS arm64 artifact
+        shell: bash
+        env:
+          SIGNING_ENABLED: ${{ steps.macos_signing.outputs.enabled }}
+          MACOS_BUNDLE_ID: ${{ vars.MACOS_BUNDLE_ID }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
         run: |
           cd build/bin
           APP_NAME=$(ls -d *.app | head -1)
           echo "Found app: $APP_NAME"
-          zip -r claude-env-switcher-macos-arm64.zip "$APP_NAME"
+          BUNDLE_ID="${MACOS_BUNDLE_ID:-com.carefree.claude-env-switcher}"
+          INFO_PLIST="$APP_NAME/Contents/Info.plist"
+
+          /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $BUNDLE_ID" "$INFO_PLIST" || \
+            /usr/libexec/PlistBuddy -c "Add :CFBundleIdentifier string $BUNDLE_ID" "$INFO_PLIST"
+
+          if [ "$SIGNING_ENABLED" = "true" ]; then
+            printf '{\n  "source": ["./%s"],\n  "bundle_id": "%s",\n  "apple_id": {\n    "username": "%s",\n    "password": "%s",\n    "provider": "%s"\n  },\n  "sign": {\n    "application_identity": "%s"\n  }\n}\n' \
+              "$APP_NAME" "$BUNDLE_ID" "$APPLE_ID" "$APPLE_APP_SPECIFIC_PASSWORD" "$APPLE_TEAM_ID" "$APPLE_SIGNING_IDENTITY" > gon-sign.json
+            gon -log-level=info ./gon-sign.json
+            rm -f ./gon-sign.json
+          else
+            codesign --force --deep --sign - "$APP_NAME"
+            echo "::warning::arm64 artifact is not notarized. End users must manually allow opening in macOS."
+          fi
+
+          ditto -c -k --sequesterRsrc --keepParent "$APP_NAME" "claude-env-switcher-macos-arm64.zip"
 
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
@@ -92,8 +178,10 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install pnpm
-        run: npm install -g pnpm
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
 
       - name: Install Wails
         run: go install github.com/wailsapp/wails/v2/cmd/wails@latest

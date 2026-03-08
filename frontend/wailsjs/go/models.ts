@@ -31,6 +31,7 @@ export namespace main {
 	    current_env_claude: string;
 	    current_env_codex: string;
 	    current_env_gemini: string;
+	    current_env_openclaw: string;
 	    environments: EnvConfig[];
 	
 	    static createFrom(source: any = {}) {
@@ -43,6 +44,7 @@ export namespace main {
 	        this.current_env_claude = source["current_env_claude"];
 	        this.current_env_codex = source["current_env_codex"];
 	        this.current_env_gemini = source["current_env_gemini"];
+	        this.current_env_openclaw = source["current_env_openclaw"];
 	        this.environments = this.convertValues(source["environments"], EnvConfig);
 	    }
 	
@@ -216,6 +218,7 @@ export namespace main {
 	    enabled_in_claude: boolean;
 	    enabled_in_codex: boolean;
 	    enabled_in_gemini: boolean;
+	    enabled_in_openclaw: boolean;
 	    frontmatter_name: string;
 	    description: string;
 	    has_frontmatter: boolean;
@@ -235,6 +238,7 @@ export namespace main {
 	        this.enabled_in_claude = source["enabled_in_claude"];
 	        this.enabled_in_codex = source["enabled_in_codex"];
 	        this.enabled_in_gemini = source["enabled_in_gemini"];
+	        this.enabled_in_openclaw = source["enabled_in_openclaw"];
 	        this.frontmatter_name = source["frontmatter_name"];
 	        this.description = source["description"];
 	        this.has_frontmatter = source["has_frontmatter"];

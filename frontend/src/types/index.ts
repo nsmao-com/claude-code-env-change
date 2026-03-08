@@ -3,7 +3,7 @@ export interface EnvConfig {
   name: string
   description: string
   variables: Record<string, string>
-  provider: string  // 'claude' | 'codex' | 'gemini'
+  provider: Provider
   templates?: Record<string, string>
   icon?: string
   // Claude Code 特有配置 (值为 "0" 或 "1"，空字符串表示不设置)
@@ -17,6 +17,7 @@ export interface Config {
   current_env_claude: string
   current_env_codex: string
   current_env_gemini: string
+  current_env_openclaw: string
   environments: EnvConfig[]
 }
 
@@ -52,6 +53,7 @@ export interface Skill {
   enabled_in_claude: boolean
   enabled_in_codex: boolean
   enabled_in_gemini: boolean
+  enabled_in_openclaw: boolean
   frontmatter_name: string
   description: string
   has_frontmatter: boolean
@@ -70,7 +72,7 @@ export interface UptimeSettings {
 
 export interface RotationGroup {
   name: string
-  provider: string // 'claude' | 'codex' | 'gemini'
+  provider: Provider
   env_names: string[]
   enabled: boolean
   failure_threshold: number
@@ -93,7 +95,7 @@ export interface UptimeSnapshot {
 }
 
 // Provider 类型
-export type Provider = string  // 'claude' | 'codex' | 'gemini'
+export type Provider = 'claude' | 'codex' | 'gemini' | 'openclaw'
 
 // Toast 类型
 export type ToastType = 'success' | 'error' | 'info'

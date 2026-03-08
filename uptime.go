@@ -34,7 +34,7 @@ type UptimeSettings struct {
 
 type RotationGroup struct {
 	Name             string   `json:"name"`
-	Provider         string   `json:"provider"` // claude | codex | gemini
+	Provider         string   `json:"provider"` // claude | codex | gemini | openclaw
 	EnvNames         []string `json:"env_names"`
 	Enabled          bool     `json:"enabled"`
 	FailureThreshold int      `json:"failure_threshold"`
@@ -49,11 +49,11 @@ type UptimeCheck struct {
 }
 
 type UptimeSnapshot struct {
-	Settings UptimeSettings            `json:"settings"`
-	Groups   []RotationGroup           `json:"groups"`
-	History  map[string][]UptimeCheck  `json:"history"`
-	URLs     map[string]string         `json:"urls"` // 便于前端展示当前检查 URL
-	Now      int64                     `json:"now"`
+	Settings UptimeSettings           `json:"settings"`
+	Groups   []RotationGroup          `json:"groups"`
+	History  map[string][]UptimeCheck `json:"history"`
+	URLs     map[string]string        `json:"urls"` // 便于前端展示当前检查 URL
+	Now      int64                    `json:"now"`
 }
 
 type uptimeStore struct {
@@ -383,8 +383,8 @@ func (us *UptimeService) validateRotationGroup(group RotationGroup) error {
 	if group.Name == "" {
 		return fmt.Errorf("轮换组名称不能为空")
 	}
-	if group.Provider != "claude" && group.Provider != "codex" && group.Provider != "gemini" {
-		return fmt.Errorf("轮换组 provider 必须是 claude/codex/gemini")
+	if group.Provider != "claude" && group.Provider != "codex" && group.Provider != "gemini" && group.Provider != "openclaw" {
+		return fmt.Errorf("轮换组 provider 必须是 claude/codex/gemini/openclaw")
 	}
 	if len(group.EnvNames) == 0 {
 		return fmt.Errorf("轮换组必须至少包含 1 个配置")
@@ -434,6 +434,8 @@ func deriveEnvURL(env EnvConfig) string {
 		return strings.TrimSpace(vars["base_url"])
 	case "gemini":
 		return strings.TrimSpace(vars["GOOGLE_GEMINI_BASE_URL"])
+	case "openclaw":
+		return strings.TrimSpace(vars["OPENCLAW_GATEWAY_BASE_URL"])
 	default:
 		return ""
 	}
@@ -505,6 +507,8 @@ func currentEnvNameByProvider(config Config, provider string) string {
 		return config.CurrentEnvCodex
 	case "gemini":
 		return config.CurrentEnvGemini
+	case "openclaw":
+		return config.CurrentEnvOpenclaw
 	default:
 		return config.CurrentEnvClaude
 	}

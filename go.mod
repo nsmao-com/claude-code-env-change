@@ -6,6 +6,7 @@ toolchain go1.23.2
 
 require (
 	github.com/pelletier/go-toml/v2 v2.2.4
+	github.com/titanous/json5 v1.0.0
 	github.com/wailsapp/wails/v2 v2.11.0
 )
 

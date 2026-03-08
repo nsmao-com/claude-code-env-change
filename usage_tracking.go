@@ -148,7 +148,7 @@ func normalizeProvider(provider string) string {
 		return "claude"
 	}
 	switch p {
-	case "claude", "codex", "gemini":
+	case "claude", "codex", "gemini", "openclaw":
 		return p
 	default:
 		return ""
@@ -208,4 +208,3 @@ func LoadEnvActivations() (map[string][]EnvActivationEvent, error) {
 	}
 	return clone, nil
 }
-

@@ -21,6 +21,7 @@
         @clear-claude="clearClaude"
         @clear-codex="clearCodex"
         @clear-gemini="clearGemini"
+        @clear-openclaw="clearOpenclaw"
         @clear-all="clearAll"
       />
 
@@ -211,6 +212,8 @@ async function testConfigLatency(index: number) {
     url = config.variables?.base_url || ''
   } else if (provider === 'gemini') {
     url = config.variables?.GOOGLE_GEMINI_BASE_URL || ''
+  } else if (provider === 'openclaw') {
+    url = config.variables?.OPENCLAW_GATEWAY_BASE_URL || ''
   }
 
   if (!url) {
@@ -319,10 +322,26 @@ async function clearGemini() {
   }
 }
 
+async function clearOpenclaw() {
+  const confirmed = await confirm.show(
+    '清除 OpenClaw 配置',
+    '确定要清除 OpenClaw 配置文件吗？',
+    'warning'
+  )
+  if (!confirmed) return
+
+  try {
+    await configStore.clearOpenclawSettings()
+    toast.success('OpenClaw 配置已清除')
+  } catch (e: any) {
+    toast.error('操作失败: ' + e.message)
+  }
+}
+
 async function clearAll() {
   const confirmed = await confirm.show(
     '清除所有配置',
-    '这将清除 Claude、Codex、Gemini 的配置文件。确定要继续吗？',
+    '这将清除 Claude、Codex、Gemini、OpenClaw 的配置文件。确定要继续吗？',
     'danger'
   )
   if (!confirmed) return

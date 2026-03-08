@@ -26,6 +26,10 @@ export function ClearGeminiSettings() {
   return window['go']['main']['App']['ClearGeminiSettings']();
 }
 
+export function ClearOpenclawSettings() {
+  return window['go']['main']['App']['ClearOpenclawSettings']();
+}
+
 export function DeleteEnv(arg1) {
   return window['go']['main']['App']['DeleteEnv'](arg1);
 }
@@ -56,6 +60,10 @@ export function GetEnvVar(arg1) {
 
 export function GetGeminiSettings() {
   return window['go']['main']['App']['GetGeminiSettings']();
+}
+
+export function GetOpenclawSettings() {
+  return window['go']['main']['App']['GetOpenclawSettings']();
 }
 
 export function GetPromptFile(arg1) {

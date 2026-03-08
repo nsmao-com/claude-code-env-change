@@ -30,6 +30,10 @@
               <input v-model="form.enable_platform" type="checkbox" value="gemini" />
               Gemini
             </label>
+            <label class="flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-secondary/30 text-xs font-medium">
+              <input v-model="form.enable_platform" type="checkbox" value="openclaw" />
+              OpenClaw
+            </label>
           </div>
         </div>
       </div>
@@ -44,7 +48,7 @@
 
       <textarea
         v-model="form.content"
-        class="input h-64 font-mono text-xs"
+        class="input h-64 resize-y font-mono text-xs"
         placeholder="请粘贴/编辑 SKILL.md 内容（需包含 --- frontmatter ---）"
         spellcheck="false"
       ></textarea>
@@ -53,7 +57,8 @@
         安装位置：
         <span class="font-mono">~/.claude/skills/&lt;name&gt;/SKILL.md</span> /
         <span class="font-mono">~/.codex/skills/&lt;name&gt;/SKILL.md</span> /
-        <span class="font-mono">~/.gemini/skills/&lt;name&gt;/SKILL.md</span>
+        <span class="font-mono">~/.gemini/skills/&lt;name&gt;/SKILL.md</span> /
+        <span class="font-mono">~/.openclaw/skills/&lt;name&gt;/SKILL.md</span>
       </div>
     </form>
 
@@ -176,6 +181,7 @@ async function handleSubmit() {
     enabled_in_claude: false,
     enabled_in_codex: false,
     enabled_in_gemini: false,
+    enabled_in_openclaw: false,
     frontmatter_name: '',
     description: '',
     has_frontmatter: false,
@@ -202,5 +208,8 @@ async function handleSubmit() {
 .btn-sm {
   @apply h-8 px-3 text-xs;
 }
-</style>
 
+textarea.input {
+  resize: vertical;
+}
+</style>

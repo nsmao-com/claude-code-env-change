@@ -49,7 +49,7 @@
         <label class="block text-sm font-medium mb-1.5">JSON 内容</label>
         <textarea
           v-model="jsonInput"
-          class="input h-64 font-mono text-xs"
+          class="input h-64 resize-y font-mono text-xs"
           placeholder='{"mcpServers": {"filesystem": {"command": "npx", "args": ["-y", "@modelcontextprotocol/server-filesystem"]}}}'
         ></textarea>
       </div>

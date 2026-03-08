@@ -131,7 +131,8 @@ const providerLabel = computed(() => {
   const labels: Record<string, string> = {
     claude: 'Claude',
     codex: 'Codex',
-    gemini: 'Gemini'
+    gemini: 'Gemini',
+    openclaw: 'OpenClaw'
   }
   const provider = (props.config.provider || 'claude').toLowerCase()
   return labels[provider] || provider
@@ -144,6 +145,7 @@ const modelValue = computed(() => {
   if (provider === 'claude') return vars.ANTHROPIC_MODEL || ''
   if (provider === 'codex') return vars.model || ''
   if (provider === 'gemini') return vars.GEMINI_MODEL || ''
+  if (provider === 'openclaw') return vars.OPENCLAW_PRIMARY_MODEL || ''
   return ''
 })
 
@@ -154,6 +156,7 @@ const baseUrlValue = computed(() => {
   if (provider === 'claude') return vars.ANTHROPIC_BASE_URL || vars.API_BASE_URL || ''
   if (provider === 'codex') return vars.base_url || ''
   if (provider === 'gemini') return vars.GOOGLE_GEMINI_BASE_URL || ''
+  if (provider === 'openclaw') return vars.OPENCLAW_GATEWAY_BASE_URL || ''
   return ''
 })
 

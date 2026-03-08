@@ -44,7 +44,7 @@
           <label class="block text-sm font-medium mb-1.5">Args (每行一个)</label>
           <textarea
             v-model="form.args"
-            class="input h-24 font-mono text-xs"
+            class="input h-24 resize-y font-mono text-xs"
             placeholder="-y&#10;@modelcontextprotocol/server-filesystem"
           ></textarea>
         </div>
@@ -52,7 +52,7 @@
           <label class="block text-sm font-medium mb-1.5">环境变量 (KEY=VALUE)</label>
           <textarea
             v-model="form.env"
-            class="input h-20 font-mono text-xs"
+            class="input h-20 resize-y font-mono text-xs"
             placeholder="API_KEY=xxx&#10;DEBUG=true"
           ></textarea>
         </div>
@@ -158,7 +158,7 @@ const isOpen = computed({
   set: (value) => emit('update:modelValue', value)
 })
 
-const isEditing = computed(() => !!props.editServer)
+const isEditing = computed(() => props.editServer != null && props.editIndex !== undefined)
 
 const defaultForm = () => ({
   name: '',
@@ -178,8 +178,7 @@ const defaultForm = () => ({
 
 const form = ref(defaultForm())
 
-// Watch for edit server changes
-watch(() => props.editServer, (server) => {
+function fillFormFromServer(server: MCPServer) {
   if (server) {
     form.value.name = server.name || ''
     form.value.type = (server.type || 'stdio') as 'stdio' | 'http'
@@ -195,17 +194,37 @@ watch(() => props.editServer, (server) => {
     form.value.platforms.claude = platforms.includes('claude-code')
     form.value.platforms.codex = platforms.includes('codex')
     form.value.platforms.gemini = platforms.includes('gemini')
-  } else {
-    form.value = defaultForm()
   }
-}, { immediate: true })
+}
 
-// Reset form when modal closes
-watch(isOpen, (open) => {
-  if (!open) {
+function syncFormFromProps() {
+  if (props.editServer) {
+    fillFormFromServer(props.editServer)
+    return
+  }
+  form.value = defaultForm()
+}
+
+watch(
+  () => props.modelValue,
+  (open) => {
+    if (open) {
+      // 每次打开都同步一次，避免“同一对象二次编辑”不触发 watcher 导致空表单
+      syncFormFromProps()
+      return
+    }
     form.value = defaultForm()
   }
-})
+)
+
+watch(
+  () => [props.editServer, props.editIndex] as const,
+  () => {
+    if (props.modelValue) {
+      syncFormFromProps()
+    }
+  }
+)
 
 async function handleSubmit() {
   const name = form.value.name.trim()

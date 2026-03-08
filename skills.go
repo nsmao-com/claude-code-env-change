@@ -27,12 +27,13 @@ func NewSkillService() *SkillService {
 
 // Skill 前端展示/编辑结构
 type Skill struct {
-	Name            string   `json:"name"`
-	Content         string   `json:"content"`
-	EnablePlatform  []string `json:"enable_platform"`
-	EnabledInClaude bool     `json:"enabled_in_claude"`
-	EnabledInCodex  bool     `json:"enabled_in_codex"`
-	EnabledInGemini bool     `json:"enabled_in_gemini"`
+	Name              string   `json:"name"`
+	Content           string   `json:"content"`
+	EnablePlatform    []string `json:"enable_platform"`
+	EnabledInClaude   bool     `json:"enabled_in_claude"`
+	EnabledInCodex    bool     `json:"enabled_in_codex"`
+	EnabledInGemini   bool     `json:"enabled_in_gemini"`
+	EnabledInOpenclaw bool     `json:"enabled_in_openclaw"`
 
 	// 仅用于展示（从 Content 解析）
 	FrontmatterName  string `json:"frontmatter_name"`
@@ -74,18 +75,20 @@ func (ss *SkillService) ListSkills() ([]Skill, error) {
 	sort.Strings(names)
 
 	skills := make([]Skill, 0, len(names))
+	openclawSkillsRoot := resolveOpenclawSkillsRoot()
 	for _, name := range names {
 		entry := normalizeRawSkill(config[name])
 		content := entry.Content
 		meta := parseSkillFrontmatter(content)
 
 		skills = append(skills, Skill{
-			Name:            name,
-			Content:         content,
-			EnablePlatform:  entry.EnablePlatform,
-			EnabledInClaude: fileExists(filepath.Join(home, ".claude", "skills", name, "SKILL.md")),
-			EnabledInCodex:  fileExists(filepath.Join(home, ".codex", "skills", name, "SKILL.md")),
-			EnabledInGemini: fileExists(filepath.Join(home, ".gemini", "skills", name, "SKILL.md")),
+			Name:              name,
+			Content:           content,
+			EnablePlatform:    entry.EnablePlatform,
+			EnabledInClaude:   fileExists(filepath.Join(home, ".claude", "skills", name, "SKILL.md")),
+			EnabledInCodex:    fileExists(filepath.Join(home, ".codex", "skills", name, "SKILL.md")),
+			EnabledInGemini:   fileExists(filepath.Join(home, ".gemini", "skills", name, "SKILL.md")),
+			EnabledInOpenclaw: openclawSkillsRoot != "" && fileExists(filepath.Join(openclawSkillsRoot, name, "SKILL.md")),
 
 			FrontmatterName:  meta.Name,
 			Description:      meta.Description,
@@ -251,6 +254,12 @@ func (ss *SkillService) loadConfigWithImport() (map[string]rawSkill, bool, error
 		{platform: platCodex, root: filepath.Join(home, ".codex", "skills")},
 		{platform: platGemini, root: filepath.Join(home, ".gemini", "skills")},
 	}
+	if openclawRoot := resolveOpenclawSkillsRoot(); openclawRoot != "" {
+		imports = append(imports, struct {
+			platform string
+			root     string
+		}{platform: platOpenclaw, root: openclawRoot})
+	}
 
 	for _, item := range imports {
 		discovered := discoverSkillsFromRoot(item.root)
@@ -324,6 +333,12 @@ func (ss *SkillService) syncSkill(name string, entry rawSkill) error {
 		{platform: platCodex, root: filepath.Join(home, ".codex", "skills")},
 		{platform: platGemini, root: filepath.Join(home, ".gemini", "skills")},
 	}
+	if openclawRoot := resolveOpenclawSkillsRoot(); openclawRoot != "" {
+		roots = append(roots, struct {
+			platform string
+			root     string
+		}{platform: platOpenclaw, root: openclawRoot})
+	}
 
 	for _, item := range roots {
 		dir := filepath.Join(item.root, name)
@@ -364,6 +379,9 @@ func (ss *SkillService) removeSkillFromAllPlatforms(name string) error {
 		filepath.Join(home, ".claude", "skills"),
 		filepath.Join(home, ".codex", "skills"),
 		filepath.Join(home, ".gemini", "skills"),
+	}
+	if openclawRoot := resolveOpenclawSkillsRoot(); openclawRoot != "" {
+		roots = append(roots, openclawRoot)
 	}
 
 	for _, root := range roots {
@@ -423,9 +441,18 @@ func fileExists(path string) bool {
 	return err == nil
 }
 
+func resolveOpenclawSkillsRoot() string {
+	_, stateDir, _ := resolveOpenclawPaths(nil)
+	stateDir = strings.TrimSpace(stateDir)
+	if stateDir == "" {
+		return ""
+	}
+	return filepath.Join(stateDir, "skills")
+}
+
 type skillFrontmatter struct {
-	Name          string
-	Description   string
+	Name           string
+	Description    string
 	HasFrontmatter bool
 	HasName        bool
 	HasDescription bool

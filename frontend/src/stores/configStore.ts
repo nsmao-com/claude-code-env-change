@@ -9,6 +9,7 @@ export const useConfigStore = defineStore('config', () => {
   const currentEnvClaude = ref('')
   const currentEnvCodex = ref('')
   const currentEnvGemini = ref('')
+  const currentEnvOpenclaw = ref('')
   const currentFilter = ref<Provider | 'all'>('all')
   const currentEnvTab = ref<Provider>('claude') // 当前环境面板的tab
   const isLoading = ref(false)
@@ -24,7 +25,8 @@ export const useConfigStore = defineStore('config', () => {
   const activeEnvs = computed(() => ({
     claude: currentEnvClaude.value,
     codex: currentEnvCodex.value,
-    gemini: currentEnvGemini.value
+    gemini: currentEnvGemini.value,
+    openclaw: currentEnvOpenclaw.value
   }))
 
   const claudeEnvs = computed(() =>
@@ -39,6 +41,10 @@ export const useConfigStore = defineStore('config', () => {
     environments.value.filter(env => env.provider === 'gemini')
   )
 
+  const openclawEnvs = computed(() =>
+    environments.value.filter(env => env.provider === 'openclaw')
+  )
+
   // Actions
   async function loadConfig() {
     isLoading.value = true
@@ -48,6 +54,7 @@ export const useConfigStore = defineStore('config', () => {
       currentEnvClaude.value = config.current_env_claude || ''
       currentEnvCodex.value = config.current_env_codex || ''
       currentEnvGemini.value = config.current_env_gemini || ''
+      currentEnvOpenclaw.value = config.current_env_openclaw || ''
     } finally {
       isLoading.value = false
     }
@@ -103,6 +110,11 @@ export const useConfigStore = defineStore('config', () => {
     await loadConfig()
   }
 
+  async function clearOpenclawSettings() {
+    await configService.clearOpenclawSettings()
+    await loadConfig()
+  }
+
   async function exportConfig(defaultName: string): Promise<string> {
     return configService.exportConfig(defaultName)
   }
@@ -121,6 +133,8 @@ export const useConfigStore = defineStore('config', () => {
         return configService.getCodexSettings()
       case 'gemini':
         return configService.getGeminiSettings()
+      case 'openclaw':
+        return configService.getOpenclawSettings()
       default:
         return {}
     }
@@ -150,6 +164,8 @@ export const useConfigStore = defineStore('config', () => {
         return currentEnvCodex.value === name
       case 'gemini':
         return currentEnvGemini.value === name
+      case 'openclaw':
+        return currentEnvOpenclaw.value === name
       default:
         return false
     }
@@ -161,6 +177,7 @@ export const useConfigStore = defineStore('config', () => {
     currentEnvClaude,
     currentEnvCodex,
     currentEnvGemini,
+    currentEnvOpenclaw,
     currentFilter,
     currentEnvTab,
     isLoading,
@@ -171,6 +188,7 @@ export const useConfigStore = defineStore('config', () => {
     claudeEnvs,
     codexEnvs,
     geminiEnvs,
+    openclawEnvs,
 
     // Actions
     loadConfig,
@@ -184,6 +202,7 @@ export const useConfigStore = defineStore('config', () => {
     clearClaudeSettings,
     clearCodexSettings,
     clearGeminiSettings,
+    clearOpenclawSettings,
     exportConfig,
     importConfig,
     getCurrentSettings,

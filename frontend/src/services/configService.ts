@@ -1,4 +1,4 @@
-import type { EnvConfig, Config } from '@/types'
+import type { EnvConfig, Config, Provider } from '@/types'
 import {
   GetConfig,
   AddEnv,
@@ -13,16 +13,28 @@ import {
   ClearClaudeSettings,
   ClearCodexSettings,
   ClearGeminiSettings,
+  ClearOpenclawSettings,
   GetClaudeSettings,
   GetCodexSettings,
   GetGeminiSettings,
+  GetOpenclawSettings,
   ExportConfig,
   ImportConfig
 } from '../../wailsjs/go/main/App'
 
 export const configService = {
   async getConfig(): Promise<Config> {
-    return GetConfig()
+    const raw = await GetConfig()
+    const environments: EnvConfig[] = (raw.environments || []).map((env) => ({
+      ...env,
+      provider: normalizeProvider(env.provider)
+    }))
+
+    return {
+      ...raw,
+      environments,
+      current_env_openclaw: raw.current_env_openclaw || ''
+    }
   },
 
   async addEnv(config: EnvConfig): Promise<void> {
@@ -73,6 +85,10 @@ export const configService = {
     return ClearGeminiSettings()
   },
 
+  async clearOpenclawSettings(): Promise<void> {
+    return ClearOpenclawSettings()
+  },
+
   async getClaudeSettings(): Promise<Record<string, string>> {
     return GetClaudeSettings()
   },
@@ -85,11 +101,30 @@ export const configService = {
     return GetGeminiSettings()
   },
 
+  async getOpenclawSettings(): Promise<Record<string, string>> {
+    return GetOpenclawSettings()
+  },
+
   async exportConfig(defaultName: string): Promise<string> {
     return ExportConfig(defaultName)
   },
 
   async importConfig(): Promise<number> {
     return ImportConfig()
+  }
+}
+
+function normalizeProvider(provider: string | undefined): Provider {
+  switch ((provider || '').toLowerCase()) {
+    case 'claude':
+      return 'claude'
+    case 'codex':
+      return 'codex'
+    case 'gemini':
+      return 'gemini'
+    case 'openclaw':
+      return 'openclaw'
+    default:
+      return 'claude'
   }
 }

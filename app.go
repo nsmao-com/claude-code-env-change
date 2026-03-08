@@ -7,10 +7,13 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/pelletier/go-toml/v2"
+	json5 "github.com/titanous/json5"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
@@ -19,7 +22,7 @@ type EnvConfig struct {
 	Name        string            `json:"name"`
 	Description string            `json:"description"`
 	Variables   map[string]string `json:"variables"`
-	Provider    string            `json:"provider"`            // "claude", "codex", "gemini"
+	Provider    string            `json:"provider"`            // "claude", "codex", "gemini", "openclaw"
 	Templates   map[string]string `json:"templates,omitempty"` // 自定义模板内容，key为文件名
 	Icon        string            `json:"icon,omitempty"`      // emoji 图标
 	// Claude Code 特有配置 (值为 "0" 或 "1"，空字符串表示不设置)
@@ -29,11 +32,12 @@ type EnvConfig struct {
 
 // Config 主配置
 type Config struct {
-	CurrentEnv       string      `json:"current_env"` // Deprecated: 兼容旧版本
-	CurrentEnvClaude string      `json:"current_env_claude"`
-	CurrentEnvCodex  string      `json:"current_env_codex"`
-	CurrentEnvGemini string      `json:"current_env_gemini"`
-	Environments     []EnvConfig `json:"environments"`
+	CurrentEnv         string      `json:"current_env"` // Deprecated: 兼容旧版本
+	CurrentEnvClaude   string      `json:"current_env_claude"`
+	CurrentEnvCodex    string      `json:"current_env_codex"`
+	CurrentEnvGemini   string      `json:"current_env_gemini"`
+	CurrentEnvOpenclaw string      `json:"current_env_openclaw"`
+	Environments       []EnvConfig `json:"environments"`
 }
 
 // App struct
@@ -57,6 +61,7 @@ func (a *App) OnStartup(ctx context.Context) {
 	_ = RecordEnvActivation("claude", a.config.CurrentEnvClaude, time.Now())
 	_ = RecordEnvActivation("codex", a.config.CurrentEnvCodex, time.Now())
 	_ = RecordEnvActivation("gemini", a.config.CurrentEnvGemini, time.Now())
+	_ = RecordEnvActivation("openclaw", a.config.CurrentEnvOpenclaw, time.Now())
 }
 
 // GetConfig 获取配置
@@ -103,6 +108,8 @@ func (a *App) SwitchToEnv(name string) error {
 		a.config.CurrentEnvCodex = name
 	case "gemini":
 		a.config.CurrentEnvGemini = name
+	case "openclaw":
+		a.config.CurrentEnvOpenclaw = name
 	default:
 		a.config.CurrentEnvClaude = name
 	}
@@ -150,6 +157,9 @@ func (a *App) UpdateEnv(oldName string, newEnv EnvConfig) error {
 				if a.config.CurrentEnvGemini == oldName {
 					a.config.CurrentEnvGemini = newEnv.Name
 				}
+				if a.config.CurrentEnvOpenclaw == oldName {
+					a.config.CurrentEnvOpenclaw = newEnv.Name
+				}
 			}
 
 			return a.saveConfig()
@@ -177,6 +187,9 @@ func (a *App) DeleteEnv(name string) error {
 			}
 			if a.config.CurrentEnvGemini == name {
 				a.config.CurrentEnvGemini = ""
+			}
+			if a.config.CurrentEnvOpenclaw == name {
+				a.config.CurrentEnvOpenclaw = ""
 			}
 
 			return a.saveConfig()
@@ -272,6 +285,15 @@ func (a *App) ApplyCurrentEnv() (string, error) {
 		}
 	}
 
+	// 4. Apply OpenClaw
+	if a.config.CurrentEnvOpenclaw != "" {
+		if env := a.findEnv(a.config.CurrentEnvOpenclaw); env != nil {
+			if msg, err := a.applyOpenclawEnv(env); err == nil {
+				msgs = append(msgs, "OpenClaw: "+msg)
+			}
+		}
+	}
+
 	if len(msgs) == 0 {
 		return "没有激活的环境可应用", nil
 	}
@@ -280,6 +302,7 @@ func (a *App) ApplyCurrentEnv() (string, error) {
 	_ = RecordEnvActivation("claude", a.config.CurrentEnvClaude, now)
 	_ = RecordEnvActivation("codex", a.config.CurrentEnvCodex, now)
 	_ = RecordEnvActivation("gemini", a.config.CurrentEnvGemini, now)
+	_ = RecordEnvActivation("openclaw", a.config.CurrentEnvOpenclaw, now)
 
 	return strings.Join(msgs, "\n"), nil
 }
@@ -434,6 +457,155 @@ func (a *App) GetGeminiSettings() map[string]string {
 			parts := strings.SplitN(line, "=", 2)
 			if len(parts) == 2 {
 				result[parts[0]] = parts[1]
+			}
+		}
+	}
+
+	return result
+}
+
+// GetOpenclawSettings 读取 OpenClaw 配置
+func (a *App) GetOpenclawSettings() map[string]string {
+	activeVars := map[string]string{}
+	if env := a.findEnv(a.config.CurrentEnvOpenclaw); env != nil {
+		activeVars = env.Variables
+	}
+
+	openclawHome, stateDir, configFile := resolveOpenclawPaths(activeVars)
+	result := map[string]string{
+		"OPENCLAW_HOME":        openclawHome,
+		"OPENCLAW_STATE_DIR":   stateDir,
+		"OPENCLAW_CONFIG_PATH": configFile,
+	}
+
+	data, err := os.ReadFile(configFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return result
+		}
+		return result
+	}
+
+	payload, err := parseJSONLikeObject(data)
+	if err != nil {
+		result["OPENCLAW_CONFIG_PARSE_ERROR"] = err.Error()
+	} else {
+		if agents, ok := payload["agents"].(map[string]any); ok && agents != nil {
+			if defaults, ok := agents["defaults"].(map[string]any); ok && defaults != nil {
+				switch mv := defaults["model"].(type) {
+				case string:
+					result["OPENCLAW_PRIMARY_MODEL"] = strings.TrimSpace(mv)
+				case map[string]any:
+					if primary, ok := mv["primary"].(string); ok {
+						result["OPENCLAW_PRIMARY_MODEL"] = strings.TrimSpace(primary)
+					}
+					if fallbacks, ok := mv["fallbacks"].([]any); ok {
+						list := make([]string, 0, len(fallbacks))
+						for _, item := range fallbacks {
+							if s, ok := item.(string); ok && strings.TrimSpace(s) != "" {
+								list = append(list, strings.TrimSpace(s))
+							}
+						}
+						if len(list) > 0 {
+							result["OPENCLAW_FALLBACK_MODELS"] = strings.Join(list, "\n")
+						}
+					}
+				}
+				if imageModel, ok := defaults["imageModel"].(string); ok {
+					result["OPENCLAW_IMAGE_MODEL"] = strings.TrimSpace(imageModel)
+				}
+				if pdfModel, ok := defaults["pdfModel"].(string); ok {
+					result["OPENCLAW_PDF_MODEL"] = strings.TrimSpace(pdfModel)
+				}
+			}
+		}
+
+		if skills, ok := payload["skills"].(map[string]any); ok && skills != nil {
+			switch av := skills["allowBundled"].(type) {
+			case bool:
+				// 兼容旧配置（历史上用布尔值）
+				result["OPENCLAW_SKILLS_ALLOW_BUNDLED"] = fmt.Sprintf("%t", av)
+			case []any:
+				list := make([]string, 0, len(av))
+				for _, item := range av {
+					if s, ok := item.(string); ok && strings.TrimSpace(s) != "" {
+						list = append(list, strings.TrimSpace(s))
+					}
+				}
+				if len(list) > 0 {
+					result["OPENCLAW_SKILLS_ALLOW_BUNDLED"] = strings.Join(list, "\n")
+				}
+			}
+			if install, ok := skills["install"].(map[string]any); ok && install != nil {
+				if nodeManager, ok := install["nodeManager"].(string); ok {
+					result["OPENCLAW_SKILLS_NODE_MANAGER"] = strings.TrimSpace(nodeManager)
+				}
+			}
+			if load, ok := skills["load"].(map[string]any); ok && load != nil {
+				if watch, ok := load["watch"].(bool); ok {
+					result["OPENCLAW_SKILLS_WATCH"] = fmt.Sprintf("%t", watch)
+				}
+				switch v := load["watchDebounceMs"].(type) {
+				case float64:
+					if v >= 0 {
+						result["OPENCLAW_SKILLS_WATCH_DEBOUNCE_MS"] = strconv.Itoa(int(v))
+					}
+				case int:
+					if v >= 0 {
+						result["OPENCLAW_SKILLS_WATCH_DEBOUNCE_MS"] = strconv.Itoa(v)
+					}
+				case int64:
+					if v >= 0 {
+						result["OPENCLAW_SKILLS_WATCH_DEBOUNCE_MS"] = strconv.FormatInt(v, 10)
+					}
+				case string:
+					if strings.TrimSpace(v) != "" {
+						result["OPENCLAW_SKILLS_WATCH_DEBOUNCE_MS"] = strings.TrimSpace(v)
+					}
+				}
+				if dirs, ok := load["extraDirs"].([]any); ok {
+					list := make([]string, 0, len(dirs))
+					for _, item := range dirs {
+						if s, ok := item.(string); ok && strings.TrimSpace(s) != "" {
+							list = append(list, strings.TrimSpace(s))
+						}
+					}
+					if len(list) > 0 {
+						result["OPENCLAW_SKILLS_EXTRA_DIRS"] = strings.Join(list, "\n")
+					}
+				}
+			}
+		}
+
+		if providers, ok := payload["providers"].(map[string]any); ok && providers != nil {
+			if openai, ok := providers["openai"].(map[string]any); ok && openai != nil {
+				if baseURL, ok := openai["baseURL"].(string); ok && strings.TrimSpace(baseURL) != "" {
+					result["OPENCLAW_GATEWAY_BASE_URL"] = strings.TrimSpace(baseURL)
+				}
+			}
+		}
+	}
+
+	// 文件里没有时，回退到当前激活的 OpenClaw 环境变量
+	if env := a.findEnv(a.config.CurrentEnvOpenclaw); env != nil {
+		fallbackKeys := []string{
+			"OPENCLAW_GATEWAY_BASE_URL",
+			"OPENCLAW_PRIMARY_MODEL",
+			"OPENCLAW_FALLBACK_MODELS",
+			"OPENCLAW_IMAGE_MODEL",
+			"OPENCLAW_PDF_MODEL",
+			"OPENCLAW_SKILLS_ALLOW_BUNDLED",
+			"OPENCLAW_SKILLS_EXTRA_DIRS",
+			"OPENCLAW_SKILLS_NODE_MANAGER",
+			"OPENCLAW_SKILLS_WATCH",
+			"OPENCLAW_SKILLS_WATCH_DEBOUNCE_MS",
+			"OPENCLAW_CONFIG_PATH",
+		}
+		for _, key := range fallbackKeys {
+			if strings.TrimSpace(result[key]) == "" {
+				if value := strings.TrimSpace(env.Variables[key]); value != "" {
+					result[key] = value
+				}
 			}
 		}
 	}
@@ -665,6 +837,56 @@ GEMINI_MODEL=%s
 	return "Gemini CLI 配置已应用", nil
 }
 
+// applyOpenclawEnv 应用 OpenClaw 配置到 ~/.openclaw/openclaw.json
+func (a *App) applyOpenclawEnv(env *EnvConfig) (string, error) {
+	_, _, configFile := resolveOpenclawPaths(env.Variables)
+	if err := os.MkdirAll(filepath.Dir(configFile), 0755); err != nil {
+		return "", fmt.Errorf("创建 OpenClaw 配置目录失败: %v", err)
+	}
+
+	writeContent := func(content string) (string, error) {
+		if err := os.WriteFile(configFile, []byte(content), 0644); err != nil {
+			return "", fmt.Errorf("写入 OpenClaw 配置失败: %v", err)
+		}
+		return fmt.Sprintf("OpenClaw 配置已应用到 %s", configFile), nil
+	}
+
+	mergeAndWrite := func(desiredContent string) (string, error) {
+		desiredPayload, err := parseJSONLikeObject([]byte(desiredContent))
+		if err != nil {
+			// 模板内容不是可解析 JSON/JSON5 时，按原样写入
+			return writeContent(desiredContent)
+		}
+
+		existingPayload := map[string]any{}
+		if data, err := os.ReadFile(configFile); err == nil && len(data) > 0 {
+			if parsed, parseErr := parseJSONLikeObject(data); parseErr == nil {
+				existingPayload = parsed
+			}
+		}
+
+		deepMergeMap(existingPayload, desiredPayload)
+		mergedContent, err := json.MarshalIndent(existingPayload, "", "  ")
+		if err != nil {
+			return "", fmt.Errorf("序列化 OpenClaw 配置失败: %v", err)
+		}
+		return writeContent(string(mergedContent))
+	}
+
+	switch {
+	case strings.TrimSpace(env.Templates["openclaw.json"]) != "":
+		return mergeAndWrite(applyOpenclawTemplate(env.Templates["openclaw.json"], env))
+	case strings.TrimSpace(env.Templates["openclaw.json5"]) != "":
+		return mergeAndWrite(applyOpenclawTemplate(env.Templates["openclaw.json5"], env))
+	default:
+		defaultContent, err := buildOpenclawConfigData(env)
+		if err != nil {
+			return "", err
+		}
+		return mergeAndWrite(defaultContent)
+	}
+}
+
 func deepMergeMap(dst, src map[string]any) {
 	for key, srcVal := range src {
 		if srcMap, ok := srcVal.(map[string]any); ok && srcMap != nil {
@@ -675,6 +897,280 @@ func deepMergeMap(dst, src map[string]any) {
 		}
 		dst[key] = srcVal
 	}
+}
+
+func applyOpenclawTemplate(tmpl string, env *EnvConfig) string {
+	content := tmpl
+	for key, value := range env.Variables {
+		content = strings.ReplaceAll(content, "{{"+key+"}}", value)
+	}
+
+	fallbacks := parseDelimitedList(env.Variables["OPENCLAW_FALLBACK_MODELS"])
+	fallbacksJSON, _ := json.Marshal(fallbacks)
+	content = strings.ReplaceAll(content, "{{OPENCLAW_FALLBACKS_JSON}}", string(fallbacksJSON))
+
+	extraDirs := parseDelimitedList(env.Variables["OPENCLAW_SKILLS_EXTRA_DIRS"])
+	extraDirsJSON, _ := json.Marshal(extraDirs)
+	content = strings.ReplaceAll(content, "{{OPENCLAW_SKILLS_EXTRA_DIRS_JSON}}", string(extraDirsJSON))
+
+	allowBundledList, allowBundledSet := parseOpenclawSkillsAllowBundled(env.Variables["OPENCLAW_SKILLS_ALLOW_BUNDLED"])
+	allowBundledJSON := "null"
+	if allowBundledSet {
+		if encoded, err := json.Marshal(allowBundledList); err == nil {
+			allowBundledJSON = string(encoded)
+		}
+	}
+	content = strings.ReplaceAll(content, "{{OPENCLAW_SKILLS_ALLOW_BUNDLED_JSON}}", allowBundledJSON)
+
+	watch := parseBoolString(env.Variables["OPENCLAW_SKILLS_WATCH"], true)
+	content = strings.ReplaceAll(content, "{{OPENCLAW_SKILLS_WATCH}}", fmt.Sprintf("%t", watch))
+	content = strings.ReplaceAll(content, "{{OPENCLAW_SKILLS_WATCH_DEBOUNCE_MS}}", strconv.Itoa(parseOpenclawSkillsWatchDebounce(env.Variables["OPENCLAW_SKILLS_WATCH_DEBOUNCE_MS"])))
+
+	// 兼容旧模板：allowBundled 布尔占位符
+	allowBundled := parseBoolString(env.Variables["OPENCLAW_SKILLS_ALLOW_BUNDLED"], true)
+	content = strings.ReplaceAll(content, "{{OPENCLAW_SKILLS_ALLOW_BUNDLED}}", fmt.Sprintf("%t", allowBundled))
+
+	return content
+}
+
+func buildOpenclawConfigData(env *EnvConfig) (string, error) {
+	model := strings.TrimSpace(env.Variables["OPENCLAW_PRIMARY_MODEL"])
+	fallbacks := parseDelimitedList(env.Variables["OPENCLAW_FALLBACK_MODELS"])
+	imageModel := strings.TrimSpace(env.Variables["OPENCLAW_IMAGE_MODEL"])
+	pdfModel := strings.TrimSpace(env.Variables["OPENCLAW_PDF_MODEL"])
+	gatewayURL := strings.TrimSpace(env.Variables["OPENCLAW_GATEWAY_BASE_URL"])
+	skillsExtraDirs := parseDelimitedList(env.Variables["OPENCLAW_SKILLS_EXTRA_DIRS"])
+	skillsAllowBundled, hasSkillsAllowBundled := parseOpenclawSkillsAllowBundled(env.Variables["OPENCLAW_SKILLS_ALLOW_BUNDLED"])
+	nodeManager := strings.TrimSpace(env.Variables["OPENCLAW_SKILLS_NODE_MANAGER"])
+	skillsWatch := parseBoolString(env.Variables["OPENCLAW_SKILLS_WATCH"], true)
+	skillsWatchDebounceMs := parseOpenclawSkillsWatchDebounce(env.Variables["OPENCLAW_SKILLS_WATCH_DEBOUNCE_MS"])
+	if nodeManager == "" {
+		nodeManager = "pnpm"
+	}
+
+	defaults := map[string]any{}
+	if model != "" {
+		if len(fallbacks) > 0 {
+			defaults["model"] = map[string]any{
+				"primary":   model,
+				"fallbacks": fallbacks,
+			}
+		} else {
+			defaults["model"] = model
+		}
+	}
+	if imageModel != "" {
+		defaults["imageModel"] = imageModel
+	}
+	if pdfModel != "" {
+		defaults["pdfModel"] = pdfModel
+	}
+
+	skillsConfig := map[string]any{
+		"load": map[string]any{
+			"extraDirs":       skillsExtraDirs,
+			"watch":           skillsWatch,
+			"watchDebounceMs": skillsWatchDebounceMs,
+		},
+		"install": map[string]any{
+			"nodeManager": nodeManager,
+		},
+	}
+	if hasSkillsAllowBundled {
+		skillsConfig["allowBundled"] = skillsAllowBundled
+	}
+
+	payload := map[string]any{
+		"agents": map[string]any{
+			"defaults": defaults,
+		},
+		"skills": skillsConfig,
+	}
+
+	if gatewayURL != "" {
+		payload["providers"] = map[string]any{
+			"openai": map[string]any{
+				"baseURL": gatewayURL,
+			},
+		}
+	}
+
+	data, err := json.MarshalIndent(payload, "", "  ")
+	if err != nil {
+		return "", fmt.Errorf("生成 OpenClaw 配置失败: %v", err)
+	}
+	return string(data), nil
+}
+
+func parseDelimitedList(raw string) []string {
+	normalized := strings.ReplaceAll(raw, ",", "\n")
+	parts := strings.Split(normalized, "\n")
+	result := make([]string, 0, len(parts))
+	seen := map[string]struct{}{}
+	for _, part := range parts {
+		item := strings.TrimSpace(part)
+		if item == "" {
+			continue
+		}
+		key := strings.ToLower(item)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		result = append(result, item)
+	}
+	return result
+}
+
+func parseBoolString(raw string, defaultValue bool) bool {
+	trimmed := strings.ToLower(strings.TrimSpace(raw))
+	if trimmed == "" {
+		return defaultValue
+	}
+	switch trimmed {
+	case "1", "true", "yes", "on":
+		return true
+	case "0", "false", "no", "off":
+		return false
+	default:
+		return defaultValue
+	}
+}
+
+func parseOptionalBoolString(raw string) (bool, bool) {
+	trimmed := strings.ToLower(strings.TrimSpace(raw))
+	switch trimmed {
+	case "1", "true", "yes", "on":
+		return true, true
+	case "0", "false", "no", "off":
+		return false, true
+	default:
+		return false, false
+	}
+}
+
+func parseOpenclawSkillsAllowBundled(raw string) ([]string, bool) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return nil, false
+	}
+
+	// 兼容旧值：true/false
+	if enabled, ok := parseOptionalBoolString(trimmed); ok {
+		if enabled {
+			// true 等价于不限制 bundled skills（不写 allowBundled 字段）
+			return nil, false
+		}
+		return []string{}, true
+	}
+
+	return parseDelimitedList(trimmed), true
+}
+
+func parseOpenclawSkillsWatchDebounce(raw string) int {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return 250
+	}
+
+	v, err := strconv.Atoi(trimmed)
+	if err != nil || v < 0 {
+		return 250
+	}
+	return v
+}
+
+func parseJSONLikeObject(data []byte) (map[string]any, error) {
+	payload := map[string]any{}
+	if err := json.Unmarshal(data, &payload); err == nil {
+		return payload, nil
+	} else {
+		payload = map[string]any{}
+		if err5 := json5.Unmarshal(data, &payload); err5 == nil {
+			return payload, nil
+		} else {
+			return nil, fmt.Errorf("配置文件不是有效 JSON/JSON5（json: %v; json5: %v）", err, err5)
+		}
+	}
+}
+
+// resolveOpenclawPaths 根据 OpenClaw 文档的路径优先级解析配置路径：
+// OPENCLAW_HOME > HOME > USERPROFILE > os.UserHomeDir()
+// OPENCLAW_STATE_DIR 覆盖默认状态目录（默认 <home>/.openclaw）
+// OPENCLAW_CONFIG_PATH 覆盖默认配置文件（默认 <state>/openclaw.json）
+func resolveOpenclawPaths(overrideVars map[string]string) (string, string, string) {
+	systemHome, _ := os.UserHomeDir()
+	defaultHome := firstNonEmpty(
+		strings.TrimSpace(os.Getenv("HOME")),
+		strings.TrimSpace(os.Getenv("USERPROFILE")),
+		strings.TrimSpace(systemHome),
+	)
+
+	openclawHome := firstNonEmpty(
+		strings.TrimSpace(overrideVars["OPENCLAW_HOME"]),
+		strings.TrimSpace(os.Getenv("OPENCLAW_HOME")),
+		defaultHome,
+	)
+	openclawHome = expandAndNormalizePath(openclawHome, defaultHome, defaultHome)
+
+	stateDir := firstNonEmpty(
+		strings.TrimSpace(overrideVars["OPENCLAW_STATE_DIR"]),
+		strings.TrimSpace(os.Getenv("OPENCLAW_STATE_DIR")),
+		filepath.Join(openclawHome, ".openclaw"),
+	)
+	stateDir = expandAndNormalizePath(stateDir, openclawHome, openclawHome)
+
+	configPath := firstNonEmpty(
+		strings.TrimSpace(overrideVars["OPENCLAW_CONFIG_PATH"]),
+		strings.TrimSpace(os.Getenv("OPENCLAW_CONFIG_PATH")),
+		filepath.Join(stateDir, "openclaw.json"),
+	)
+	configPath = expandAndNormalizePath(configPath, openclawHome, stateDir)
+
+	return openclawHome, stateDir, configPath
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if trimmed := strings.TrimSpace(value); trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
+}
+
+func expandAndNormalizePath(pathValue, homeDir, relativeBase string) string {
+	expanded := strings.TrimSpace(pathValue)
+	if expanded == "" {
+		return ""
+	}
+
+	expanded = os.ExpandEnv(expanded)
+	expanded = expandPercentEnv(expanded)
+
+	if expanded == "~" {
+		expanded = homeDir
+	} else if strings.HasPrefix(expanded, "~\\") || strings.HasPrefix(expanded, "~/") {
+		expanded = filepath.Join(homeDir, expanded[2:])
+	}
+
+	if !filepath.IsAbs(expanded) {
+		expanded = filepath.Join(relativeBase, expanded)
+	}
+
+	return filepath.Clean(expanded)
+}
+
+var percentEnvVarPattern = regexp.MustCompile(`%([A-Za-z_][A-Za-z0-9_]*)%`)
+
+func expandPercentEnv(value string) string {
+	return percentEnvVarPattern.ReplaceAllStringFunc(value, func(token string) string {
+		name := strings.Trim(token, "%")
+		if v := os.Getenv(name); strings.TrimSpace(v) != "" {
+			return v
+		}
+		return token
+	})
 }
 
 // ClearClaudeSettings 清除 Claude settings.json 中的 env 配置
@@ -742,7 +1238,32 @@ func (a *App) ClearGeminiSettings() error {
 	return nil
 }
 
-// ClearAllEnv 清除所有配置 (Claude/Codex/Gemini)
+// ClearOpenclawSettings 清除 OpenClaw 配置文件
+func (a *App) ClearOpenclawSettings() error {
+	activeVars := map[string]string{}
+	if env := a.findEnv(a.config.CurrentEnvOpenclaw); env != nil {
+		activeVars = env.Variables
+	}
+
+	_, stateDir, configFile := resolveOpenclawPaths(activeVars)
+
+	// 删除配置文件
+	_ = os.Remove(configFile)
+	if ext := strings.ToLower(filepath.Ext(configFile)); ext == ".json" {
+		_ = os.Remove(strings.TrimSuffix(configFile, ext) + ".json5")
+	}
+	if ext := strings.ToLower(filepath.Ext(configFile)); ext == ".json5" {
+		_ = os.Remove(strings.TrimSuffix(configFile, ext) + ".json")
+	}
+
+	// 兜底再清理默认状态目录下的标准文件
+	_ = os.Remove(filepath.Join(stateDir, "openclaw.json"))
+	_ = os.Remove(filepath.Join(stateDir, "openclaw.json5"))
+
+	return nil
+}
+
+// ClearAllEnv 清除所有配置 (Claude/Codex/Gemini/OpenClaw)
 func (a *App) ClearAllEnv() error {
 	var errors []string
 
@@ -756,6 +1277,10 @@ func (a *App) ClearAllEnv() error {
 
 	if err := a.ClearGeminiSettings(); err != nil {
 		errors = append(errors, fmt.Sprintf("Gemini: %v", err))
+	}
+
+	if err := a.ClearOpenclawSettings(); err != nil {
+		errors = append(errors, fmt.Sprintf("OpenClaw: %v", err))
 	}
 
 	if len(errors) > 0 {
@@ -871,6 +1396,7 @@ func (a *App) loadConfig() error {
 				{
 					Name:        "Development",
 					Description: "开发环境",
+					Provider:    "claude",
 					Variables: map[string]string{
 						"ANTHROPIC_API_KEY": "your-dev-api-key",
 						"CLAUDE_MODEL":      "claude-3-5-sonnet-20241022",
@@ -880,6 +1406,7 @@ func (a *App) loadConfig() error {
 				{
 					Name:        "Production",
 					Description: "生产环境",
+					Provider:    "claude",
 					Variables: map[string]string{
 						"ANTHROPIC_API_KEY": "your-prod-api-key",
 						"CLAUDE_MODEL":      "claude-3-5-sonnet-20241022",
@@ -902,6 +1429,16 @@ func (a *App) loadConfig() error {
 	err = json.Unmarshal(data, &a.config)
 	if err != nil {
 		return fmt.Errorf("解析配置文件失败 (%s): %v", a.configPath, err)
+	}
+
+	// 兼容旧配置：未设置 provider 时默认归到 claude
+	for i := range a.config.Environments {
+		if strings.TrimSpace(a.config.Environments[i].Provider) == "" {
+			a.config.Environments[i].Provider = "claude"
+		}
+	}
+	if strings.TrimSpace(a.config.CurrentEnvClaude) == "" && strings.TrimSpace(a.config.CurrentEnv) != "" {
+		a.config.CurrentEnvClaude = a.config.CurrentEnv
 	}
 
 	return nil
