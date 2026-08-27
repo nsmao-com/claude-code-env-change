@@ -10,6 +10,7 @@ export const useConfigStore = defineStore('config', () => {
   const currentEnvCodex = ref('')
   const currentEnvGemini = ref('')
   const currentEnvOpenclaw = ref('')
+  const currentEnvGrok = ref('')
   const currentFilter = ref<Provider | 'all'>('all')
   const currentEnvTab = ref<Provider>('claude') // 当前环境面板的tab
   const isLoading = ref(false)
@@ -26,7 +27,8 @@ export const useConfigStore = defineStore('config', () => {
     claude: currentEnvClaude.value,
     codex: currentEnvCodex.value,
     gemini: currentEnvGemini.value,
-    openclaw: currentEnvOpenclaw.value
+    openclaw: currentEnvOpenclaw.value,
+    grok: currentEnvGrok.value,
   }))
 
   const claudeEnvs = computed(() =>
@@ -45,6 +47,10 @@ export const useConfigStore = defineStore('config', () => {
     environments.value.filter(env => env.provider === 'openclaw')
   )
 
+  const grokEnvs = computed(() =>
+    environments.value.filter(env => env.provider === 'grok')
+  )
+
   // Actions
   async function loadConfig() {
     isLoading.value = true
@@ -55,6 +61,7 @@ export const useConfigStore = defineStore('config', () => {
       currentEnvCodex.value = config.current_env_codex || ''
       currentEnvGemini.value = config.current_env_gemini || ''
       currentEnvOpenclaw.value = config.current_env_openclaw || ''
+      currentEnvGrok.value = config.current_env_grok || ''
     } finally {
       isLoading.value = false
     }
@@ -116,6 +123,11 @@ export const useConfigStore = defineStore('config', () => {
     await loadConfig()
   }
 
+  async function clearGrokSettings() {
+    await configService.clearGrokSettings()
+    await loadConfig()
+  }
+
   async function exportConfig(defaultName: string): Promise<string> {
     return configService.exportConfig(defaultName)
   }
@@ -136,6 +148,8 @@ export const useConfigStore = defineStore('config', () => {
         return configService.getGeminiSettings()
       case 'openclaw':
         return configService.getOpenclawSettings()
+      case 'grok':
+        return configService.getGrokSettings()
       default:
         return {}
     }
@@ -167,6 +181,8 @@ export const useConfigStore = defineStore('config', () => {
         return currentEnvGemini.value === name
       case 'openclaw':
         return currentEnvOpenclaw.value === name
+      case 'grok':
+        return currentEnvGrok.value === name
       default:
         return false
     }
@@ -179,6 +195,7 @@ export const useConfigStore = defineStore('config', () => {
     currentEnvCodex,
     currentEnvGemini,
     currentEnvOpenclaw,
+    currentEnvGrok,
     currentFilter,
     currentEnvTab,
     isLoading,
@@ -190,6 +207,7 @@ export const useConfigStore = defineStore('config', () => {
     codexEnvs,
     geminiEnvs,
     openclawEnvs,
+    grokEnvs,
 
     // Actions
     loadConfig,
@@ -204,6 +222,7 @@ export const useConfigStore = defineStore('config', () => {
     clearCodexSettings,
     clearGeminiSettings,
     clearOpenclawSettings,
+    clearGrokSettings,
     exportConfig,
     importConfig,
     getCurrentSettings,

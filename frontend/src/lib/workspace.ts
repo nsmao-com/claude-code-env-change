@@ -8,6 +8,7 @@ export const WORKSPACE_TOOLS: { id: WorkspaceTool; label: string }[] = [
   { id: 'codex', label: 'Codex' },
   { id: 'gemini', label: 'Gemini' },
   { id: 'openclaw', label: 'OpenClaw' },
+  { id: 'grok', label: 'Grok' },
 ]
 
 export function toolLabel(tool: WorkspaceTool) {

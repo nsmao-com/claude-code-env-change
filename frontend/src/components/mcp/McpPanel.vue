@@ -20,22 +20,18 @@
         </Button>
       </div>
       <div class="flex items-center gap-2">
-        <ToggleGroup
-          type="single"
-          variant="pill"
-          :spacing="1"
+        <SegmentedPills
           :model-value="viewMode"
-          size="sm"
-          class="rounded-full bg-muted p-1"
+          layout-id="mcp-view-pill"
+          dense
+          :items="[{ value: 'list', label: '列表' }, { value: 'cards', label: '卡片' }]"
           @update:model-value="onView"
         >
-          <ToggleGroupItem value="cards" aria-label="卡片视图">
-            <LayoutGrid />
-          </ToggleGroupItem>
-          <ToggleGroupItem value="list" aria-label="列表视图">
-            <List />
-          </ToggleGroupItem>
-        </ToggleGroup>
+          <template #default="{ item }">
+            <List v-if="item.value === 'list'" class="size-3.5" />
+            <LayoutGrid v-else class="size-3.5" />
+          </template>
+        </SegmentedPills>
         <Button
           size="sm"
           variant="outline"
@@ -145,13 +141,13 @@ import { Button } from '@/components/ui/button'
 
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import SegmentedPills from '@/components/layout/SegmentedPills.vue'
 import McpStatusBadge from './McpStatusBadge.vue'
 import McpServerCard from './McpServerCard.vue'
 import McpEditModal from './McpEditModal.vue'
 import McpJsonImport from './McpJsonImport.vue'
 
-type PlatformFilter = 'all' | 'claude-code' | 'codex' | 'gemini'
+type PlatformFilter = 'all' | 'claude-code' | 'codex' | 'gemini' | 'openclaw' | 'grok'
 
 interface Props {
   modelValue: boolean
@@ -205,11 +201,11 @@ const filteredServerItems = computed(() => {
 
 function syncTool(tool: string) {
   if (tool === 'claude') currentPlatform.value = 'claude-code'
-  else if (tool === 'codex' || tool === 'gemini') currentPlatform.value = tool
+  else if (tool === 'codex' || tool === 'gemini' || tool === 'openclaw' || tool === 'grok') currentPlatform.value = tool
   else currentPlatform.value = 'all'
 }
 
-function onView(value: unknown) {
+function onView(value: string) {
   if (value === 'cards' || value === 'list') {
     setViewMode(value)
   }

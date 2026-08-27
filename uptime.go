@@ -395,8 +395,8 @@ func (us *UptimeService) validateRotationGroup(group RotationGroup) error {
 	if group.Name == "" {
 		return fmt.Errorf("轮换组名称不能为空")
 	}
-	if group.Provider != "claude" && group.Provider != "codex" && group.Provider != "gemini" && group.Provider != "openclaw" {
-		return fmt.Errorf("轮换组 provider 必须是 claude/codex/gemini/openclaw")
+	if group.Provider != "claude" && group.Provider != "codex" && group.Provider != "gemini" && group.Provider != "openclaw" && group.Provider != "grok" {
+		return fmt.Errorf("轮换组 provider 必须是 claude/codex/gemini/openclaw/grok")
 	}
 	if len(group.EnvNames) == 0 {
 		return fmt.Errorf("轮换组必须至少包含 1 个配置")
@@ -448,6 +448,11 @@ func deriveEnvURL(env EnvConfig) string {
 		return strings.TrimSpace(vars["GOOGLE_GEMINI_BASE_URL"])
 	case "openclaw":
 		return strings.TrimSpace(vars["OPENCLAW_GATEWAY_BASE_URL"])
+	case "grok":
+		if v := strings.TrimSpace(vars["XAI_BASE_URL"]); v != "" {
+			return v
+		}
+		return "https://api.x.ai/v1"
 	default:
 		return ""
 	}
@@ -521,6 +526,8 @@ func currentEnvNameByProvider(config Config, provider string) string {
 		return config.CurrentEnvGemini
 	case "openclaw":
 		return config.CurrentEnvOpenclaw
+	case "grok":
+		return config.CurrentEnvGrok
 	default:
 		return config.CurrentEnvClaude
 	}

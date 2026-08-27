@@ -22,7 +22,7 @@ type EnvConfig struct {
 	Name        string            `json:"name"`
 	Description string            `json:"description"`
 	Variables   map[string]string `json:"variables"`
-	Provider    string            `json:"provider"`            // "claude", "codex", "gemini", "openclaw"
+	Provider    string            `json:"provider"`            // "claude", "codex", "gemini", "openclaw", "grok"
 	Templates   map[string]string `json:"templates,omitempty"` // 自定义模板内容，key为文件名
 	Icon        string            `json:"icon,omitempty"`      // emoji 图标
 	// Claude Code 特有配置 (值为 "0" 或 "1"，空字符串表示不设置)
@@ -37,6 +37,7 @@ type Config struct {
 	CurrentEnvCodex    string      `json:"current_env_codex"`
 	CurrentEnvGemini   string      `json:"current_env_gemini"`
 	CurrentEnvOpenclaw string      `json:"current_env_openclaw"`
+	CurrentEnvGrok     string      `json:"current_env_grok"`
 	Environments       []EnvConfig `json:"environments"`
 }
 
@@ -62,6 +63,7 @@ func (a *App) OnStartup(ctx context.Context) {
 	_ = RecordEnvActivation("codex", a.config.CurrentEnvCodex, time.Now())
 	_ = RecordEnvActivation("gemini", a.config.CurrentEnvGemini, time.Now())
 	_ = RecordEnvActivation("openclaw", a.config.CurrentEnvOpenclaw, time.Now())
+	_ = RecordEnvActivation("grok", a.config.CurrentEnvGrok, time.Now())
 }
 
 // GetConfig 获取配置
@@ -110,6 +112,8 @@ func (a *App) SwitchToEnv(name string) error {
 		a.config.CurrentEnvGemini = name
 	case "openclaw":
 		a.config.CurrentEnvOpenclaw = name
+	case "grok":
+		a.config.CurrentEnvGrok = name
 	default:
 		a.config.CurrentEnvClaude = name
 	}
@@ -272,6 +276,7 @@ func (a *App) ApplyCurrentEnv() (string, error) {
 	apply("Codex", a.config.CurrentEnvCodex, a.applyCodexEnv)
 	apply("Gemini", a.config.CurrentEnvGemini, a.applyGeminiEnv)
 	apply("OpenClaw", a.config.CurrentEnvOpenclaw, a.applyOpenclawEnv)
+	apply("Grok", a.config.CurrentEnvGrok, a.applyGrokEnv)
 
 	if len(msgs) == 0 && len(errs) == 0 {
 		return "没有激活的环境可应用", nil
@@ -282,6 +287,7 @@ func (a *App) ApplyCurrentEnv() (string, error) {
 	_ = RecordEnvActivation("codex", a.config.CurrentEnvCodex, now)
 	_ = RecordEnvActivation("gemini", a.config.CurrentEnvGemini, now)
 	_ = RecordEnvActivation("openclaw", a.config.CurrentEnvOpenclaw, now)
+	_ = RecordEnvActivation("grok", a.config.CurrentEnvGrok, now)
 
 	if len(msgs) == 0 {
 		return "", fmt.Errorf("应用失败: %s", strings.Join(errs, "；"))
@@ -1270,6 +1276,10 @@ func (a *App) ClearAllEnv() error {
 		errors = append(errors, fmt.Sprintf("OpenClaw: %v", err))
 	}
 
+	if err := a.ClearGrokSettings(); err != nil {
+		errors = append(errors, fmt.Sprintf("Grok: %v", err))
+	}
+
 	if len(errors) > 0 {
 		return fmt.Errorf("部分清除失败: %s", strings.Join(errors, "; "))
 	}
@@ -1471,6 +1481,7 @@ func (a *App) GetPromptFiles() ([]PromptFile, error) {
 		{Provider: "claude", Path: filepath.Join(homeDir, ".claude", "CLAUDE.md")},
 		{Provider: "codex", Path: filepath.Join(homeDir, ".codex", "AGENTS.md")},
 		{Provider: "gemini", Path: filepath.Join(homeDir, ".gemini", "GEMINI.md")},
+		{Provider: "grok", Path: filepath.Join(resolveGrokHome(nil), "GROK.md")},
 	}
 
 	for i := range files {
@@ -1501,6 +1512,8 @@ func (a *App) GetPromptFile(provider string) (PromptFile, error) {
 		filePath = filepath.Join(homeDir, ".codex", "AGENTS.md")
 	case "gemini":
 		filePath = filepath.Join(homeDir, ".gemini", "GEMINI.md")
+	case "grok":
+		filePath = filepath.Join(resolveGrokHome(nil), "GROK.md")
 	default:
 		return PromptFile{}, fmt.Errorf("未知的 Provider: %s", provider)
 	}
@@ -1533,6 +1546,9 @@ func (a *App) SavePromptFile(provider, content string) error {
 	case "gemini":
 		dirPath = filepath.Join(homeDir, ".gemini")
 		filePath = filepath.Join(dirPath, "GEMINI.md")
+	case "grok":
+		dirPath = resolveGrokHome(nil)
+		filePath = filepath.Join(dirPath, "GROK.md")
 	default:
 		return fmt.Errorf("未知的 Provider: %s", provider)
 	}
@@ -1565,6 +1581,8 @@ func (a *App) DeletePromptFile(provider string) error {
 		filePath = filepath.Join(homeDir, ".codex", "AGENTS.md")
 	case "gemini":
 		filePath = filepath.Join(homeDir, ".gemini", "GEMINI.md")
+	case "grok":
+		filePath = filepath.Join(resolveGrokHome(nil), "GROK.md")
 	default:
 		return fmt.Errorf("未知的 Provider: %s", provider)
 	}

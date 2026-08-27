@@ -18,6 +18,7 @@ export interface Config {
   current_env_codex: string
   current_env_gemini: string
   current_env_openclaw: string
+  current_env_grok: string
   environments: EnvConfig[]
 }
 
@@ -54,6 +55,7 @@ export interface Skill {
   enabled_in_codex: boolean
   enabled_in_gemini: boolean
   enabled_in_openclaw: boolean
+  enabled_in_grok: boolean
   frontmatter_name: string
   description: string
   has_frontmatter: boolean
@@ -203,7 +205,7 @@ export interface UptimeSnapshot {
 }
 
 // Provider 类型
-export type Provider = 'claude' | 'codex' | 'gemini' | 'openclaw'
+export type Provider = 'claude' | 'codex' | 'gemini' | 'openclaw' | 'grok'
 
 export type AppPage = 'env' | 'mcp' | 'skills' | 'router' | 'uptime' | 'cloud' | 'prompts' | 'stats'
 

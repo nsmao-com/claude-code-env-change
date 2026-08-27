@@ -30,6 +30,10 @@ export function ClearGeminiSettings() {
   return window['go']['main']['App']['ClearGeminiSettings']();
 }
 
+export function ClearGrokSettings() {
+  return window['go']['main']['App']['ClearGrokSettings']();
+}
+
 export function ClearOpenclawSettings() {
   return window['go']['main']['App']['ClearOpenclawSettings']();
 }
@@ -72,6 +76,10 @@ export function GetEnvVar(arg1) {
 
 export function GetGeminiSettings() {
   return window['go']['main']['App']['GetGeminiSettings']();
+}
+
+export function GetGrokSettings() {
+  return window['go']['main']['App']['GetGrokSettings']();
 }
 
 export function GetOpenclawSettings() {

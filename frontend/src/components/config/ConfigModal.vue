@@ -19,19 +19,19 @@
         </div>
       </div>
 
-      <ToggleGroup
-        type="single"
-        variant="pill"
-        :spacing="1"
-        class="w-full rounded-full bg-muted p-1"
+      <SegmentedPills
         :model-value="form.provider"
+        layout-id="config-provider-pill"
+        full
+        dense
+        :items="providers.map(p => ({ value: p.value, label: p.label }))"
         @update:model-value="onProvider"
       >
-        <ToggleGroupItem v-for="p in providers" :key="p.value" :value="p.value" class="flex-1">
-          <component :is="p.icon" class="size-3.5" />
-          {{ p.label }}
-        </ToggleGroupItem>
-      </ToggleGroup>
+        <template #default="{ item }">
+          <component :is="providerIcon(item.value)" class="size-3.5" />
+          {{ item.label }}
+        </template>
+      </SegmentedPills>
 
       <div v-if="form.provider === 'claude'" class="space-y-4">
         <AppInput v-model="form.claude.baseUrl" label="Base URL" placeholder="https://api.anthropic.com">
@@ -208,6 +208,55 @@
           <Textarea v-model="form.openclaw.configTemplate" class="min-h-40 font-mono text-xs" placeholder="JSON 模板，支持 {{OPENCLAW_PRIMARY_MODEL}} 等占位符..." />
         </div>
       </div>
+
+      <div v-if="form.provider === 'grok'" class="space-y-4">
+        <div class="rounded-lg border bg-muted/40 p-3">
+          <p class="text-xs leading-relaxed text-muted-foreground">
+            Grok 配置写入
+            <span class="font-mono">~/.grok/config.toml</span>
+            （保留已有 MCP / Skills 段）。CLI 读取
+            <span class="font-mono">XAI_API_KEY</span>
+            和模型的 <span class="font-mono">api_key</span>。
+          </p>
+        </div>
+        <AppInput v-model="form.grok.baseUrl" label="Base URL" placeholder="https://api.x.ai/v1">
+          <template #suffix>
+            <Button type="button" variant="ghost" size="icon-xs" @click="testLatency(form.grok.baseUrl || 'https://api.x.ai/v1')">
+              <Zap />
+            </Button>
+          </template>
+        </AppInput>
+        <AppInput
+          v-model="form.grok.apiKey"
+          label="API Key"
+          :type="showApiKey.grok ? 'text' : 'password'"
+          placeholder="xai-..."
+        >
+          <template #suffix>
+            <Button type="button" variant="ghost" size="icon-xs" @click="toggleApiKeyVisibility('grok')">
+              <EyeOff v-if="showApiKey.grok" />
+              <Eye v-else />
+            </Button>
+          </template>
+        </AppInput>
+        <AppInput v-model="form.grok.model" label="Model" placeholder="grok-4.6" />
+        <div class="grid gap-1.5">
+          <Label>API Backend</Label>
+          <SegmentedPills
+            :model-value="form.grok.apiBackend"
+            layout-id="grok-backend-pill"
+            full
+            dense
+            :items="grokBackends"
+            @update:model-value="v => { if (v === 'responses' || v === 'chat_completions' || v === 'messages') form.grok.apiBackend = v }"
+          />
+        </div>
+        <AppInput v-model="form.grok.homeDir" label="GROK_HOME（可选）" placeholder="~/.grok" />
+        <div class="grid gap-1.5">
+          <Label>config.toml 模板（可选）</Label>
+          <Textarea v-model="form.grok.configTemplate" class="min-h-32 font-mono text-xs" placeholder="留空则按上面的字段生成" />
+        </div>
+      </div>
     </form>
 
     <template #footer>
@@ -219,7 +268,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, type Component } from 'vue'
-import { Bot, Boxes, Eye, EyeOff, Gem, Terminal, Zap } from '@lucide/vue'
+import { Bot, Boxes, Eye, EyeOff, Gem, Sparkles, Terminal, Zap } from '@lucide/vue'
 import type { EnvConfig, Provider } from '@/types'
 import { useConfigStore } from '@/stores/configStore'
 import { useToast } from '@/composables/useToast'
@@ -230,6 +279,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import SegmentedPills from '@/components/layout/SegmentedPills.vue'
 
 interface Props {
   modelValue: boolean
@@ -253,11 +303,12 @@ const isOpen = computed({
 
 const isEditing = computed(() => !!props.editConfig)
 const showEmojiPicker = ref(false)
-type ApiKeyProvider = 'claude' | 'codex' | 'gemini'
+type ApiKeyProvider = 'claude' | 'codex' | 'gemini' | 'grok'
 const showApiKey = ref<Record<ApiKeyProvider, boolean>>({
   claude: false,
   codex: false,
-  gemini: false
+  gemini: false,
+  grok: false,
 })
 
 function toggleApiKeyVisibility(provider: ApiKeyProvider) {
@@ -268,6 +319,7 @@ function resetApiKeyVisibility() {
   showApiKey.value.claude = false
   showApiKey.value.codex = false
   showApiKey.value.gemini = false
+  showApiKey.value.grok = false
 }
 
 function selectIcon(emoji: string) {
@@ -278,12 +330,22 @@ const providers: { value: Provider; label: string; icon: Component }[] = [
   { value: 'claude', label: 'Claude', icon: Bot },
   { value: 'codex', label: 'Codex', icon: Terminal },
   { value: 'gemini', label: 'Gemini', icon: Gem },
-  { value: 'openclaw', label: 'OpenClaw', icon: Boxes }
+  { value: 'openclaw', label: 'OpenClaw', icon: Boxes },
+  { value: 'grok', label: 'Grok', icon: Sparkles },
+]
+const grokBackends = [
+  { value: 'responses', label: 'Responses' },
+  { value: 'chat_completions', label: 'Chat' },
+  { value: 'messages', label: 'Messages' },
 ]
 const nodeManagerOptions = ['pnpm', 'npm', 'yarn', 'bun']
 
+function providerIcon(value: string) {
+  return providers.find(p => p.value === value)?.icon || Bot
+}
+
 function onProvider(value: unknown) {
-  if (value === 'claude' || value === 'codex' || value === 'gemini' || value === 'openclaw') {
+  if (value === 'claude' || value === 'codex' || value === 'gemini' || value === 'openclaw' || value === 'grok') {
     form.value.provider = value
   }
 }
@@ -362,6 +424,14 @@ GEMINI_MODEL={{GEMINI_MODEL}}`,
     homeDir: '',
     stateDir: '',
     configTemplate: ''
+  },
+  grok: {
+    baseUrl: 'https://api.x.ai/v1',
+    apiKey: '',
+    model: 'grok-4.6',
+    apiBackend: 'responses',
+    homeDir: '',
+    configTemplate: '',
   }
 })
 
@@ -413,6 +483,13 @@ watch(() => props.editConfig, (config) => {
         config.templates?.['openclaw.json'] ||
         config.templates?.['openclaw.json5'] ||
         ''
+    } else if (config.provider === 'grok') {
+      form.value.grok.baseUrl = config.variables.XAI_BASE_URL || 'https://api.x.ai/v1'
+      form.value.grok.apiKey = config.variables.XAI_API_KEY || ''
+      form.value.grok.model = config.variables.XAI_MODEL || 'grok-4.6'
+      form.value.grok.apiBackend = config.variables.XAI_API_BACKEND || 'responses'
+      form.value.grok.homeDir = config.variables.GROK_HOME || ''
+      form.value.grok.configTemplate = config.templates?.['config.toml'] || ''
     }
   } else {
     form.value = defaultForm()
@@ -515,6 +592,17 @@ async function handleSubmit() {
     }
     if (form.value.openclaw.configTemplate) {
       templates['openclaw.json'] = form.value.openclaw.configTemplate
+    }
+  } else if (form.value.provider === 'grok') {
+    variables = {
+      XAI_BASE_URL: form.value.grok.baseUrl || 'https://api.x.ai/v1',
+      XAI_API_KEY: form.value.grok.apiKey,
+      XAI_MODEL: form.value.grok.model || 'grok-4.6',
+      XAI_API_BACKEND: form.value.grok.apiBackend || 'responses',
+      GROK_HOME: form.value.grok.homeDir,
+    }
+    if (form.value.grok.configTemplate) {
+      templates['config.toml'] = form.value.grok.configTemplate
     }
   }
 

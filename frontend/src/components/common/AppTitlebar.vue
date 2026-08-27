@@ -70,6 +70,7 @@
           <DropdownMenuItem @click="$emit('clearCodex')">清除 Codex</DropdownMenuItem>
           <DropdownMenuItem @click="$emit('clearGemini')">清除 Gemini</DropdownMenuItem>
           <DropdownMenuItem @click="$emit('clearOpenclaw')">清除 OpenClaw</DropdownMenuItem>
+          <DropdownMenuItem @click="$emit('clearGrok')">清除 Grok</DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem variant="destructive" @click="$emit('clearAll')">清除全部</DropdownMenuItem>
           <DropdownMenuSeparator />
@@ -136,6 +137,7 @@ defineEmits<{
   clearCodex: []
   clearGemini: []
   clearOpenclaw: []
+  clearGrok: []
   clearAll: []
 }>()
 

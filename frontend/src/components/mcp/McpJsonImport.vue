@@ -35,6 +35,15 @@
             Gemini
             <Check v-if="selectedPlatforms.gemini" />
           </ToggleGroupItem>
+          <ToggleGroupItem value="openclaw" class="flex-1">
+            OpenClaw
+            <Check v-if="selectedPlatforms.openclaw" />
+          </ToggleGroupItem>
+          <ToggleGroupItem value="grok" class="flex-1">
+            <Sparkles />
+            Grok
+            <Check v-if="selectedPlatforms.grok" />
+          </ToggleGroupItem>
         </ToggleGroup>
       </div>
 
@@ -66,7 +75,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { Bot, Check, Gem, Loader2, Terminal } from '@lucide/vue'
+import { Bot, Check, Gem, Loader2, Sparkles, Terminal } from '@lucide/vue'
 import { useMcpStore } from '@/stores/mcpStore'
 import { useToast } from '@/composables/useToast'
 import AppModal from '@/components/common/AppModal.vue'
@@ -99,11 +108,13 @@ const isImporting = ref(false)
 const selectedPlatforms = ref({
   claude: true,
   codex: false,
-  gemini: false
+  gemini: false,
+  openclaw: false,
+  grok: false,
 })
 
 const hasSelectedPlatform = computed(() => {
-  return selectedPlatforms.value.claude || selectedPlatforms.value.codex || selectedPlatforms.value.gemini
+  return selectedPlatforms.value.claude || selectedPlatforms.value.codex || selectedPlatforms.value.gemini || selectedPlatforms.value.openclaw || selectedPlatforms.value.grok
 })
 
 const selectedPlatformKeys = computed(() => {
@@ -111,6 +122,8 @@ const selectedPlatformKeys = computed(() => {
   if (selectedPlatforms.value.claude) keys.push('claude')
   if (selectedPlatforms.value.codex) keys.push('codex')
   if (selectedPlatforms.value.gemini) keys.push('gemini')
+  if (selectedPlatforms.value.openclaw) keys.push('openclaw')
+  if (selectedPlatforms.value.grok) keys.push('grok')
   return keys
 })
 
@@ -120,13 +133,15 @@ function onPlatforms(value: unknown) {
     claude: keys.includes('claude'),
     codex: keys.includes('codex'),
     gemini: keys.includes('gemini'),
+    openclaw: keys.includes('openclaw'),
+    grok: keys.includes('grok'),
   }
 }
 
 watch(isOpen, (open) => {
   if (!open) {
     jsonInput.value = ''
-    selectedPlatforms.value = { claude: true, codex: false, gemini: false }
+    selectedPlatforms.value = { claude: true, codex: false, gemini: false, openclaw: false, grok: false }
   }
 })
 
@@ -153,6 +168,8 @@ async function handleImport() {
     if (selectedPlatforms.value.claude) platforms.push('claude-code')
     if (selectedPlatforms.value.codex) platforms.push('codex')
     if (selectedPlatforms.value.gemini) platforms.push('gemini')
+    if (selectedPlatforms.value.openclaw) platforms.push('openclaw')
+    if (selectedPlatforms.value.grok) platforms.push('grok')
 
     servers.forEach(server => {
       server.enable_platform = platforms

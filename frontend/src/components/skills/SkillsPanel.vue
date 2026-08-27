@@ -118,6 +118,12 @@
                       {{ skill.enabled_in_openclaw ? '已安装' : '未安装' }}
                     </span>
                   </Badge>
+                  <Badge variant="outline">
+                    Grok:
+                    <span :class="skill.enabled_in_grok ? 'text-green-600' : 'text-muted-foreground'">
+                      {{ skill.enabled_in_grok ? '已安装' : '未安装' }}
+                    </span>
+                  </Badge>
                 </div>
               </div>
               <div class="flex shrink-0 items-center gap-2">
@@ -159,7 +165,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { useConfigStore } from '@/stores/configStore'
 import { toolToPlatform } from '@/lib/workspace'
 
-type PlatformFilter = 'all' | 'claude-code' | 'codex' | 'gemini' | 'openclaw'
+type PlatformFilter = 'all' | 'claude-code' | 'codex' | 'gemini' | 'openclaw' | 'grok'
 
 interface Props {
   modelValue: boolean
@@ -227,6 +233,7 @@ function importPreset(preset: SkillPreset) {
     enabled_in_codex: false,
     enabled_in_gemini: false,
     enabled_in_openclaw: false,
+    enabled_in_grok: false,
     frontmatter_name: preset.name,
     description: preset.description,
     has_frontmatter: true,

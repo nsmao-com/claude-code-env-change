@@ -93,7 +93,7 @@ defineEmits<{
 const uptimeStore = useUptimeStore()
 
 const providerLabel = computed(() => {
-  const labels: Record<string, string> = { claude: 'Claude', codex: 'Codex', gemini: 'Gemini', openclaw: 'OpenClaw' }
+  const labels: Record<string, string> = { claude: 'Claude', codex: 'Codex', gemini: 'Gemini', openclaw: 'OpenClaw', grok: 'Grok' }
   return labels[(props.config.provider || 'claude').toLowerCase()] || props.config.provider
 })
 
@@ -104,6 +104,7 @@ const modelValue = computed(() => {
   if (provider === 'codex') return vars.model || ''
   if (provider === 'gemini') return vars.GEMINI_MODEL || ''
   if (provider === 'openclaw') return vars.OPENCLAW_PRIMARY_MODEL || ''
+  if (provider === 'grok') return vars.XAI_MODEL || ''
   return ''
 })
 
@@ -114,6 +115,7 @@ const baseUrlValue = computed(() => {
   if (provider === 'codex') return vars.base_url || ''
   if (provider === 'gemini') return vars.GOOGLE_GEMINI_BASE_URL || ''
   if (provider === 'openclaw') return vars.OPENCLAW_GATEWAY_BASE_URL || ''
+  if (provider === 'grok') return vars.XAI_BASE_URL || ''
   return ''
 })
 

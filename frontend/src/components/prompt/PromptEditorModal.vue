@@ -3,16 +3,19 @@
     <template #header>
       <div>
         <h1 class="text-[2.5rem] leading-none font-semibold tracking-tight">提示词</h1>
-        <p class="mt-2 text-sm text-muted-foreground">编辑 Claude/Codex/Gemini 的自定义提示词</p>
+        <p class="mt-2 text-sm text-muted-foreground">编辑 Claude / Codex / Gemini / Grok 的自定义提示词</p>
       </div>
     </template>
 
     <Tabs v-model="activeTab">
-      <TabsList v-if="configStore.currentFilter === 'all'">
-        <TabsTrigger v-for="tab in tabs" :key="tab.value" :value="tab.value">
-          {{ tab.label }}
-        </TabsTrigger>
-      </TabsList>
+      <SegmentedPills
+        v-if="configStore.currentFilter === 'all'"
+        class="mb-3"
+        :model-value="activeTab"
+        layout-id="prompt-tab-pill"
+        :items="tabs"
+        @update:model-value="activeTab = $event"
+      />
 
       <div v-if="isLoading" class="flex items-center justify-center py-16">
         <Loader2 class="size-8 animate-spin text-muted-foreground" />
@@ -80,7 +83,8 @@ import AppModal from '@/components/common/AppModal.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tabs, TabsContent } from '@/components/ui/tabs'
+import SegmentedPills from '@/components/layout/SegmentedPills.vue'
 import { Textarea } from '@/components/ui/textarea'
 
 interface PromptFile {
@@ -115,7 +119,8 @@ const isOpen = computed({
 const tabs = [
   { value: 'claude', label: 'CLAUDE' },
   { value: 'codex', label: 'CODEX' },
-  { value: 'gemini', label: 'GEMINI' }
+  { value: 'gemini', label: 'GEMINI' },
+  { value: 'grok', label: 'GROK' },
 ]
 
 const activeTab = ref('claude')
@@ -156,7 +161,13 @@ function getPlaceholder(provider?: string): string {
 ## Gemini 指令
 - 回复使用中文
 - 代码风格遵循 Google Style Guide
-- 简洁明了地回答问题`
+- 简洁明了地回答问题`,
+    grok: `# GROK.md 示例
+
+## Grok 指令
+- 回复使用中文
+- 改代码前先看现有结构
+- 不要引入无关依赖`
   }
   return placeholders[key] || ''
 }
@@ -224,7 +235,7 @@ watch(() => props.visible, (newVal) => {
 })
 
 watch(() => configStore.currentFilter, (tool) => {
-  if (tool === 'claude' || tool === 'codex' || tool === 'gemini') {
+  if (tool === 'claude' || tool === 'codex' || tool === 'gemini' || tool === 'grok') {
     activeTab.value = tool
   }
 }, { immediate: true })

@@ -8,10 +8,9 @@
       </template>
       <template #actions>
         <ToolFilterChips />
-        <span class="px-0.5 text-xs text-muted-foreground">对比</span>
         <div class="inline-flex h-9 items-center gap-2 rounded-full bg-card px-3 text-sm ring-1 ring-black/[0.06] dark:ring-white/10">
           <span class="size-2 rounded-full" :class="configuredCount ? 'bg-emerald-500' : 'bg-muted-foreground/40'" />
-          已应用 {{ configuredCount }}/4
+          已应用 {{ configuredCount }}/5
         </div>
         <Button class="h-9 rounded-full px-3.5" @click="$emit('add')">
           <Plus class="size-3.5" />
@@ -193,10 +192,11 @@ const configuredCount = computed(() => {
     configStore.currentEnvCodex,
     configStore.currentEnvGemini,
     configStore.currentEnvOpenclaw,
+    configStore.currentEnvGrok,
   ].filter(Boolean).length
 })
 
-const appliedRate = computed(() => Math.round((configuredCount.value / 4) * 100))
+const appliedRate = computed(() => Math.round((configuredCount.value / 5) * 100))
 
 const platformCols = computed(() => {
   const rows = [
@@ -204,6 +204,7 @@ const platformCols = computed(() => {
     { id: 'codex' as Provider, label: 'Codex', short: 'Codex', count: configStore.codexEnvs.length },
     { id: 'gemini' as Provider, label: 'Gemini', short: 'Gemini', count: configStore.geminiEnvs.length },
     { id: 'openclaw' as Provider, label: 'OpenClaw', short: 'Claw', count: configStore.openclawEnvs.length },
+    { id: 'grok' as Provider, label: 'Grok', short: 'Grok', count: configStore.grokEnvs.length },
   ]
   const max = Math.max(...rows.map(row => row.count), 1)
   const filter = configStore.currentFilter
@@ -219,7 +220,7 @@ const axisMid = computed(() => Math.round(axisMax.value / 2))
 
 const volumeRows = computed(() => {
   const max = Math.max(...platformCols.value.map(col => col.count), 1)
-  const colors = ['#22c55e', '#3b82f6', '#f472b6', '#94a3b8']
+  const colors = ['#22c55e', '#3b82f6', '#f472b6', '#94a3b8', '#f59e0b']
   return platformCols.value.map((col, i) => ({
     id: col.id,
     label: col.label,
@@ -272,17 +273,17 @@ const toolCount = computed(() => {
 
 const toolCountLabel = computed(() => {
   const tool = configStore.currentFilter
-  if (tool === 'all') return '4 个平台'
+  if (tool === 'all') return '5 个平台'
   return toolLabel(tool)
 })
 
 const insightCopy = computed(() => {
   if (totalCount.value === 0) return '还没有环境配置。先新建一条，再点应用写入对应 CLI。'
   if (configuredCount.value === 0) return '配置已经建好，但还没有应用到 CLI。打开下方列表，点应用即可写入。'
-  if (configuredCount.value < 4) {
+  if (configuredCount.value < 5) {
     return `已写入 ${configuredCount.value} 个平台。其余平台可在列表里一键应用，预计补齐后覆盖率到 100%。`
   }
-  return '四个平台都已写入 CLI。改配置后重新点应用，就会覆盖当前环境。'
+  return '五个平台都已写入 CLI。改配置后重新点应用，就会覆盖当前环境。'
 })
 
 function selectPlatform(id: Provider) {

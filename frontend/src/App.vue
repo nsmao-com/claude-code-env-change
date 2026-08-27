@@ -13,6 +13,7 @@
         @clear-codex="clearCodex"
         @clear-gemini="clearGemini"
         @clear-openclaw="clearOpenclaw"
+        @clear-grok="clearGrok"
         @clear-all="clearAll"
       />
       <div class="relative min-h-0 flex-1 overflow-hidden">
@@ -174,6 +175,7 @@ async function testConfigLatency(index: number) {
   else if (provider === 'codex') url = config.variables?.base_url || ''
   else if (provider === 'gemini') url = config.variables?.GOOGLE_GEMINI_BASE_URL || ''
   else if (provider === 'openclaw') url = config.variables?.OPENCLAW_GATEWAY_BASE_URL || ''
+  else if (provider === 'grok') url = config.variables?.XAI_BASE_URL || 'https://api.x.ai/v1'
   if (!url) {
     toast.error('Base URL 为空')
     return
@@ -255,6 +257,16 @@ async function clearOpenclaw() {
   try {
     await configStore.clearOpenclawSettings()
     toast.success('OpenClaw 配置已清除')
+  } catch (e: any) {
+    toast.error('操作失败: ' + e.message)
+  }
+}
+
+async function clearGrok() {
+  if (!(await confirm.show('清除 Grok 配置', '确定清除 Grok 写入的 API Key？MCP 配置会保留。', 'warning'))) return
+  try {
+    await configStore.clearGrokSettings()
+    toast.success('Grok API Key 已从 config.toml 清除')
   } catch (e: any) {
     toast.error('操作失败: ' + e.message)
   }

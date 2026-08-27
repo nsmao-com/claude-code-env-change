@@ -9,22 +9,19 @@
 
       <div class="grid gap-1.5">
         <Label>类型</Label>
-        <ToggleGroup
-          type="single"
+        <SegmentedPills
           :model-value="form.type"
-          variant="outline"
-          class="w-full"
+          layout-id="mcp-type-pill"
+          full
+          :items="[{ value: 'stdio', label: 'Stdio' }, { value: 'http', label: 'HTTP' }]"
           @update:model-value="onType"
         >
-          <ToggleGroupItem value="stdio" class="flex-1">
-            <Terminal />
-            Stdio
-          </ToggleGroupItem>
-          <ToggleGroupItem value="http" class="flex-1">
-            <Globe />
-            HTTP
-          </ToggleGroupItem>
-        </ToggleGroup>
+          <template #default="{ item }">
+            <Terminal v-if="item.value === 'stdio'" class="size-3.5" />
+            <Globe v-else class="size-3.5" />
+            {{ item.label }}
+          </template>
+        </SegmentedPills>
       </div>
 
       <div v-if="form.type === 'stdio'" class="space-y-4">
@@ -77,7 +74,7 @@
             type="multiple"
             :model-value="selectedPlatformKeys"
             variant="outline"
-            class="w-full"
+            class="flex w-full flex-wrap"
             @update:model-value="onPlatforms"
           >
             <ToggleGroupItem value="claude" class="flex-1">
@@ -94,6 +91,15 @@
               <Gem />
               Gemini
               <Check v-if="form.platforms.gemini" />
+            </ToggleGroupItem>
+            <ToggleGroupItem value="openclaw" class="flex-1">
+              OpenClaw
+              <Check v-if="form.platforms.openclaw" />
+            </ToggleGroupItem>
+            <ToggleGroupItem value="grok" class="flex-1">
+              <Sparkles />
+              Grok
+              <Check v-if="form.platforms.grok" />
             </ToggleGroupItem>
           </ToggleGroup>
         </div>
@@ -113,7 +119,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { Bot, Check, Gem, Globe, Terminal } from '@lucide/vue'
+import { Bot, Check, Gem, Globe, Sparkles, Terminal } from '@lucide/vue'
 import type { MCPServer } from '@/types'
 import { useMcpStore } from '@/stores/mcpStore'
 import { useToast } from '@/composables/useToast'
@@ -123,6 +129,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import SegmentedPills from '@/components/layout/SegmentedPills.vue'
 
 interface Props {
   modelValue: boolean
@@ -159,7 +166,9 @@ const defaultForm = () => ({
   platforms: {
     claude: true,
     codex: false,
-    gemini: false
+    gemini: false,
+    openclaw: false,
+    grok: false,
   }
 })
 
@@ -170,10 +179,12 @@ const selectedPlatformKeys = computed(() => {
   if (form.value.platforms.claude) keys.push('claude')
   if (form.value.platforms.codex) keys.push('codex')
   if (form.value.platforms.gemini) keys.push('gemini')
+  if (form.value.platforms.openclaw) keys.push('openclaw')
+  if (form.value.platforms.grok) keys.push('grok')
   return keys
 })
 
-function onType(value: unknown) {
+function onType(value: string) {
   if (value === 'stdio' || value === 'http') {
     form.value.type = value
   }
@@ -184,6 +195,8 @@ function onPlatforms(value: unknown) {
   form.value.platforms.claude = keys.includes('claude')
   form.value.platforms.codex = keys.includes('codex')
   form.value.platforms.gemini = keys.includes('gemini')
+  form.value.platforms.openclaw = keys.includes('openclaw')
+  form.value.platforms.grok = keys.includes('grok')
 }
 
 function fillFormFromServer(server: MCPServer) {
@@ -202,6 +215,8 @@ function fillFormFromServer(server: MCPServer) {
     form.value.platforms.claude = platforms.includes('claude-code')
     form.value.platforms.codex = platforms.includes('codex')
     form.value.platforms.gemini = platforms.includes('gemini')
+    form.value.platforms.openclaw = platforms.includes('openclaw')
+    form.value.platforms.grok = platforms.includes('grok')
   }
 }
 
@@ -262,6 +277,8 @@ async function handleSubmit() {
   if (form.value.platforms.claude) enablePlatform.push('claude-code')
   if (form.value.platforms.codex) enablePlatform.push('codex')
   if (form.value.platforms.gemini) enablePlatform.push('gemini')
+  if (form.value.platforms.openclaw) enablePlatform.push('openclaw')
+  if (form.value.platforms.grok) enablePlatform.push('grok')
 
   const args = form.value.args.trim()
     ? form.value.args.split('\n').map(s => s.trim()).filter(s => s)

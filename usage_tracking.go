@@ -148,7 +148,7 @@ func normalizeProvider(provider string) string {
 		return "claude"
 	}
 	switch p {
-	case "claude", "codex", "gemini", "openclaw":
+	case "claude", "codex", "gemini", "openclaw", "grok":
 		return p
 	default:
 		return ""

@@ -14,10 +14,12 @@ import {
   ClearCodexSettings,
   ClearGeminiSettings,
   ClearOpenclawSettings,
+  ClearGrokSettings,
   GetClaudeSettings,
   GetCodexSettings,
   GetGeminiSettings,
   GetOpenclawSettings,
+  GetGrokSettings,
   ExportConfig,
   ImportConfig
 } from '../../wailsjs/go/main/App'
@@ -33,7 +35,8 @@ export const configService = {
     return {
       ...raw,
       environments,
-      current_env_openclaw: raw.current_env_openclaw || ''
+      current_env_openclaw: raw.current_env_openclaw || '',
+      current_env_grok: raw.current_env_grok || '',
     }
   },
 
@@ -89,6 +92,10 @@ export const configService = {
     return ClearOpenclawSettings()
   },
 
+  async clearGrokSettings(): Promise<void> {
+    return ClearGrokSettings()
+  },
+
   async getClaudeSettings(): Promise<Record<string, string>> {
     return GetClaudeSettings()
   },
@@ -103,6 +110,10 @@ export const configService = {
 
   async getOpenclawSettings(): Promise<Record<string, string>> {
     return GetOpenclawSettings()
+  },
+
+  async getGrokSettings(): Promise<Record<string, string>> {
+    return GetGrokSettings()
   },
 
   async exportConfig(defaultName: string): Promise<string> {
@@ -124,6 +135,8 @@ function normalizeProvider(provider: string | undefined): Provider {
       return 'gemini'
     case 'openclaw':
       return 'openclaw'
+    case 'grok':
+      return 'grok'
     default:
       return 'claude'
   }

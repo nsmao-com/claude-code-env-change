@@ -13,6 +13,7 @@ export const useSkillStore = defineStore('skills', () => {
   const codexCount = computed(() => skills.value.filter(s => s.enable_platform?.includes('codex')).length)
   const geminiCount = computed(() => skills.value.filter(s => s.enable_platform?.includes('gemini')).length)
   const openclawCount = computed(() => skills.value.filter(s => s.enable_platform?.includes('openclaw')).length)
+  const grokCount = computed(() => skills.value.filter(s => s.enable_platform?.includes('grok')).length)
 
   async function loadSkills() {
     isLoading.value = true
@@ -41,6 +42,7 @@ export const useSkillStore = defineStore('skills', () => {
     codexCount,
     geminiCount,
     openclawCount,
+    grokCount,
     loadSkills,
     saveSkill,
     deleteSkill

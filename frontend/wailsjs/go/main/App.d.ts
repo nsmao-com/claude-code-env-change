@@ -17,6 +17,8 @@ export function ClearCodexSettings():Promise<void>;
 
 export function ClearGeminiSettings():Promise<void>;
 
+export function ClearGrokSettings():Promise<void>;
+
 export function ClearOpenclawSettings():Promise<void>;
 
 export function DeleteEnv(arg1:string):Promise<void>;
@@ -38,6 +40,8 @@ export function GetConfig():Promise<main.Config>;
 export function GetEnvVar(arg1:string):Promise<string>;
 
 export function GetGeminiSettings():Promise<Record<string, string>>;
+
+export function GetGrokSettings():Promise<Record<string, string>>;
 
 export function GetOpenclawSettings():Promise<Record<string, string>>;
 

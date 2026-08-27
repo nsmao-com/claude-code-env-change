@@ -6,14 +6,18 @@
           <Search class="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input id="config-search" v-model="searchQuery" class="w-[240px] rounded-full bg-muted/70 pl-8" placeholder="搜索名称、描述" />
         </div>
-        <ToggleGroup type="single" variant="pill" :spacing="1" :model-value="viewMode" size="sm" class="rounded-full bg-muted p-1" @update:model-value="onView">
-          <ToggleGroupItem value="list" aria-label="列表">
-            <List class="size-3.5" />
-          </ToggleGroupItem>
-          <ToggleGroupItem value="cards" aria-label="卡片">
-            <LayoutGrid class="size-3.5" />
-          </ToggleGroupItem>
-        </ToggleGroup>
+        <SegmentedPills
+          :model-value="viewMode"
+          layout-id="env-view-pill"
+          dense
+          :items="[{ value: 'list', label: '列表' }, { value: 'cards', label: '卡片' }]"
+          @update:model-value="onView"
+        >
+          <template #default="{ item }">
+            <List v-if="item.value === 'list'" class="size-3.5" />
+            <LayoutGrid v-else class="size-3.5" />
+          </template>
+        </SegmentedPills>
       </div>
 
       <motion.div
@@ -26,7 +30,7 @@
         <Empty class="min-h-0 items-start border-0 p-0 text-left">
           <EmptyHeader class="items-start text-left">
             <EmptyTitle>还没有环境</EmptyTitle>
-            <EmptyDescription>为 Claude、Codex、Gemini 或 OpenClaw 建一条配置，点应用后会写入对应 CLI。</EmptyDescription>
+            <EmptyDescription>为 Claude、Codex、Gemini、OpenClaw 或 Grok 建一条配置，点应用后会写入对应 CLI。</EmptyDescription>
           </EmptyHeader>
           <EmptyContent class="items-start">
             <Button @click="$emit('add')">新建配置</Button>
@@ -110,7 +114,7 @@ import ConfigListItem from './ConfigListItem.vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import SegmentedPills from '@/components/layout/SegmentedPills.vue'
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty'
 
 interface Props {
@@ -145,6 +149,7 @@ const filterLabel = computed(() => {
   if (currentFilter.value === 'claude') return 'Claude'
   if (currentFilter.value === 'codex') return 'Codex'
   if (currentFilter.value === 'gemini') return 'Gemini'
+  if (currentFilter.value === 'grok') return 'Grok'
   return 'OpenClaw'
 })
 
@@ -163,7 +168,7 @@ const displayMode = computed<ViewMode>(() => {
   return filteredConfigs.value.length >= 8 ? 'list' : viewMode.value
 })
 
-function onView(value: unknown) {
+function onView(value: string) {
   if (value !== 'list' && value !== 'cards') return
   userPickedView.value = true
   viewMode.value = value

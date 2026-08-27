@@ -27,6 +27,7 @@
             <ToggleGroupItem value="codex">Codex</ToggleGroupItem>
             <ToggleGroupItem value="gemini">Gemini</ToggleGroupItem>
             <ToggleGroupItem value="openclaw">OpenClaw</ToggleGroupItem>
+            <ToggleGroupItem value="grok">Grok</ToggleGroupItem>
           </ToggleGroup>
         </div>
       </div>
@@ -51,7 +52,8 @@
         <span class="font-mono">~/.claude/skills/&lt;name&gt;/SKILL.md</span> /
         <span class="font-mono">~/.codex/skills/&lt;name&gt;/SKILL.md</span> /
         <span class="font-mono">~/.gemini/skills/&lt;name&gt;/SKILL.md</span> /
-        <span class="font-mono">~/.openclaw/skills/&lt;name&gt;/SKILL.md</span>
+        <span class="font-mono">~/.openclaw/skills/&lt;name&gt;/SKILL.md</span> /
+        <span class="font-mono">~/.grok/skills/&lt;name&gt;/SKILL.md</span>
       </div>
     </form>
 
@@ -188,6 +190,7 @@ async function handleSubmit() {
     enabled_in_codex: false,
     enabled_in_gemini: false,
     enabled_in_openclaw: false,
+    enabled_in_grok: false,
     frontmatter_name: '',
     description: '',
     has_frontmatter: false,

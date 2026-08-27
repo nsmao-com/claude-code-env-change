@@ -8,7 +8,7 @@
           <ToggleGroup
             type="single"
             variant="outline"
-            class="grid w-full grid-cols-2 sm:grid-cols-4"
+            class="grid w-full grid-cols-3 sm:grid-cols-5"
             :model-value="form.provider"
             @update:model-value="onProvider"
           >
@@ -151,7 +151,8 @@ const providers = [
   { value: 'claude' as Provider, label: 'Claude' },
   { value: 'codex' as Provider, label: 'Codex' },
   { value: 'gemini' as Provider, label: 'Gemini' },
-  { value: 'openclaw' as Provider, label: 'OpenClaw' }
+  { value: 'openclaw' as Provider, label: 'OpenClaw' },
+  { value: 'grok' as Provider, label: 'Grok' },
 ]
 
 function defaultForm(): RotationGroup {
@@ -198,7 +199,7 @@ function envDesc(name: string): string {
 }
 
 function onProvider(value: unknown) {
-  if (value === 'claude' || value === 'codex' || value === 'gemini' || value === 'openclaw') {
+  if (value === 'claude' || value === 'codex' || value === 'gemini' || value === 'openclaw' || value === 'grok') {
     switchProvider(value)
   }
 }

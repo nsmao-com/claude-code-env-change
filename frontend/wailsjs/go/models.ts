@@ -142,6 +142,7 @@ export namespace main {
 	    current_env_codex: string;
 	    current_env_gemini: string;
 	    current_env_openclaw: string;
+	    current_env_grok: string;
 	    environments: EnvConfig[];
 	
 	    static createFrom(source: any = {}) {
@@ -155,6 +156,7 @@ export namespace main {
 	        this.current_env_codex = source["current_env_codex"];
 	        this.current_env_gemini = source["current_env_gemini"];
 	        this.current_env_openclaw = source["current_env_openclaw"];
+	        this.current_env_grok = source["current_env_grok"];
 	        this.environments = this.convertValues(source["environments"], EnvConfig);
 	    }
 	
@@ -511,6 +513,7 @@ export namespace main {
 	    enabled_in_codex: boolean;
 	    enabled_in_gemini: boolean;
 	    enabled_in_openclaw: boolean;
+	    enabled_in_grok: boolean;
 	    frontmatter_name: string;
 	    description: string;
 	    has_frontmatter: boolean;
@@ -531,6 +534,7 @@ export namespace main {
 	        this.enabled_in_codex = source["enabled_in_codex"];
 	        this.enabled_in_gemini = source["enabled_in_gemini"];
 	        this.enabled_in_openclaw = source["enabled_in_openclaw"];
+	        this.enabled_in_grok = source["enabled_in_grok"];
 	        this.frontmatter_name = source["frontmatter_name"];
 	        this.description = source["description"];
 	        this.has_frontmatter = source["has_frontmatter"];

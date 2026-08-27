@@ -31,6 +31,9 @@ const (
 	platCodex        = "codex"
 	platGemini       = "gemini"
 	platOpenclaw     = "openclaw"
+	platGrok         = "grok"
+	grokDirName      = ".grok"
+	grokTomlName     = "config.toml"
 )
 
 var placeholderPattern = regexp.MustCompile(`\{([a-zA-Z0-9_]+)\}`)
@@ -216,6 +219,9 @@ func (ms *MCPService) SaveServers(servers []MCPServer) error {
 	}
 
 	if err := ms.syncGeminiServers(normalized); err != nil {
+		return err
+	}
+	if err := ms.syncGrokServers(normalized); err != nil {
 		return err
 	}
 
@@ -697,6 +703,7 @@ func (ms *MCPService) cleanupDeletedServers(payload map[string]rawMCPServer) boo
 	claudeServers := ms.getCurrentClaudeServers()
 	codexServers := ms.getCurrentCodexServers()
 	geminiServers := ms.getCurrentGeminiServers()
+	grokServers := ms.getCurrentGrokServers()
 
 	changed := false
 	for name, entry := range payload {
@@ -720,6 +727,10 @@ func (ms *MCPService) cleanupDeletedServers(payload map[string]rawMCPServer) boo
 			case platOpenclaw:
 				// OpenClaw 暂无官方 mcpServers 配置面，避免误删本地记录
 				shouldDelete = false
+			case platGrok:
+				if _, exists := grokServers[strings.ToLower(strings.TrimSpace(name))]; exists {
+					shouldDelete = false
+				}
 			}
 		}
 
@@ -832,6 +843,8 @@ func normalizePlatform(value string) (string, bool) {
 		return "gemini", true
 	case "openclaw":
 		return "openclaw", true
+	case "grok":
+		return "grok", true
 	default:
 		return "", false
 	}
@@ -1048,6 +1061,71 @@ func geminiConfigPath() (string, error) {
 		return "", err
 	}
 	return filepath.Join(dir, geminiConfigFile), nil
+}
+
+func grokMcpConfigPath() (string, error) {
+	dir := resolveGrokHome(nil)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, grokTomlName), nil
+}
+
+func (ms *MCPService) syncGrokServers(servers []MCPServer) error {
+	path, err := grokMcpConfigPath()
+	if err != nil {
+		return err
+	}
+
+	desired := make(map[string]map[string]any)
+	for _, server := range servers {
+		if !platformContains(server.EnablePlatform, platGrok) {
+			continue
+		}
+		desired[server.Name] = buildGrokMcpEntry(server)
+	}
+
+	payload := make(map[string]any)
+	if data, err := os.ReadFile(path); err == nil && len(data) > 0 {
+		if err := toml.Unmarshal(data, &payload); err != nil {
+			return fmt.Errorf("解析 %s 失败，为保护原文件已中止同步: %v", path, err)
+		}
+	} else if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+
+	payload["mcp_servers"] = desired
+	data, err := toml.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0o644)
+}
+
+func (ms *MCPService) getCurrentGrokServers() map[string]struct{} {
+	result := map[string]struct{}{}
+	path, err := grokMcpConfigPath()
+	if err != nil {
+		return result
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return result
+	}
+	var payload codexMcpFilePayload
+	if err := toml.Unmarshal(data, &payload); err != nil {
+		return result
+	}
+	for name := range payload.Servers {
+		result[strings.ToLower(strings.TrimSpace(name))] = struct{}{}
+	}
+	return result
+}
+
+func buildGrokMcpEntry(server MCPServer) map[string]any {
+	entry := buildCodexEntry(server)
+	entry["enabled"] = true
+	return entry
 }
 
 func detectPlaceholders(url string, args []string) []string {
@@ -1329,6 +1407,9 @@ func (ms *MCPService) AddServers(newServers []MCPServer) error {
 	if err := ms.syncGeminiServers(servers); err != nil {
 		return err
 	}
+	if err := ms.syncGrokServers(servers); err != nil {
+		return err
+	}
 	notifyCloudSync()
 	return nil
 }
@@ -1352,6 +1433,9 @@ func (ms *MCPService) SyncToPlatforms() ([]MCPServer, error) {
 		return servers, err
 	}
 	if err := ms.syncGeminiServers(servers); err != nil {
+		return servers, err
+	}
+	if err := ms.syncGrokServers(servers); err != nil {
 		return servers, err
 	}
 	return servers, nil

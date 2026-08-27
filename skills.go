@@ -34,6 +34,7 @@ type Skill struct {
 	EnabledInCodex    bool     `json:"enabled_in_codex"`
 	EnabledInGemini   bool     `json:"enabled_in_gemini"`
 	EnabledInOpenclaw bool     `json:"enabled_in_openclaw"`
+	EnabledInGrok     bool     `json:"enabled_in_grok"`
 
 	// 仅用于展示（从 Content 解析）
 	FrontmatterName  string `json:"frontmatter_name"`
@@ -76,6 +77,7 @@ func (ss *SkillService) ListSkills() ([]Skill, error) {
 
 	skills := make([]Skill, 0, len(names))
 	openclawSkillsRoot := resolveOpenclawSkillsRoot()
+	grokRoot := grokSkillsRoot()
 	for _, name := range names {
 		entry := normalizeRawSkill(config[name])
 		content := entry.Content
@@ -89,6 +91,7 @@ func (ss *SkillService) ListSkills() ([]Skill, error) {
 			EnabledInCodex:    fileExists(filepath.Join(home, ".codex", "skills", name, "SKILL.md")),
 			EnabledInGemini:   fileExists(filepath.Join(home, ".gemini", "skills", name, "SKILL.md")),
 			EnabledInOpenclaw: openclawSkillsRoot != "" && fileExists(filepath.Join(openclawSkillsRoot, name, "SKILL.md")),
+			EnabledInGrok:     grokRoot != "" && fileExists(filepath.Join(grokRoot, name, "SKILL.md")),
 
 			FrontmatterName:  meta.Name,
 			Description:      meta.Description,
@@ -268,6 +271,12 @@ func (ss *SkillService) loadConfigWithImport() (map[string]rawSkill, bool, error
 			root     string
 		}{platform: platOpenclaw, root: openclawRoot})
 	}
+	if grokRoot := grokSkillsRoot(); grokRoot != "" {
+		imports = append(imports, struct {
+			platform string
+			root     string
+		}{platform: platGrok, root: grokRoot})
+	}
 
 	for _, item := range imports {
 		discovered := discoverSkillsFromRoot(item.root)
@@ -347,6 +356,12 @@ func (ss *SkillService) syncSkill(name string, entry rawSkill) error {
 			root     string
 		}{platform: platOpenclaw, root: openclawRoot})
 	}
+	if grokRoot := grokSkillsRoot(); grokRoot != "" {
+		roots = append(roots, struct {
+			platform string
+			root     string
+		}{platform: platGrok, root: grokRoot})
+	}
 
 	for _, item := range roots {
 		dir := filepath.Join(item.root, name)
@@ -390,6 +405,9 @@ func (ss *SkillService) removeSkillFromAllPlatforms(name string) error {
 	}
 	if openclawRoot := resolveOpenclawSkillsRoot(); openclawRoot != "" {
 		roots = append(roots, openclawRoot)
+	}
+	if grokRoot := grokSkillsRoot(); grokRoot != "" {
+		roots = append(roots, grokRoot)
 	}
 
 	for _, root := range roots {
