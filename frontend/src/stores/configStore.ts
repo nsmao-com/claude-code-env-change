@@ -9,7 +9,7 @@ export const useConfigStore = defineStore('config', () => {
   const currentEnvClaude = ref('')
   const currentEnvCodex = ref('')
   const currentEnvGemini = ref('')
-  const currentEnvOpenclaw = ref('')
+  const currentEnvOpencode = ref('')
   const currentEnvGrok = ref('')
   const currentFilter = ref<Provider | 'all'>('all')
   const currentEnvTab = ref<Provider>('claude') // 当前环境面板的tab
@@ -27,7 +27,7 @@ export const useConfigStore = defineStore('config', () => {
     claude: currentEnvClaude.value,
     codex: currentEnvCodex.value,
     gemini: currentEnvGemini.value,
-    openclaw: currentEnvOpenclaw.value,
+    opencode: currentEnvOpencode.value,
     grok: currentEnvGrok.value,
   }))
 
@@ -43,8 +43,8 @@ export const useConfigStore = defineStore('config', () => {
     environments.value.filter(env => env.provider === 'gemini')
   )
 
-  const openclawEnvs = computed(() =>
-    environments.value.filter(env => env.provider === 'openclaw')
+  const opencodeEnvs = computed(() =>
+    environments.value.filter(env => env.provider === 'opencode')
   )
 
   const grokEnvs = computed(() =>
@@ -60,7 +60,7 @@ export const useConfigStore = defineStore('config', () => {
       currentEnvClaude.value = config.current_env_claude || ''
       currentEnvCodex.value = config.current_env_codex || ''
       currentEnvGemini.value = config.current_env_gemini || ''
-      currentEnvOpenclaw.value = config.current_env_openclaw || ''
+      currentEnvOpencode.value = config.current_env_opencode || ''
       currentEnvGrok.value = config.current_env_grok || ''
     } finally {
       isLoading.value = false
@@ -118,8 +118,8 @@ export const useConfigStore = defineStore('config', () => {
     await loadConfig()
   }
 
-  async function clearOpenclawSettings() {
-    await configService.clearOpenclawSettings()
+  async function clearOpencodeSettings() {
+    await configService.clearOpencodeSettings()
     await loadConfig()
   }
 
@@ -146,8 +146,8 @@ export const useConfigStore = defineStore('config', () => {
         return configService.getCodexSettings()
       case 'gemini':
         return configService.getGeminiSettings()
-      case 'openclaw':
-        return configService.getOpenclawSettings()
+      case 'opencode':
+        return configService.getOpencodeSettings()
       case 'grok':
         return configService.getGrokSettings()
       default:
@@ -179,8 +179,8 @@ export const useConfigStore = defineStore('config', () => {
         return currentEnvCodex.value === name
       case 'gemini':
         return currentEnvGemini.value === name
-      case 'openclaw':
-        return currentEnvOpenclaw.value === name
+      case 'opencode':
+        return currentEnvOpencode.value === name
       case 'grok':
         return currentEnvGrok.value === name
       default:
@@ -194,7 +194,7 @@ export const useConfigStore = defineStore('config', () => {
     currentEnvClaude,
     currentEnvCodex,
     currentEnvGemini,
-    currentEnvOpenclaw,
+    currentEnvOpencode,
     currentEnvGrok,
     currentFilter,
     currentEnvTab,
@@ -206,7 +206,7 @@ export const useConfigStore = defineStore('config', () => {
     claudeEnvs,
     codexEnvs,
     geminiEnvs,
-    openclawEnvs,
+    opencodeEnvs,
     grokEnvs,
 
     // Actions
@@ -221,7 +221,7 @@ export const useConfigStore = defineStore('config', () => {
     clearClaudeSettings,
     clearCodexSettings,
     clearGeminiSettings,
-    clearOpenclawSettings,
+    clearOpencodeSettings,
     clearGrokSettings,
     exportConfig,
     importConfig,

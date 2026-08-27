@@ -34,6 +34,8 @@ func main() {
 		Title:  "Claude Code 环境管理器",
 		Width:  1200,
 		Height: 800,
+		MinWidth:  940,
+		MinHeight: 640,
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},

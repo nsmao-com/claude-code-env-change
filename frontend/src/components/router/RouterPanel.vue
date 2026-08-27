@@ -218,7 +218,6 @@ import {
   Plus,
   Power,
   RefreshCw,
-  Route,
   Square,
   Trash2,
   TriangleAlert,
@@ -289,8 +288,7 @@ watch(isOpen, async (open) => {
     }
     showEditModal.value = false
     showLogsModal.value = false
-  }
-})
+  }}, { immediate: true })
 
 onUnmounted(() => {
   if (pollTimer) {

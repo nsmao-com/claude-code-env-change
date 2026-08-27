@@ -33,7 +33,7 @@ type Skill struct {
 	EnabledInClaude   bool     `json:"enabled_in_claude"`
 	EnabledInCodex    bool     `json:"enabled_in_codex"`
 	EnabledInGemini   bool     `json:"enabled_in_gemini"`
-	EnabledInOpenclaw bool     `json:"enabled_in_openclaw"`
+	EnabledInOpencode bool     `json:"enabled_in_opencode"`
 	EnabledInGrok     bool     `json:"enabled_in_grok"`
 
 	// 仅用于展示（从 Content 解析）
@@ -76,7 +76,7 @@ func (ss *SkillService) ListSkills() ([]Skill, error) {
 	sort.Strings(names)
 
 	skills := make([]Skill, 0, len(names))
-	openclawSkillsRoot := resolveOpenclawSkillsRoot()
+	opencodeRoot := opencodeSkillsRoot()
 	grokRoot := grokSkillsRoot()
 	for _, name := range names {
 		entry := normalizeRawSkill(config[name])
@@ -90,7 +90,7 @@ func (ss *SkillService) ListSkills() ([]Skill, error) {
 			EnabledInClaude:   fileExists(filepath.Join(home, ".claude", "skills", name, "SKILL.md")),
 			EnabledInCodex:    fileExists(filepath.Join(home, ".codex", "skills", name, "SKILL.md")),
 			EnabledInGemini:   fileExists(filepath.Join(home, ".gemini", "skills", name, "SKILL.md")),
-			EnabledInOpenclaw: openclawSkillsRoot != "" && fileExists(filepath.Join(openclawSkillsRoot, name, "SKILL.md")),
+			EnabledInOpencode: opencodeRoot != "" && fileExists(filepath.Join(opencodeRoot, name, "SKILL.md")),
 			EnabledInGrok:     grokRoot != "" && fileExists(filepath.Join(grokRoot, name, "SKILL.md")),
 
 			FrontmatterName:  meta.Name,
@@ -265,11 +265,11 @@ func (ss *SkillService) loadConfigWithImport() (map[string]rawSkill, bool, error
 		{platform: platCodex, root: filepath.Join(home, ".codex", "skills")},
 		{platform: platGemini, root: filepath.Join(home, ".gemini", "skills")},
 	}
-	if openclawRoot := resolveOpenclawSkillsRoot(); openclawRoot != "" {
+	if opencodeRoot := opencodeSkillsRoot(); opencodeRoot != "" {
 		imports = append(imports, struct {
 			platform string
 			root     string
-		}{platform: platOpenclaw, root: openclawRoot})
+		}{platform: platOpencode, root: opencodeRoot})
 	}
 	if grokRoot := grokSkillsRoot(); grokRoot != "" {
 		imports = append(imports, struct {
@@ -314,15 +314,19 @@ func discoverSkillsFromRoot(root string) map[string]string {
 		return result
 	}
 	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
 		name := strings.TrimSpace(entry.Name())
 		if name == "" {
 			continue
 		}
 		if strings.HasPrefix(name, ".") {
 			continue
+		}
+		if !entry.IsDir() {
+			// 技能目录常以符号链接管理（如指向 ~/.agents/skills），跟随链接判断
+			info, err := os.Stat(filepath.Join(root, name))
+			if err != nil || !info.IsDir() {
+				continue
+			}
 		}
 		skillPath := filepath.Join(root, name, "SKILL.md")
 		data, err := os.ReadFile(skillPath)
@@ -350,11 +354,11 @@ func (ss *SkillService) syncSkill(name string, entry rawSkill) error {
 		{platform: platCodex, root: filepath.Join(home, ".codex", "skills")},
 		{platform: platGemini, root: filepath.Join(home, ".gemini", "skills")},
 	}
-	if openclawRoot := resolveOpenclawSkillsRoot(); openclawRoot != "" {
+	if opencodeRoot := opencodeSkillsRoot(); opencodeRoot != "" {
 		roots = append(roots, struct {
 			platform string
 			root     string
-		}{platform: platOpenclaw, root: openclawRoot})
+		}{platform: platOpencode, root: opencodeRoot})
 	}
 	if grokRoot := grokSkillsRoot(); grokRoot != "" {
 		roots = append(roots, struct {
@@ -403,8 +407,8 @@ func (ss *SkillService) removeSkillFromAllPlatforms(name string) error {
 		filepath.Join(home, ".codex", "skills"),
 		filepath.Join(home, ".gemini", "skills"),
 	}
-	if openclawRoot := resolveOpenclawSkillsRoot(); openclawRoot != "" {
-		roots = append(roots, openclawRoot)
+	if opencodeRoot := opencodeSkillsRoot(); opencodeRoot != "" {
+		roots = append(roots, opencodeRoot)
 	}
 	if grokRoot := grokSkillsRoot(); grokRoot != "" {
 		roots = append(roots, grokRoot)
@@ -465,15 +469,6 @@ func ensureGeminiSkillsEnabled() error {
 func fileExists(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil
-}
-
-func resolveOpenclawSkillsRoot() string {
-	_, stateDir, _ := resolveOpenclawPaths(nil)
-	stateDir = strings.TrimSpace(stateDir)
-	if stateDir == "" {
-		return ""
-	}
-	return filepath.Join(stateDir, "skills")
 }
 
 type skillFrontmatter struct {

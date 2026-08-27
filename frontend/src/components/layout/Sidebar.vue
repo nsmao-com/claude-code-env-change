@@ -25,7 +25,10 @@
       <div v-if="!hasAnyConfig && !isTesting" class="px-1 text-xs text-muted-foreground">未检测</div>
       <div v-else class="space-y-1 px-1">
         <div v-for="item in latencyItems" :key="item.provider" class="flex items-center justify-between text-xs">
-          <span>{{ item.name }}</span>
+          <span class="flex items-center gap-1.5">
+            <BrandIcon :provider="item.provider" class="size-3 text-muted-foreground" />
+            {{ item.name }}
+          </span>
           <span class="font-mono text-muted-foreground">{{ item.loading ? '…' : item.display }}</span>
         </div>
       </div>
@@ -51,6 +54,7 @@ import type { AppPage } from '@/types'
 import { useConfigStore } from '@/stores/configStore'
 import { configService } from '@/services/configService'
 import { updateService } from '@/services/updateService'
+import BrandIcon from '@/components/common/BrandIcon.vue'
 import { Button } from '@/components/ui/button'
 import {
   Sidebar as UiSidebar,
@@ -137,8 +141,8 @@ async function testAllLatency() {
     if (s?.['GOOGLE_GEMINI_BASE_URL']) configs.push({ provider: 'gemini', name: 'Gemini', url: s['GOOGLE_GEMINI_BASE_URL'] })
   } catch { /* ignore */ }
   try {
-    const s = await configService.getOpenclawSettings()
-    if (s?.['OPENCLAW_GATEWAY_BASE_URL']) configs.push({ provider: 'openclaw', name: 'OpenClaw', url: s['OPENCLAW_GATEWAY_BASE_URL'] })
+    const s = await configService.getOpencodeSettings()
+    if (s?.['OPENCODE_BASE_URL']) configs.push({ provider: 'opencode', name: 'OpenCode', url: s['OPENCODE_BASE_URL'] })
   } catch { /* ignore */ }
 
   if (configs.length === 0) {

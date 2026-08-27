@@ -34,8 +34,8 @@ export function ClearGrokSettings() {
   return window['go']['main']['App']['ClearGrokSettings']();
 }
 
-export function ClearOpenclawSettings() {
-  return window['go']['main']['App']['ClearOpenclawSettings']();
+export function ClearOpencodeSettings() {
+  return window['go']['main']['App']['ClearOpencodeSettings']();
 }
 
 export function DeleteEnv(arg1) {
@@ -82,8 +82,8 @@ export function GetGrokSettings() {
   return window['go']['main']['App']['GetGrokSettings']();
 }
 
-export function GetOpenclawSettings() {
-  return window['go']['main']['App']['GetOpenclawSettings']();
+export function GetOpencodeSettings() {
+  return window['go']['main']['App']['GetOpencodeSettings']();
 }
 
 export function GetPromptFile(arg1) {

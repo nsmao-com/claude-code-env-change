@@ -1,4 +1,6 @@
 // 环境配置类型
+export type UpstreamFormat = '' | 'chat_completions' | 'anthropic_messages' | 'responses'
+
 export interface EnvConfig {
   name: string
   description: string
@@ -6,6 +8,8 @@ export interface EnvConfig {
   provider: Provider
   templates?: Record<string, string>
   icon?: string
+  /** 上游 API 格式：空 = 原生直连；其余值需本地路由做协议转换 */
+  upstream_format?: UpstreamFormat
   // Claude Code 特有配置 (值为 "0" 或 "1"，空字符串表示不设置)
   attribution_header: string
   disable_nonessential_traffic: string
@@ -17,7 +21,7 @@ export interface Config {
   current_env_claude: string
   current_env_codex: string
   current_env_gemini: string
-  current_env_openclaw: string
+  current_env_opencode: string
   current_env_grok: string
   environments: EnvConfig[]
 }
@@ -54,7 +58,7 @@ export interface Skill {
   enabled_in_claude: boolean
   enabled_in_codex: boolean
   enabled_in_gemini: boolean
-  enabled_in_openclaw: boolean
+  enabled_in_opencode: boolean
   enabled_in_grok: boolean
   frontmatter_name: string
   description: string
@@ -205,7 +209,7 @@ export interface UptimeSnapshot {
 }
 
 // Provider 类型
-export type Provider = 'claude' | 'codex' | 'gemini' | 'openclaw' | 'grok'
+export type Provider = 'claude' | 'codex' | 'gemini' | 'opencode' | 'grok'
 
 export type AppPage = 'env' | 'mcp' | 'skills' | 'router' | 'uptime' | 'cloud' | 'prompts' | 'stats'
 

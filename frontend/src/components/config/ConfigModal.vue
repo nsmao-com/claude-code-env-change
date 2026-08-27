@@ -28,7 +28,7 @@
         @update:model-value="onProvider"
       >
         <template #default="{ item }">
-          <component :is="providerIcon(item.value)" class="size-3.5" />
+          <BrandIcon :provider="item.value" class="size-3.5" />
           {{ item.label }}
         </template>
       </SegmentedPills>
@@ -41,6 +41,22 @@
             </Button>
           </template>
         </AppInput>
+        <div class="grid gap-1.5">
+          <Label>上游格式</Label>
+          <Select v-model="upstreamSelect">
+            <SelectTrigger class="w-full">
+              <SelectValue placeholder="选择上游 API 格式" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem v-for="opt in upstreamOptions" :key="opt.value" :value="opt.value">
+                {{ opt.label }}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+          <p v-if="form.upstreamFormat" class="text-xs leading-relaxed text-muted-foreground">
+            应用时由本地路由做协议转换，Claude Code 会指向本机网关；真实上游仍用上面的地址与密钥，需保持路由运行。
+          </p>
+        </div>
         <AppInput v-model="form.claude.authToken" label="Auth Token" placeholder="可选" />
         <AppInput v-model="form.claude.model" label="Model" placeholder="claude-sonnet-4-20250514" />
         <AppInput
@@ -92,6 +108,22 @@
             </Button>
           </template>
         </AppInput>
+        <div class="grid gap-1.5">
+          <Label>上游格式</Label>
+          <Select v-model="upstreamSelect">
+            <SelectTrigger class="w-full">
+              <SelectValue placeholder="选择上游 API 格式" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem v-for="opt in upstreamOptions" :key="opt.value" :value="opt.value">
+                {{ opt.label }}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+          <p v-if="form.upstreamFormat" class="text-xs leading-relaxed text-muted-foreground">
+            应用时由本地路由把 Responses 请求转成上游格式，Codex 会指向本机网关（wire_api 保持 responses）；真实上游仍用上面的地址与密钥。
+          </p>
+        </div>
         <AppInput
           v-model="form.codex.apiKey"
           label="API Key"
@@ -148,64 +180,43 @@
         </div>
       </div>
 
-      <div v-if="form.provider === 'openclaw'" class="space-y-4">
+      <div v-if="form.provider === 'opencode'" class="space-y-4">
         <div class="rounded-lg border bg-muted/40 p-3">
           <p class="text-xs leading-relaxed text-muted-foreground">
-            OpenClaw 配置默认写入
-            <span class="font-mono">~/.openclaw/openclaw.json</span>，
-            并支持 <span class="font-mono">OPENCLAW_HOME / OPENCLAW_STATE_DIR / OPENCLAW_CONFIG_PATH</span> 覆盖路径。
+            OpenCode 配置默认写入
+            <span class="font-mono">~/.config/opencode/opencode.json</span>，
+            并支持 <span class="font-mono">OPENCODE_CONFIG_DIR / OPENCODE_CONFIG</span> 覆盖路径。
+            填了 Base URL 时会以 OpenAI 兼容自定义 provider 接入网关。
           </p>
         </div>
-        <AppInput v-model="form.openclaw.baseUrl" label="Gateway Base URL" placeholder="https://your-openclaw-gateway/v1">
+        <AppInput v-model="form.opencode.baseUrl" label="Base URL" placeholder="https://your-gateway/v1">
           <template #suffix>
-            <Button type="button" variant="ghost" size="icon-xs" @click="testLatency(form.openclaw.baseUrl)">
+            <Button type="button" variant="ghost" size="icon-xs" @click="testLatency(form.opencode.baseUrl)">
               <Zap />
             </Button>
           </template>
         </AppInput>
-        <AppInput v-model="form.openclaw.primaryModel" label="Primary Model" placeholder="openai/gpt-4.1" />
-        <div class="grid gap-1.5">
-          <Label>Fallback Models（每行一个）</Label>
-          <Textarea v-model="form.openclaw.fallbackModels" class="min-h-20 font-mono text-xs" placeholder="openai/gpt-4o&#10;anthropic/claude-3-7-sonnet" />
-        </div>
+        <AppInput
+          v-model="form.opencode.apiKey"
+          label="API Key"
+          :type="showApiKey.opencode ? 'text' : 'password'"
+          placeholder="可选"
+        >
+          <template #suffix>
+            <Button type="button" variant="ghost" size="icon-xs" @click="toggleApiKeyVisibility('opencode')">
+              <EyeOff v-if="showApiKey.opencode" />
+              <Eye v-else />
+            </Button>
+          </template>
+        </AppInput>
+        <AppInput v-model="form.opencode.model" label="Model" placeholder="anthropic/claude-sonnet-4" />
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <AppInput v-model="form.openclaw.imageModel" label="Image Model" placeholder="openai/gpt-image-1" />
-          <AppInput v-model="form.openclaw.pdfModel" label="PDF Model" placeholder="openai/gpt-4.1" />
-        </div>
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div class="grid gap-1.5">
-            <Label>skills.install.nodeManager</Label>
-            <ToggleGroup type="single" variant="outline" size="sm" :model-value="form.openclaw.skillsNodeManager" @update:model-value="v => { if (typeof v === 'string' && v) form.openclaw.skillsNodeManager = v }">
-              <ToggleGroupItem v-for="option in nodeManagerOptions" :key="option" :value="option" class="uppercase">
-                {{ option }}
-              </ToggleGroupItem>
-            </ToggleGroup>
-          </div>
-          <div class="grid gap-1.5">
-            <Label>skills.load.watch</Label>
-            <ToggleGroup type="single" variant="outline" size="sm" :model-value="form.openclaw.skillsWatch" @update:model-value="v => { if (v === 'true' || v === 'false') form.openclaw.skillsWatch = v }">
-              <ToggleGroupItem value="true">开启</ToggleGroupItem>
-              <ToggleGroupItem value="false">关闭</ToggleGroupItem>
-            </ToggleGroup>
-          </div>
-        </div>
-        <AppInput v-model="form.openclaw.skillsWatchDebounceMs" type="number" label="skills.load.watchDebounceMs" placeholder="250" />
-        <div class="grid gap-1.5">
-          <Label>skills.allowBundled（每行一个 skill key，可留空）</Label>
-          <Textarea v-model="form.openclaw.skillsAllowBundled" class="min-h-20 font-mono text-xs" placeholder="gemini&#10;peekaboo" />
+          <AppInput v-model="form.opencode.configDir" label="OPENCODE_CONFIG_DIR（可选）" placeholder="~/.config/opencode" />
+          <AppInput v-model="form.opencode.configPath" label="OPENCODE_CONFIG（可选）" placeholder="~/.config/opencode/opencode.json" />
         </div>
         <div class="grid gap-1.5">
-          <Label>skills.load.extraDirs（每行一个）</Label>
-          <Textarea v-model="form.openclaw.skillsExtraDirs" class="min-h-20 font-mono text-xs" placeholder="./skills&#10;C:\\Users\\YourName\\.openclaw\\skills" />
-        </div>
-        <AppInput v-model="form.openclaw.configPath" label="Config Path（可选）" placeholder="~/.openclaw/openclaw.json" />
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <AppInput v-model="form.openclaw.homeDir" label="OPENCLAW_HOME（可选）" placeholder="C:\\Users\\YourName 或 /home/you" />
-          <AppInput v-model="form.openclaw.stateDir" label="OPENCLAW_STATE_DIR（可选）" placeholder="~/.openclaw" />
-        </div>
-        <div class="grid gap-1.5">
-          <Label>openclaw.json 模板（可选）</Label>
-          <Textarea v-model="form.openclaw.configTemplate" class="min-h-40 font-mono text-xs" placeholder="JSON 模板，支持 {{OPENCLAW_PRIMARY_MODEL}} 等占位符..." />
+          <Label>opencode.json 模板（可选）</Label>
+          <Textarea v-model="form.opencode.configTemplate" class="min-h-32 font-mono text-xs" placeholder="JSON 模板，支持 {{OPENCODE_MODEL}} / {{OPENCODE_BASE_URL}} / {{OPENCODE_API_KEY}} 占位符..." />
         </div>
       </div>
 
@@ -267,18 +278,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, type Component } from 'vue'
-import { Bot, Boxes, Eye, EyeOff, Gem, Sparkles, Terminal, Zap } from '@lucide/vue'
-import type { EnvConfig, Provider } from '@/types'
+import { ref, computed, watch } from 'vue'
+import { Eye, EyeOff, Zap } from '@lucide/vue'
+import type { EnvConfig, Provider, UpstreamFormat } from '@/types'
 import { useConfigStore } from '@/stores/configStore'
 import { useToast } from '@/composables/useToast'
 import AppModal from '@/components/common/AppModal.vue'
 import AppInput from '@/components/common/AppInput.vue'
+import BrandIcon from '@/components/common/BrandIcon.vue'
 import EmojiPicker from '@/components/common/EmojiPicker.vue'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import SegmentedPills from '@/components/layout/SegmentedPills.vue'
 
 interface Props {
@@ -303,11 +316,12 @@ const isOpen = computed({
 
 const isEditing = computed(() => !!props.editConfig)
 const showEmojiPicker = ref(false)
-type ApiKeyProvider = 'claude' | 'codex' | 'gemini' | 'grok'
+type ApiKeyProvider = 'claude' | 'codex' | 'gemini' | 'opencode' | 'grok'
 const showApiKey = ref<Record<ApiKeyProvider, boolean>>({
   claude: false,
   codex: false,
   gemini: false,
+  opencode: false,
   grok: false,
 })
 
@@ -319,6 +333,7 @@ function resetApiKeyVisibility() {
   showApiKey.value.claude = false
   showApiKey.value.codex = false
   showApiKey.value.gemini = false
+  showApiKey.value.opencode = false
   showApiKey.value.grok = false
 }
 
@@ -326,29 +341,51 @@ function selectIcon(emoji: string) {
   form.value.icon = emoji
 }
 
-const providers: { value: Provider; label: string; icon: Component }[] = [
-  { value: 'claude', label: 'Claude', icon: Bot },
-  { value: 'codex', label: 'Codex', icon: Terminal },
-  { value: 'gemini', label: 'Gemini', icon: Gem },
-  { value: 'openclaw', label: 'OpenClaw', icon: Boxes },
-  { value: 'grok', label: 'Grok', icon: Sparkles },
+const providers: { value: Provider; label: string }[] = [
+  { value: 'claude', label: 'Claude' },
+  { value: 'codex', label: 'Codex' },
+  { value: 'gemini', label: 'Gemini' },
+  { value: 'opencode', label: 'OpenCode' },
+  { value: 'grok', label: 'Grok' },
 ]
 const grokBackends = [
   { value: 'responses', label: 'Responses' },
   { value: 'chat_completions', label: 'Chat' },
   { value: 'messages', label: 'Messages' },
 ]
-const nodeManagerOptions = ['pnpm', 'npm', 'yarn', 'bun']
-
-function providerIcon(value: string) {
-  return providers.find(p => p.value === value)?.icon || Bot
-}
 
 function onProvider(value: unknown) {
-  if (value === 'claude' || value === 'codex' || value === 'gemini' || value === 'openclaw' || value === 'grok') {
+  if (value === 'claude' || value === 'codex' || value === 'gemini' || value === 'opencode' || value === 'grok') {
     form.value.provider = value
+    form.value.upstreamFormat = ''
   }
 }
+
+// 上游格式选项：按 provider 给出原生格式与可转换格式（与后端 needsRouting 支持的转换矩阵一致）
+const upstreamOptions = computed(() => {
+  if (form.value.provider === 'claude') {
+    return [
+      { value: 'native', label: 'Anthropic Messages（原生）' },
+      { value: 'chat_completions', label: 'Chat Completions（需开启路由）' },
+    ]
+  }
+  if (form.value.provider === 'codex') {
+    return [
+      { value: 'native', label: 'Responses（原生）' },
+      { value: 'chat_completions', label: 'Chat Completions（需开启路由）' },
+      { value: 'anthropic_messages', label: 'Anthropic Messages（需开启路由）' },
+    ]
+  }
+  return []
+})
+
+// Select 不接受空字符串值，用 native 哨兵值桥接
+const upstreamSelect = computed({
+  get: () => form.value.upstreamFormat || 'native',
+  set: (value: string) => {
+    form.value.upstreamFormat = (value === 'native' ? '' : value) as UpstreamFormat
+  },
+})
 
 function triValue(value: string) {
   return value === '' ? 'unset' : value
@@ -364,6 +401,7 @@ const defaultForm = () => ({
   description: '',
   icon: '📦',
   provider: 'claude' as Provider,
+  upstreamFormat: '' as UpstreamFormat,
   claude: {
     baseUrl: '',
     authToken: '',
@@ -409,20 +447,12 @@ GEMINI_MODEL={{GEMINI_MODEL}}`,
   }
 }`
   },
-  openclaw: {
+  opencode: {
     baseUrl: '',
-    primaryModel: '',
-    fallbackModels: '',
-    imageModel: '',
-    pdfModel: '',
-    skillsAllowBundled: '',
-    skillsExtraDirs: '',
-    skillsNodeManager: 'pnpm',
-    skillsWatch: 'true',
-    skillsWatchDebounceMs: '250',
+    apiKey: '',
+    model: '',
+    configDir: '',
     configPath: '',
-    homeDir: '',
-    stateDir: '',
     configTemplate: ''
   },
   grok: {
@@ -445,6 +475,10 @@ watch(() => props.editConfig, (config) => {
     form.value.description = config.description || ''
     form.value.icon = config.icon || '📦'
     form.value.provider = config.provider
+    form.value.upstreamFormat = (config.upstream_format
+      && (config.provider === 'claude' || config.provider === 'codex')
+      ? config.upstream_format
+      : '') as UpstreamFormat
 
     if (config.provider === 'claude') {
       form.value.claude.baseUrl = config.variables.ANTHROPIC_BASE_URL || ''
@@ -465,24 +499,13 @@ watch(() => props.editConfig, (config) => {
       form.value.gemini.model = config.variables.GEMINI_MODEL || ''
       form.value.gemini.envTemplate = config.templates?.['.env'] || form.value.gemini.envTemplate
       form.value.gemini.settingsTemplate = config.templates?.['settings.json'] || form.value.gemini.settingsTemplate
-    } else if (config.provider === 'openclaw') {
-      form.value.openclaw.baseUrl = config.variables.OPENCLAW_GATEWAY_BASE_URL || ''
-      form.value.openclaw.primaryModel = config.variables.OPENCLAW_PRIMARY_MODEL || ''
-      form.value.openclaw.fallbackModels = config.variables.OPENCLAW_FALLBACK_MODELS || ''
-      form.value.openclaw.imageModel = config.variables.OPENCLAW_IMAGE_MODEL || ''
-      form.value.openclaw.pdfModel = config.variables.OPENCLAW_PDF_MODEL || ''
-      form.value.openclaw.skillsAllowBundled = config.variables.OPENCLAW_SKILLS_ALLOW_BUNDLED || ''
-      form.value.openclaw.skillsExtraDirs = config.variables.OPENCLAW_SKILLS_EXTRA_DIRS || ''
-      form.value.openclaw.skillsNodeManager = config.variables.OPENCLAW_SKILLS_NODE_MANAGER || 'pnpm'
-      form.value.openclaw.skillsWatch = config.variables.OPENCLAW_SKILLS_WATCH || 'true'
-      form.value.openclaw.skillsWatchDebounceMs = config.variables.OPENCLAW_SKILLS_WATCH_DEBOUNCE_MS || '250'
-      form.value.openclaw.configPath = config.variables.OPENCLAW_CONFIG_PATH || ''
-      form.value.openclaw.homeDir = config.variables.OPENCLAW_HOME || ''
-      form.value.openclaw.stateDir = config.variables.OPENCLAW_STATE_DIR || ''
-      form.value.openclaw.configTemplate =
-        config.templates?.['openclaw.json'] ||
-        config.templates?.['openclaw.json5'] ||
-        ''
+    } else if (config.provider === 'opencode') {
+      form.value.opencode.baseUrl = config.variables.OPENCODE_BASE_URL || ''
+      form.value.opencode.apiKey = config.variables.OPENCODE_API_KEY || ''
+      form.value.opencode.model = config.variables.OPENCODE_MODEL || ''
+      form.value.opencode.configDir = config.variables.OPENCODE_CONFIG_DIR || ''
+      form.value.opencode.configPath = config.variables.OPENCODE_CONFIG || ''
+      form.value.opencode.configTemplate = config.templates?.['opencode.json'] || ''
     } else if (config.provider === 'grok') {
       form.value.grok.baseUrl = config.variables.XAI_BASE_URL || 'https://api.x.ai/v1'
       form.value.grok.apiKey = config.variables.XAI_API_KEY || ''
@@ -572,26 +595,16 @@ async function handleSubmit() {
     if (form.value.gemini.settingsTemplate) {
       templates['settings.json'] = form.value.gemini.settingsTemplate
     }
-  } else if (form.value.provider === 'openclaw') {
-    const watchDebounce = Number.parseInt(form.value.openclaw.skillsWatchDebounceMs, 10)
-    const normalizedWatchDebounce = Number.isFinite(watchDebounce) && watchDebounce >= 0 ? String(watchDebounce) : '250'
+  } else if (form.value.provider === 'opencode') {
     variables = {
-      OPENCLAW_GATEWAY_BASE_URL: form.value.openclaw.baseUrl,
-      OPENCLAW_PRIMARY_MODEL: form.value.openclaw.primaryModel,
-      OPENCLAW_FALLBACK_MODELS: form.value.openclaw.fallbackModels,
-      OPENCLAW_IMAGE_MODEL: form.value.openclaw.imageModel,
-      OPENCLAW_PDF_MODEL: form.value.openclaw.pdfModel,
-      OPENCLAW_SKILLS_ALLOW_BUNDLED: form.value.openclaw.skillsAllowBundled,
-      OPENCLAW_SKILLS_EXTRA_DIRS: form.value.openclaw.skillsExtraDirs,
-      OPENCLAW_SKILLS_NODE_MANAGER: nodeManagerOptions.includes(form.value.openclaw.skillsNodeManager) ? form.value.openclaw.skillsNodeManager : 'pnpm',
-      OPENCLAW_SKILLS_WATCH: form.value.openclaw.skillsWatch || 'true',
-      OPENCLAW_SKILLS_WATCH_DEBOUNCE_MS: normalizedWatchDebounce,
-      OPENCLAW_CONFIG_PATH: form.value.openclaw.configPath,
-      OPENCLAW_HOME: form.value.openclaw.homeDir,
-      OPENCLAW_STATE_DIR: form.value.openclaw.stateDir
+      OPENCODE_BASE_URL: form.value.opencode.baseUrl,
+      OPENCODE_API_KEY: form.value.opencode.apiKey,
+      OPENCODE_MODEL: form.value.opencode.model,
+      OPENCODE_CONFIG_DIR: form.value.opencode.configDir,
+      OPENCODE_CONFIG: form.value.opencode.configPath
     }
-    if (form.value.openclaw.configTemplate) {
-      templates['openclaw.json'] = form.value.openclaw.configTemplate
+    if (form.value.opencode.configTemplate) {
+      templates['opencode.json'] = form.value.opencode.configTemplate
     }
   } else if (form.value.provider === 'grok') {
     variables = {
@@ -613,6 +626,9 @@ async function handleSubmit() {
     variables,
     templates,
     icon: form.value.icon,
+    upstream_format: form.value.provider === 'claude' || form.value.provider === 'codex'
+      ? form.value.upstreamFormat
+      : '',
     attribution_header: form.value.provider === 'claude' ? form.value.claude.attributionHeader : '',
     disable_nonessential_traffic: form.value.provider === 'claude' ? form.value.claude.disableNonessentialTraffic : ''
   }

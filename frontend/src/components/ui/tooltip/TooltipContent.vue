@@ -27,7 +27,7 @@ const forwarded = useForwardPropsEmits(delegatedProps, emits)
     <TooltipContent
       data-slot="tooltip-content"
       v-bind="{ ...forwarded, ...$attrs }"
-      :class="cn('data-open:animate-in data-open:fade-in-0 data-[state=delayed-open]:animate-in data-[state=delayed-open]:fade-in-0 data-closed:animate-out data-closed:fade-out-0 pointer-events-none z-[9999] flex w-max min-w-max max-w-xs items-center gap-1.5 overflow-visible rounded-xl bg-foreground px-3 py-1.5 text-xs text-background whitespace-nowrap shadow-sm duration-75 ease-out motion-reduce:animate-none', props.class)"
+      :class="cn('data-open:animate-in data-open:fade-in-0 data-[state=delayed-open]:animate-in data-[state=delayed-open]:fade-in-0 data-closed:animate-out data-closed:fade-out-0 data-open:zoom-in-95 data-closed:zoom-out-95 pointer-events-none z-[9999] flex w-max min-w-max max-w-xs items-center gap-1.5 overflow-visible rounded-xl bg-foreground px-3 py-1.5 text-xs text-background whitespace-nowrap shadow-sm duration-150 ease-out motion-reduce:animate-none', props.class)"
     >
       <slot />
 

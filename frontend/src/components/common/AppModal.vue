@@ -1,6 +1,6 @@
 <template>
   <div v-if="plain" class="flex h-full min-h-0 flex-col overflow-hidden bg-background">
-    <div v-if="title || $slots.header" class="flex shrink-0 items-end justify-between gap-4 px-8 pt-5 pb-4">
+    <div v-if="title || $slots.header" class="flex shrink-0 items-end justify-between gap-4 px-6 pt-4 pb-4">
       <div class="min-w-0">
         <slot name="header">
           <h1 class="text-[2.5rem] leading-none font-semibold tracking-tight">{{ title }}</h1>
@@ -13,16 +13,21 @@
       </div>
     </div>
     <ScrollArea class="min-h-0 flex-1">
-      <div class="px-8 pb-8 pt-0.5">
+      <div class="px-6 pb-8 pt-1">
         <slot />
       </div>
     </ScrollArea>
-    <div v-if="$slots.footer" class="shrink-0 border-t px-8 py-3">
+    <div v-if="$slots.footer" class="shrink-0 border-t px-6 py-3">
       <slot name="footer" />
     </div>
   </div>
   <Dialog v-else :open="modelValue" @update:open="onOpen">
-    <DialogContent :class="sizeClass" :show-close-button="showClose">
+    <DialogContent
+      :class="sizeClass"
+      :show-close-button="showClose"
+      @pointer-down-outside="onPointerDownOutside"
+      @interact-outside="onPointerDownOutside"
+    >
       <DialogHeader v-if="title || $slots.header">
         <slot name="header">
           <DialogTitle>{{ title }}</DialogTitle>
@@ -84,7 +89,11 @@ const sizeClass = computed(() => {
 })
 
 function onOpen(open: boolean) {
-  if (!open && !props.closeOnOverlay) return
   emit('update:modelValue', open)
+}
+
+// closeOnOverlay=false 时只拦截遮罩点击，不影响 X / Esc 关闭
+function onPointerDownOutside(event: Event) {
+  if (!props.closeOnOverlay) event.preventDefault()
 }
 </script>

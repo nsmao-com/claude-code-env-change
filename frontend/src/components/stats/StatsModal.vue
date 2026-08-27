@@ -205,8 +205,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Empty, EmptyHeader, EmptyTitle } from '@/components/ui/empty'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Progress } from '@/components/ui/progress'
-import { getUsageStats, getHeatmapData, getLogDirectory, type UsageStats, type HeatmapData, type ModelStats, type StatsPlatform } from '@/services/logService'
+import { getStatsOverview, getUsageStats, getHeatmapData, getLogDirectory, type UsageStats, type HeatmapData, type ModelStats, type StatsPlatform } from '@/services/logService'
 import { useConfigStore } from '@/stores/configStore'
+import { useToast } from '@/composables/useToast'
 
 ChartJS.register(ArcElement, Tooltip, Legend)
 
@@ -235,6 +236,7 @@ const isOpen = computed({
 })
 
 const configStore = useConfigStore()
+const { error: toastError } = useToast()
 const loading = ref(false)
 const days = ref(7)
 const platform = ref<StatsPlatform>('all')
@@ -456,11 +458,6 @@ async function setDays(d: number) {
   await loadData()
 }
 
-async function setPlatform(p: StatsPlatform) {
-  platform.value = p
-  await loadData()
-}
-
 async function refresh() {
   await loadData()
 }
@@ -468,19 +465,24 @@ async function refresh() {
 async function loadData() {
   loading.value = true
   try {
-    const [statsData, heatmapData] = await Promise.all([
-      getUsageStats(days.value, platform.value),
-      getHeatmapData(heatmapWeeks * 7, platform.value)
-    ])
-    stats.value = statsData
-    heatmap.value = heatmapData
-    try {
-      logDirectory.value = await getLogDirectory()
-    } catch {
-      logDirectory.value = '需要重新编译后端'
-    }
+    const data = await getStatsOverview(days.value, heatmapWeeks * 7, platform.value)
+    stats.value = data.stats
+    heatmap.value = data.heatmap || []
+    logDirectory.value = data.log_directory || ''
   } catch {
-    /* ignore */
+    // 后端未重新编译（没有合并接口）时，回退到原有两个接口
+    try {
+      const [statsData, heatmapData] = await Promise.all([
+        getUsageStats(days.value, platform.value),
+        getHeatmapData(heatmapWeeks * 7, platform.value),
+      ])
+      stats.value = statsData
+      heatmap.value = heatmapData
+      logDirectory.value = await getLogDirectory().catch(() => '')
+    } catch (err) {
+      console.error('统计数据加载失败', err)
+      toastError(`统计数据加载失败: ${err instanceof Error ? err.message : String(err)}`)
+    }
   } finally {
     loading.value = false
   }
@@ -490,8 +492,7 @@ watch(isOpen, (open) => {
   if (open) {
     modelPage.value = 0
     loadData()
-  }
-})
+  }}, { immediate: true })
 
 watch(() => configStore.currentFilter, (tool) => {
   const next: StatsPlatform = tool === 'claude' || tool === 'codex' || tool === 'gemini' ? tool : 'all'

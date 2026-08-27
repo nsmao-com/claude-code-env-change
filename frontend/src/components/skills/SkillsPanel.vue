@@ -2,7 +2,7 @@
   <AppModal v-model="isOpen" size="xl" :plain="embedded" :tool-filter="embedded" :close-on-overlay="false">
     <template #header>
       <h1 class="text-[2.5rem] leading-none font-semibold tracking-tight">Skills</h1>
-      <p class="mt-2 text-sm text-muted-foreground">管理 Claude/Codex/Gemini/OpenClaw 的自定义 SKILL.md</p>
+      <p class="mt-2 text-sm text-muted-foreground">管理 Claude/Codex/Gemini/OpenCode 的自定义 SKILL.md</p>
     </template>
 
     <div class="mb-4 flex items-center justify-between">
@@ -94,31 +94,36 @@
                   {{ skill.description || skill.frontmatter_error || '（未提供 description）' }}
                 </CardDescription>
                 <div class="mt-3 flex flex-wrap gap-2">
-                  <Badge variant="outline">
+                  <Badge variant="outline" class="gap-1">
+                    <BrandIcon provider="claude" class="size-3" />
                     Claude:
                     <span :class="skill.enabled_in_claude ? 'text-green-600' : 'text-muted-foreground'">
                       {{ skill.enabled_in_claude ? '已安装' : '未安装' }}
                     </span>
                   </Badge>
-                  <Badge variant="outline">
+                  <Badge variant="outline" class="gap-1">
+                    <BrandIcon provider="codex" class="size-3" />
                     Codex:
                     <span :class="skill.enabled_in_codex ? 'text-green-600' : 'text-muted-foreground'">
                       {{ skill.enabled_in_codex ? '已安装' : '未安装' }}
                     </span>
                   </Badge>
-                  <Badge variant="outline">
+                  <Badge variant="outline" class="gap-1">
+                    <BrandIcon provider="gemini" class="size-3" />
                     Gemini:
                     <span :class="skill.enabled_in_gemini ? 'text-green-600' : 'text-muted-foreground'">
                       {{ skill.enabled_in_gemini ? '已安装' : '未安装' }}
                     </span>
                   </Badge>
-                  <Badge variant="outline">
-                    OpenClaw:
-                    <span :class="skill.enabled_in_openclaw ? 'text-green-600' : 'text-muted-foreground'">
-                      {{ skill.enabled_in_openclaw ? '已安装' : '未安装' }}
+                  <Badge variant="outline" class="gap-1">
+                    <BrandIcon provider="opencode" class="size-3" />
+                    OpenCode:
+                    <span :class="skill.enabled_in_opencode ? 'text-green-600' : 'text-muted-foreground'">
+                      {{ skill.enabled_in_opencode ? '已安装' : '未安装' }}
                     </span>
                   </Badge>
-                  <Badge variant="outline">
+                  <Badge variant="outline" class="gap-1">
+                    <BrandIcon provider="grok" class="size-3" />
                     Grok:
                     <span :class="skill.enabled_in_grok ? 'text-green-600' : 'text-muted-foreground'">
                       {{ skill.enabled_in_grok ? '已安装' : '未安装' }}
@@ -151,6 +156,7 @@ import { ref, computed, watch } from 'vue'
 import { Download, Layers, Loader2, Pencil, Plus, RefreshCw, Store, Trash2 } from '@lucide/vue'
 import type { Skill, SkillPreset } from '@/types'
 import AppModal from '@/components/common/AppModal.vue'
+import BrandIcon from '@/components/common/BrandIcon.vue'
 import SkillEditModal from './SkillEditModal.vue'
 import { useSkillStore } from '@/stores/skillStore'
 import { skillService } from '@/services/skillService'
@@ -165,7 +171,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { useConfigStore } from '@/stores/configStore'
 import { toolToPlatform } from '@/lib/workspace'
 
-type PlatformFilter = 'all' | 'claude-code' | 'codex' | 'gemini' | 'openclaw' | 'grok'
+type PlatformFilter = 'all' | 'claude-code' | 'codex' | 'gemini' | 'opencode' | 'grok'
 
 interface Props {
   modelValue: boolean
@@ -200,8 +206,7 @@ watch(isOpen, async (open) => {
     loadPresets()
   } else {
     showPresets.value = false
-  }
-})
+  }}, { immediate: true })
 
 watch(() => configStore.currentFilter, (tool) => {
   currentPlatform.value = toolToPlatform(tool) as PlatformFilter
@@ -232,7 +237,7 @@ function importPreset(preset: SkillPreset) {
     enabled_in_claude: false,
     enabled_in_codex: false,
     enabled_in_gemini: false,
-    enabled_in_openclaw: false,
+    enabled_in_opencode: false,
     enabled_in_grok: false,
     frontmatter_name: preset.name,
     description: preset.description,

@@ -18,23 +18,29 @@
           </div>
           <div class="min-w-0">
             <CardTitle class="truncate text-sm">{{ config.name }}</CardTitle>
-            <CardDescription>{{ providerLabel }}</CardDescription>
+            <CardDescription class="flex items-center gap-1">
+              <BrandIcon :provider="config.provider || 'claude'" class="size-3" />
+              {{ providerLabel }}
+            </CardDescription>
           </div>
         </div>
-        <Badge v-if="isActive" variant="secondary">当前</Badge>
+        <div class="flex shrink-0 items-center gap-1.5">
+          <Badge v-if="needsRoute" variant="outline" class="border-brand/30 bg-brand/10 text-brand">需路由</Badge>
+          <Badge v-if="isActive" variant="secondary">当前</Badge>
+        </div>
       </div>
     </CardHeader>
     <CardContent class="space-y-3">
       <p v-if="config.description" class="line-clamp-2 text-xs text-muted-foreground">{{ config.description }}</p>
       <div class="space-y-1 text-xs">
         <div class="flex justify-between gap-3">
-          <span class="text-muted-foreground">模型</span>
-          <span class="truncate font-mono">{{ modelValue || '-' }}</span>
+          <span class="shrink-0 text-muted-foreground">模型</span>
+          <span class="min-w-0 truncate font-mono">{{ modelValue || '-' }}</span>
         </div>
         <div class="flex justify-between gap-3">
-          <span class="text-muted-foreground">地址</span>
+          <span class="shrink-0 text-muted-foreground">地址</span>
           <AppTooltip :content="baseUrlValue" wrap :disabled="!baseUrlValue">
-            <span class="truncate font-mono">{{ baseUrlValue || '-' }}</span>
+            <span class="min-w-0 truncate font-mono">{{ baseUrlValue || '-' }}</span>
           </AppTooltip>
         </div>
       </div>
@@ -69,6 +75,7 @@ import type { EnvConfig, UptimeCheck } from '@/types'
 import { useUptimeStore } from '@/stores/uptimeStore'
 import { hoverLift, listEnter, pressSpring } from '@/lib/motion'
 import AppTooltip from '@/components/common/AppTooltip.vue'
+import BrandIcon from '@/components/common/BrandIcon.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
@@ -93,9 +100,11 @@ defineEmits<{
 const uptimeStore = useUptimeStore()
 
 const providerLabel = computed(() => {
-  const labels: Record<string, string> = { claude: 'Claude', codex: 'Codex', gemini: 'Gemini', openclaw: 'OpenClaw', grok: 'Grok' }
+  const labels: Record<string, string> = { claude: 'Claude', codex: 'Codex', gemini: 'Gemini', opencode: 'OpenCode', grok: 'Grok' }
   return labels[(props.config.provider || 'claude').toLowerCase()] || props.config.provider
 })
+
+const needsRoute = computed(() => !!props.config.upstream_format)
 
 const modelValue = computed(() => {
   const provider = (props.config.provider || 'claude').toLowerCase()
@@ -103,7 +112,7 @@ const modelValue = computed(() => {
   if (provider === 'claude') return vars.ANTHROPIC_MODEL || ''
   if (provider === 'codex') return vars.model || ''
   if (provider === 'gemini') return vars.GEMINI_MODEL || ''
-  if (provider === 'openclaw') return vars.OPENCLAW_PRIMARY_MODEL || ''
+  if (provider === 'opencode') return vars.OPENCODE_MODEL || ''
   if (provider === 'grok') return vars.XAI_MODEL || ''
   return ''
 })
@@ -114,7 +123,7 @@ const baseUrlValue = computed(() => {
   if (provider === 'claude') return vars.ANTHROPIC_BASE_URL || vars.API_BASE_URL || ''
   if (provider === 'codex') return vars.base_url || ''
   if (provider === 'gemini') return vars.GOOGLE_GEMINI_BASE_URL || ''
-  if (provider === 'openclaw') return vars.OPENCLAW_GATEWAY_BASE_URL || ''
+  if (provider === 'opencode') return vars.OPENCODE_BASE_URL || ''
   if (provider === 'grok') return vars.XAI_BASE_URL || ''
   return ''
 })

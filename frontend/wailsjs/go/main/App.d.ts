@@ -19,7 +19,7 @@ export function ClearGeminiSettings():Promise<void>;
 
 export function ClearGrokSettings():Promise<void>;
 
-export function ClearOpenclawSettings():Promise<void>;
+export function ClearOpencodeSettings():Promise<void>;
 
 export function DeleteEnv(arg1:string):Promise<void>;
 
@@ -43,7 +43,7 @@ export function GetGeminiSettings():Promise<Record<string, string>>;
 
 export function GetGrokSettings():Promise<Record<string, string>>;
 
-export function GetOpenclawSettings():Promise<Record<string, string>>;
+export function GetOpencodeSettings():Promise<Record<string, string>>;
 
 export function GetPromptFile(arg1:string):Promise<main.PromptFile>;
 

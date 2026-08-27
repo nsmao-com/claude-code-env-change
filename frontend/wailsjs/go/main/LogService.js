@@ -18,6 +18,10 @@ export function GetRecentLogs(arg1, arg2) {
   return window['go']['main']['LogService']['GetRecentLogs'](arg1, arg2);
 }
 
+export function GetStatsOverview(arg1, arg2, arg3) {
+  return window['go']['main']['LogService']['GetStatsOverview'](arg1, arg2, arg3);
+}
+
 export function GetUsageStats(arg1, arg2) {
   return window['go']['main']['LogService']['GetUsageStats'](arg1, arg2);
 }

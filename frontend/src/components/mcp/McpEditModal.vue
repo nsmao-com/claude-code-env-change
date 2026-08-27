@@ -78,26 +78,27 @@
             @update:model-value="onPlatforms"
           >
             <ToggleGroupItem value="claude" class="flex-1">
-              <Bot />
+              <BrandIcon provider="claude" />
               Claude
               <Check v-if="form.platforms.claude" />
             </ToggleGroupItem>
             <ToggleGroupItem value="codex" class="flex-1">
-              <Terminal />
+              <BrandIcon provider="codex" />
               Codex
               <Check v-if="form.platforms.codex" />
             </ToggleGroupItem>
             <ToggleGroupItem value="gemini" class="flex-1">
-              <Gem />
+              <BrandIcon provider="gemini" />
               Gemini
               <Check v-if="form.platforms.gemini" />
             </ToggleGroupItem>
-            <ToggleGroupItem value="openclaw" class="flex-1">
-              OpenClaw
-              <Check v-if="form.platforms.openclaw" />
+            <ToggleGroupItem value="opencode" class="flex-1">
+              <BrandIcon provider="opencode" />
+              OpenCode
+              <Check v-if="form.platforms.opencode" />
             </ToggleGroupItem>
             <ToggleGroupItem value="grok" class="flex-1">
-              <Sparkles />
+              <BrandIcon provider="grok" />
               Grok
               <Check v-if="form.platforms.grok" />
             </ToggleGroupItem>
@@ -119,12 +120,13 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { Bot, Check, Gem, Globe, Sparkles, Terminal } from '@lucide/vue'
+import { Check, Globe } from '@lucide/vue'
 import type { MCPServer } from '@/types'
 import { useMcpStore } from '@/stores/mcpStore'
 import { useToast } from '@/composables/useToast'
 import AppModal from '@/components/common/AppModal.vue'
 import AppInput from '@/components/common/AppInput.vue'
+import BrandIcon from '@/components/common/BrandIcon.vue'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -167,7 +169,7 @@ const defaultForm = () => ({
     claude: true,
     codex: false,
     gemini: false,
-    openclaw: false,
+    opencode: false,
     grok: false,
   }
 })
@@ -179,7 +181,7 @@ const selectedPlatformKeys = computed(() => {
   if (form.value.platforms.claude) keys.push('claude')
   if (form.value.platforms.codex) keys.push('codex')
   if (form.value.platforms.gemini) keys.push('gemini')
-  if (form.value.platforms.openclaw) keys.push('openclaw')
+  if (form.value.platforms.opencode) keys.push('opencode')
   if (form.value.platforms.grok) keys.push('grok')
   return keys
 })
@@ -195,7 +197,7 @@ function onPlatforms(value: unknown) {
   form.value.platforms.claude = keys.includes('claude')
   form.value.platforms.codex = keys.includes('codex')
   form.value.platforms.gemini = keys.includes('gemini')
-  form.value.platforms.openclaw = keys.includes('openclaw')
+  form.value.platforms.opencode = keys.includes('opencode')
   form.value.platforms.grok = keys.includes('grok')
 }
 
@@ -215,7 +217,7 @@ function fillFormFromServer(server: MCPServer) {
     form.value.platforms.claude = platforms.includes('claude-code')
     form.value.platforms.codex = platforms.includes('codex')
     form.value.platforms.gemini = platforms.includes('gemini')
-    form.value.platforms.openclaw = platforms.includes('openclaw')
+    form.value.platforms.opencode = platforms.includes('opencode')
     form.value.platforms.grok = platforms.includes('grok')
   }
 }
@@ -277,7 +279,7 @@ async function handleSubmit() {
   if (form.value.platforms.claude) enablePlatform.push('claude-code')
   if (form.value.platforms.codex) enablePlatform.push('codex')
   if (form.value.platforms.gemini) enablePlatform.push('gemini')
-  if (form.value.platforms.openclaw) enablePlatform.push('openclaw')
+  if (form.value.platforms.opencode) enablePlatform.push('opencode')
   if (form.value.platforms.grok) enablePlatform.push('grok')
 
   const args = form.value.args.trim()

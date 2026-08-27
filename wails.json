@@ -14,7 +14,7 @@
   "info": {
     "companyName": "",
     "productName": "Claude Code 环境管理器",
-    "productVersion": "2.0.0",
+    "productVersion": "2.1.0",
     "copyright": "",
     "comments": "Claude Code环境变量管理工具 - Vue 3 重构版本"
   },

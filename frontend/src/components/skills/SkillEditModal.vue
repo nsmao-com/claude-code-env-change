@@ -23,11 +23,26 @@
             :model-value="form.enable_platform"
             @update:model-value="onPlatforms"
           >
-            <ToggleGroupItem value="claude-code">Claude</ToggleGroupItem>
-            <ToggleGroupItem value="codex">Codex</ToggleGroupItem>
-            <ToggleGroupItem value="gemini">Gemini</ToggleGroupItem>
-            <ToggleGroupItem value="openclaw">OpenClaw</ToggleGroupItem>
-            <ToggleGroupItem value="grok">Grok</ToggleGroupItem>
+            <ToggleGroupItem value="claude-code">
+              <BrandIcon provider="claude" class="size-3.5" />
+              Claude
+            </ToggleGroupItem>
+            <ToggleGroupItem value="codex">
+              <BrandIcon provider="codex" class="size-3.5" />
+              Codex
+            </ToggleGroupItem>
+            <ToggleGroupItem value="gemini">
+              <BrandIcon provider="gemini" class="size-3.5" />
+              Gemini
+            </ToggleGroupItem>
+            <ToggleGroupItem value="opencode">
+              <BrandIcon provider="opencode" class="size-3.5" />
+              OpenCode
+            </ToggleGroupItem>
+            <ToggleGroupItem value="grok">
+              <BrandIcon provider="grok" class="size-3.5" />
+              Grok
+            </ToggleGroupItem>
           </ToggleGroup>
         </div>
       </div>
@@ -52,7 +67,7 @@
         <span class="font-mono">~/.claude/skills/&lt;name&gt;/SKILL.md</span> /
         <span class="font-mono">~/.codex/skills/&lt;name&gt;/SKILL.md</span> /
         <span class="font-mono">~/.gemini/skills/&lt;name&gt;/SKILL.md</span> /
-        <span class="font-mono">~/.openclaw/skills/&lt;name&gt;/SKILL.md</span> /
+        <span class="font-mono">~/.config/opencode/skills/&lt;name&gt;/SKILL.md</span> /
         <span class="font-mono">~/.grok/skills/&lt;name&gt;/SKILL.md</span>
       </div>
     </form>
@@ -81,6 +96,7 @@ import { ref, computed, watch } from 'vue'
 import { Info, Loader2, Save, Sparkles } from '@lucide/vue'
 import type { Skill } from '@/types'
 import AppModal from '@/components/common/AppModal.vue'
+import BrandIcon from '@/components/common/BrandIcon.vue'
 import { useSkillStore } from '@/stores/skillStore'
 import { useToast } from '@/composables/useToast'
 import { Button } from '@/components/ui/button'
@@ -189,7 +205,7 @@ async function handleSubmit() {
     enabled_in_claude: false,
     enabled_in_codex: false,
     enabled_in_gemini: false,
-    enabled_in_openclaw: false,
+    enabled_in_opencode: false,
     enabled_in_grok: false,
     frontmatter_name: '',
     description: '',

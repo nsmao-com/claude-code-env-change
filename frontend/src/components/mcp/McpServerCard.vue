@@ -21,21 +21,16 @@
           <div class="flex flex-wrap items-center gap-2">
             <h4 :class="['font-semibold', compact ? 'text-xs' : 'text-sm']">{{ server.name }}</h4>
             <Badge
-              v-if="hasClaude"
+              v-for="p in enabledPlatforms"
+              :key="p.key"
               variant="outline"
-              class="border-green-500/20 bg-green-500/10 text-[10px] text-green-500"
+              :class="['gap-1 text-[10px]', p.class]"
             >
-              Claude
+              <BrandIcon :provider="p.brand" class="size-3" />
+              {{ p.label }}
             </Badge>
             <Badge
-              v-if="hasCodex"
-              variant="outline"
-              class="border-blue-500/20 bg-blue-500/10 text-[10px] text-blue-500"
-            >
-              Codex
-            </Badge>
-            <Badge
-              v-if="!hasClaude && !hasCodex"
+              v-if="enabledPlatforms.length === 0"
               variant="outline"
               class="text-[10px] text-muted-foreground"
             >
@@ -122,6 +117,7 @@
 import { computed } from 'vue'
 import { Check, ExternalLink, Globe, Loader2, Pencil, Terminal, Trash2, TriangleAlert, Zap } from '@lucide/vue'
 import type { MCPServer, MCPTestResult } from '@/types'
+import BrandIcon from '@/components/common/BrandIcon.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 
@@ -141,8 +137,16 @@ defineEmits<{
 }>()
 
 const platforms = computed(() => props.server.enable_platform || [])
-const hasClaude = computed(() => platforms.value.includes('claude-code'))
-const hasCodex = computed(() => platforms.value.includes('codex'))
+
+const PLATFORM_ITEMS = [
+  { key: 'claude-code', brand: 'claude', label: 'Claude', class: 'border-green-500/20 bg-green-500/10 text-green-500' },
+  { key: 'codex', brand: 'codex', label: 'Codex', class: 'border-brand/20 bg-brand/10 text-brand' },
+  { key: 'gemini', brand: 'gemini', label: 'Gemini', class: 'border-blue-500/20 bg-blue-500/10 text-blue-600 dark:text-blue-400' },
+  { key: 'opencode', brand: 'opencode', label: 'OpenCode', class: 'border-foreground/15 bg-foreground/5 text-foreground/80' },
+  { key: 'grok', brand: 'grok', label: 'Grok', class: 'border-stone-500/25 bg-stone-500/10 text-stone-600 dark:text-stone-400' },
+]
+
+const enabledPlatforms = computed(() => PLATFORM_ITEMS.filter(p => platforms.value.includes(p.key)))
 const hasPlaceholder = computed(() =>
   props.server.missing_placeholders && props.server.missing_placeholders.length > 0
 )

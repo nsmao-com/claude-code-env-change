@@ -7,7 +7,7 @@ export const WORKSPACE_TOOLS: { id: WorkspaceTool; label: string }[] = [
   { id: 'claude', label: 'Claude' },
   { id: 'codex', label: 'Codex' },
   { id: 'gemini', label: 'Gemini' },
-  { id: 'openclaw', label: 'OpenClaw' },
+  { id: 'opencode', label: 'OpenCode' },
   { id: 'grok', label: 'Grok' },
 ]
 

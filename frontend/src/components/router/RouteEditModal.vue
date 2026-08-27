@@ -13,7 +13,8 @@
             @click="applyPreset(preset)"
           >
             <span class="flex items-center gap-2">
-              <component :is="preset.icon" class="size-3.5 text-primary" />
+              <BrandIcon v-if="preset.brand" :provider="preset.brand" class="size-3.5 text-primary" />
+              <component :is="preset.icon" v-else class="size-3.5 text-primary" />
               <span class="text-sm font-bold">{{ preset.label }}</span>
             </span>
             <span class="text-xs font-normal text-muted-foreground">{{ preset.hint }}</span>
@@ -131,12 +132,13 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, type Component } from 'vue'
-import { ArrowLeftRight, Bot, Terminal, X } from '@lucide/vue'
+import { ArrowLeftRight, X } from '@lucide/vue'
 import type { APIRoute, APIFormat } from '@/types'
 import { useRouterStore } from '@/stores/routerStore'
 import { useToast } from '@/composables/useToast'
 import AppModal from '@/components/common/AppModal.vue'
 import AppInput from '@/components/common/AppInput.vue'
+import BrandIcon from '@/components/common/BrandIcon.vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -167,7 +169,8 @@ const isEditing = computed(() => props.editRoute != null)
 interface Preset {
   label: string
   hint: string
-  icon: Component
+  icon?: Component
+  brand?: string
   source: APIFormat
   target: APIFormat
 }
@@ -176,14 +179,14 @@ const presets: Preset[] = [
   {
     label: 'OpenAI 兼容接口 → Claude Code',
     hint: '把 GLM/DeepSeek 等 OpenAI 格式接口转换成 Anthropic 协议，供 Claude Code 直接使用',
-    icon: Bot,
+    brand: 'claude',
     source: 'anthropic',
     target: 'openai'
   },
   {
     label: 'Claude 接口 → Codex',
     hint: '把 Anthropic 接口转换成 OpenAI Responses，供新版 Codex（wire_api = responses）使用',
-    icon: Terminal,
+    brand: 'codex',
     source: 'openai',
     target: 'anthropic'
   },
