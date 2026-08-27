@@ -456,11 +456,6 @@ async function setDays(d: number) {
   await loadData()
 }
 
-async function setPlatform(p: StatsPlatform) {
-  platform.value = p
-  await loadData()
-}
-
 async function refresh() {
   await loadData()
 }

@@ -265,12 +265,6 @@ function sparkFrom(values: number[]) {
 const countSpark = computed(() => sparkFrom(platformCols.value.map(col => col.count)))
 const appliedSpark = computed(() => sparkFrom(volumeRows.value.map(row => (row.count > 0 ? row.count : 0.2))))
 
-const toolCount = computed(() => {
-  const tool = configStore.currentFilter
-  if (tool === 'all') return totalCount.value
-  return configStore.environments.filter(env => env.provider === tool).length
-})
-
 const toolCountLabel = computed(() => {
   const tool = configStore.currentFilter
   if (tool === 'all') return '5 个平台'

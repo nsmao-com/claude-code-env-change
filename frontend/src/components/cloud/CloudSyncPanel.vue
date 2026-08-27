@@ -110,7 +110,7 @@
 
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
-import { Cloud, Download, Loader2, Unplug, Upload } from '@lucide/vue'
+import { Download, Loader2, Unplug, Upload } from '@lucide/vue'
 import type { CloudConfig, CloudProvider } from '@/types'
 import { useCloudStore } from '@/stores/cloudStore'
 import { cloudService } from '@/services/cloudService'

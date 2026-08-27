@@ -122,7 +122,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { HeartPulse, Loader2, Pencil, Plus, Power, Save, Shuffle, Trash2, Zap } from '@lucide/vue'
+import { Loader2, Pencil, Plus, Power, Save, Shuffle, Trash2, Zap } from '@lucide/vue'
 import type { RotationGroup } from '@/types'
 import AppModal from '@/components/common/AppModal.vue'
 import RotationGroupEditModal from './RotationGroupEditModal.vue'
