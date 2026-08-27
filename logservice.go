@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -160,58 +161,120 @@ func (ls *LogService) GetUsageStats(days int, platform string) (UsageStats, erro
 		days = 3650 // 约10年，相当于全部
 	}
 
+	records := ls.loadRecordsForPlatform(days, platform)
+	return aggregateUsageStats(records, ""), nil
+}
+
+// GetHeatmapData 获取热力图数据 (最近N天, 按平台筛选, days=0 表示全部时间)
+func (ls *LogService) GetHeatmapData(days int, platform string) ([]HeatmapData, error) {
+	if days <= 0 {
+		days = 3650 // 约10年，相当于全部
+	}
+
+	records := ls.loadRecordsForPlatform(days, platform)
+	return aggregateHeatmap(records, ""), nil
+}
+
+// StatsOverview 统计页一次性数据：日志只解析一遍，同时产出统计与热力图
+type StatsOverview struct {
+	Stats        UsageStats    `json:"stats"`
+	Heatmap      []HeatmapData `json:"heatmap"`
+	LogDirectory string        `json:"log_directory"`
+}
+
+// recordTimeLayout UsageRecord.Timestamp 的固定格式，字典序即时间序，可直接做字符串比较
+const recordTimeLayout = "2006-01-02 15:04:05"
+
+// GetStatsOverview 统计页合并接口：按两个时间范围的较大值只解析一次日志，
+// 再分别按各自 cutoff 聚合，避免统计/热力图各自完整扫一遍日志
+func (ls *LogService) GetStatsOverview(statsDays, heatmapDays int, platform string) (StatsOverview, error) {
+	if statsDays <= 0 {
+		statsDays = 3650
+	}
+	if heatmapDays <= 0 {
+		heatmapDays = 182
+	}
+
+	loadDays := statsDays
+	if heatmapDays > loadDays {
+		loadDays = heatmapDays
+	}
+
+	records := ls.loadRecordsForPlatform(loadDays, platform)
+
+	statsCutoff := time.Now().AddDate(0, 0, -statsDays).Format(recordTimeLayout)
+	heatmapCutoff := time.Now().AddDate(0, 0, -heatmapDays).Format(recordTimeLayout)
+
+	return StatsOverview{
+		Stats:        aggregateUsageStats(records, statsCutoff),
+		Heatmap:      aggregateHeatmap(records, heatmapCutoff),
+		LogDirectory: ls.getClaudeProjectsDir(),
+	}, nil
+}
+
+// loadRecordsForPlatform 并发读取各平台日志（"all" 时三个平台同时读取）
+func (ls *LogService) loadRecordsForPlatform(days int, platform string) []UsageRecord {
+	readClaude := func() []UsageRecord {
+		records, _ := ls.readClaudeLogs(days)
+		return records
+	}
+	readGemini := func() []UsageRecord {
+		records, _ := ls.readGeminiLogs(days)
+		return records
+	}
+	readCodex := func() []UsageRecord {
+		records, _ := ls.readCodexLogs(days)
+		return records
+	}
+
+	readers := map[string][]func() []UsageRecord{
+		"claude": {readClaude},
+		"gemini": {readGemini},
+		"codex":  {readCodex},
+	}[platform]
+	if readers == nil {
+		readers = []func() []UsageRecord{readClaude, readGemini, readCodex}
+	}
+
+	if len(readers) == 1 {
+		return readers[0]()
+	}
+
+	var (
+		wg      sync.WaitGroup
+		mu      sync.Mutex
+		records []UsageRecord
+	)
+	for _, read := range readers {
+		read := read
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			r := read()
+			mu.Lock()
+			records = append(records, r...)
+			mu.Unlock()
+		}()
+	}
+	wg.Wait()
+	return records
+}
+
+// aggregateUsageStats 聚合用量统计；cutoff 非空时只统计 Timestamp >= cutoff 的记录
+func aggregateUsageStats(records []UsageRecord, cutoff string) UsageStats {
 	stats := UsageStats{
 		ByModel: make(map[string]ModelStats),
 		Series:  make([]HourlyStat, 0),
-	}
-
-	var records []UsageRecord
-
-	// 根据平台筛选
-	switch platform {
-	case "claude":
-		claudeRecords, err := ls.readClaudeLogs(days)
-		if err != nil {
-			claudeRecords = []UsageRecord{}
-		}
-		records = claudeRecords
-	case "gemini":
-		geminiRecords, err := ls.readGeminiLogs(days)
-		if err != nil {
-			geminiRecords = []UsageRecord{}
-		}
-		records = geminiRecords
-	case "codex":
-		codexRecords, err := ls.readCodexLogs(days)
-		if err != nil {
-			codexRecords = []UsageRecord{}
-		}
-		records = codexRecords
-	default: // "all" 或其他
-		claudeRecords, err := ls.readClaudeLogs(days)
-		if err != nil {
-			claudeRecords = []UsageRecord{}
-		}
-		geminiRecords, err := ls.readGeminiLogs(days)
-		if err != nil {
-			geminiRecords = []UsageRecord{}
-		}
-		codexRecords, err := ls.readCodexLogs(days)
-		if err != nil {
-			codexRecords = []UsageRecord{}
-		}
-		records = append(claudeRecords, geminiRecords...)
-		records = append(records, codexRecords...)
-	}
-
-	if len(records) == 0 {
-		return stats, nil
 	}
 
 	// 按小时聚合
 	hourlyMap := make(map[string]*HourlyStat)
 
 	for _, record := range records {
+		if cutoff != "" && record.Timestamp < cutoff {
+			continue
+		}
+
 		stats.TotalRequests++
 		stats.TotalInputTokens += int64(record.InputTokens)
 		stats.TotalOutputTokens += int64(record.OutputTokens)
@@ -250,71 +313,28 @@ func (ls *LogService) GetUsageStats(days int, platform string) (UsageStats, erro
 		stats.Series = append(stats.Series, *hourlyMap[h])
 	}
 
-	return stats, nil
+	return stats
 }
 
-// GetHeatmapData 获取热力图数据 (最近N天, 按平台筛选, days=0 表示全部时间)
-func (ls *LogService) GetHeatmapData(days int, platform string) ([]HeatmapData, error) {
-	if days <= 0 {
-		days = 3650 // 约10年，相当于全部
-	}
-
-	var records []UsageRecord
-
-	// 根据平台筛选
-	switch platform {
-	case "claude":
-		claudeRecords, err := ls.readClaudeLogs(days)
-		if err != nil {
-			claudeRecords = []UsageRecord{}
-		}
-		records = claudeRecords
-	case "gemini":
-		geminiRecords, err := ls.readGeminiLogs(days)
-		if err != nil {
-			geminiRecords = []UsageRecord{}
-		}
-		records = geminiRecords
-	case "codex":
-		codexRecords, err := ls.readCodexLogs(days)
-		if err != nil {
-			codexRecords = []UsageRecord{}
-		}
-		records = codexRecords
-	default: // "all" 或其他
-		claudeRecords, err := ls.readClaudeLogs(days)
-		if err != nil {
-			claudeRecords = []UsageRecord{}
-		}
-		geminiRecords, err := ls.readGeminiLogs(days)
-		if err != nil {
-			geminiRecords = []UsageRecord{}
-		}
-		codexRecords, err := ls.readCodexLogs(days)
-		if err != nil {
-			codexRecords = []UsageRecord{}
-		}
-		records = append(claudeRecords, geminiRecords...)
-		records = append(records, codexRecords...)
-	}
-
-	if len(records) == 0 {
-		return []HeatmapData{}, nil
-	}
-
+// aggregateHeatmap 聚合按日热力图；cutoff 非空时只统计 Timestamp >= cutoff 的记录
+func aggregateHeatmap(records []UsageRecord, cutoff string) []HeatmapData {
 	// 按日期聚合
 	dailyMap := make(map[string]*HeatmapData)
 
 	for _, record := range records {
-		if len(record.Timestamp) >= 10 {
-			date := record.Timestamp[:10] // "2025-01-15"
-			if dailyMap[date] == nil {
-				dailyMap[date] = &HeatmapData{Date: date}
-			}
-			dailyMap[date].Requests++
-			dailyMap[date].Tokens += int64(record.InputTokens + record.OutputTokens)
-			dailyMap[date].Cost += record.TotalCost
+		if cutoff != "" && record.Timestamp < cutoff {
+			continue
 		}
+		if len(record.Timestamp) < 10 {
+			continue
+		}
+		date := record.Timestamp[:10] // "2025-01-15"
+		if dailyMap[date] == nil {
+			dailyMap[date] = &HeatmapData{Date: date}
+		}
+		dailyMap[date].Requests++
+		dailyMap[date].Tokens += int64(record.InputTokens + record.OutputTokens)
+		dailyMap[date].Cost += record.TotalCost
 	}
 
 	// 转换为有序列表
@@ -329,7 +349,7 @@ func (ls *LogService) GetHeatmapData(days int, platform string) ([]HeatmapData, 
 		result = append(result, *dailyMap[d])
 	}
 
-	return result, nil
+	return result
 }
 
 // GetRecentLogs 获取最近的日志记录 (按平台筛选)
@@ -338,44 +358,7 @@ func (ls *LogService) GetRecentLogs(limit int, platform string) ([]UsageRecord, 
 		limit = 50
 	}
 
-	var records []UsageRecord
-
-	// 根据平台筛选
-	switch platform {
-	case "claude":
-		claudeRecords, err := ls.readClaudeLogs(7)
-		if err != nil {
-			claudeRecords = []UsageRecord{}
-		}
-		records = claudeRecords
-	case "gemini":
-		geminiRecords, err := ls.readGeminiLogs(7)
-		if err != nil {
-			geminiRecords = []UsageRecord{}
-		}
-		records = geminiRecords
-	case "codex":
-		codexRecords, err := ls.readCodexLogs(7)
-		if err != nil {
-			codexRecords = []UsageRecord{}
-		}
-		records = codexRecords
-	default: // "all" 或其他
-		claudeRecords, err := ls.readClaudeLogs(7)
-		if err != nil {
-			claudeRecords = []UsageRecord{}
-		}
-		geminiRecords, err := ls.readGeminiLogs(7)
-		if err != nil {
-			geminiRecords = []UsageRecord{}
-		}
-		codexRecords, err := ls.readCodexLogs(7)
-		if err != nil {
-			codexRecords = []UsageRecord{}
-		}
-		records = append(claudeRecords, geminiRecords...)
-		records = append(records, codexRecords...)
-	}
+	records := ls.loadRecordsForPlatform(7, platform)
 
 	if len(records) == 0 {
 		return []UsageRecord{}, nil
@@ -454,14 +437,29 @@ func (ls *LogService) GetEnvUsageSummary(days int) (map[string]EnvUsageSummary, 
 		}
 	}
 
-	claudeRecords, _ := ls.readClaudeLogs(days)
-	accumulate("claude", claudeRecords)
-
-	codexRecords, _ := ls.readCodexLogs(days)
-	accumulate("codex", codexRecords)
-
-	geminiRecords, _ := ls.readGeminiLogs(days)
-	accumulate("gemini", geminiRecords)
+	// 三个平台并发读取，聚合结果加锁写入
+	var (
+		wg sync.WaitGroup
+		mu sync.Mutex
+	)
+	for _, item := range []struct {
+		provider string
+		read     func() []UsageRecord
+	}{
+		{"claude", func() []UsageRecord { records, _ := ls.readClaudeLogs(days); return records }},
+		{"codex", func() []UsageRecord { records, _ := ls.readCodexLogs(days); return records }},
+		{"gemini", func() []UsageRecord { records, _ := ls.readGeminiLogs(days); return records }},
+	} {
+		wg.Add(1)
+		go func(provider string, read func() []UsageRecord) {
+			defer wg.Done()
+			records := read()
+			mu.Lock()
+			defer mu.Unlock()
+			accumulate(provider, records)
+		}(item.provider, item.read)
+	}
+	wg.Wait()
 
 	return byEnv, nil
 }
@@ -481,9 +479,8 @@ func (ls *LogService) readClaudeLogs(days int) ([]UsageRecord, error) {
 	// 计算时间范围
 	cutoff := time.Now().AddDate(0, 0, -days)
 
-	var records []UsageRecord
-
-	// 遍历 projects 目录
+	// 先收集文件列表，再并发解析
+	var paths []string
 	err := filepath.Walk(projectsDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil // 忽略错误，继续遍历
@@ -499,28 +496,80 @@ func (ls *LogService) readClaudeLogs(days int) ([]UsageRecord, error) {
 			return nil
 		}
 
-		// 从路径提取项目信息
-		projectPath := extractProjectPath(path)
-
-		// 读取文件
-		fileRecords, err := ls.parseJSONLFile(path, projectPath, cutoff)
-		if err != nil {
-			return nil // 忽略解析错误
-		}
-
-		records = append(records, fileRecords...)
+		paths = append(paths, path)
 		return nil
 	})
-
 	if err != nil {
 		return []UsageRecord{}, nil
 	}
 
+	return parseFilesConcurrently(paths, func(path string) []UsageRecord {
+		fileRecords, err := ls.parseJSONLFile(path, extractProjectPath(path), cutoff)
+		if err != nil {
+			return nil // 忽略解析错误
+		}
+		return fileRecords
+	}), nil
+}
+
+// parseFilesConcurrently 用 worker 池并发解析日志文件；parse 必须是并发安全的
+func parseFilesConcurrently(paths []string, parse func(path string) []UsageRecord) []UsageRecord {
+	if len(paths) == 0 {
+		return []UsageRecord{}
+	}
+
+	workers := runtime.NumCPU()
+	if workers > 8 {
+		workers = 8
+	}
+	if workers > len(paths) {
+		workers = len(paths)
+	}
+
+	if workers <= 1 {
+		var records []UsageRecord
+		for _, path := range paths {
+			records = append(records, parse(path)...)
+		}
+		if records == nil {
+			records = []UsageRecord{}
+		}
+		return records
+	}
+
+	jobs := make(chan int, len(paths))
+	for i := range paths {
+		jobs <- i
+	}
+	close(jobs)
+
+	var (
+		wg      sync.WaitGroup
+		mu      sync.Mutex
+		records []UsageRecord
+	)
+
+	for w := 0; w < workers; w++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := range jobs {
+				fileRecords := parse(paths[i])
+				if len(fileRecords) == 0 {
+					continue
+				}
+				mu.Lock()
+				records = append(records, fileRecords...)
+				mu.Unlock()
+			}
+		}()
+	}
+	wg.Wait()
+
 	if records == nil {
 		records = []UsageRecord{}
 	}
-
-	return records, nil
+	return records
 }
 
 func activeEnvAt(events []EnvActivationEvent, atUnix int64) string {
@@ -577,9 +626,9 @@ func (ls *LogService) readGeminiLogs(days int) ([]UsageRecord, error) {
 	// 计算时间范围
 	cutoff := time.Now().AddDate(0, 0, -days)
 
-	var records []UsageRecord
+	// 遍历 tmp 目录下的所有项目 hash 目录，先收集文件列表
+	var paths []string
 
-	// 遍历 tmp 目录下的所有项目 hash 目录
 	entries, err := os.ReadDir(geminiDir)
 	if err != nil {
 		return []UsageRecord{}, nil
@@ -607,27 +656,24 @@ func (ls *LogService) readGeminiLogs(days int) ([]UsageRecord, error) {
 				continue
 			}
 
-			sessionPath := filepath.Join(chatsDir, sessionFile.Name())
 			info, err := sessionFile.Info()
 			if err != nil || info.ModTime().Before(cutoff) {
 				continue
 			}
 
-			// 解析会话文件
-			sessionRecords, err := ls.parseGeminiSession(sessionPath, entry.Name(), cutoff)
-			if err != nil {
-				continue
-			}
-
-			records = append(records, sessionRecords...)
+			paths = append(paths, filepath.Join(chatsDir, sessionFile.Name()))
 		}
 	}
 
-	if records == nil {
-		records = []UsageRecord{}
-	}
-
-	return records, nil
+	return parseFilesConcurrently(paths, func(path string) []UsageRecord {
+		// path = <tmp>/<项目hash>/chats/<session>.json，项目 hash 取倒数第三段
+		projectHash := filepath.Base(filepath.Dir(filepath.Dir(path)))
+		sessionRecords, err := ls.parseGeminiSession(path, projectHash, cutoff)
+		if err != nil {
+			return nil // 忽略解析错误
+		}
+		return sessionRecords
+	}), nil
 }
 
 // parseGeminiSession 解析 Gemini 会话文件
@@ -671,7 +717,7 @@ func (ls *LogService) parseGeminiSession(path string, projectHash string, cutoff
 		)
 
 		record := UsageRecord{
-			Timestamp:        ts.Format("2006-01-02 15:04:05"),
+			Timestamp:        ts.Local().Format(recordTimeLayout),
 			Model:            model,
 			InputTokens:      msg.Tokens.Input,
 			OutputTokens:     msg.Tokens.Output,
@@ -805,7 +851,7 @@ func (ls *LogService) parseJSONLFile(path string, projectPath string, cutoff tim
 		)
 
 		record := UsageRecord{
-			Timestamp:        ts.Format("2006-01-02 15:04:05"),
+			Timestamp:        ts.Local().Format(recordTimeLayout),
 			Model:            entry.Message.Model,
 			InputTokens:      entry.Message.Usage.InputTokens,
 			OutputTokens:     entry.Message.Usage.OutputTokens,
@@ -923,9 +969,9 @@ func (ls *LogService) readCodexLogs(days int) ([]UsageRecord, error) {
 	// 计算时间范围
 	cutoff := time.Now().AddDate(0, 0, -days)
 
-	var records []UsageRecord
+	// 遍历 sessions 目录下的日期文件夹，先收集文件列表
+	var paths []string
 
-	// 遍历 sessions 目录下的日期文件夹
 	err := filepath.Walk(sessionsDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil // 忽略错误，继续遍历
@@ -941,25 +987,20 @@ func (ls *LogService) readCodexLogs(days int) ([]UsageRecord, error) {
 			return nil
 		}
 
-		// 解析会话文件
-		sessionRecords, err := ls.parseCodexSession(path, info.Name(), cutoff)
-		if err != nil {
-			return nil // 忽略解析错误
-		}
-
-		records = append(records, sessionRecords...)
+		paths = append(paths, path)
 		return nil
 	})
-
 	if err != nil {
 		return []UsageRecord{}, nil
 	}
 
-	if records == nil {
-		records = []UsageRecord{}
-	}
-
-	return records, nil
+	return parseFilesConcurrently(paths, func(path string) []UsageRecord {
+		sessionRecords, err := ls.parseCodexSession(path, filepath.Base(path), cutoff)
+		if err != nil {
+			return nil // 忽略解析错误
+		}
+		return sessionRecords
+	}), nil
 }
 
 // parseCodexSession 解析 Codex 会话 JSONL 文件
@@ -999,13 +1040,7 @@ func (ls *LogService) parseCodexSession(path string, sessionID string, cutoff ti
 			continue
 		}
 
-		// 解析时间戳
-		ts, err := parseTimestamp(eventEntry.Timestamp)
-		if err != nil || ts.Before(cutoff) {
-			continue
-		}
-
-		// 处理 turn_context 类型 - 获取模型信息
+		// 处理 turn_context 类型 - 获取模型信息（不受时间窗口限制，保证模型归属正确）
 		if eventEntry.Type == "turn_context" && eventEntry.Payload != nil && eventEntry.Payload.Model != "" {
 			currentModel = eventEntry.Payload.Model
 			continue
@@ -1014,6 +1049,12 @@ func (ls *LogService) parseCodexSession(path string, sessionID string, cutoff ti
 		// 处理 event_msg 类型的 token_count
 		if eventEntry.Type == "event_msg" && eventEntry.Payload != nil && eventEntry.Payload.Type == "token_count" {
 			if eventEntry.Payload.Info == nil || eventEntry.Payload.Info.TotalTokenUsage == nil {
+				continue
+			}
+
+			// 解析时间戳
+			ts, err := parseTimestamp(eventEntry.Timestamp)
+			if err != nil {
 				continue
 			}
 
@@ -1031,6 +1072,14 @@ func (ls *LogService) parseCodexSession(path string, sessionID string, cutoff ti
 				outputDelta = tc.OutputTokens
 			}
 
+			// 基线始终推进：否则跨时间窗口的老会话会把窗口前的累计值整段计入当前窗口
+			lastTotalTokens = tc
+
+			// 窗口外的条目只推进基线，不产出记录
+			if ts.Before(cutoff) {
+				continue
+			}
+
 			// 只记录有增量的条目
 			if inputDelta > 0 || outputDelta > 0 {
 				cost := ls.calculateCost(
@@ -1042,7 +1091,7 @@ func (ls *LogService) parseCodexSession(path string, sessionID string, cutoff ti
 				)
 
 				record := UsageRecord{
-					Timestamp:        ts.Format("2006-01-02 15:04:05"),
+					Timestamp:        ts.Local().Format(recordTimeLayout),
 					Model:            currentModel,
 					InputTokens:      inputDelta,
 					OutputTokens:     outputDelta,
@@ -1055,8 +1104,6 @@ func (ls *LogService) parseCodexSession(path string, sessionID string, cutoff ti
 
 				records = append(records, record)
 			}
-
-			lastTotalTokens = tc
 		}
 	}
 

@@ -30,7 +30,7 @@ const (
 	platClaudeCode   = "claude-code"
 	platCodex        = "codex"
 	platGemini       = "gemini"
-	platOpenclaw     = "openclaw"
+	platOpencode     = "opencode"
 	platGrok         = "grok"
 	grokDirName      = ".grok"
 	grokTomlName     = "config.toml"
@@ -724,9 +724,9 @@ func (ms *MCPService) cleanupDeletedServers(payload map[string]rawMCPServer) boo
 				if _, exists := geminiServers[strings.ToLower(strings.TrimSpace(name))]; exists {
 					shouldDelete = false
 				}
-			case platOpenclaw:
-				// OpenClaw 暂无官方 mcpServers 配置面，避免误删本地记录
-				shouldDelete = false
+		case platOpencode:
+			// OpenCode 的 mcp 配置由 CLI 自身管理，本应用不写入，避免误删本地记录
+			shouldDelete = false
 			case platGrok:
 				if _, exists := grokServers[strings.ToLower(strings.TrimSpace(name))]; exists {
 					shouldDelete = false
@@ -841,8 +841,9 @@ func normalizePlatform(value string) (string, bool) {
 		return "codex", true
 	case "gemini":
 		return "gemini", true
-	case "openclaw":
-		return "openclaw", true
+	case "opencode", "openclaw":
+		// openclaw 为旧值，归一到 opencode
+		return "opencode", true
 	case "grok":
 		return "grok", true
 	default:

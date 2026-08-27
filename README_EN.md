@@ -5,7 +5,7 @@
 <h1 align="center">Claude Code Env Switcher</h1>
 
 <p align="center">
-  A local desktop workspace for Claude Code, Codex, Gemini CLI, and OpenClaw.<br />
+  A local desktop workspace for Claude Code, Codex, Gemini CLI, OpenCode, and Grok.<br />
   Manage environments, MCP servers, skills, a local API router, uptime rotation, and encrypted cloud backups in one window.
 </p>
 
@@ -99,7 +99,8 @@ Files written into each CLI:
 | Claude Code | process env + Claude settings |
 | Codex | `~/.codex/config.toml`, `~/.codex/auth.json` |
 | Gemini CLI | `~/.gemini/.env`, `~/.gemini/settings.json` |
-| OpenClaw | `~/.openclaw/openclaw.json` (overridable) |
+| OpenCode | `~/.config/opencode/opencode.json` (overridable via `OPENCODE_CONFIG_DIR` / `OPENCODE_CONFIG`) |
+| Grok | `~/.grok/config.toml` |
 
 A writable `config.json` next to the executable, left over from older builds, is still honored.
 
@@ -144,6 +145,10 @@ The local gateway translates Anthropic Messages and OpenAI Chat Completions (inc
 - The window is frameless; the title bar owns dragging and window controls.
 
 ## Changelog
+
+### Unreleased
+
+- Replaced the OpenClaw provider with OpenCode: config is written to `~/.config/opencode/opencode.json`, skills sync to `~/.config/opencode/skills`, and prompt editing supports `~/.config/opencode/AGENTS.md`.
 
 ### v2.0.0
 

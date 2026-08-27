@@ -117,6 +117,7 @@ export namespace main {
 	    provider: string;
 	    templates?: Record<string, string>;
 	    icon?: string;
+	    upstream_format?: string;
 	    attribution_header: string;
 	    disable_nonessential_traffic: string;
 	
@@ -132,6 +133,7 @@ export namespace main {
 	        this.provider = source["provider"];
 	        this.templates = source["templates"];
 	        this.icon = source["icon"];
+	        this.upstream_format = source["upstream_format"];
 	        this.attribution_header = source["attribution_header"];
 	        this.disable_nonessential_traffic = source["disable_nonessential_traffic"];
 	    }
@@ -141,7 +143,7 @@ export namespace main {
 	    current_env_claude: string;
 	    current_env_codex: string;
 	    current_env_gemini: string;
-	    current_env_openclaw: string;
+	    current_env_opencode: string;
 	    current_env_grok: string;
 	    environments: EnvConfig[];
 	
@@ -155,7 +157,7 @@ export namespace main {
 	        this.current_env_claude = source["current_env_claude"];
 	        this.current_env_codex = source["current_env_codex"];
 	        this.current_env_gemini = source["current_env_gemini"];
-	        this.current_env_openclaw = source["current_env_openclaw"];
+	        this.current_env_opencode = source["current_env_opencode"];
 	        this.current_env_grok = source["current_env_grok"];
 	        this.environments = this.convertValues(source["environments"], EnvConfig);
 	    }
@@ -512,7 +514,7 @@ export namespace main {
 	    enabled_in_claude: boolean;
 	    enabled_in_codex: boolean;
 	    enabled_in_gemini: boolean;
-	    enabled_in_openclaw: boolean;
+	    enabled_in_opencode: boolean;
 	    enabled_in_grok: boolean;
 	    frontmatter_name: string;
 	    description: string;
@@ -533,7 +535,7 @@ export namespace main {
 	        this.enabled_in_claude = source["enabled_in_claude"];
 	        this.enabled_in_codex = source["enabled_in_codex"];
 	        this.enabled_in_gemini = source["enabled_in_gemini"];
-	        this.enabled_in_openclaw = source["enabled_in_openclaw"];
+	        this.enabled_in_opencode = source["enabled_in_opencode"];
 	        this.enabled_in_grok = source["enabled_in_grok"];
 	        this.frontmatter_name = source["frontmatter_name"];
 	        this.description = source["description"];
@@ -558,6 +560,84 @@ export namespace main {
 	        this.description = source["description"];
 	        this.content = source["content"];
 	    }
+	}
+	export class UsageStats {
+	    total_requests: number;
+	    total_input_tokens: number;
+	    total_output_tokens: number;
+	    total_cache_read: number;
+	    total_cache_write: number;
+	    total_cost: number;
+	    by_model: Record<string, ModelStats>;
+	    series: HourlyStat[];
+	
+	    static createFrom(source: any = {}) {
+	        return new UsageStats(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.total_requests = source["total_requests"];
+	        this.total_input_tokens = source["total_input_tokens"];
+	        this.total_output_tokens = source["total_output_tokens"];
+	        this.total_cache_read = source["total_cache_read"];
+	        this.total_cache_write = source["total_cache_write"];
+	        this.total_cost = source["total_cost"];
+	        this.by_model = this.convertValues(source["by_model"], ModelStats, true);
+	        this.series = this.convertValues(source["series"], HourlyStat);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class StatsOverview {
+	    stats: UsageStats;
+	    heatmap: HeatmapData[];
+	    log_directory: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new StatsOverview(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.stats = this.convertValues(source["stats"], UsageStats);
+	        this.heatmap = this.convertValues(source["heatmap"], HeatmapData);
+	        this.log_directory = source["log_directory"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 	export class UpdateInfo {
 	    available: boolean;
@@ -700,50 +780,6 @@ export namespace main {
 	        this.session_id = source["session_id"];
 	        this.project_path = source["project_path"];
 	    }
-	}
-	export class UsageStats {
-	    total_requests: number;
-	    total_input_tokens: number;
-	    total_output_tokens: number;
-	    total_cache_read: number;
-	    total_cache_write: number;
-	    total_cost: number;
-	    by_model: Record<string, ModelStats>;
-	    series: HourlyStat[];
-	
-	    static createFrom(source: any = {}) {
-	        return new UsageStats(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.total_requests = source["total_requests"];
-	        this.total_input_tokens = source["total_input_tokens"];
-	        this.total_output_tokens = source["total_output_tokens"];
-	        this.total_cache_read = source["total_cache_read"];
-	        this.total_cache_write = source["total_cache_write"];
-	        this.total_cost = source["total_cost"];
-	        this.by_model = this.convertValues(source["by_model"], ModelStats, true);
-	        this.series = this.convertValues(source["series"], HourlyStat);
-	    }
-	
-		convertValues(a: any, classs: any, asMap: boolean = false): any {
-		    if (!a) {
-		        return a;
-		    }
-		    if (a.slice && a.map) {
-		        return (a as any[]).map(elem => this.convertValues(elem, classs));
-		    } else if ("object" === typeof a) {
-		        if (asMap) {
-		            for (const key of Object.keys(a)) {
-		                a[key] = new classs(a[key]);
-		            }
-		            return a;
-		        }
-		        return new classs(a);
-		    }
-		    return a;
-		}
 	}
 
 }

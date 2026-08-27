@@ -3,7 +3,7 @@
     <template #header>
       <div>
         <h1 class="text-[2.5rem] leading-none font-semibold tracking-tight">提示词</h1>
-        <p class="mt-2 text-sm text-muted-foreground">编辑 Claude / Codex / Gemini / Grok 的自定义提示词</p>
+        <p class="mt-2 text-sm text-muted-foreground">编辑 Claude / Codex / Gemini / OpenCode / Grok 的自定义提示词</p>
       </div>
     </template>
 
@@ -15,7 +15,12 @@
         layout-id="prompt-tab-pill"
         :items="tabs"
         @update:model-value="activeTab = $event"
-      />
+      >
+        <template #default="{ item }">
+          <BrandIcon :provider="item.value" class="size-3.5" />
+          {{ item.label }}
+        </template>
+      </SegmentedPills>
 
       <div v-if="isLoading" class="flex items-center justify-center py-16">
         <Loader2 class="size-8 animate-spin text-muted-foreground" />
@@ -80,6 +85,7 @@ import { useConfirm } from '@/composables/useConfirm'
 import { useToast } from '@/composables/useToast'
 import { useConfigStore } from '@/stores/configStore'
 import AppModal from '@/components/common/AppModal.vue'
+import BrandIcon from '@/components/common/BrandIcon.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 
@@ -120,6 +126,7 @@ const tabs = [
   { value: 'claude', label: 'CLAUDE' },
   { value: 'codex', label: 'CODEX' },
   { value: 'gemini', label: 'GEMINI' },
+  { value: 'opencode', label: 'OPENCODE' },
   { value: 'grok', label: 'GROK' },
 ]
 
@@ -167,7 +174,13 @@ function getPlaceholder(provider?: string): string {
 ## Grok 指令
 - 回复使用中文
 - 改代码前先看现有结构
-- 不要引入无关依赖`
+- 不要引入无关依赖`,
+    opencode: `# AGENTS.md 示例
+
+## OpenCode 指令
+- 回复使用中文
+- 改代码前先看现有结构
+- 遵循项目现有的代码风格`
   }
   return placeholders[key] || ''
 }
@@ -232,10 +245,10 @@ watch(() => props.visible, (newVal) => {
   if (newVal) {
     loadFiles()
   }
-})
+}, { immediate: true })
 
 watch(() => configStore.currentFilter, (tool) => {
-  if (tool === 'claude' || tool === 'codex' || tool === 'gemini' || tool === 'grok') {
+  if (tool === 'claude' || tool === 'codex' || tool === 'gemini' || tool === 'opencode' || tool === 'grok') {
     activeTab.value = tool
   }
 }, { immediate: true })

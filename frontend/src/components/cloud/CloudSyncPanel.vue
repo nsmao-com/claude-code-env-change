@@ -200,8 +200,7 @@ const regionPlaceholder = computed(() => {
 watch(isOpen, async (open) => {
   if (!open) return
   await cloudStore.load()
-  Object.assign(form, cloudStore.config)
-})
+  Object.assign(form, cloudStore.config)}, { immediate: true })
 
 function onProviderSelect(value: unknown) {
   if (typeof value !== 'string') return

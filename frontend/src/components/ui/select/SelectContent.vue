@@ -36,7 +36,7 @@ const forwarded = useForwardPropsEmits(delegatedProps, emits)
       :data-align-trigger="position === 'item-aligned'"
       v-bind="{ ...$attrs, ...forwarded }"
       :class="cn(
-        'bg-popover text-popover-foreground data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 ring-black/[0.06] dark:ring-white/10 min-w-36 rounded-xl shadow-sm ring-1 duration-75 motion-reduce:animate-none relative z-50 max-h-(--reka-select-content-available-height) overflow-x-hidden overflow-y-auto',
+        'bg-popover text-popover-foreground data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95 data-closed:slide-out-to-top-2 data-open:slide-in-from-top-2 ring-black/[0.06] dark:ring-white/10 min-w-36 rounded-xl shadow-sm ring-1 duration-150 ease-out motion-reduce:animate-none relative z-50 max-h-(--reka-select-content-available-height) overflow-x-hidden overflow-y-auto',
         position === 'popper'
           && 'data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1',
         props.class,

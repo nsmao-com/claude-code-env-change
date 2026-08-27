@@ -147,7 +147,7 @@ import McpServerCard from './McpServerCard.vue'
 import McpEditModal from './McpEditModal.vue'
 import McpJsonImport from './McpJsonImport.vue'
 
-type PlatformFilter = 'all' | 'claude-code' | 'codex' | 'gemini' | 'openclaw' | 'grok'
+type PlatformFilter = 'all' | 'claude-code' | 'codex' | 'gemini' | 'opencode' | 'grok'
 
 interface Props {
   modelValue: boolean
@@ -201,7 +201,7 @@ const filteredServerItems = computed(() => {
 
 function syncTool(tool: string) {
   if (tool === 'claude') currentPlatform.value = 'claude-code'
-  else if (tool === 'codex' || tool === 'gemini' || tool === 'openclaw' || tool === 'grok') currentPlatform.value = tool
+  else if (tool === 'codex' || tool === 'gemini' || tool === 'opencode' || tool === 'grok') currentPlatform.value = tool
   else currentPlatform.value = 'all'
 }
 
@@ -224,8 +224,7 @@ watch(isOpen, async (open) => {
     }
   } else {
     mcpStore.clearTestResults()
-  }
-})
+  }}, { immediate: true })
 
 watch(() => configStore.currentFilter, (tool) => syncTool(tool), { immediate: true })
 

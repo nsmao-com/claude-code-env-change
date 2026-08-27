@@ -1,7 +1,7 @@
 <template>
   <div
     :class="[
-      'relative inline-flex items-center rounded-full bg-muted p-1',
+      'relative inline-flex items-center rounded-full bg-card p-1 shadow-[0_2px_10px_rgba(16,24,40,0.06)] ring-1 ring-black/[0.04]',
       full ? 'w-full' : '',
       className || '',
     ]"
@@ -14,14 +14,14 @@
         'relative isolate inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-full px-3 text-sm font-medium transition-colors',
         full ? 'flex-1' : '',
         dense ? 'h-7 px-2.5 text-xs' : '',
-        modelValue === item.value ? 'text-foreground' : 'text-muted-foreground hover:text-foreground',
+        modelValue === item.value ? 'text-background' : 'text-muted-foreground hover:text-foreground',
       ]"
       @click="$emit('update:modelValue', item.value)"
     >
       <motion.span
         v-if="modelValue === item.value"
         :layout-id="layoutId"
-        class="absolute inset-0 rounded-full bg-background shadow-sm"
+        class="absolute inset-0 rounded-full bg-foreground"
         :transition="{ type: 'spring', stiffness: 520, damping: 40 }"
       />
       <span class="relative z-10 inline-flex items-center gap-1.5">

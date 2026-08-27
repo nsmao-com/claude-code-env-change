@@ -34,7 +34,7 @@ type UptimeSettings struct {
 
 type RotationGroup struct {
 	Name             string   `json:"name"`
-	Provider         string   `json:"provider"` // claude | codex | gemini | openclaw
+	Provider         string   `json:"provider"` // claude | codex | gemini | opencode | grok
 	EnvNames         []string `json:"env_names"`
 	Enabled          bool     `json:"enabled"`
 	FailureThreshold int      `json:"failure_threshold"`
@@ -365,6 +365,10 @@ func normalizeUptimeSettings(settings UptimeSettings) UptimeSettings {
 func normalizeRotationGroup(group RotationGroup) RotationGroup {
 	group.Name = strings.TrimSpace(group.Name)
 	group.Provider = strings.ToLower(strings.TrimSpace(group.Provider))
+	if group.Provider == "openclaw" {
+		// 旧值归一到 opencode，避免轮换时误读 Claude 的当前环境
+		group.Provider = "opencode"
+	}
 	group.EnvNames = normalizeStringList(group.EnvNames)
 	if group.FailureThreshold <= 0 {
 		group.FailureThreshold = 3
@@ -395,8 +399,8 @@ func (us *UptimeService) validateRotationGroup(group RotationGroup) error {
 	if group.Name == "" {
 		return fmt.Errorf("轮换组名称不能为空")
 	}
-	if group.Provider != "claude" && group.Provider != "codex" && group.Provider != "gemini" && group.Provider != "openclaw" && group.Provider != "grok" {
-		return fmt.Errorf("轮换组 provider 必须是 claude/codex/gemini/openclaw/grok")
+	if group.Provider != "claude" && group.Provider != "codex" && group.Provider != "gemini" && group.Provider != "opencode" && group.Provider != "grok" {
+		return fmt.Errorf("轮换组 provider 必须是 claude/codex/gemini/opencode/grok")
 	}
 	if len(group.EnvNames) == 0 {
 		return fmt.Errorf("轮换组必须至少包含 1 个配置")
@@ -446,8 +450,8 @@ func deriveEnvURL(env EnvConfig) string {
 		return strings.TrimSpace(vars["base_url"])
 	case "gemini":
 		return strings.TrimSpace(vars["GOOGLE_GEMINI_BASE_URL"])
-	case "openclaw":
-		return strings.TrimSpace(vars["OPENCLAW_GATEWAY_BASE_URL"])
+	case "opencode":
+		return strings.TrimSpace(vars["OPENCODE_BASE_URL"])
 	case "grok":
 		if v := strings.TrimSpace(vars["XAI_BASE_URL"]); v != "" {
 			return v
@@ -524,8 +528,8 @@ func currentEnvNameByProvider(config Config, provider string) string {
 		return config.CurrentEnvCodex
 	case "gemini":
 		return config.CurrentEnvGemini
-	case "openclaw":
-		return config.CurrentEnvOpenclaw
+	case "opencode":
+		return config.CurrentEnvOpencode
 	case "grok":
 		return config.CurrentEnvGrok
 	default:

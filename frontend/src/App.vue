@@ -12,23 +12,21 @@
         @clear-claude="clearClaude"
         @clear-codex="clearCodex"
         @clear-gemini="clearGemini"
-        @clear-openclaw="clearOpenclaw"
+        @clear-opencode="clearOpencode"
         @clear-grok="clearGrok"
         @clear-all="clearAll"
       />
       <div class="relative min-h-0 flex-1 overflow-hidden">
-        <AnimatePresence mode="wait">
-          <motion.div
-            :key="page"
-            class="h-full min-h-0"
-            :initial="pageEnter.initial"
-            :animate="pageEnter.animate"
-            :exit="pageEnter.exit"
-            :transition="pageEnter.transition"
-          >
+        <motion.div
+          :key="page"
+          class="h-full min-h-0"
+          :initial="pageEnter.initial"
+          :animate="pageEnter.animate"
+          :transition="pageEnter.transition"
+        >
             <ScrollArea v-if="page === 'env'" class="h-full">
-              <div class="pb-10">
-                <CurrentEnvPanel @add="openAddConfig" />
+              <div class="space-y-4 px-6 pb-8 pt-4">
+                <CurrentEnvPanel @add="openAddConfig" @navigate="page = $event" />
                 <ConfigGrid
                   :configs="configStore.filteredEnvironments"
                   @add="openAddConfig"
@@ -47,8 +45,7 @@
             <CloudSyncPanel v-else-if="page === 'cloud'" class="h-full min-h-0" embedded :model-value="true" @pulled="onCloudPulled" />
             <PromptEditorModal v-else-if="page === 'prompts'" class="h-full min-h-0" embedded :visible="true" @saved="onPromptSaved" />
             <StatsModal v-else-if="page === 'stats'" class="h-full min-h-0" embedded :model-value="true" />
-          </motion.div>
-        </AnimatePresence>
+        </motion.div>
       </div>
     </div>
 
@@ -69,7 +66,7 @@ import { useRouterStore } from '@/stores/routerStore'
 import { useConfirm } from '@/composables/useConfirm'
 import { useToast } from '@/composables/useToast'
 import { useTheme } from '@/composables/useTheme'
-import { AnimatePresence, MotionConfig, motion } from 'motion-v'
+import { MotionConfig, motion } from 'motion-v'
 import { pageEnter } from '@/lib/motion'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -174,7 +171,7 @@ async function testConfigLatency(index: number) {
   if (provider === 'claude') url = config.variables?.ANTHROPIC_BASE_URL || ''
   else if (provider === 'codex') url = config.variables?.base_url || ''
   else if (provider === 'gemini') url = config.variables?.GOOGLE_GEMINI_BASE_URL || ''
-  else if (provider === 'openclaw') url = config.variables?.OPENCLAW_GATEWAY_BASE_URL || ''
+  else if (provider === 'opencode') url = config.variables?.OPENCODE_BASE_URL || ''
   else if (provider === 'grok') url = config.variables?.XAI_BASE_URL || 'https://api.x.ai/v1'
   if (!url) {
     toast.error('Base URL 为空')
@@ -252,11 +249,11 @@ async function clearGemini() {
   }
 }
 
-async function clearOpenclaw() {
-  if (!(await confirm.show('清除 OpenClaw 配置', '确定清除 OpenClaw 配置文件？', 'warning'))) return
+async function clearOpencode() {
+  if (!(await confirm.show('清除 OpenCode 配置', '确定清除 OpenCode 写入的模型配置？其余配置会保留。', 'warning'))) return
   try {
-    await configStore.clearOpenclawSettings()
-    toast.success('OpenClaw 配置已清除')
+    await configStore.clearOpencodeSettings()
+    toast.success('OpenCode 模型配置已清除')
   } catch (e: any) {
     toast.error('操作失败: ' + e.message)
   }

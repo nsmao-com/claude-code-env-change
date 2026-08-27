@@ -13,12 +13,12 @@ import {
   ClearClaudeSettings,
   ClearCodexSettings,
   ClearGeminiSettings,
-  ClearOpenclawSettings,
+  ClearOpencodeSettings,
   ClearGrokSettings,
   GetClaudeSettings,
   GetCodexSettings,
   GetGeminiSettings,
-  GetOpenclawSettings,
+  GetOpencodeSettings,
   GetGrokSettings,
   ExportConfig,
   ImportConfig
@@ -27,15 +27,16 @@ import {
 export const configService = {
   async getConfig(): Promise<Config> {
     const raw = await GetConfig()
-    const environments: EnvConfig[] = (raw.environments || []).map((env) => ({
+    const environments: EnvConfig[] = (raw.environments || []).map((env): EnvConfig => ({
       ...env,
-      provider: normalizeProvider(env.provider)
+      provider: normalizeProvider(env.provider),
+      upstream_format: env.upstream_format as EnvConfig['upstream_format'],
     }))
 
     return {
       ...raw,
       environments,
-      current_env_openclaw: raw.current_env_openclaw || '',
+      current_env_opencode: raw.current_env_opencode || '',
       current_env_grok: raw.current_env_grok || '',
     }
   },
@@ -88,8 +89,8 @@ export const configService = {
     return ClearGeminiSettings()
   },
 
-  async clearOpenclawSettings(): Promise<void> {
-    return ClearOpenclawSettings()
+  async clearOpencodeSettings(): Promise<void> {
+    return ClearOpencodeSettings()
   },
 
   async clearGrokSettings(): Promise<void> {
@@ -108,8 +109,8 @@ export const configService = {
     return GetGeminiSettings()
   },
 
-  async getOpenclawSettings(): Promise<Record<string, string>> {
-    return GetOpenclawSettings()
+  async getOpencodeSettings(): Promise<Record<string, string>> {
+    return GetOpencodeSettings()
   },
 
   async getGrokSettings(): Promise<Record<string, string>> {
@@ -133,8 +134,8 @@ function normalizeProvider(provider: string | undefined): Provider {
       return 'codex'
     case 'gemini':
       return 'gemini'
-    case 'openclaw':
-      return 'openclaw'
+    case 'opencode':
+      return 'opencode'
     case 'grok':
       return 'grok'
     default:

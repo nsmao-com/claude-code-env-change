@@ -5,7 +5,7 @@
 <h1 align="center">Claude Code 环境管理器</h1>
 
 <p align="center">
-  面向 Claude Code、Codex、Gemini CLI、OpenClaw 的本地桌面工作台。<br />
+  面向 Claude Code、Codex、Gemini CLI、OpenCode、Grok 的本地桌面工作台。<br />
   一处管理环境配置、MCP、Skills、本地 API 路由、监控轮换与云端备份。
 </p>
 
@@ -101,7 +101,8 @@ wails build
 | Claude Code | 系统环境变量 + Claude settings |
 | Codex | `~/.codex/config.toml`、`~/.codex/auth.json` |
 | Gemini CLI | `~/.gemini/.env`、`~/.gemini/settings.json` |
-| OpenClaw | `~/.openclaw/openclaw.json`（可用环境变量覆盖路径） |
+| OpenCode | `~/.config/opencode/opencode.json`（可用 `OPENCODE_CONFIG_DIR` / `OPENCODE_CONFIG` 覆盖路径） |
+| Grok | `~/.grok/config.toml` |
 
 旧版本若在启动目录留下了可写的 `config.json`，会继续使用该文件。
 
@@ -146,6 +147,10 @@ wails build
 - 窗口是无边框的，标题栏负责拖拽和窗口按钮。
 
 ## 更新日志
+
+### 未发布
+
+- OpenClaw Provider 移除，替换为 OpenCode：配置写入 `~/.config/opencode/opencode.json`，Skills 同步到 `~/.config/opencode/skills`，提示词支持 `~/.config/opencode/AGENTS.md`。
 
 ### v2.0.0
 

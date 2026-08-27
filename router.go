@@ -135,10 +135,14 @@ func NewRouterService() *RouterService {
 			// 不设整体超时：流式响应需要长连接
 		},
 	}
+	globalRouterService = rs
 	rs.loadConfig()
 	rs.loadPersistedLogs()
 	return rs
 }
+
+// globalRouterService 供应用配置（ApplyEnv）在应用时自动接管路由
+var globalRouterService *RouterService
 
 // OnStartup 应用启动时自动开启网关（若配置了 AutoStart）
 func (rs *RouterService) OnStartup(ctx context.Context) {

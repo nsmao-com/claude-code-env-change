@@ -1,4 +1,4 @@
-import { GetUsageStats, GetHeatmapData, GetRecentLogs, GetLogDirectory, GetEnvUsageSummary } from '../../wailsjs/go/main/LogService'
+import { GetUsageStats, GetHeatmapData, GetRecentLogs, GetLogDirectory, GetEnvUsageSummary, GetStatsOverview } from '../../wailsjs/go/main/LogService'
 
 export type StatsPlatform = 'all' | 'claude' | 'gemini' | 'codex'
 
@@ -63,6 +63,17 @@ export async function getUsageStats(days: number = 7, platform: StatsPlatform = 
 
 export async function getHeatmapData(days: number = 30, platform: StatsPlatform = 'all'): Promise<HeatmapData[]> {
   return await GetHeatmapData(days, platform)
+}
+
+export interface StatsOverview {
+  stats: UsageStats
+  heatmap: HeatmapData[]
+  log_directory: string
+}
+
+// 统计页合并接口：日志只解析一遍，同时返回统计、热力图与日志目录
+export async function getStatsOverview(statsDays: number = 7, heatmapDays: number = 182, platform: StatsPlatform = 'all'): Promise<StatsOverview> {
+  return await GetStatsOverview(statsDays, heatmapDays, platform)
 }
 
 export async function getRecentLogs(limit: number = 50, platform: StatsPlatform = 'all'): Promise<UsageRecord[]> {

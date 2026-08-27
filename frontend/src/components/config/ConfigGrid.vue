@@ -1,10 +1,13 @@
 <template>
-  <section class="px-8 pt-3">
+  <section class="pt-0">
     <Card class="gap-0 overflow-hidden py-0">
-      <div class="flex items-center justify-between gap-3 px-4 py-3">
-        <div class="relative">
-          <Search class="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-          <Input id="config-search" v-model="searchQuery" class="w-[240px] rounded-full bg-muted/70 pl-8" placeholder="搜索名称、描述" />
+      <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+        <div class="flex items-center gap-3">
+          <ToolFilterChips />
+          <div class="relative">
+            <Search class="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input id="config-search" v-model="searchQuery" class="w-[220px] rounded-full bg-muted/70 pl-8" placeholder="搜索名称、描述" />
+          </div>
         </div>
         <SegmentedPills
           :model-value="viewMode"
@@ -30,7 +33,7 @@
         <Empty class="min-h-0 items-start border-0 p-0 text-left">
           <EmptyHeader class="items-start text-left">
             <EmptyTitle>还没有环境</EmptyTitle>
-            <EmptyDescription>为 Claude、Codex、Gemini、OpenClaw 或 Grok 建一条配置，点应用后会写入对应 CLI。</EmptyDescription>
+            <EmptyDescription>为 Claude、Codex、Gemini、OpenCode 或 Grok 建一条配置，点应用后会写入对应 CLI。</EmptyDescription>
           </EmptyHeader>
           <EmptyContent class="items-start">
             <Button @click="$emit('add')">新建配置</Button>
@@ -115,6 +118,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import SegmentedPills from '@/components/layout/SegmentedPills.vue'
+import ToolFilterChips from '@/components/layout/ToolFilterChips.vue'
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty'
 
 interface Props {
@@ -149,8 +153,9 @@ const filterLabel = computed(() => {
   if (currentFilter.value === 'claude') return 'Claude'
   if (currentFilter.value === 'codex') return 'Codex'
   if (currentFilter.value === 'gemini') return 'Gemini'
+  if (currentFilter.value === 'opencode') return 'OpenCode'
   if (currentFilter.value === 'grok') return 'Grok'
-  return 'OpenClaw'
+  return '全部'
 })
 
 const filteredConfigs = computed(() => {

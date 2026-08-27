@@ -10,4 +10,6 @@ export function GetLogDirectory():Promise<string>;
 
 export function GetRecentLogs(arg1:number,arg2:string):Promise<Array<main.UsageRecord>>;
 
+export function GetStatsOverview(arg1:number,arg2:number,arg3:string):Promise<main.StatsOverview>;
+
 export function GetUsageStats(arg1:number,arg2:string):Promise<main.UsageStats>;

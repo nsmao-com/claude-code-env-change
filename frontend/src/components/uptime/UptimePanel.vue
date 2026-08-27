@@ -82,7 +82,10 @@
               <div class="min-w-0">
                 <div class="flex items-center gap-2">
                   <CardTitle class="truncate">{{ group.name }}</CardTitle>
-                  <Badge variant="outline">{{ providerLabel(group.provider) }}</Badge>
+                  <Badge variant="outline" class="gap-1">
+                    <BrandIcon :provider="group.provider" class="size-3" />
+                    {{ providerLabel(group.provider) }}
+                  </Badge>
                   <Badge :variant="group.enabled ? 'default' : 'secondary'">
                     {{ group.enabled ? 'Enabled' : 'Disabled' }}
                   </Badge>
@@ -125,6 +128,7 @@ import { ref, computed, watch } from 'vue'
 import { Loader2, Pencil, Plus, Power, Save, Shuffle, Trash2, Zap } from '@lucide/vue'
 import type { RotationGroup } from '@/types'
 import AppModal from '@/components/common/AppModal.vue'
+import BrandIcon from '@/components/common/BrandIcon.vue'
 import RotationGroupEditModal from './RotationGroupEditModal.vue'
 import { useUptimeStore } from '@/stores/uptimeStore'
 import { useConfirm } from '@/composables/useConfirm'
@@ -170,8 +174,7 @@ watch(isOpen, async (open) => {
   if (open) {
     await uptimeStore.loadSnapshot()
     hydrateForm()
-  }
-})
+  }}, { immediate: true })
 
 function hydrateForm() {
   form.value.enabled = uptimeStore.settings.enabled
@@ -209,7 +212,7 @@ async function runNow() {
 }
 
 function providerLabel(p: string): string {
-  const labels: Record<string, string> = { claude: 'Claude', codex: 'Codex', gemini: 'Gemini', openclaw: 'OpenClaw' }
+  const labels: Record<string, string> = { claude: 'Claude', codex: 'Codex', gemini: 'Gemini', opencode: 'OpenCode', grok: 'Grok' }
   return labels[p] || p
 }
 

@@ -4,7 +4,7 @@ import { cva } from 'class-variance-authority'
 export { default as Button } from './Button.vue'
 
 export const buttonVariants = cva(
-  'focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-black/10 dark:focus-visible:ring-white/15 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive rounded-xl border border-transparent bg-clip-padding text-sm font-medium aria-invalid:ring-1 active:not-aria-[haspopup]:scale-[0.97] motion-reduce:transform-none [&_svg:not([class*=size-])]:size-4 group/button inline-flex shrink-0 items-center justify-center whitespace-nowrap transition-[transform,color,background-color,border-color,box-shadow,opacity] duration-150 ease-out outline-none select-none disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none [&_svg]:pointer-events-none [&_svg]:shrink-0',
+  'focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-black/10 dark:focus-visible:ring-white/15 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive rounded-full border border-transparent bg-clip-padding text-sm font-medium aria-invalid:ring-1 active:not-aria-[haspopup]:scale-[0.97] motion-reduce:transform-none [&_svg:not([class*=size-])]:size-4 group/button inline-flex shrink-0 items-center justify-center whitespace-nowrap transition-[transform,color,background-color,border-color,box-shadow,opacity] duration-150 ease-out outline-none select-none disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none [&_svg]:pointer-events-none [&_svg]:shrink-0',
   {
     variants: {
       variant: {

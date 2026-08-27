@@ -13,6 +13,7 @@
             @update:model-value="onProvider"
           >
             <ToggleGroupItem v-for="p in providers" :key="p.value" :value="p.value">
+              <BrandIcon :provider="p.value" class="size-3.5" />
               {{ p.label }}
             </ToggleGroupItem>
           </ToggleGroup>
@@ -114,6 +115,7 @@ import { ArrowDown, ArrowUp, Loader2, X } from '@lucide/vue'
 import type { EnvConfig, RotationGroup, Provider } from '@/types'
 import AppModal from '@/components/common/AppModal.vue'
 import AppInput from '@/components/common/AppInput.vue'
+import BrandIcon from '@/components/common/BrandIcon.vue'
 import { useUptimeStore } from '@/stores/uptimeStore'
 import { useConfigStore } from '@/stores/configStore'
 import { useToast } from '@/composables/useToast'
@@ -151,7 +153,7 @@ const providers = [
   { value: 'claude' as Provider, label: 'Claude' },
   { value: 'codex' as Provider, label: 'Codex' },
   { value: 'gemini' as Provider, label: 'Gemini' },
-  { value: 'openclaw' as Provider, label: 'OpenClaw' },
+  { value: 'opencode' as Provider, label: 'OpenCode' },
   { value: 'grok' as Provider, label: 'Grok' },
 ]
 
@@ -199,7 +201,7 @@ function envDesc(name: string): string {
 }
 
 function onProvider(value: unknown) {
-  if (value === 'claude' || value === 'codex' || value === 'gemini' || value === 'openclaw' || value === 'grok') {
+  if (value === 'claude' || value === 'codex' || value === 'gemini' || value === 'opencode' || value === 'grok') {
     switchProvider(value)
   }
 }

@@ -288,8 +288,7 @@ watch(isOpen, async (open) => {
     }
     showEditModal.value = false
     showLogsModal.value = false
-  }
-})
+  }}, { immediate: true })
 
 onUnmounted(() => {
   if (pollTimer) {

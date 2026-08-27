@@ -21,26 +21,27 @@
           @update:model-value="onPlatforms"
         >
           <ToggleGroupItem value="claude" class="flex-1">
-            <Bot />
+            <BrandIcon provider="claude" />
             Claude
             <Check v-if="selectedPlatforms.claude" />
           </ToggleGroupItem>
           <ToggleGroupItem value="codex" class="flex-1">
-            <Terminal />
+            <BrandIcon provider="codex" />
             Codex
             <Check v-if="selectedPlatforms.codex" />
           </ToggleGroupItem>
           <ToggleGroupItem value="gemini" class="flex-1">
-            <Gem />
+            <BrandIcon provider="gemini" />
             Gemini
             <Check v-if="selectedPlatforms.gemini" />
           </ToggleGroupItem>
-          <ToggleGroupItem value="openclaw" class="flex-1">
-            OpenClaw
-            <Check v-if="selectedPlatforms.openclaw" />
+          <ToggleGroupItem value="opencode" class="flex-1">
+            <BrandIcon provider="opencode" />
+            OpenCode
+            <Check v-if="selectedPlatforms.opencode" />
           </ToggleGroupItem>
           <ToggleGroupItem value="grok" class="flex-1">
-            <Sparkles />
+            <BrandIcon provider="grok" />
             Grok
             <Check v-if="selectedPlatforms.grok" />
           </ToggleGroupItem>
@@ -75,8 +76,9 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { Bot, Check, Gem, Loader2, Sparkles, Terminal } from '@lucide/vue'
+import { Check, Loader2 } from '@lucide/vue'
 import { useMcpStore } from '@/stores/mcpStore'
+import BrandIcon from '@/components/common/BrandIcon.vue'
 import { useToast } from '@/composables/useToast'
 import AppModal from '@/components/common/AppModal.vue'
 import { Button } from '@/components/ui/button'
@@ -109,12 +111,12 @@ const selectedPlatforms = ref({
   claude: true,
   codex: false,
   gemini: false,
-  openclaw: false,
+  opencode: false,
   grok: false,
 })
 
 const hasSelectedPlatform = computed(() => {
-  return selectedPlatforms.value.claude || selectedPlatforms.value.codex || selectedPlatforms.value.gemini || selectedPlatforms.value.openclaw || selectedPlatforms.value.grok
+  return selectedPlatforms.value.claude || selectedPlatforms.value.codex || selectedPlatforms.value.gemini || selectedPlatforms.value.opencode || selectedPlatforms.value.grok
 })
 
 const selectedPlatformKeys = computed(() => {
@@ -122,7 +124,7 @@ const selectedPlatformKeys = computed(() => {
   if (selectedPlatforms.value.claude) keys.push('claude')
   if (selectedPlatforms.value.codex) keys.push('codex')
   if (selectedPlatforms.value.gemini) keys.push('gemini')
-  if (selectedPlatforms.value.openclaw) keys.push('openclaw')
+  if (selectedPlatforms.value.opencode) keys.push('opencode')
   if (selectedPlatforms.value.grok) keys.push('grok')
   return keys
 })
@@ -133,7 +135,7 @@ function onPlatforms(value: unknown) {
     claude: keys.includes('claude'),
     codex: keys.includes('codex'),
     gemini: keys.includes('gemini'),
-    openclaw: keys.includes('openclaw'),
+    opencode: keys.includes('opencode'),
     grok: keys.includes('grok'),
   }
 }
@@ -141,7 +143,7 @@ function onPlatforms(value: unknown) {
 watch(isOpen, (open) => {
   if (!open) {
     jsonInput.value = ''
-    selectedPlatforms.value = { claude: true, codex: false, gemini: false, openclaw: false, grok: false }
+    selectedPlatforms.value = { claude: true, codex: false, gemini: false, opencode: false, grok: false }
   }
 })
 
@@ -168,7 +170,7 @@ async function handleImport() {
     if (selectedPlatforms.value.claude) platforms.push('claude-code')
     if (selectedPlatforms.value.codex) platforms.push('codex')
     if (selectedPlatforms.value.gemini) platforms.push('gemini')
-    if (selectedPlatforms.value.openclaw) platforms.push('openclaw')
+    if (selectedPlatforms.value.opencode) platforms.push('opencode')
     if (selectedPlatforms.value.grok) platforms.push('grok')
 
     servers.forEach(server => {
