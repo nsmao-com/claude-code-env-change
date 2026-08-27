@@ -1,17 +1,14 @@
 <template>
-  <div class="relative">
-    <label v-if="label" class="block text-sm font-medium mb-1.5">
-      {{ label }}
-    </label>
+  <div class="grid gap-1.5">
+    <Label v-if="label">{{ label }}</Label>
     <div class="relative">
-      <input
+      <Input
+        :model-value="modelValue"
         :type="type"
-        :value="modelValue"
         :placeholder="placeholder"
         :disabled="disabled"
-        class="input"
-        :class="{ 'pr-10': $slots.suffix }"
-        @input="onInput"
+        :class="$slots.suffix ? 'pr-10' : undefined"
+        @update:model-value="onUpdate"
         @focus="$emit('focus', $event)"
         @blur="$emit('blur', $event)"
       />
@@ -19,11 +16,14 @@
         <slot name="suffix" />
       </div>
     </div>
-    <p v-if="hint" class="text-xs text-muted-foreground mt-1">{{ hint }}</p>
+    <p v-if="hint" class="text-xs text-muted-foreground">{{ hint }}</p>
   </div>
 </template>
 
 <script setup lang="ts">
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+
 interface Props {
   modelValue?: string
   type?: string
@@ -37,7 +37,7 @@ withDefaults(defineProps<Props>(), {
   modelValue: '',
   type: 'text',
   placeholder: '',
-  disabled: false
+  disabled: false,
 })
 
 const emit = defineEmits<{
@@ -46,8 +46,7 @@ const emit = defineEmits<{
   blur: [event: FocusEvent]
 }>()
 
-function onInput(event: Event) {
-  const target = event.target as HTMLInputElement
-  emit('update:modelValue', target.value)
+function onUpdate(value: string | number) {
+  emit('update:modelValue', String(value ?? ''))
 }
 </script>

@@ -1,4 +1,4 @@
-import type { EnvConfig, Config, MCPServer, MCPTestResult, Skill, UptimeSettings, RotationGroup, UptimeSnapshot } from '@/types'
+import type { EnvConfig, Config, MCPServer, MCPTestResult, Skill, SkillPreset, UptimeSettings, RotationGroup, UptimeSnapshot, RouterConfig, GatewayStatus, RouterTestResult, RouterLogQuery, RouterLogPage, CloudConfig, CloudSyncResult, CloudSyncStatus } from '@/types'
 
 declare global {
   interface Window {
@@ -30,11 +30,13 @@ declare global {
           TestServer(server: MCPServer): Promise<MCPTestResult>
           ImportFromJSON(jsonStr: string): Promise<MCPServer[]>
           AddServers(servers: MCPServer[]): Promise<void>
+          SyncToPlatforms(): Promise<MCPServer[]>
         }
         SkillService: {
           ListSkills(): Promise<Skill[]>
           SaveSkill(skill: Skill): Promise<void>
           DeleteSkill(name: string): Promise<void>
+          GetSkillPresets(): Promise<SkillPreset[]>
         }
         UptimeService: {
           GetSnapshot(): Promise<UptimeSnapshot>
@@ -42,6 +44,24 @@ declare global {
           SaveRotationGroup(group: RotationGroup): Promise<void>
           DeleteRotationGroup(name: string): Promise<void>
           RunOnce(): Promise<UptimeSnapshot>
+        }
+        RouterService: {
+          GetRouterConfig(): Promise<RouterConfig>
+          SaveRouterConfig(config: RouterConfig): Promise<void>
+          StartGateway(): Promise<void>
+          StopGateway(): Promise<void>
+          GetGatewayStatus(): Promise<GatewayStatus>
+          TestRoute(name: string): Promise<RouterTestResult>
+          GetRouterLogs(query: RouterLogQuery): Promise<RouterLogPage>
+          ClearRouterLogs(): Promise<void>
+        }
+        CloudSyncService: {
+          GetCloudConfig(): Promise<CloudConfig>
+          SaveCloudConfig(config: CloudConfig): Promise<void>
+          GetCloudSyncStatus(): Promise<CloudSyncStatus>
+          TestCloudConnection(): Promise<CloudSyncResult>
+          UploadToCloud(): Promise<CloudSyncResult>
+          DownloadFromCloud(): Promise<CloudSyncResult>
         }
       }
     }

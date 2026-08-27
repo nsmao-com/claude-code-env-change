@@ -20,5 +20,10 @@ export const mcpService = {
 
   async addServers(servers: MCPServer[]): Promise<void> {
     return window.go.main.MCPService.AddServers(servers)
+  },
+
+  async syncToPlatforms(): Promise<MCPServer[]> {
+    const servers = await window.go.main.MCPService.SyncToPlatforms()
+    return servers || []
   }
 }

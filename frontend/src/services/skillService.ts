@@ -1,4 +1,4 @@
-import type { Skill } from '@/types'
+import type { Skill, SkillPreset } from '@/types'
 
 export const skillService = {
   async listSkills(): Promise<Skill[]> {
@@ -12,6 +12,10 @@ export const skillService = {
 
   async deleteSkill(name: string): Promise<void> {
     return window.go.main.SkillService.DeleteSkill(name)
+  },
+
+  async getPresets(): Promise<SkillPreset[]> {
+    const presets = await window.go.main.SkillService.GetSkillPresets()
+    return presets || []
   }
 }
-

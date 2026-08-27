@@ -33,3 +33,7 @@ Thumbs.db
 nul
 claudia-config-*.json
 config.json
+
+# Local tooling / UI captures
+.impeccable/
+frontend/.ui-diff/

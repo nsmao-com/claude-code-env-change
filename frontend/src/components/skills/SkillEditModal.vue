@@ -1,57 +1,50 @@
 <template>
   <AppModal v-model="isOpen" :title="isEditing ? '编辑 Skill' : '新建 Skill'" size="xl" :close-on-overlay="false">
     <form class="space-y-4" @submit.prevent="handleSubmit">
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label class="block text-sm font-medium mb-1.5">技能名称</label>
-          <input
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div class="grid gap-1.5">
+          <Label>技能名称</Label>
+          <Input
             v-model="form.name"
-            class="input"
             placeholder="例如：code-reviewer"
             :disabled="isEditing"
           />
-          <p class="text-[11px] text-muted-foreground mt-1">
-            目录名 + /skill 命令名；建议使用 <code>a-z0-9-</code>（1-64）
+          <p class="text-xs text-muted-foreground">
+            目录名 + /skill 命令名；建议使用 <code class="font-mono">a-z0-9-</code>（1-64）
           </p>
         </div>
 
-        <div>
-          <label class="block text-sm font-medium mb-1.5">启用平台</label>
-          <div class="flex flex-wrap gap-2">
-            <label class="flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-secondary/30 text-xs font-medium">
-              <input v-model="form.enable_platform" type="checkbox" value="claude-code" />
-              Claude
-            </label>
-            <label class="flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-secondary/30 text-xs font-medium">
-              <input v-model="form.enable_platform" type="checkbox" value="codex" />
-              Codex
-            </label>
-            <label class="flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-secondary/30 text-xs font-medium">
-              <input v-model="form.enable_platform" type="checkbox" value="gemini" />
-              Gemini
-            </label>
-            <label class="flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-secondary/30 text-xs font-medium">
-              <input v-model="form.enable_platform" type="checkbox" value="openclaw" />
-              OpenClaw
-            </label>
-          </div>
+        <div class="grid gap-1.5">
+          <Label>启用平台</Label>
+          <ToggleGroup
+            type="multiple"
+            variant="outline"
+            size="sm"
+            :model-value="form.enable_platform"
+            @update:model-value="onPlatforms"
+          >
+            <ToggleGroupItem value="claude-code">Claude</ToggleGroupItem>
+            <ToggleGroupItem value="codex">Codex</ToggleGroupItem>
+            <ToggleGroupItem value="gemini">Gemini</ToggleGroupItem>
+            <ToggleGroupItem value="openclaw">OpenClaw</ToggleGroupItem>
+          </ToggleGroup>
         </div>
       </div>
 
       <div class="flex items-center justify-between">
-        <label class="block text-sm font-medium">SKILL.md</label>
-        <button type="button" class="btn btn-outline btn-sm" @click="insertTemplate">
-          <i class="fas fa-magic mr-2"></i>
+        <Label>SKILL.md</Label>
+        <Button type="button" variant="outline" size="sm" @click="insertTemplate">
+          <Sparkles />
           插入模板
-        </button>
+        </Button>
       </div>
 
-      <textarea
+      <Textarea
         v-model="form.content"
-        class="input h-64 resize-y font-mono text-xs"
+        class="h-64 resize-y font-mono text-xs"
         placeholder="请粘贴/编辑 SKILL.md 内容（需包含 --- frontmatter ---）"
         spellcheck="false"
-      ></textarea>
+      />
 
       <div class="text-xs text-muted-foreground">
         安装位置：
@@ -64,16 +57,17 @@
 
     <template #footer>
       <div class="flex items-center justify-between">
-        <p class="text-xs text-muted-foreground">
-          <i class="fas fa-info-circle mr-1.5"></i>
+        <p class="flex items-center text-xs text-muted-foreground">
+          <Info class="mr-1.5 size-3.5" />
           保存后建议重启对应 CLI 生效
         </p>
         <div class="flex items-center gap-3">
-          <button class="btn btn-secondary h-9 px-5" @click="isOpen = false">取消</button>
-          <button class="btn btn-primary h-9 px-5" :disabled="isSaving" @click="handleSubmit">
-            <i :class="['fas mr-2', isSaving ? 'fa-circle-notch fa-spin' : 'fa-save']"></i>
+          <Button variant="secondary" @click="isOpen = false">取消</Button>
+          <Button :disabled="isSaving" @click="handleSubmit">
+            <Loader2 v-if="isSaving" class="animate-spin" />
+            <Save v-else />
             {{ isSaving ? '保存中...' : '保存' }}
-          </button>
+          </Button>
         </div>
       </div>
     </template>
@@ -82,10 +76,16 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import { Info, Loader2, Save, Sparkles } from '@lucide/vue'
 import type { Skill } from '@/types'
 import AppModal from '@/components/common/AppModal.vue'
 import { useSkillStore } from '@/stores/skillStore'
 import { useToast } from '@/composables/useToast'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 
 interface Props {
   modelValue: boolean
@@ -136,6 +136,12 @@ watch(isOpen, (open) => {
     form.value = defaultForm()
   }
 })
+
+function onPlatforms(value: unknown) {
+  form.value.enable_platform = Array.isArray(value)
+    ? value.filter((v): v is string => typeof v === 'string')
+    : []
+}
 
 function insertTemplate() {
   const name = (form.value.name || 'my-skill').trim() || 'my-skill'
@@ -203,13 +209,3 @@ async function handleSubmit() {
   }
 }
 </script>
-
-<style scoped>
-.btn-sm {
-  @apply h-8 px-3 text-xs;
-}
-
-textarea.input {
-  resize: vertical;
-}
-</style>

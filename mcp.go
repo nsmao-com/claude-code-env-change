@@ -219,6 +219,7 @@ func (ms *MCPService) SaveServers(servers []MCPServer) error {
 		return err
 	}
 
+	notifyCloudSync()
 	return nil
 }
 
@@ -393,7 +394,8 @@ func (ms *MCPService) syncClaudeServers(servers []MCPServer) error {
 	payload := make(map[string]any)
 	if data, err := os.ReadFile(path); err == nil && len(data) > 0 {
 		if err := json.Unmarshal(data, &payload); err != nil {
-			payload = make(map[string]any)
+			// 解析失败时中止而非清空重建，避免误删 ~/.claude.json 中的其他配置（projects 历史等）
+			return fmt.Errorf("解析 %s 失败，为保护原文件已中止同步: %v", path, err)
 		}
 	} else if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
@@ -426,7 +428,8 @@ func (ms *MCPService) syncCodexServers(servers []MCPServer) error {
 	payload := make(map[string]any)
 	if data, err := os.ReadFile(path); err == nil && len(data) > 0 {
 		if err := toml.Unmarshal(data, &payload); err != nil {
-			payload = make(map[string]any)
+			// 解析失败时中止而非清空重建，避免覆盖 config.toml 中的其他配置
+			return fmt.Errorf("解析 %s 失败，为保护原文件已中止同步: %v", path, err)
 		}
 	} else if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
@@ -1323,7 +1326,35 @@ func (ms *MCPService) AddServers(newServers []MCPServer) error {
 	if err := ms.syncCodexServers(servers); err != nil {
 		return err
 	}
-	return ms.syncGeminiServers(servers)
+	if err := ms.syncGeminiServers(servers); err != nil {
+		return err
+	}
+	notifyCloudSync()
+	return nil
+}
+
+// SyncToPlatforms 手动把中央存储的 MCP 配置强制重新下发到 Claude/Codex/Gemini，
+// 用于平台配置被外部改动或损坏后恢复。
+func (ms *MCPService) SyncToPlatforms() ([]MCPServer, error) {
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
+
+	config, err := ms.loadConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	servers := ms.buildServersFromConfig(config)
+	if err := ms.syncClaudeServers(servers); err != nil {
+		return servers, err
+	}
+	if err := ms.syncCodexServers(servers); err != nil {
+		return servers, err
+	}
+	if err := ms.syncGeminiServers(servers); err != nil {
+		return servers, err
+	}
+	return servers, nil
 }
 
 // buildServersFromConfig 从配置构建服务器列表（内部使用，不加锁）

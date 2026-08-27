@@ -1,138 +1,169 @@
 <template>
-  <AppModal v-model="isOpen" size="xl" :close-on-overlay="false">
+  <AppModal v-model="isOpen" size="xl" :plain="embedded" :tool-filter="embedded" :close-on-overlay="false">
     <template #header>
-      <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-          <i class="fas fa-layer-group text-primary"></i>
-        </div>
-        <div>
-          <h3 class="text-lg font-semibold">Skills 管理</h3>
-          <p class="text-xs text-muted-foreground">管理 Claude/Codex/Gemini/OpenClaw 的自定义 SKILL.md</p>
-        </div>
-      </div>
+      <h1 class="text-[2.5rem] leading-none font-semibold tracking-tight">Skills</h1>
+      <p class="mt-2 text-sm text-muted-foreground">管理 Claude/Codex/Gemini/OpenClaw 的自定义 SKILL.md</p>
     </template>
 
-    <!-- Platform Filter Tabs -->
-    <div class="relative mb-4 p-1 bg-secondary/50 border border-border/50 rounded-full inline-flex backdrop-blur-sm">
-      <div
-        class="absolute top-1 bottom-1 bg-white rounded-full transition-all duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] shadow-[0_2px_8px_rgba(0,0,0,0.08)] border border-black/5 dark:border-white/10"
-        :style="gliderStyle"
-      ></div>
-
-      <button
-        v-for="tab in platformTabs"
-        :key="tab.value"
-        ref="tabRefs"
-        :class="['relative z-10 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide transition-colors duration-200', { 'text-foreground dark:text-gray-900': currentPlatform === tab.value, 'text-muted-foreground hover:text-foreground/80': currentPlatform !== tab.value }]"
-        @click="setFilter(tab.value)"
-      >
-        {{ tab.label }}
-        <span v-if="tab.count > 0" class="ml-1 text-[10px] opacity-70">({{ tab.count }})</span>
-      </button>
-    </div>
-
-    <!-- Toolbar -->
-    <div class="flex items-center justify-between mb-4">
-      <div class="flex gap-2">
-        <button class="btn btn-primary btn-sm" @click="openCreate">
-          <i class="fas fa-plus mr-2"></i>
+    <div class="mb-4 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <Button size="sm" @click="openCreate">
+          <Plus />
           新建
-        </button>
-        <button class="btn btn-outline btn-sm" @click="skillStore.loadSkills">
-          <i class="fas fa-sync-alt mr-2"></i>
+        </Button>
+        <Button variant="outline" size="sm" @click="showPresets = !showPresets">
+          <Store />
+          技能库
+        </Button>
+        <Button variant="outline" size="sm" @click="skillStore.loadSkills">
+          <RefreshCw />
           刷新
-        </button>
+        </Button>
       </div>
       <span class="text-xs text-muted-foreground">
         共 {{ skillStore.skillCount }} 个
       </span>
     </div>
 
-    <!-- Empty State -->
-    <div
-      v-if="filteredSkills.length === 0 && !skillStore.isLoading"
-      class="flex flex-col items-center justify-center py-12 text-muted-foreground"
-    >
-      <i class="fas fa-layer-group text-4xl mb-4"></i>
-      <p class="text-sm">{{ skillStore.skillCount === 0 ? '暂无 Skills' : '该平台暂无 Skills' }}</p>
-      <p class="text-xs">点击“新建”添加一个自定义 Skill</p>
-    </div>
-
-    <!-- Loading -->
-    <div v-else-if="skillStore.isLoading" class="flex items-center justify-center py-12">
-      <i class="fas fa-circle-notch fa-spin text-2xl text-muted-foreground"></i>
-    </div>
-
-    <!-- Skill List -->
-    <div v-else class="space-y-3 max-h-[50vh] overflow-y-auto pr-2">
-      <div
-        v-for="skill in filteredSkills"
-        :key="skill.name"
-        class="p-4 rounded-xl border border-border bg-card/60 hover:bg-card transition-colors"
-      >
-        <div class="flex items-start justify-between gap-4">
-          <div class="min-w-0">
-            <div class="flex items-center gap-2">
-              <h4 class="font-bold text-foreground truncate">{{ skill.name }}</h4>
-              <span
-                v-if="!skill.has_frontmatter || !skill.has_name || !skill.has_description"
-                class="text-[10px] px-2 py-0.5 rounded-full bg-red-500/10 text-red-600 font-bold uppercase"
-                title="SKILL.md frontmatter 可能不完整"
-              >
-                格式问题
-              </span>
+    <div v-if="showPresets" class="mb-4 rounded-xl border border-dashed border-border bg-secondary/20 p-4">
+      <div class="mb-3 flex items-center justify-between">
+        <span class="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">内置技能库</span>
+        <span class="text-[10px] text-muted-foreground">点击「导入」后可选择启用平台</span>
+      </div>
+      <Empty v-if="presets.length === 0" class="min-h-0 border-0 py-3">
+        <EmptyHeader>
+          <Loader2 v-if="isLoadingPresets" class="size-5 animate-spin text-muted-foreground" />
+          <EmptyTitle>{{ isLoadingPresets ? '加载中...' : '暂无预设' }}</EmptyTitle>
+        </EmptyHeader>
+      </Empty>
+      <div v-else class="grid grid-cols-2 gap-2">
+        <Card v-for="preset in presets" :key="preset.name" size="sm">
+          <CardHeader>
+            <div class="flex items-start justify-between gap-2">
+              <div class="min-w-0">
+                <div class="flex items-center gap-1.5">
+                  <CardTitle class="truncate">{{ preset.name }}</CardTitle>
+                  <Badge v-if="installedNames.has(preset.name)" variant="secondary">已导入</Badge>
+                </div>
+                <CardDescription class="line-clamp-2">{{ preset.description }}</CardDescription>
+              </div>
+              <Button variant="outline" size="sm" class="shrink-0" @click="importPreset(preset)">
+                <Download />
+                导入
+              </Button>
             </div>
-            <p class="text-xs text-muted-foreground mt-1 whitespace-pre-line">
-              {{ skill.description || skill.frontmatter_error || '（未提供 description）' }}
-            </p>
-
-            <div class="flex flex-wrap gap-2 mt-3">
-              <span class="text-[10px] px-2 py-0.5 rounded-full border border-border text-muted-foreground">
-                Claude: <span :class="skill.enabled_in_claude ? 'text-green-600' : 'text-muted-foreground'">{{ skill.enabled_in_claude ? '已安装' : '未安装' }}</span>
-              </span>
-              <span class="text-[10px] px-2 py-0.5 rounded-full border border-border text-muted-foreground">
-                Codex: <span :class="skill.enabled_in_codex ? 'text-green-600' : 'text-muted-foreground'">{{ skill.enabled_in_codex ? '已安装' : '未安装' }}</span>
-              </span>
-              <span class="text-[10px] px-2 py-0.5 rounded-full border border-border text-muted-foreground">
-                Gemini: <span :class="skill.enabled_in_gemini ? 'text-green-600' : 'text-muted-foreground'">{{ skill.enabled_in_gemini ? '已安装' : '未安装' }}</span>
-              </span>
-              <span class="text-[10px] px-2 py-0.5 rounded-full border border-border text-muted-foreground">
-                OpenClaw: <span :class="skill.enabled_in_openclaw ? 'text-green-600' : 'text-muted-foreground'">{{ skill.enabled_in_openclaw ? '已安装' : '未安装' }}</span>
-              </span>
-            </div>
-          </div>
-
-          <div class="flex items-center gap-2 flex-none">
-            <button class="btn btn-outline btn-sm" @click="openEdit(skill)">
-              <i class="fas fa-pen mr-2"></i>
-              编辑
-            </button>
-            <button class="btn btn-outline btn-sm border-destructive/50 text-destructive hover:bg-destructive hover:text-destructive-foreground" @click="remove(skill)">
-              <i class="fas fa-trash mr-2"></i>
-              删除
-            </button>
-          </div>
-        </div>
+          </CardHeader>
+        </Card>
       </div>
     </div>
+
+    <Empty
+      v-if="filteredSkills.length === 0 && !skillStore.isLoading"
+      class="min-h-[240px]"
+    >
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <Layers />
+        </EmptyMedia>
+        <EmptyTitle>{{ skillStore.skillCount === 0 ? '暂无 Skills' : '该平台暂无 Skills' }}</EmptyTitle>
+        <EmptyDescription>点击“新建”添加一个自定义 Skill</EmptyDescription>
+      </EmptyHeader>
+    </Empty>
+
+    <div v-else-if="skillStore.isLoading" class="flex items-center justify-center py-12">
+      <Loader2 class="size-8 animate-spin text-muted-foreground" />
+    </div>
+
+    <ScrollArea v-else class="h-[50vh] pr-2">
+      <div class="space-y-3">
+        <Card v-for="skill in filteredSkills" :key="skill.name" size="sm">
+          <CardHeader>
+            <div class="flex items-start justify-between gap-4">
+              <div class="min-w-0">
+                <div class="flex items-center gap-2">
+                  <CardTitle class="truncate">{{ skill.name }}</CardTitle>
+                  <Badge
+                    v-if="!skill.has_frontmatter || !skill.has_name || !skill.has_description"
+                    variant="destructive"
+                    title="SKILL.md frontmatter 可能不完整"
+                  >
+                    格式问题
+                  </Badge>
+                </div>
+                <CardDescription class="mt-1 whitespace-pre-line">
+                  {{ skill.description || skill.frontmatter_error || '（未提供 description）' }}
+                </CardDescription>
+                <div class="mt-3 flex flex-wrap gap-2">
+                  <Badge variant="outline">
+                    Claude:
+                    <span :class="skill.enabled_in_claude ? 'text-green-600' : 'text-muted-foreground'">
+                      {{ skill.enabled_in_claude ? '已安装' : '未安装' }}
+                    </span>
+                  </Badge>
+                  <Badge variant="outline">
+                    Codex:
+                    <span :class="skill.enabled_in_codex ? 'text-green-600' : 'text-muted-foreground'">
+                      {{ skill.enabled_in_codex ? '已安装' : '未安装' }}
+                    </span>
+                  </Badge>
+                  <Badge variant="outline">
+                    Gemini:
+                    <span :class="skill.enabled_in_gemini ? 'text-green-600' : 'text-muted-foreground'">
+                      {{ skill.enabled_in_gemini ? '已安装' : '未安装' }}
+                    </span>
+                  </Badge>
+                  <Badge variant="outline">
+                    OpenClaw:
+                    <span :class="skill.enabled_in_openclaw ? 'text-green-600' : 'text-muted-foreground'">
+                      {{ skill.enabled_in_openclaw ? '已安装' : '未安装' }}
+                    </span>
+                  </Badge>
+                </div>
+              </div>
+              <div class="flex shrink-0 items-center gap-2">
+                <Button variant="outline" size="sm" @click="openEdit(skill)">
+                  <Pencil />
+                  编辑
+                </Button>
+                <Button variant="destructive" size="sm" @click="remove(skill)">
+                  <Trash2 />
+                  删除
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+        </Card>
+      </div>
+    </ScrollArea>
 
     <SkillEditModal v-model="showEditModal" :edit-skill="editingSkill" @saved="onSaved" />
   </AppModal>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick } from 'vue'
-import type { Skill } from '@/types'
+import { ref, computed, watch } from 'vue'
+import { Download, Layers, Loader2, Pencil, Plus, RefreshCw, Store, Trash2 } from '@lucide/vue'
+import type { Skill, SkillPreset } from '@/types'
 import AppModal from '@/components/common/AppModal.vue'
 import SkillEditModal from './SkillEditModal.vue'
 import { useSkillStore } from '@/stores/skillStore'
+import { skillService } from '@/services/skillService'
 import { useConfirm } from '@/composables/useConfirm'
 import { useToast } from '@/composables/useToast'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { useConfigStore } from '@/stores/configStore'
+import { toolToPlatform } from '@/lib/workspace'
 
 type PlatformFilter = 'all' | 'claude-code' | 'codex' | 'gemini' | 'openclaw'
 
 interface Props {
   modelValue: boolean
+  embedded?: boolean
 }
 
 const props = defineProps<Props>()
@@ -143,59 +174,68 @@ const emit = defineEmits<{
 const toast = useToast()
 const confirm = useConfirm()
 const skillStore = useSkillStore()
+const configStore = useConfigStore()
 
 const isOpen = computed({
   get: () => props.modelValue,
   set: (value) => emit('update:modelValue', value)
 })
 
-// Platform filter
 const currentPlatform = ref<PlatformFilter>('all')
-const tabRefs = ref<HTMLElement[]>([])
-const gliderStyle = ref({ left: '4px', width: '0px' })
-
-const platformTabs = computed(() => [
-  { label: '全部', value: 'all' as PlatformFilter, count: skillStore.skillCount },
-  { label: 'Claude', value: 'claude-code' as PlatformFilter, count: skillStore.claudeCount },
-  { label: 'Codex', value: 'codex' as PlatformFilter, count: skillStore.codexCount },
-  { label: 'Gemini', value: 'gemini' as PlatformFilter, count: skillStore.geminiCount },
-  { label: 'OpenClaw', value: 'openclaw' as PlatformFilter, count: skillStore.openclawCount }
-])
 
 const filteredSkills = computed(() => {
   if (currentPlatform.value === 'all') return skillStore.skills
   return skillStore.skills.filter(s => s.enable_platform?.includes(currentPlatform.value))
 })
 
-function updateGlider() {
-  nextTick(() => {
-    const activeIndex = platformTabs.value.findIndex(t => t.value === currentPlatform.value)
-    if (activeIndex !== -1 && tabRefs.value[activeIndex]) {
-      const el = tabRefs.value[activeIndex]
-      gliderStyle.value = {
-        left: `${el.offsetLeft}px`,
-        width: `${el.offsetWidth}px`
-      }
-    }
-  })
-}
-
-function setFilter(platform: PlatformFilter) {
-  currentPlatform.value = platform
-  updateGlider()
-}
-
-watch(currentPlatform, () => updateGlider())
-
-// Open/close
 watch(isOpen, async (open) => {
   if (open) {
     await skillStore.loadSkills()
-    setTimeout(updateGlider, 100)
+    loadPresets()
   } else {
-    currentPlatform.value = 'all'
+    showPresets.value = false
   }
 })
+
+watch(() => configStore.currentFilter, (tool) => {
+  currentPlatform.value = toolToPlatform(tool) as PlatformFilter
+}, { immediate: true })
+
+const showPresets = ref(false)
+const presets = ref<SkillPreset[]>([])
+const isLoadingPresets = ref(false)
+
+const installedNames = computed(() => new Set(skillStore.skills.map((s) => s.name)))
+
+async function loadPresets() {
+  isLoadingPresets.value = true
+  try {
+    presets.value = await skillService.getPresets()
+  } catch {
+    presets.value = []
+  } finally {
+    isLoadingPresets.value = false
+  }
+}
+
+function importPreset(preset: SkillPreset) {
+  editingSkill.value = {
+    name: preset.name,
+    content: preset.content,
+    enable_platform: ['claude-code', 'codex', 'gemini'],
+    enabled_in_claude: false,
+    enabled_in_codex: false,
+    enabled_in_gemini: false,
+    enabled_in_openclaw: false,
+    frontmatter_name: preset.name,
+    description: preset.description,
+    has_frontmatter: true,
+    has_name: true,
+    has_description: true,
+    frontmatter_error: ''
+  }
+  showEditModal.value = true
+}
 
 const showEditModal = ref(false)
 const editingSkill = ref<Skill | null>(null)
@@ -226,14 +266,6 @@ async function remove(skill: Skill) {
 }
 
 function onSaved() {
-  // 保存后 store 会自动 reload
   showEditModal.value = false
 }
 </script>
-
-<style scoped>
-.btn-sm {
-  @apply h-8 px-3 text-xs;
-}
-</style>
-

@@ -1,82 +1,48 @@
 <template>
   <AppModal v-model="isOpen" :title="isEditing ? '编辑配置' : '新建配置'" size="lg">
-    <form @submit.prevent="handleSubmit">
-      <!-- Basic Info -->
-      <div class="grid grid-cols-2 gap-4 mb-6">
+    <form class="space-y-4" @submit.prevent="handleSubmit">
+      <div class="grid grid-cols-2 gap-4">
         <div class="col-span-2 sm:col-span-1">
-          <AppInput
-            v-model="form.name"
-            label="配置名称"
-            placeholder="输入配置名称"
-          />
+          <AppInput v-model="form.name" label="配置名称" placeholder="输入配置名称" />
         </div>
         <div class="col-span-2 sm:col-span-1">
-          <label class="block text-sm font-medium mb-1.5">图标</label>
-          <div class="relative">
-            <button
-              type="button"
-              class="w-10 h-10 rounded-lg border border-border flex items-center justify-center text-xl hover:bg-muted"
-              @click="showEmojiPicker = !showEmojiPicker"
-            >
+          <Label>图标</Label>
+          <div class="relative mt-1.5">
+            <Button type="button" variant="outline" size="icon" class="text-xl" @click="showEmojiPicker = !showEmojiPicker">
               {{ form.icon }}
-            </button>
-            <EmojiPicker
-              :show="showEmojiPicker"
-              @close="showEmojiPicker = false"
-              @select="selectIcon"
-            />
+            </Button>
+            <EmojiPicker :show="showEmojiPicker" @close="showEmojiPicker = false" @select="selectIcon" />
           </div>
         </div>
         <div class="col-span-2">
-          <AppInput
-            v-model="form.description"
-            label="描述"
-            placeholder="可选的配置描述"
-          />
+          <AppInput v-model="form.description" label="描述" placeholder="可选的配置描述" />
         </div>
       </div>
 
-      <!-- Provider Tabs -->
-      <div class="provider-tabs">
-        <button
-          v-for="p in providers"
-          :key="p.value"
-          type="button"
-          :class="['provider-tab', { active: form.provider === p.value }]"
-          @click="form.provider = p.value"
-        >
-          <i :class="[p.icon, 'mr-2']"></i>
+      <ToggleGroup
+        type="single"
+        variant="pill"
+        :spacing="1"
+        class="w-full rounded-full bg-muted p-1"
+        :model-value="form.provider"
+        @update:model-value="onProvider"
+      >
+        <ToggleGroupItem v-for="p in providers" :key="p.value" :value="p.value" class="flex-1">
+          <component :is="p.icon" class="size-3.5" />
           {{ p.label }}
-        </button>
-      </div>
+        </ToggleGroupItem>
+      </ToggleGroup>
 
-      <!-- Claude Fields -->
       <div v-if="form.provider === 'claude'" class="space-y-4">
-        <AppInput
-          v-model="form.claude.baseUrl"
-          label="Base URL"
-          placeholder="https://api.anthropic.com"
-        >
+        <AppInput v-model="form.claude.baseUrl" label="Base URL" placeholder="https://api.anthropic.com">
           <template #suffix>
-            <button
-              type="button"
-              class="w-6 h-6 rounded hover:bg-muted flex items-center justify-center text-muted-foreground"
-              @click="testLatency(form.claude.baseUrl)"
-            >
-              <i class="fas fa-bolt text-xs"></i>
-            </button>
+            <Button type="button" variant="ghost" size="icon-xs" @click="testLatency(form.claude.baseUrl)">
+              <Zap />
+            </Button>
           </template>
         </AppInput>
-        <AppInput
-          v-model="form.claude.authToken"
-          label="Auth Token"
-          placeholder="可选"
-        />
-        <AppInput
-          v-model="form.claude.model"
-          label="Model"
-          placeholder="claude-sonnet-4-20250514"
-        />
+        <AppInput v-model="form.claude.authToken" label="Auth Token" placeholder="可选" />
+        <AppInput v-model="form.claude.model" label="Model" placeholder="claude-sonnet-4-20250514" />
         <AppInput
           v-model="form.claude.apiKey"
           label="API Key"
@@ -84,86 +50,46 @@
           placeholder="sk-ant-..."
         >
           <template #suffix>
-            <button
-              type="button"
-              class="w-6 h-6 rounded hover:bg-muted flex items-center justify-center text-muted-foreground"
-              :title="showApiKey.claude ? '隐藏 API Key' : '显示 API Key'"
-              @click="toggleApiKeyVisibility('claude')"
-            >
-              <i :class="showApiKey.claude ? 'fas fa-eye-slash text-xs' : 'fas fa-eye text-xs'"></i>
-            </button>
+            <Button type="button" variant="ghost" size="icon-xs" @click="toggleApiKeyVisibility('claude')">
+              <EyeOff v-if="showApiKey.claude" />
+              <Eye v-else />
+            </Button>
           </template>
         </AppInput>
 
-        <!-- Claude Code 优化选项 -->
-        <div class="pt-3 border-t border-border space-y-3">
-          <div class="text-xs font-medium text-muted-foreground uppercase tracking-wide">Claude Code 环境变量</div>
-
-          <div class="flex items-center justify-between">
+        <div class="space-y-3 border-t pt-3">
+          <p class="text-xs font-medium tracking-wide text-muted-foreground uppercase">Claude Code 环境变量</p>
+          <div class="flex items-center justify-between gap-3">
             <div>
               <div class="text-sm font-medium">Attribution Header</div>
-              <div class="text-[11px] text-muted-foreground font-mono">CLAUDE_CODE_ATTRIBUTION_HEADER</div>
+              <div class="font-mono text-[11px] text-muted-foreground">CLAUDE_CODE_ATTRIBUTION_HEADER</div>
             </div>
-            <div class="flex items-center gap-1 p-0.5 bg-muted rounded-lg">
-              <button
-                type="button"
-                :class="['px-3 py-1 text-xs font-medium rounded-md transition-all', form.claude.attributionHeader === '' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground']"
-                @click="form.claude.attributionHeader = ''"
-              >不设置</button>
-              <button
-                type="button"
-                :class="['px-3 py-1 text-xs font-medium rounded-md transition-all', form.claude.attributionHeader === '0' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground']"
-                @click="form.claude.attributionHeader = '0'"
-              >0</button>
-              <button
-                type="button"
-                :class="['px-3 py-1 text-xs font-medium rounded-md transition-all', form.claude.attributionHeader === '1' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground']"
-                @click="form.claude.attributionHeader = '1'"
-              >1</button>
-            </div>
+            <ToggleGroup type="single" variant="outline" size="sm" :model-value="triValue(form.claude.attributionHeader)" @update:model-value="v => form.claude.attributionHeader = fromTri(v)">
+              <ToggleGroupItem value="unset">不设置</ToggleGroupItem>
+              <ToggleGroupItem value="0">0</ToggleGroupItem>
+              <ToggleGroupItem value="1">1</ToggleGroupItem>
+            </ToggleGroup>
           </div>
-
-          <div class="flex items-center justify-between">
+          <div class="flex items-center justify-between gap-3">
             <div>
               <div class="text-sm font-medium">Disable Nonessential Traffic</div>
-              <div class="text-[11px] text-muted-foreground font-mono">CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC</div>
+              <div class="font-mono text-[11px] text-muted-foreground">CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC</div>
             </div>
-            <div class="flex items-center gap-1 p-0.5 bg-muted rounded-lg">
-              <button
-                type="button"
-                :class="['px-3 py-1 text-xs font-medium rounded-md transition-all', form.claude.disableNonessentialTraffic === '' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground']"
-                @click="form.claude.disableNonessentialTraffic = ''"
-              >不设置</button>
-              <button
-                type="button"
-                :class="['px-3 py-1 text-xs font-medium rounded-md transition-all', form.claude.disableNonessentialTraffic === '0' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground']"
-                @click="form.claude.disableNonessentialTraffic = '0'"
-              >0</button>
-              <button
-                type="button"
-                :class="['px-3 py-1 text-xs font-medium rounded-md transition-all', form.claude.disableNonessentialTraffic === '1' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground']"
-                @click="form.claude.disableNonessentialTraffic = '1'"
-              >1</button>
-            </div>
+            <ToggleGroup type="single" variant="outline" size="sm" :model-value="triValue(form.claude.disableNonessentialTraffic)" @update:model-value="v => form.claude.disableNonessentialTraffic = fromTri(v)">
+              <ToggleGroupItem value="unset">不设置</ToggleGroupItem>
+              <ToggleGroupItem value="0">0</ToggleGroupItem>
+              <ToggleGroupItem value="1">1</ToggleGroupItem>
+            </ToggleGroup>
           </div>
         </div>
       </div>
 
-      <!-- Codex Fields -->
       <div v-if="form.provider === 'codex'" class="space-y-4">
-        <AppInput
-          v-model="form.codex.baseUrl"
-          label="Base URL"
-          placeholder="https://api.openai.com/v1"
-        >
+        <AppInput v-model="form.codex.baseUrl" label="Base URL" placeholder="https://api.openai.com/v1">
           <template #suffix>
-            <button
-              type="button"
-              class="w-6 h-6 rounded hover:bg-muted flex items-center justify-center text-muted-foreground"
-              @click="testLatency(form.codex.baseUrl)"
-            >
-              <i class="fas fa-bolt text-xs"></i>
-            </button>
+            <Button type="button" variant="ghost" size="icon-xs" @click="testLatency(form.codex.baseUrl)">
+              <Zap />
+            </Button>
           </template>
         </AppInput>
         <AppInput
@@ -173,56 +99,29 @@
           placeholder="sk-..."
         >
           <template #suffix>
-            <button
-              type="button"
-              class="w-6 h-6 rounded hover:bg-muted flex items-center justify-center text-muted-foreground"
-              :title="showApiKey.codex ? '隐藏 API Key' : '显示 API Key'"
-              @click="toggleApiKeyVisibility('codex')"
-            >
-              <i :class="showApiKey.codex ? 'fas fa-eye-slash text-xs' : 'fas fa-eye text-xs'"></i>
-            </button>
+            <Button type="button" variant="ghost" size="icon-xs" @click="toggleApiKeyVisibility('codex')">
+              <EyeOff v-if="showApiKey.codex" />
+              <Eye v-else />
+            </Button>
           </template>
         </AppInput>
-        <AppInput
-          v-model="form.codex.model"
-          label="Model"
-          placeholder="gpt-4"
-        />
-
-        <!-- Templates -->
-        <div>
-          <label class="block text-sm font-medium mb-1.5">config.toml 模板</label>
-          <textarea
-            v-model="form.codex.configTemplate"
-            class="input h-32 resize-y font-mono text-xs"
-            placeholder="TOML 配置模板..."
-          ></textarea>
+        <AppInput v-model="form.codex.model" label="Model" placeholder="gpt-4" />
+        <div class="grid gap-1.5">
+          <Label>config.toml 模板</Label>
+          <Textarea v-model="form.codex.configTemplate" class="min-h-32 font-mono text-xs" placeholder="TOML 配置模板..." />
         </div>
-        <div>
-          <label class="block text-sm font-medium mb-1.5">auth.json 模板</label>
-          <textarea
-            v-model="form.codex.authTemplate"
-            class="input h-24 resize-y font-mono text-xs"
-            placeholder="JSON 认证模板..."
-          ></textarea>
+        <div class="grid gap-1.5">
+          <Label>auth.json 模板</Label>
+          <Textarea v-model="form.codex.authTemplate" class="min-h-24 font-mono text-xs" placeholder="JSON 认证模板..." />
         </div>
       </div>
 
-      <!-- Gemini Fields -->
       <div v-if="form.provider === 'gemini'" class="space-y-4">
-        <AppInput
-          v-model="form.gemini.baseUrl"
-          label="Base URL"
-          placeholder="https://generativelanguage.googleapis.com"
-        >
+        <AppInput v-model="form.gemini.baseUrl" label="Base URL" placeholder="https://generativelanguage.googleapis.com">
           <template #suffix>
-            <button
-              type="button"
-              class="w-6 h-6 rounded hover:bg-muted flex items-center justify-center text-muted-foreground"
-              @click="testLatency(form.gemini.baseUrl)"
-            >
-              <i class="fas fa-bolt text-xs"></i>
-            </button>
+            <Button type="button" variant="ghost" size="icon-xs" @click="testLatency(form.gemini.baseUrl)">
+              <Zap />
+            </Button>
           </template>
         </AppInput>
         <AppInput
@@ -232,206 +131,105 @@
           placeholder="API Key"
         >
           <template #suffix>
-            <button
-              type="button"
-              class="w-6 h-6 rounded hover:bg-muted flex items-center justify-center text-muted-foreground"
-              :title="showApiKey.gemini ? '隐藏 API Key' : '显示 API Key'"
-              @click="toggleApiKeyVisibility('gemini')"
-            >
-              <i :class="showApiKey.gemini ? 'fas fa-eye-slash text-xs' : 'fas fa-eye text-xs'"></i>
-            </button>
+            <Button type="button" variant="ghost" size="icon-xs" @click="toggleApiKeyVisibility('gemini')">
+              <EyeOff v-if="showApiKey.gemini" />
+              <Eye v-else />
+            </Button>
           </template>
         </AppInput>
-        <AppInput
-          v-model="form.gemini.model"
-          label="Model"
-          placeholder="gemini-pro"
-        />
-
-        <!-- Templates -->
-        <div>
-          <label class="block text-sm font-medium mb-1.5">.env 模板</label>
-          <textarea
-            v-model="form.gemini.envTemplate"
-            class="input h-24 resize-y font-mono text-xs"
-            placeholder="环境变量模板..."
-          ></textarea>
+        <AppInput v-model="form.gemini.model" label="Model" placeholder="gemini-pro" />
+        <div class="grid gap-1.5">
+          <Label>.env 模板</Label>
+          <Textarea v-model="form.gemini.envTemplate" class="min-h-24 font-mono text-xs" placeholder="环境变量模板..." />
         </div>
-        <div>
-          <label class="block text-sm font-medium mb-1.5">settings.json 模板</label>
-          <textarea
-            v-model="form.gemini.settingsTemplate"
-            class="input h-24 resize-y font-mono text-xs"
-            placeholder="JSON 设置模板..."
-          ></textarea>
+        <div class="grid gap-1.5">
+          <Label>settings.json 模板</Label>
+          <Textarea v-model="form.gemini.settingsTemplate" class="min-h-24 font-mono text-xs" placeholder="JSON 设置模板..." />
         </div>
       </div>
 
-      <!-- OpenClaw Fields -->
       <div v-if="form.provider === 'openclaw'" class="space-y-4">
-        <div class="p-3 rounded-lg border border-border bg-secondary/20">
-          <p class="text-xs text-muted-foreground leading-relaxed">
+        <div class="rounded-lg border bg-muted/40 p-3">
+          <p class="text-xs leading-relaxed text-muted-foreground">
             OpenClaw 配置默认写入
             <span class="font-mono">~/.openclaw/openclaw.json</span>，
             并支持 <span class="font-mono">OPENCLAW_HOME / OPENCLAW_STATE_DIR / OPENCLAW_CONFIG_PATH</span> 覆盖路径。
           </p>
         </div>
-
-        <AppInput
-          v-model="form.openclaw.baseUrl"
-          label="Gateway Base URL"
-          placeholder="https://your-openclaw-gateway/v1"
-        >
+        <AppInput v-model="form.openclaw.baseUrl" label="Gateway Base URL" placeholder="https://your-openclaw-gateway/v1">
           <template #suffix>
-            <button
-              type="button"
-              class="w-6 h-6 rounded hover:bg-muted flex items-center justify-center text-muted-foreground"
-              @click="testLatency(form.openclaw.baseUrl)"
-            >
-              <i class="fas fa-bolt text-xs"></i>
-            </button>
+            <Button type="button" variant="ghost" size="icon-xs" @click="testLatency(form.openclaw.baseUrl)">
+              <Zap />
+            </Button>
           </template>
         </AppInput>
-
-        <AppInput
-          v-model="form.openclaw.primaryModel"
-          label="Primary Model"
-          placeholder="openai/gpt-4.1"
-        />
-
-        <div>
-          <label class="block text-sm font-medium mb-1.5">Fallback Models（每行一个）</label>
-          <textarea
-            v-model="form.openclaw.fallbackModels"
-            class="input h-20 resize-y font-mono text-xs"
-            placeholder="openai/gpt-4o&#10;anthropic/claude-3-7-sonnet"
-          ></textarea>
+        <AppInput v-model="form.openclaw.primaryModel" label="Primary Model" placeholder="openai/gpt-4.1" />
+        <div class="grid gap-1.5">
+          <Label>Fallback Models（每行一个）</Label>
+          <Textarea v-model="form.openclaw.fallbackModels" class="min-h-20 font-mono text-xs" placeholder="openai/gpt-4o&#10;anthropic/claude-3-7-sonnet" />
         </div>
-
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <AppInput
-            v-model="form.openclaw.imageModel"
-            label="Image Model"
-            placeholder="openai/gpt-image-1"
-          />
-          <AppInput
-            v-model="form.openclaw.pdfModel"
-            label="PDF Model"
-            placeholder="openai/gpt-4.1"
-          />
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <AppInput v-model="form.openclaw.imageModel" label="Image Model" placeholder="openai/gpt-image-1" />
+          <AppInput v-model="form.openclaw.pdfModel" label="PDF Model" placeholder="openai/gpt-4.1" />
         </div>
-
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label class="block text-sm font-medium mb-1.5">skills.install.nodeManager</label>
-            <div class="flex items-center gap-1 p-0.5 bg-muted rounded-lg w-fit">
-              <button
-                v-for="option in nodeManagerOptions"
-                :key="option"
-                type="button"
-                :class="['px-3 py-1 text-xs font-medium rounded-md transition-all uppercase', form.openclaw.skillsNodeManager === option ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground']"
-                @click="form.openclaw.skillsNodeManager = option"
-              >
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div class="grid gap-1.5">
+            <Label>skills.install.nodeManager</Label>
+            <ToggleGroup type="single" variant="outline" size="sm" :model-value="form.openclaw.skillsNodeManager" @update:model-value="v => { if (typeof v === 'string' && v) form.openclaw.skillsNodeManager = v }">
+              <ToggleGroupItem v-for="option in nodeManagerOptions" :key="option" :value="option" class="uppercase">
                 {{ option }}
-              </button>
-            </div>
+              </ToggleGroupItem>
+            </ToggleGroup>
           </div>
-          <div>
-            <label class="block text-sm font-medium mb-1.5">skills.load.watch</label>
-            <div class="flex items-center gap-1 p-0.5 bg-muted rounded-lg w-fit">
-              <button
-                type="button"
-                :class="['px-3 py-1 text-xs font-medium rounded-md transition-all', form.openclaw.skillsWatch === 'true' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground']"
-                @click="form.openclaw.skillsWatch = 'true'"
-              >开启</button>
-              <button
-                type="button"
-                :class="['px-3 py-1 text-xs font-medium rounded-md transition-all', form.openclaw.skillsWatch === 'false' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground']"
-                @click="form.openclaw.skillsWatch = 'false'"
-              >关闭</button>
-            </div>
+          <div class="grid gap-1.5">
+            <Label>skills.load.watch</Label>
+            <ToggleGroup type="single" variant="outline" size="sm" :model-value="form.openclaw.skillsWatch" @update:model-value="v => { if (v === 'true' || v === 'false') form.openclaw.skillsWatch = v }">
+              <ToggleGroupItem value="true">开启</ToggleGroupItem>
+              <ToggleGroupItem value="false">关闭</ToggleGroupItem>
+            </ToggleGroup>
           </div>
         </div>
-
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <AppInput
-            v-model="form.openclaw.skillsWatchDebounceMs"
-            type="number"
-            label="skills.load.watchDebounceMs"
-            placeholder="250"
-          />
-          <div></div>
+        <AppInput v-model="form.openclaw.skillsWatchDebounceMs" type="number" label="skills.load.watchDebounceMs" placeholder="250" />
+        <div class="grid gap-1.5">
+          <Label>skills.allowBundled（每行一个 skill key，可留空）</Label>
+          <Textarea v-model="form.openclaw.skillsAllowBundled" class="min-h-20 font-mono text-xs" placeholder="gemini&#10;peekaboo" />
         </div>
-
-        <div>
-          <label class="block text-sm font-medium mb-1.5">skills.allowBundled（每行一个 skill key，可留空）</label>
-          <textarea
-            v-model="form.openclaw.skillsAllowBundled"
-            class="input h-20 resize-y font-mono text-xs"
-            placeholder="gemini&#10;peekaboo"
-          ></textarea>
+        <div class="grid gap-1.5">
+          <Label>skills.load.extraDirs（每行一个）</Label>
+          <Textarea v-model="form.openclaw.skillsExtraDirs" class="min-h-20 font-mono text-xs" placeholder="./skills&#10;C:\\Users\\YourName\\.openclaw\\skills" />
         </div>
-
-        <div>
-          <label class="block text-sm font-medium mb-1.5">skills.load.extraDirs（每行一个）</label>
-          <textarea
-            v-model="form.openclaw.skillsExtraDirs"
-            class="input h-20 resize-y font-mono text-xs"
-            placeholder="./skills&#10;C:\\Users\\YourName\\.openclaw\\skills"
-          ></textarea>
+        <AppInput v-model="form.openclaw.configPath" label="Config Path（可选）" placeholder="~/.openclaw/openclaw.json" />
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <AppInput v-model="form.openclaw.homeDir" label="OPENCLAW_HOME（可选）" placeholder="C:\\Users\\YourName 或 /home/you" />
+          <AppInput v-model="form.openclaw.stateDir" label="OPENCLAW_STATE_DIR（可选）" placeholder="~/.openclaw" />
         </div>
-
-        <AppInput
-          v-model="form.openclaw.configPath"
-          label="Config Path（可选）"
-          placeholder="~/.openclaw/openclaw.json"
-        />
-
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <AppInput
-            v-model="form.openclaw.homeDir"
-            label="OPENCLAW_HOME（可选）"
-            placeholder="C:\\Users\\YourName 或 /home/you"
-          />
-          <AppInput
-            v-model="form.openclaw.stateDir"
-            label="OPENCLAW_STATE_DIR（可选）"
-            placeholder="~/.openclaw"
-          />
-        </div>
-
-        <div>
-          <label class="block text-sm font-medium mb-1.5">openclaw.json 模板（可选）</label>
-          <textarea
-            v-model="form.openclaw.configTemplate"
-            class="input h-40 resize-y font-mono text-xs"
-            placeholder="JSON 模板，支持 {{OPENCLAW_PRIMARY_MODEL}} 等占位符..."
-          ></textarea>
+        <div class="grid gap-1.5">
+          <Label>openclaw.json 模板（可选）</Label>
+          <Textarea v-model="form.openclaw.configTemplate" class="min-h-40 font-mono text-xs" placeholder="JSON 模板，支持 {{OPENCLAW_PRIMARY_MODEL}} 等占位符..." />
         </div>
       </div>
     </form>
 
     <template #footer>
-      <div class="flex justify-end gap-2">
-        <button type="button" class="btn btn-secondary" @click="isOpen = false">
-          取消
-        </button>
-        <button type="button" class="btn btn-primary" @click="handleSubmit">
-          {{ isEditing ? '保存' : '创建' }}
-        </button>
-      </div>
+      <Button type="button" variant="secondary" @click="isOpen = false">取消</Button>
+      <Button type="button" @click="handleSubmit">{{ isEditing ? '保存' : '创建' }}</Button>
     </template>
   </AppModal>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, type Component } from 'vue'
+import { Bot, Boxes, Eye, EyeOff, Gem, Terminal, Zap } from '@lucide/vue'
 import type { EnvConfig, Provider } from '@/types'
 import { useConfigStore } from '@/stores/configStore'
 import { useToast } from '@/composables/useToast'
 import AppModal from '@/components/common/AppModal.vue'
 import AppInput from '@/components/common/AppInput.vue'
 import EmojiPicker from '@/components/common/EmojiPicker.vue'
+import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 
 interface Props {
   modelValue: boolean
@@ -476,13 +274,28 @@ function selectIcon(emoji: string) {
   form.value.icon = emoji
 }
 
-const providers = [
-  { value: 'claude' as Provider, label: 'Claude', icon: 'fas fa-robot' },
-  { value: 'codex' as Provider, label: 'Codex', icon: 'fas fa-terminal' },
-  { value: 'gemini' as Provider, label: 'Gemini', icon: 'fas fa-gem' },
-  { value: 'openclaw' as Provider, label: 'OpenClaw', icon: 'fas fa-cubes' }
+const providers: { value: Provider; label: string; icon: Component }[] = [
+  { value: 'claude', label: 'Claude', icon: Bot },
+  { value: 'codex', label: 'Codex', icon: Terminal },
+  { value: 'gemini', label: 'Gemini', icon: Gem },
+  { value: 'openclaw', label: 'OpenClaw', icon: Boxes }
 ]
 const nodeManagerOptions = ['pnpm', 'npm', 'yarn', 'bun']
+
+function onProvider(value: unknown) {
+  if (value === 'claude' || value === 'codex' || value === 'gemini' || value === 'openclaw') {
+    form.value.provider = value
+  }
+}
+
+function triValue(value: string) {
+  return value === '' ? 'unset' : value
+}
+
+function fromTri(value: unknown) {
+  if (value === '0' || value === '1') return value
+  return ''
+}
 
 const defaultForm = () => ({
   name: '',
@@ -555,7 +368,6 @@ GEMINI_MODEL={{GEMINI_MODEL}}`,
 const form = ref(defaultForm())
 const originalName = ref('')
 
-// Watch for edit config changes
 watch(() => props.editConfig, (config) => {
   if (config) {
     originalName.value = config.name
@@ -608,7 +420,6 @@ watch(() => props.editConfig, (config) => {
   }
 }, { immediate: true })
 
-// Reset form when modal closes
 watch(isOpen, (open) => {
   if (!open) {
     form.value = defaultForm()
@@ -631,7 +442,7 @@ async function testLatency(url: string) {
     } else {
       toast.success(`延迟: ${ms}ms`)
     }
-  } catch (e) {
+  } catch {
     toast.error('测速失败')
   }
 }
@@ -642,7 +453,6 @@ async function handleSubmit() {
     return
   }
 
-  // Check duplicate name
   const exists = configStore.environments.some(
     c => c.name === form.value.name && c.name !== originalName.value
   )
@@ -715,7 +525,6 @@ async function handleSubmit() {
     variables,
     templates,
     icon: form.value.icon,
-    // Claude Code 特有配置 (始终传递，空字符串表示不设置)
     attribution_header: form.value.provider === 'claude' ? form.value.claude.attributionHeader : '',
     disable_nonessential_traffic: form.value.provider === 'claude' ? form.value.claude.disableNonessentialTraffic : ''
   }
@@ -734,25 +543,3 @@ async function handleSubmit() {
   }
 }
 </script>
-
-<style scoped>
-textarea.input {
-  /* Use both to force a visible corner grip, while width stays locked by min/max. */
-  resize: both;
-  overflow: auto;
-  width: 100%;
-  min-width: 100%;
-  max-width: 100%;
-  min-height: 4rem;
-}
-
-textarea.input::-webkit-resizer {
-  background: linear-gradient(
-    135deg,
-    transparent 45%,
-    hsl(var(--muted-foreground) / 0.45) 45%,
-    hsl(var(--muted-foreground) / 0.45) 55%,
-    transparent 55%
-  );
-}
-</style>

@@ -62,6 +62,114 @@ export interface Skill {
   frontmatter_error: string
 }
 
+// 技能预设（内置技能库）
+export interface SkillPreset {
+  name: string
+  description: string
+  content: string
+}
+
+// API 路由网关类型
+export type APIFormat = 'anthropic' | 'openai'
+
+export interface APIRoute {
+  name: string
+  description?: string
+  source_format: APIFormat
+  target_format: APIFormat
+  base_url: string
+  api_key?: string
+  model_mapping?: Record<string, string>
+  default_model?: string
+  enabled: boolean
+}
+
+export interface RouterConfig {
+  port: number
+  auto_start: boolean
+  routes: APIRoute[]
+}
+
+export interface RouteStats {
+  total_requests: number
+  failed_requests: number
+  last_error?: string
+  last_request_at?: number
+}
+
+export interface RouterLogEntry {
+  time: string
+  route: string
+  path: string
+  model?: string
+  status_code: number
+  duration_ms: number
+  error?: string
+}
+
+export interface RouterLogQuery {
+  route?: string
+  keyword?: string
+  only_errors?: boolean
+  limit: number
+  offset: number
+}
+
+export interface RouterLogPage {
+  items: RouterLogEntry[]
+  total: number
+}
+
+export interface GatewayStatus {
+  running: boolean
+  port: number
+  stats: Record<string, RouteStats>
+  logs: RouterLogEntry[]
+}
+
+export interface RouterTestResult {
+  success: boolean
+  message: string
+  latency: number
+}
+
+export type CloudProvider = 's3' | 'aliyun' | 'tencent' | 'r2' | 'minio' | 'custom'
+
+export interface CloudConfig {
+  enabled: boolean
+  provider: CloudProvider | string
+  endpoint: string
+  region: string
+  bucket: string
+  object_key: string
+  access_key: string
+  secret_key: string
+  path_style: boolean
+  passphrase?: string
+  auto_push: boolean
+  auto_pull_on_start: boolean
+  last_push_at?: number
+  last_pull_at?: number
+  last_error?: string
+}
+
+export interface CloudSyncResult {
+  success: boolean
+  message: string
+  latency: number
+}
+
+export interface CloudSyncStatus {
+  enabled: boolean
+  configured: boolean
+  pushing: boolean
+  last_push_at?: number
+  last_pull_at?: number
+  last_error?: string
+  object_key?: string
+  provider?: string
+}
+
 // Uptime / 轮换
 export interface UptimeSettings {
   enabled: boolean
@@ -96,6 +204,33 @@ export interface UptimeSnapshot {
 
 // Provider 类型
 export type Provider = 'claude' | 'codex' | 'gemini' | 'openclaw'
+
+export type AppPage = 'env' | 'mcp' | 'skills' | 'router' | 'uptime' | 'cloud' | 'prompts' | 'stats'
+
+export interface UpdateInfo {
+  available: boolean
+  current_version: string
+  latest_version: string
+  release_name: string
+  release_notes: string
+  published_at: string
+  download_url: string
+  asset_name: string
+  asset_size: number
+  asset_digest: string
+  release_url: string
+  can_apply: boolean
+  is_dev: boolean
+  message: string
+}
+
+export interface UpdateProgress {
+  phase: string
+  percent: number
+  received: number
+  total: number
+  message: string
+}
 
 // Toast 类型
 export type ToastType = 'success' | 'error' | 'info'

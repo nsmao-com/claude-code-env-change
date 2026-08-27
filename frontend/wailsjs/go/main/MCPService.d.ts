@@ -10,4 +10,6 @@ export function ListServers():Promise<Array<main.MCPServer>>;
 
 export function SaveServers(arg1:Array<main.MCPServer>):Promise<void>;
 
+export function SyncToPlatforms():Promise<Array<main.MCPServer>>;
+
 export function TestServer(arg1:main.MCPServer):Promise<main.MCPTestResult>;

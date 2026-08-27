@@ -246,55 +246,34 @@ func (a *App) TestLatency(urlStr string) (int64, error) {
 	return duration, nil
 }
 
-// ApplyCurrentEnv 应用当前环境 (根据传入的配置名称，或者默认应用所有激活的配置)
+// ApplyCurrentEnv 应用当前环境：把每个 Provider 各自激活的环境写入对应 CLI 配置文件
 func (a *App) ApplyCurrentEnv() (string, error) {
-	// 这里我们修改逻辑：不再只应用单一的 CurrentEnv，而是应用所有 Provider 的当前激活环境
-	// 但为了保持 API 简单，我们假设前端调用 SwitchToEnv 后会调用这个方法
-	// 实际上，更合理的做法是 SwitchToEnv 内部直接调用 apply 逻辑，或者前端分别调用
-
-	// 为了响应用户的 "应用" 操作，我们这里只应用最近一次切换的环境
-	// 但由于 SwitchToEnv 已经更新了状态，我们这里需要知道用户想应用哪个
-	// 简化起见，我们遍历所有激活的环境并应用它们
-
 	var msgs []string
+	var errs []string
 
-	// 1. Apply Claude
-	if a.config.CurrentEnvClaude != "" {
-		if env := a.findEnv(a.config.CurrentEnvClaude); env != nil {
-			if msg, err := a.applyClaudeEnv(env); err == nil {
-				msgs = append(msgs, "Claude: "+msg)
-			}
+	apply := func(label, envName string, applyFn func(*EnvConfig) (string, error)) {
+		if envName == "" {
+			return
 		}
+		env := a.findEnv(envName)
+		if env == nil {
+			errs = append(errs, fmt.Sprintf("%s: 找不到环境配置 %q", label, envName))
+			return
+		}
+		msg, err := applyFn(env)
+		if err != nil {
+			errs = append(errs, fmt.Sprintf("%s: %v", label, err))
+			return
+		}
+		msgs = append(msgs, label+": "+msg)
 	}
 
-	// 2. Apply Codex
-	if a.config.CurrentEnvCodex != "" {
-		if env := a.findEnv(a.config.CurrentEnvCodex); env != nil {
-			if msg, err := a.applyCodexEnv(env); err == nil {
-				msgs = append(msgs, "Codex: "+msg)
-			}
-		}
-	}
+	apply("Claude", a.config.CurrentEnvClaude, a.applyClaudeEnv)
+	apply("Codex", a.config.CurrentEnvCodex, a.applyCodexEnv)
+	apply("Gemini", a.config.CurrentEnvGemini, a.applyGeminiEnv)
+	apply("OpenClaw", a.config.CurrentEnvOpenclaw, a.applyOpenclawEnv)
 
-	// 3. Apply Gemini
-	if a.config.CurrentEnvGemini != "" {
-		if env := a.findEnv(a.config.CurrentEnvGemini); env != nil {
-			if msg, err := a.applyGeminiEnv(env); err == nil {
-				msgs = append(msgs, "Gemini: "+msg)
-			}
-		}
-	}
-
-	// 4. Apply OpenClaw
-	if a.config.CurrentEnvOpenclaw != "" {
-		if env := a.findEnv(a.config.CurrentEnvOpenclaw); env != nil {
-			if msg, err := a.applyOpenclawEnv(env); err == nil {
-				msgs = append(msgs, "OpenClaw: "+msg)
-			}
-		}
-	}
-
-	if len(msgs) == 0 {
+	if len(msgs) == 0 && len(errs) == 0 {
 		return "没有激活的环境可应用", nil
 	}
 
@@ -304,7 +283,15 @@ func (a *App) ApplyCurrentEnv() (string, error) {
 	_ = RecordEnvActivation("gemini", a.config.CurrentEnvGemini, now)
 	_ = RecordEnvActivation("openclaw", a.config.CurrentEnvOpenclaw, now)
 
-	return strings.Join(msgs, "\n"), nil
+	if len(msgs) == 0 {
+		return "", fmt.Errorf("应用失败: %s", strings.Join(errs, "；"))
+	}
+
+	result := strings.Join(msgs, "；")
+	if len(errs) > 0 {
+		result += "；⚠ 部分失败: " + strings.Join(errs, "；")
+	}
+	return result, nil
 }
 
 func (a *App) findEnv(name string) *EnvConfig {
@@ -1461,6 +1448,7 @@ func (a *App) saveConfig() error {
 		return fmt.Errorf("保存配置文件失败 (%s): %v", a.configPath, err)
 	}
 
+	notifyCloudSync()
 	return nil
 }
 

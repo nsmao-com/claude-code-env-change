@@ -1,19 +1,22 @@
 <template>
-  <span
+  <Badge
     v-if="statusText"
-    :class="['mcp-status-badge', badgeClass]"
+    variant="outline"
+    :class="badgeClass"
   >
-    <i v-if="isLoading" class="fas fa-circle-notch fa-spin"></i>
+    <Loader2 v-if="isLoading" class="animate-spin" />
     <template v-else>
       <span v-if="availableCount > 0" class="text-green-500">{{ availableCount }} 可用</span>
       <span v-if="failedCount > 0" class="text-red-500">{{ failedCount > 0 && availableCount > 0 ? ' / ' : '' }}{{ failedCount }} 失败</span>
     </template>
-  </span>
+  </Badge>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { Loader2 } from '@lucide/vue'
 import { useMcpStore } from '@/stores/mcpStore'
+import { Badge } from '@/components/ui/badge'
 
 const mcpStore = useMcpStore()
 

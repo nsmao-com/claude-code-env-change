@@ -57,12 +57,8 @@ export const useMcpStore = defineStore('mcp', () => {
   }
 
   async function saveServers(serverList: MCPServer[]) {
-    console.log('[MCP Store] 保存服务器列表，数量:', serverList.length)
-    console.log('[MCP Store] 服务器名称:', serverList.map(s => s.name))
     await mcpService.saveServers(serverList)
-    console.log('[MCP Store] 保存完成，重新加载...')
     await loadServers()
-    console.log('[MCP Store] 重新加载完成，当前数量:', servers.value.length)
   }
 
   async function testServer(server: MCPServer): Promise<MCPTestResult> {
@@ -105,15 +101,12 @@ export const useMcpStore = defineStore('mcp', () => {
   }
 
   async function deleteServer(index: number) {
-    const serverToDelete = servers.value[index]
-    console.log('[MCP Store] 删除服务器:', serverToDelete?.name, 'index:', index)
-    console.log('[MCP Store] 删除前服务器数量:', servers.value.length)
-
     const newList = servers.value.filter((_, i) => i !== index)
-    console.log('[MCP Store] 删除后服务器数量:', newList.length)
-    console.log('[MCP Store] 新列表:', newList.map(s => s.name))
-
     await saveServers(newList)
+  }
+
+  async function syncToPlatforms() {
+    servers.value = await mcpService.syncToPlatforms()
   }
 
   async function updateServer(index: number, server: MCPServer) {
@@ -156,6 +149,7 @@ export const useMcpStore = defineStore('mcp', () => {
     testAllServers,
     importFromJSON,
     addServers,
+    syncToPlatforms,
     deleteServer,
     updateServer,
     addServer,

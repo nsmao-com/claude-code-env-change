@@ -152,7 +152,11 @@ func (ss *SkillService) SaveSkill(skill Skill) error {
 		return err
 	}
 
-	return ss.syncSkill(name, config[name])
+	if err := ss.syncSkill(name, config[name]); err != nil {
+		return err
+	}
+	notifyCloudSync()
+	return nil
 }
 
 func (ss *SkillService) DeleteSkill(name string) error {
@@ -174,7 +178,11 @@ func (ss *SkillService) DeleteSkill(name string) error {
 		return err
 	}
 
-	return ss.removeSkillFromAllPlatforms(trimmed)
+	if err := ss.removeSkillFromAllPlatforms(trimmed); err != nil {
+		return err
+	}
+	notifyCloudSync()
+	return nil
 }
 
 func (ss *SkillService) configPath() (string, error) {

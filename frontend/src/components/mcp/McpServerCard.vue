@@ -1,97 +1,118 @@
 <template>
-  <div :class="['rounded-lg border border-border bg-background hover:border-primary/50 transition-all group', compact ? 'p-2.5' : 'p-4']">
+  <div
+    :class="[
+      'group rounded-lg border border-border bg-background transition-colors hover:border-primary/50',
+      compact ? 'p-2.5' : 'p-4',
+    ]"
+  >
     <div class="flex items-center justify-between gap-3">
-      <div class="flex items-center gap-3 min-w-0 flex-1">
-        <!-- Icon -->
-        <div :class="['rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0', compact ? 'w-8 h-8' : 'w-10 h-10']">
-          <i :class="['fas', typeIcon, 'text-primary', compact ? 'text-sm' : '']"></i>
+      <div class="flex min-w-0 flex-1 items-center gap-3">
+        <div
+          :class="[
+            'flex shrink-0 items-center justify-center rounded-lg bg-primary/10',
+            compact ? 'size-8' : 'size-10',
+          ]"
+        >
+          <Globe v-if="server.type === 'http'" :class="['text-primary', compact ? 'size-3.5' : 'size-5']" />
+          <Terminal v-else :class="['text-primary', compact ? 'size-3.5' : 'size-5']" />
         </div>
 
-        <!-- Info -->
         <div class="min-w-0 flex-1">
-          <div class="flex items-center gap-2 flex-wrap">
+          <div class="flex flex-wrap items-center gap-2">
             <h4 :class="['font-semibold', compact ? 'text-xs' : 'text-sm']">{{ server.name }}</h4>
-            <!-- Platform badges -->
-            <span
+            <Badge
               v-if="hasClaude"
-              class="text-[10px] px-1.5 py-0.5 rounded bg-green-500/10 text-green-500 border border-green-500/20"
+              variant="outline"
+              class="border-green-500/20 bg-green-500/10 text-[10px] text-green-500"
             >
               Claude
-            </span>
-            <span
+            </Badge>
+            <Badge
               v-if="hasCodex"
-              class="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-500 border border-blue-500/20"
+              variant="outline"
+              class="border-blue-500/20 bg-blue-500/10 text-[10px] text-blue-500"
             >
               Codex
-            </span>
-            <span
+            </Badge>
+            <Badge
               v-if="!hasClaude && !hasCodex"
-              class="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground border border-border"
+              variant="outline"
+              class="text-[10px] text-muted-foreground"
             >
               未启用
-            </span>
-            <!-- Test result badge -->
-            <span v-if="testResult" :class="['text-[10px] px-1.5 py-0.5 rounded', testResultClass]">
-              <i v-if="testResult.success" class="fas fa-check mr-1"></i>
-              <i v-else class="fas fa-times mr-1"></i>
+            </Badge>
+            <Badge
+              v-if="testResult"
+              variant="outline"
+              :class="testResultClass"
+            >
+              <Check v-if="testResult.success" />
               {{ testResult.latency }}ms
-            </span>
+            </Badge>
           </div>
 
-          <!-- Detail (hidden in compact mode) -->
-          <div v-if="!compact" class="text-xs text-muted-foreground font-mono truncate mt-1">
+          <div v-if="!compact" class="mt-1 truncate font-mono text-xs text-muted-foreground">
             {{ detailInfo }}
           </div>
 
-          <!-- Tips (hidden in compact mode) -->
-          <div v-if="!compact && server.tips" class="text-xs text-muted-foreground mt-1">
+          <div v-if="!compact && server.tips" class="mt-1 text-xs text-muted-foreground">
             {{ server.tips }}
           </div>
         </div>
       </div>
 
-      <!-- Actions -->
-      <div :class="['transition-opacity flex gap-1 flex-shrink-0', compact ? 'opacity-100' : 'opacity-0 group-hover:opacity-100']">
-        <button
-          :class="['rounded hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground', compact ? 'w-6 h-6' : 'w-7 h-7']"
+      <div
+        :class="[
+          'flex shrink-0 gap-1 transition-opacity',
+          compact ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
+        ]"
+      >
+        <Button
+          variant="ghost"
+          size="icon-sm"
           title="测试连接"
           :disabled="isTesting"
           @click="$emit('test')"
         >
-          <i :class="['fas', isTesting ? 'fa-circle-notch fa-spin' : 'fa-bolt', 'text-xs']"></i>
-        </button>
-        <a
+          <Loader2 v-if="isTesting" class="animate-spin" />
+          <Zap v-else />
+        </Button>
+        <Button
           v-if="server.website"
+          as="a"
           :href="server.website"
           target="_blank"
-          :class="['rounded hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground', compact ? 'w-6 h-6' : 'w-7 h-7']"
+          variant="ghost"
+          size="icon-sm"
           title="官网"
         >
-          <i class="fas fa-external-link-alt text-xs"></i>
-        </a>
-        <button
-          :class="['rounded hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground', compact ? 'w-6 h-6' : 'w-7 h-7']"
+          <ExternalLink />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon-sm"
           title="编辑"
           @click="$emit('edit')"
         >
-          <i class="fas fa-pen text-xs"></i>
-        </button>
-        <button
-          :class="['rounded hover:bg-destructive/10 flex items-center justify-center text-muted-foreground hover:text-destructive', compact ? 'w-6 h-6' : 'w-7 h-7']"
+          <Pencil />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          class="text-muted-foreground hover:text-destructive"
           title="删除"
           @click="$emit('delete')"
         >
-          <i class="fas fa-trash text-xs"></i>
-        </button>
+          <Trash2 />
+        </Button>
       </div>
     </div>
 
-    <!-- Placeholder Warning (hidden in compact mode) -->
     <div
       v-if="!compact && hasPlaceholder"
-      class="mt-2 p-2 rounded bg-yellow-500/10 border border-yellow-500/20 text-xs text-yellow-600"
+      class="mt-2 flex items-start gap-1.5 rounded-lg border border-yellow-500/20 bg-yellow-500/10 p-2 text-xs text-yellow-600"
     >
-      <i class="fas fa-exclamation-triangle mr-1"></i>
+      <TriangleAlert class="mt-0.5 size-3.5 shrink-0" />
       存在未填写的占位符: {{ server.missing_placeholders.join(', ') }}
     </div>
   </div>
@@ -99,7 +120,10 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { Check, ExternalLink, Globe, Loader2, Pencil, Terminal, Trash2, TriangleAlert, Zap } from '@lucide/vue'
 import type { MCPServer, MCPTestResult } from '@/types'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 
 interface Props {
   server: MCPServer
@@ -115,8 +139,6 @@ defineEmits<{
   edit: []
   delete: []
 }>()
-
-const typeIcon = computed(() => props.server.type === 'http' ? 'fa-globe' : 'fa-terminal')
 
 const platforms = computed(() => props.server.enable_platform || [])
 const hasClaude = computed(() => platforms.value.includes('claude-code'))
@@ -135,7 +157,7 @@ const detailInfo = computed(() => {
 const testResultClass = computed(() => {
   if (!props.testResult) return ''
   return props.testResult.success
-    ? 'bg-green-500/10 text-green-500 border border-green-500/20'
-    : 'bg-red-500/10 text-red-500 border border-red-500/20'
+    ? 'border-green-500/20 bg-green-500/10 text-[10px] text-green-500'
+    : 'border-red-500/20 bg-red-500/10 text-[10px] text-red-500'
 })
 </script>

@@ -1,52 +1,54 @@
 <template>
-  <Teleport to="body">
-    <Transition name="modal">
-      <div
-        v-if="modelValue"
-        class="fixed inset-0 z-50 flex items-center justify-center p-4"
-      >
-        <!-- Overlay -->
-        <div
-          class="modal-overlay absolute inset-0"
-          @click="closeOnOverlay && close()"
-        ></div>
-
-        <!-- Modal Content -->
-        <div
-          class="modal-content relative w-full rounded-xl overflow-hidden"
-          :class="sizeClass"
-        >
-          <!-- Header -->
-          <div v-if="title || $slots.header" class="flex items-center justify-between p-4 border-b border-border">
-            <slot name="header">
-              <h3 class="text-lg font-semibold">{{ title }}</h3>
-            </slot>
-            <button
-              v-if="showClose"
-              class="w-8 h-8 rounded-lg hover:bg-muted flex items-center justify-center text-muted-foreground"
-              @click="close"
-            >
-              <i class="fas fa-times"></i>
-            </button>
-          </div>
-
-          <!-- Body -->
-          <div class="p-4 max-h-[70vh] overflow-y-auto">
-            <slot />
-          </div>
-
-          <!-- Footer -->
-          <div v-if="$slots.footer" class="p-4 border-t border-border">
-            <slot name="footer" />
-          </div>
-        </div>
+  <div v-if="plain" class="flex h-full min-h-0 flex-col overflow-hidden bg-background">
+    <div v-if="title || $slots.header" class="flex shrink-0 items-end justify-between gap-4 px-8 pt-5 pb-4">
+      <div class="min-w-0">
+        <slot name="header">
+          <h1 class="text-[2.5rem] leading-none font-semibold tracking-tight">{{ title }}</h1>
+        </slot>
       </div>
-    </Transition>
-  </Teleport>
+      <div class="flex shrink-0 flex-wrap items-center justify-end gap-2 pb-0.5">
+        <slot name="actions">
+          <ToolFilterChips v-if="toolFilter" />
+        </slot>
+      </div>
+    </div>
+    <ScrollArea class="min-h-0 flex-1">
+      <div class="px-8 pb-8 pt-0.5">
+        <slot />
+      </div>
+    </ScrollArea>
+    <div v-if="$slots.footer" class="shrink-0 border-t px-8 py-3">
+      <slot name="footer" />
+    </div>
+  </div>
+  <Dialog v-else :open="modelValue" @update:open="onOpen">
+    <DialogContent :class="sizeClass" :show-close-button="showClose">
+      <DialogHeader v-if="title || $slots.header">
+        <slot name="header">
+          <DialogTitle>{{ title }}</DialogTitle>
+        </slot>
+      </DialogHeader>
+      <div class="max-h-[70vh] overflow-y-auto overflow-x-hidden p-0.5">
+        <slot />
+      </div>
+      <DialogFooter v-if="$slots.footer">
+        <slot name="footer" />
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import ToolFilterChips from '@/components/layout/ToolFilterChips.vue'
 
 interface Props {
   modelValue: boolean
@@ -54,12 +56,16 @@ interface Props {
   size?: 'sm' | 'md' | 'lg' | 'xl' | 'full'
   showClose?: boolean
   closeOnOverlay?: boolean
+  plain?: boolean
+  toolFilter?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
   size: 'md',
   showClose: true,
-  closeOnOverlay: true
+  closeOnOverlay: true,
+  plain: false,
+  toolFilter: false,
 })
 
 const emit = defineEmits<{
@@ -68,39 +74,17 @@ const emit = defineEmits<{
 
 const sizeClass = computed(() => {
   const sizes: Record<string, string> = {
-    sm: 'max-w-sm',
-    md: 'max-w-lg',
-    lg: 'max-w-2xl',
-    xl: 'max-w-4xl',
-    full: 'max-w-[90vw]'
+    sm: 'sm:max-w-sm',
+    md: 'sm:max-w-lg',
+    lg: 'sm:max-w-2xl',
+    xl: 'sm:max-w-4xl',
+    full: 'sm:max-w-[90vw]',
   }
   return sizes[props.size]
 })
 
-function close() {
-  emit('update:modelValue', false)
+function onOpen(open: boolean) {
+  if (!open && !props.closeOnOverlay) return
+  emit('update:modelValue', open)
 }
 </script>
-
-<style scoped>
-.modal-enter-active,
-.modal-leave-active {
-  transition: opacity 0.3s ease;
-}
-
-.modal-enter-active .modal-content,
-.modal-leave-active .modal-content {
-  transition: transform 0.3s ease, opacity 0.3s ease;
-}
-
-.modal-enter-from,
-.modal-leave-to {
-  opacity: 0;
-}
-
-.modal-enter-from .modal-content,
-.modal-leave-to .modal-content {
-  transform: scale(0.95);
-  opacity: 0;
-}
-</style>

@@ -1,22 +1,24 @@
 <template>
-  <button
-    :class="buttonClasses"
+  <Button
+    :variant="mappedVariant"
+    :size="mappedSize"
     :disabled="disabled || loading"
     @click="$emit('click', $event)"
   >
-    <i v-if="loading" class="fas fa-circle-notch fa-spin mr-2"></i>
-    <i v-else-if="icon" :class="['mr-2', icon]"></i>
+    <Loader2 v-if="loading" class="animate-spin" />
     <slot />
-  </button>
+  </Button>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { Loader2 } from '@lucide/vue'
+import { Button } from '@/components/ui/button'
+import type { ButtonVariants } from '@/components/ui/button'
 
 interface Props {
   variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'destructive'
   size?: 'sm' | 'md' | 'lg'
-  icon?: string
   disabled?: boolean
   loading?: boolean
 }
@@ -32,28 +34,11 @@ defineEmits<{
   click: [event: MouseEvent]
 }>()
 
-const buttonClasses = computed(() => {
-  const base = 'btn inline-flex items-center justify-center font-medium transition-all'
+const mappedVariant = computed<ButtonVariants['variant']>(() =>
+  props.variant === 'primary' ? 'default' : props.variant
+)
 
-  const variants: Record<string, string> = {
-    primary: 'btn-primary',
-    secondary: 'btn-secondary',
-    outline: 'btn-outline',
-    ghost: 'btn-ghost',
-    destructive: 'bg-destructive text-destructive-foreground hover:opacity-90'
-  }
-
-  const sizes: Record<string, string> = {
-    sm: 'h-8 px-3 text-xs',
-    md: 'h-10 px-4 text-sm',
-    lg: 'h-12 px-6 text-base'
-  }
-
-  return [
-    base,
-    variants[props.variant],
-    sizes[props.size],
-    (props.disabled || props.loading) && 'opacity-50 cursor-not-allowed'
-  ].filter(Boolean).join(' ')
-})
+const mappedSize = computed<ButtonVariants['size']>(() =>
+  props.size === 'md' ? 'default' : props.size
+)
 </script>

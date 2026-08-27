@@ -1,153 +1,128 @@
 <template>
   <AppModal v-model="isOpen" :title="isEditing ? '编辑轮换组' : '新建轮换组'" size="xl" :close-on-overlay="false">
     <form class="space-y-4" @submit.prevent="handleSubmit">
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label class="block text-sm font-medium mb-1.5">组名称</label>
-          <input v-model="form.name" class="input" placeholder="例如：claude-failover" />
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <AppInput v-model="form.name" label="组名称" placeholder="例如：claude-failover" />
+        <div class="grid gap-1.5">
+          <Label>Provider</Label>
+          <ToggleGroup
+            type="single"
+            variant="outline"
+            class="grid w-full grid-cols-2 sm:grid-cols-4"
+            :model-value="form.provider"
+            @update:model-value="onProvider"
+          >
+            <ToggleGroupItem v-for="p in providers" :key="p.value" :value="p.value">
+              {{ p.label }}
+            </ToggleGroupItem>
+          </ToggleGroup>
         </div>
+      </div>
 
-        <div class="flex items-end justify-between gap-4">
-          <div class="flex-1">
-            <label class="block text-sm font-medium mb-1.5">Provider</label>
-            <div class="provider-tabs">
-              <button
-                v-for="p in providers"
-                :key="p.value"
-                type="button"
-                :class="['provider-tab', { active: form.provider === p.value }]"
-                @click="switchProvider(p.value)"
-              >
-                <i :class="[p.icon, 'mr-2']"></i>
-                {{ p.label }}
-              </button>
-            </div>
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div class="grid gap-1.5">
+          <Label>启用</Label>
+          <div class="flex items-center gap-2">
+            <Switch :checked="form.enabled" @update:checked="form.enabled = $event" />
+            <span class="text-xs text-muted-foreground">已启用轮换</span>
           </div>
         </div>
+        <div class="grid gap-1.5">
+          <Label>失败阈值</Label>
+          <Input v-model="form.failure_threshold" type="number" min="1" max="20" />
+          <p class="text-[11px] text-muted-foreground">连续失败达到该次数才会切换到下一个配置</p>
+        </div>
+        <p class="text-xs leading-relaxed text-muted-foreground">
+          轮换组只在 <span class="font-mono">监控失败</span> 连续达到阈值时触发；切换后会执行一次配置应用。
+        </p>
       </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div>
-          <label class="block text-sm font-medium mb-1.5">启用</label>
-          <label class="flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-secondary/30 text-xs font-medium w-fit">
-            <input v-model="form.enabled" type="checkbox" />
-            已启用轮换
-          </label>
-        </div>
-        <div>
-          <label class="block text-sm font-medium mb-1.5">失败阈值</label>
-          <input v-model.number="form.failure_threshold" class="input" type="number" min="1" max="20" />
-          <p class="text-[11px] text-muted-foreground mt-1">连续失败达到该次数才会切换到下一个配置</p>
-        </div>
-        <div>
-          <label class="block text-sm font-medium mb-1.5">说明</label>
-          <p class="text-xs text-muted-foreground leading-relaxed">
-            轮换组只在 <span class="font-mono">监控失败</span> 连续达到阈值时触发；切换后会执行一次配置应用。
-          </p>
-        </div>
-      </div>
-
-      <div class="border-t border-border pt-4">
-        <div class="flex items-center justify-between mb-2">
-          <h4 class="text-sm font-bold uppercase tracking-wide">组内配置（顺序）</h4>
+      <div class="border-t pt-4">
+        <div class="mb-2 flex items-center justify-between">
+          <h4 class="text-sm font-medium">组内配置（顺序）</h4>
           <span class="text-xs text-muted-foreground">共 {{ form.env_names.length }} 个</span>
         </div>
 
-        <div v-if="form.env_names.length === 0" class="p-4 rounded-xl border border-dashed border-border text-xs text-muted-foreground">
-          还没有添加配置。点击下方可用配置来加入轮换组。
-        </div>
+        <Empty v-if="form.env_names.length === 0" class="border border-dashed py-4">
+          <EmptyHeader>
+            <EmptyTitle class="text-sm">还没有添加配置</EmptyTitle>
+            <EmptyDescription>点击下方可用配置来加入轮换组。</EmptyDescription>
+          </EmptyHeader>
+        </Empty>
 
         <div v-else class="space-y-2">
           <div
             v-for="(name, idx) in form.env_names"
             :key="name"
-            class="flex items-center justify-between gap-3 p-3 rounded-xl border border-border bg-card/60"
+            class="flex items-center justify-between gap-3 rounded-xl border p-3"
           >
             <div class="min-w-0">
-              <div class="font-mono text-sm font-bold truncate">{{ idx + 1 }}. {{ name }}</div>
-              <div class="text-[11px] text-muted-foreground truncate">
-                {{ envDesc(name) }}
-              </div>
+              <div class="truncate font-mono text-sm font-medium">{{ idx + 1 }}. {{ name }}</div>
+              <div class="truncate text-[11px] text-muted-foreground">{{ envDesc(name) }}</div>
             </div>
-
-            <div class="flex items-center gap-1 flex-none">
-              <button
-                type="button"
-                class="w-8 h-8 rounded border border-transparent hover:border-border flex items-center justify-center text-muted-foreground hover:text-foreground transition-all"
-                title="上移"
-                :disabled="idx === 0"
-                @click="moveUp(idx)"
-              >
-                <i class="fas fa-arrow-up text-xs"></i>
-              </button>
-              <button
-                type="button"
-                class="w-8 h-8 rounded border border-transparent hover:border-border flex items-center justify-center text-muted-foreground hover:text-foreground transition-all"
-                title="下移"
-                :disabled="idx === form.env_names.length - 1"
-                @click="moveDown(idx)"
-              >
-                <i class="fas fa-arrow-down text-xs"></i>
-              </button>
-              <button
-                type="button"
-                class="w-8 h-8 rounded border border-transparent hover:border-destructive hover:bg-destructive hover:text-destructive-foreground flex items-center justify-center text-muted-foreground transition-all"
-                title="移除"
-                @click="removeAt(idx)"
-              >
-                <i class="fas fa-times text-xs"></i>
-              </button>
+            <div class="flex shrink-0">
+              <Button type="button" variant="ghost" size="icon-sm" title="上移" :disabled="idx === 0" @click="moveUp(idx)">
+                <ArrowUp />
+              </Button>
+              <Button type="button" variant="ghost" size="icon-sm" title="下移" :disabled="idx === form.env_names.length - 1" @click="moveDown(idx)">
+                <ArrowDown />
+              </Button>
+              <Button type="button" variant="ghost" size="icon-sm" title="移除" @click="removeAt(idx)">
+                <X />
+              </Button>
             </div>
           </div>
         </div>
 
         <div class="mt-4">
-          <div class="flex items-center justify-between mb-2">
-            <h4 class="text-sm font-bold uppercase tracking-wide">可用配置</h4>
+          <div class="mb-2 flex items-center justify-between">
+            <h4 class="text-sm font-medium">可用配置</h4>
             <span class="text-xs text-muted-foreground">{{ availableEnvs.length }} 个</span>
           </div>
-
           <div class="flex flex-wrap gap-2">
-            <button
+            <Button
               v-for="env in availableEnvs"
               :key="env.name"
               type="button"
-              class="px-3 py-2 rounded-lg border border-border bg-secondary/30 text-xs font-medium hover:bg-secondary/60 transition-colors"
+              variant="outline"
+              size="sm"
+              class="h-auto py-2"
               @click="addEnv(env.name)"
             >
               <span class="font-mono">{{ env.name }}</span>
-              <span v-if="env.description" class="ml-2 text-muted-foreground">{{ env.description }}</span>
-            </button>
+              <span v-if="env.description" class="text-muted-foreground">{{ env.description }}</span>
+            </Button>
           </div>
         </div>
       </div>
     </form>
 
     <template #footer>
-      <div class="flex items-center justify-between">
-        <p class="text-xs text-muted-foreground">
-          <i class="fas fa-info-circle mr-1.5"></i>
-          轮换依据：监控结果（HTTP 可达性）
-        </p>
-        <div class="flex items-center gap-3">
-          <button class="btn btn-secondary h-9 px-5" @click="isOpen = false">取消</button>
-          <button class="btn btn-primary h-9 px-5" :disabled="isSaving" @click="handleSubmit">
-            <i :class="['fas mr-2', isSaving ? 'fa-circle-notch fa-spin' : 'fa-save']"></i>
-            {{ isSaving ? '保存中...' : '保存' }}
-          </button>
-        </div>
-      </div>
+      <p class="mr-auto text-xs text-muted-foreground">轮换依据：监控结果（HTTP 可达性）</p>
+      <Button variant="secondary" @click="isOpen = false">取消</Button>
+      <Button :disabled="isSaving" @click="handleSubmit">
+        <Loader2 v-if="isSaving" class="animate-spin" />
+        {{ isSaving ? '保存中...' : '保存' }}
+      </Button>
     </template>
   </AppModal>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import { ArrowDown, ArrowUp, Loader2, X } from '@lucide/vue'
 import type { EnvConfig, RotationGroup, Provider } from '@/types'
 import AppModal from '@/components/common/AppModal.vue'
+import AppInput from '@/components/common/AppInput.vue'
 import { useUptimeStore } from '@/stores/uptimeStore'
 import { useConfigStore } from '@/stores/configStore'
 import { useToast } from '@/composables/useToast'
+import { Button } from '@/components/ui/button'
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 
 interface Props {
   modelValue: boolean
@@ -173,10 +148,10 @@ const isEditing = computed(() => !!props.editGroup)
 const isSaving = ref(false)
 
 const providers = [
-  { value: 'claude' as Provider, label: 'Claude', icon: 'fas fa-brain' },
-  { value: 'codex' as Provider, label: 'Codex', icon: 'fas fa-code' },
-  { value: 'gemini' as Provider, label: 'Gemini', icon: 'fas fa-gem' },
-  { value: 'openclaw' as Provider, label: 'OpenClaw', icon: 'fas fa-cubes' }
+  { value: 'claude' as Provider, label: 'Claude' },
+  { value: 'codex' as Provider, label: 'Codex' },
+  { value: 'gemini' as Provider, label: 'Gemini' },
+  { value: 'openclaw' as Provider, label: 'OpenClaw' }
 ]
 
 function defaultForm(): RotationGroup {
@@ -220,6 +195,12 @@ const availableEnvs = computed<EnvConfig[]>(() => {
 
 function envDesc(name: string): string {
   return providerEnvs.value.find(e => e.name === name)?.description || ''
+}
+
+function onProvider(value: unknown) {
+  if (value === 'claude' || value === 'codex' || value === 'gemini' || value === 'openclaw') {
+    switchProvider(value)
+  }
 }
 
 function switchProvider(p: Provider) {
@@ -289,25 +270,3 @@ async function handleSubmit() {
   }
 }
 </script>
-
-<style scoped>
-.provider-tabs {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px;
-}
-
-@media (min-width: 640px) {
-  .provider-tabs {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-}
-
-.provider-tab {
-  @apply h-9 px-3 rounded-lg border border-border bg-secondary/30 text-xs font-bold uppercase tracking-wide transition-colors;
-}
-
-.provider-tab.active {
-  @apply bg-foreground text-background border-foreground;
-}
-</style>

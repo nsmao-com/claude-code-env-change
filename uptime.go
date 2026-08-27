@@ -84,7 +84,11 @@ func (us *UptimeService) SaveSettings(settings UptimeSettings) error {
 	}
 
 	store.Settings = normalizeUptimeSettings(settings)
-	return us.saveStore(store)
+	if err := us.saveStore(store); err != nil {
+		return err
+	}
+	notifyCloudSync()
+	return nil
 }
 
 func (us *UptimeService) SaveRotationGroup(group RotationGroup) error {
@@ -117,7 +121,11 @@ func (us *UptimeService) SaveRotationGroup(group RotationGroup) error {
 		return strings.ToLower(strings.TrimSpace(store.Groups[i].Name)) < strings.ToLower(strings.TrimSpace(store.Groups[j].Name))
 	})
 
-	return us.saveStore(store)
+	if err := us.saveStore(store); err != nil {
+		return err
+	}
+	notifyCloudSync()
+	return nil
 }
 
 func (us *UptimeService) DeleteRotationGroup(name string) error {
@@ -143,7 +151,11 @@ func (us *UptimeService) DeleteRotationGroup(name string) error {
 	}
 	store.Groups = next
 
-	return us.saveStore(store)
+	if err := us.saveStore(store); err != nil {
+		return err
+	}
+	notifyCloudSync()
+	return nil
 }
 
 // RunOnce 执行一次检查并（可选）触发轮换

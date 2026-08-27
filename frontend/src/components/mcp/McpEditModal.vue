@@ -1,64 +1,56 @@
 <template>
   <AppModal v-model="isOpen" :title="isEditing ? '编辑 MCP 服务器' : '添加 MCP 服务器'" size="md">
-    <form @submit.prevent="handleSubmit">
-      <!-- Name -->
-      <div class="mb-4">
-        <AppInput
-          v-model="form.name"
-          label="服务器名称"
-          placeholder="输入服务器名称"
-        />
-      </div>
+    <form class="space-y-4" @submit.prevent="handleSubmit">
+      <AppInput
+        v-model="form.name"
+        label="服务器名称"
+        placeholder="输入服务器名称"
+      />
 
-      <!-- Type Toggle -->
-      <div class="mb-4">
-        <label class="block text-sm font-medium mb-1.5">类型</label>
-        <div class="flex gap-2">
-          <button
-            type="button"
-            :class="['btn flex-1', form.type === 'stdio' ? 'btn-primary' : 'btn-outline']"
-            @click="form.type = 'stdio'"
-          >
-            <i class="fas fa-terminal mr-2"></i>
+      <div class="grid gap-1.5">
+        <Label>类型</Label>
+        <ToggleGroup
+          type="single"
+          :model-value="form.type"
+          variant="outline"
+          class="w-full"
+          @update:model-value="onType"
+        >
+          <ToggleGroupItem value="stdio" class="flex-1">
+            <Terminal />
             Stdio
-          </button>
-          <button
-            type="button"
-            :class="['btn flex-1', form.type === 'http' ? 'btn-primary' : 'btn-outline']"
-            @click="form.type = 'http'"
-          >
-            <i class="fas fa-globe mr-2"></i>
+          </ToggleGroupItem>
+          <ToggleGroupItem value="http" class="flex-1">
+            <Globe />
             HTTP
-          </button>
-        </div>
+          </ToggleGroupItem>
+        </ToggleGroup>
       </div>
 
-      <!-- Stdio Fields -->
       <div v-if="form.type === 'stdio'" class="space-y-4">
         <AppInput
           v-model="form.command"
           label="Command"
           placeholder="npx"
         />
-        <div>
-          <label class="block text-sm font-medium mb-1.5">Args (每行一个)</label>
-          <textarea
+        <div class="grid gap-1.5">
+          <Label>Args (每行一个)</Label>
+          <Textarea
             v-model="form.args"
-            class="input h-24 resize-y font-mono text-xs"
+            class="min-h-24 font-mono text-xs"
             placeholder="-y&#10;@modelcontextprotocol/server-filesystem"
-          ></textarea>
+          />
         </div>
-        <div>
-          <label class="block text-sm font-medium mb-1.5">环境变量 (KEY=VALUE)</label>
-          <textarea
+        <div class="grid gap-1.5">
+          <Label>环境变量 (KEY=VALUE)</Label>
+          <Textarea
             v-model="form.env"
-            class="input h-20 resize-y font-mono text-xs"
+            class="min-h-24 font-mono text-xs"
             placeholder="API_KEY=xxx&#10;DEBUG=true"
-          ></textarea>
+          />
         </div>
       </div>
 
-      <!-- HTTP Fields -->
       <div v-if="form.type === 'http'" class="space-y-4">
         <AppInput
           v-model="form.url"
@@ -67,8 +59,7 @@
         />
       </div>
 
-      <!-- Optional Fields -->
-      <div class="space-y-4 mt-4 pt-4 border-t border-border">
+      <div class="space-y-4 border-t border-border pt-4">
         <AppInput
           v-model="form.website"
           label="官网 (可选)"
@@ -80,62 +71,58 @@
           placeholder="服务器说明..."
         />
 
-        <!-- Platform Selection -->
-        <div>
-          <label class="block text-sm font-medium mb-2">启用平台</label>
-          <div class="flex gap-2">
-            <button
-              type="button"
-              :class="['platform-btn', { active: form.platforms.claude }]"
-              @click="form.platforms.claude = !form.platforms.claude"
-            >
-              <i class="fas fa-robot"></i>
-              <span>Claude</span>
-              <i v-if="form.platforms.claude" class="fas fa-check check-icon"></i>
-            </button>
-            <button
-              type="button"
-              :class="['platform-btn', { active: form.platforms.codex }]"
-              @click="form.platforms.codex = !form.platforms.codex"
-            >
-              <i class="fas fa-terminal"></i>
-              <span>Codex</span>
-              <i v-if="form.platforms.codex" class="fas fa-check check-icon"></i>
-            </button>
-            <button
-              type="button"
-              :class="['platform-btn', { active: form.platforms.gemini }]"
-              @click="form.platforms.gemini = !form.platforms.gemini"
-            >
-              <i class="fas fa-gem"></i>
-              <span>Gemini</span>
-              <i v-if="form.platforms.gemini" class="fas fa-check check-icon"></i>
-            </button>
-          </div>
+        <div class="grid gap-1.5">
+          <Label>启用平台</Label>
+          <ToggleGroup
+            type="multiple"
+            :model-value="selectedPlatformKeys"
+            variant="outline"
+            class="w-full"
+            @update:model-value="onPlatforms"
+          >
+            <ToggleGroupItem value="claude" class="flex-1">
+              <Bot />
+              Claude
+              <Check v-if="form.platforms.claude" />
+            </ToggleGroupItem>
+            <ToggleGroupItem value="codex" class="flex-1">
+              <Terminal />
+              Codex
+              <Check v-if="form.platforms.codex" />
+            </ToggleGroupItem>
+            <ToggleGroupItem value="gemini" class="flex-1">
+              <Gem />
+              Gemini
+              <Check v-if="form.platforms.gemini" />
+            </ToggleGroupItem>
+          </ToggleGroup>
         </div>
       </div>
     </form>
 
     <template #footer>
-      <div class="flex justify-end gap-2">
-        <button type="button" class="btn btn-secondary" @click="isOpen = false">
-          取消
-        </button>
-        <button type="button" class="btn btn-primary" @click="handleSubmit">
-          {{ isEditing ? '保存' : '添加' }}
-        </button>
-      </div>
+      <Button type="button" variant="outline" @click="isOpen = false">
+        取消
+      </Button>
+      <Button type="button" @click="handleSubmit">
+        {{ isEditing ? '保存' : '添加' }}
+      </Button>
     </template>
   </AppModal>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
+import { Bot, Check, Gem, Globe, Terminal } from '@lucide/vue'
 import type { MCPServer } from '@/types'
 import { useMcpStore } from '@/stores/mcpStore'
 import { useToast } from '@/composables/useToast'
 import AppModal from '@/components/common/AppModal.vue'
 import AppInput from '@/components/common/AppInput.vue'
+import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 
 interface Props {
   modelValue: boolean
@@ -177,6 +164,27 @@ const defaultForm = () => ({
 })
 
 const form = ref(defaultForm())
+
+const selectedPlatformKeys = computed(() => {
+  const keys: string[] = []
+  if (form.value.platforms.claude) keys.push('claude')
+  if (form.value.platforms.codex) keys.push('codex')
+  if (form.value.platforms.gemini) keys.push('gemini')
+  return keys
+})
+
+function onType(value: unknown) {
+  if (value === 'stdio' || value === 'http') {
+    form.value.type = value
+  }
+}
+
+function onPlatforms(value: unknown) {
+  const keys = Array.isArray(value) ? value : []
+  form.value.platforms.claude = keys.includes('claude')
+  form.value.platforms.codex = keys.includes('codex')
+  form.value.platforms.gemini = keys.includes('gemini')
+}
 
 function fillFormFromServer(server: MCPServer) {
   if (server) {
@@ -233,7 +241,6 @@ async function handleSubmit() {
     return
   }
 
-  // Check duplicate
   const exists = mcpStore.servers.some(
     (s, i) => s.name === name && i !== props.editIndex
   )
@@ -242,7 +249,6 @@ async function handleSubmit() {
     return
   }
 
-  // Validate type-specific fields
   if (form.value.type === 'http' && !form.value.url.trim()) {
     toast.error('请输入 URL')
     return
@@ -252,18 +258,15 @@ async function handleSubmit() {
     return
   }
 
-  // Build enable_platform
   const enablePlatform: string[] = []
   if (form.value.platforms.claude) enablePlatform.push('claude-code')
   if (form.value.platforms.codex) enablePlatform.push('codex')
   if (form.value.platforms.gemini) enablePlatform.push('gemini')
 
-  // Parse args
   const args = form.value.args.trim()
     ? form.value.args.split('\n').map(s => s.trim()).filter(s => s)
     : []
 
-  // Parse env
   const env: Record<string, string> = {}
   if (form.value.env.trim()) {
     form.value.env.split('\n').forEach(line => {
@@ -306,25 +309,3 @@ async function handleSubmit() {
   }
 }
 </script>
-
-<style scoped>
-textarea.input {
-  resize: vertical;
-}
-
-.platform-btn {
-  @apply flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border-2 border-border bg-background text-muted-foreground text-sm font-medium transition-all duration-200 cursor-pointer relative;
-}
-
-.platform-btn:hover {
-  @apply border-foreground/30 text-foreground;
-}
-
-.platform-btn.active {
-  @apply border-primary bg-primary/10 text-primary;
-}
-
-.platform-btn .check-icon {
-  @apply absolute -top-1.5 -right-1.5 w-4 h-4 bg-primary text-primary-foreground rounded-full text-[10px] flex items-center justify-center;
-}
-</style>

@@ -75,10 +75,11 @@ export const useConfigStore = defineStore('config', () => {
     await loadConfig()
   }
 
-  async function applyEnv(name: string) {
+  async function applyEnv(name: string): Promise<string | undefined> {
     await configService.switchToEnv(name)
-    await configService.applyCurrentEnv()
+    const message = await configService.applyCurrentEnv()
     await loadConfig()
+    return message
   }
 
   async function reorderEnvs(names: string[]) {

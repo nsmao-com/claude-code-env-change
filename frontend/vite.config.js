@@ -1,8 +1,9 @@
 import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
+import tailwindcss from '@tailwindcss/vite';
 import { resolve } from 'path';
 export default defineConfig({
-    plugins: [vue()],
+    plugins: [vue(), tailwindcss()],
     resolve: {
         alias: {
             '@': resolve(__dirname, 'src'),
@@ -18,5 +19,24 @@ export default defineConfig({
     build: {
         outDir: 'dist',
         emptyOutDir: true,
+        rollupOptions: {
+            output: {
+                manualChunks: function (id) {
+                    if (!id.includes('node_modules'))
+                        return;
+                    if (id.includes('chart.js') || id.includes('vue-chartjs'))
+                        return 'chart';
+                    if (id.includes('vue3-emoji-picker'))
+                        return 'emoji';
+                    if (id.includes('@headlessui'))
+                        return 'headless';
+                    if (id.includes('sortablejs'))
+                        return 'sortable';
+                    if (id.includes('/vue/') || id.includes('\\vue\\') || id.includes('pinia'))
+                        return 'vue';
+                    return 'vendor';
+                }
+            }
+        }
     },
 });

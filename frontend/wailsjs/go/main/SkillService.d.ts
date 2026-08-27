@@ -4,6 +4,8 @@ import {main} from '../models';
 
 export function DeleteSkill(arg1:string):Promise<void>;
 
+export function GetSkillPresets():Promise<Array<main.SkillPreset>>;
+
 export function ListSkills():Promise<Array<main.Skill>>;
 
 export function SaveSkill(arg1:main.Skill):Promise<void>;

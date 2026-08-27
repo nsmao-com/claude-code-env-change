@@ -18,6 +18,10 @@ export function SaveServers(arg1) {
   return window['go']['main']['MCPService']['SaveServers'](arg1);
 }
 
+export function SyncToPlatforms() {
+  return window['go']['main']['MCPService']['SyncToPlatforms']();
+}
+
 export function TestServer(arg1) {
   return window['go']['main']['MCPService']['TestServer'](arg1);
 }

@@ -6,6 +6,10 @@ export function DeleteSkill(arg1) {
   return window['go']['main']['SkillService']['DeleteSkill'](arg1);
 }
 
+export function GetSkillPresets() {
+  return window['go']['main']['SkillService']['GetSkillPresets']();
+}
+
 export function ListSkills() {
   return window['go']['main']['SkillService']['ListSkills']();
 }

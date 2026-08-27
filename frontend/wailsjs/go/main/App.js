@@ -10,6 +10,10 @@ export function ApplyCurrentEnv() {
   return window['go']['main']['App']['ApplyCurrentEnv']();
 }
 
+export function CheckForUpdate() {
+  return window['go']['main']['App']['CheckForUpdate']();
+}
+
 export function ClearAllEnv() {
   return window['go']['main']['App']['ClearAllEnv']();
 }
@@ -38,8 +42,16 @@ export function DeletePromptFile(arg1) {
   return window['go']['main']['App']['DeletePromptFile'](arg1);
 }
 
+export function DownloadAndApplyUpdate() {
+  return window['go']['main']['App']['DownloadAndApplyUpdate']();
+}
+
 export function ExportConfig(arg1) {
   return window['go']['main']['App']['ExportConfig'](arg1);
+}
+
+export function GetAppVersion() {
+  return window['go']['main']['App']['GetAppVersion']();
 }
 
 export function GetClaudeSettings() {
@@ -76,6 +88,14 @@ export function GetPromptFiles() {
 
 export function ImportConfig() {
   return window['go']['main']['App']['ImportConfig']();
+}
+
+export function OnStartup(arg1) {
+  return window['go']['main']['App']['OnStartup'](arg1);
+}
+
+export function OpenReleasePage() {
+  return window['go']['main']['App']['OpenReleasePage']();
 }
 
 export function RefreshConfig() {

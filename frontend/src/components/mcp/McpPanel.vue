@@ -1,123 +1,113 @@
 <template>
-  <AppModal v-model="isOpen" size="xl" :close-on-overlay="false">
+  <AppModal v-model="isOpen" size="xl" :plain="embedded" :tool-filter="embedded" :close-on-overlay="false">
     <template #header>
       <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-          <i class="fas fa-server text-primary"></i>
-        </div>
-        <div>
-          <div class="flex items-center gap-2">
-            <h3 class="text-lg font-semibold">MCP 服务器</h3>
-            <McpStatusBadge />
-          </div>
-          <p class="text-xs text-muted-foreground">管理 Model Context Protocol 服务器</p>
-        </div>
+        <h1 class="text-[2.5rem] leading-none font-semibold tracking-tight">MCP</h1>
+        <McpStatusBadge />
       </div>
+      <p class="mt-2 text-sm text-muted-foreground">管理 Model Context Protocol 服务器</p>
     </template>
 
-    <!-- Platform Filter Tabs -->
-    <div class="relative mb-4 p-1 bg-secondary/50 border border-border/50 rounded-full inline-flex backdrop-blur-sm">
-      <!-- Glider -->
-      <div
-        class="absolute top-1 bottom-1 bg-white rounded-full transition-all duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] shadow-[0_2px_8px_rgba(0,0,0,0.08)] border border-black/5 dark:border-white/10"
-        :style="gliderStyle"
-      ></div>
-
-      <button
-        v-for="tab in platformTabs"
-        :key="tab.value"
-        ref="tabRefs"
-        :class="['relative z-10 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide transition-colors duration-200', { 'text-foreground dark:text-gray-900': currentPlatform === tab.value, 'text-muted-foreground hover:text-foreground/80': currentPlatform !== tab.value }]"
-        @click="setFilter(tab.value)"
-      >
-        {{ tab.label }}
-        <span v-if="tab.count > 0" class="ml-1 text-[10px] opacity-70">({{ tab.count }})</span>
-      </button>
-    </div>
-
-    <!-- Toolbar -->
-    <div class="flex items-center justify-between mb-4">
-      <div class="flex gap-2">
-        <button class="btn btn-primary btn-sm" @click="showAddModal">
-          <i class="fas fa-plus mr-2"></i>
+    <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+      <div class="flex items-center gap-2">
+        <Button size="sm" @click="showAddModal">
+          <Plus />
           添加
-        </button>
-        <button class="btn btn-outline btn-sm" @click="showJsonImport = true">
-          <i class="fas fa-file-import mr-2"></i>
+        </Button>
+        <Button size="sm" variant="outline" @click="showJsonImport = true">
+          <FileJson />
           JSON 导入
-        </button>
+        </Button>
       </div>
-      <div class="flex items-center gap-3">
-        <!-- View Mode Toggle -->
-        <div class="flex items-center gap-1 p-1 bg-secondary/50 border border-border/50 rounded-full">
-          <button
-            class="w-7 h-7 rounded-full flex items-center justify-center transition-colors"
-            :class="viewMode === 'cards' ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground'"
-            title="卡片视图"
-            @click="setViewMode('cards')"
-          >
-            <i class="fas fa-th-large text-xs"></i>
-          </button>
-          <button
-            class="w-7 h-7 rounded-full flex items-center justify-center transition-colors"
-            :class="viewMode === 'list' ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground'"
-            title="列表视图"
-            @click="setViewMode('list')"
-          >
-            <i class="fas fa-list text-xs"></i>
-          </button>
-        </div>
-        <button
-          class="btn btn-outline btn-sm"
-          :disabled="isRefreshing"
-          @click="refreshServers"
-          title="重新获取 MCP 服务器列表"
+      <div class="flex items-center gap-2">
+        <ToggleGroup
+          type="single"
+          variant="pill"
+          :spacing="1"
+          :model-value="viewMode"
+          size="sm"
+          class="rounded-full bg-muted p-1"
+          @update:model-value="onView"
         >
-          <i :class="['fas mr-2', isRefreshing ? 'fa-circle-notch fa-spin' : 'fa-sync-alt']"></i>
+          <ToggleGroupItem value="cards" aria-label="卡片视图">
+            <LayoutGrid />
+          </ToggleGroupItem>
+          <ToggleGroupItem value="list" aria-label="列表视图">
+            <List />
+          </ToggleGroupItem>
+        </ToggleGroup>
+        <Button
+          size="sm"
+          variant="outline"
+          :disabled="isRefreshing"
+          title="重新获取 MCP 服务器列表"
+          @click="refreshServers"
+        >
+          <Loader2 v-if="isRefreshing" class="animate-spin" />
+          <RefreshCw v-else />
           {{ isRefreshing ? '刷新中...' : '刷新' }}
-        </button>
-        <button
-          class="btn btn-outline btn-sm"
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          :disabled="isSyncing"
+          title="把已保存的 MCP 配置重新写入 Claude/Codex/Gemini 配置文件"
+          @click="syncToPlatforms"
+        >
+          <Loader2 v-if="isSyncing" class="animate-spin" />
+          <RotateCw v-else />
+          {{ isSyncing ? '同步中...' : '同步到平台' }}
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
           :disabled="mcpStore.isTestingAll || mcpStore.servers.length === 0"
           @click="testAll"
         >
-          <i :class="['fas mr-2', mcpStore.isTestingAll ? 'fa-circle-notch fa-spin' : 'fa-bolt']"></i>
+          <Loader2 v-if="mcpStore.isTestingAll" class="animate-spin" />
+          <Zap v-else />
           {{ mcpStore.isTestingAll ? '检测中...' : '全部检测' }}
-        </button>
+        </Button>
       </div>
     </div>
 
-    <!-- Empty State -->
-    <div
+    <Empty
       v-if="filteredServerItems.length === 0 && !mcpStore.isLoading"
-      class="flex flex-col items-center justify-center py-12 text-muted-foreground"
+      class="py-12"
     >
-      <i class="fas fa-server text-4xl mb-4"></i>
-      <p class="text-sm">{{ mcpStore.servers.length === 0 ? '暂无 MCP 服务器' : '该平台暂无 MCP 服务器' }}</p>
-      <p class="text-xs">点击「添加」或「JSON 导入」添加服务器</p>
-    </div>
+      <EmptyHeader>
+        <Server class="size-10 text-muted-foreground" />
+        <EmptyTitle>{{ mcpStore.servers.length === 0 ? '暂无 MCP 服务器' : '该平台暂无 MCP 服务器' }}</EmptyTitle>
+        <EmptyDescription>点击「添加」或「JSON 导入」添加服务器</EmptyDescription>
+      </EmptyHeader>
+      <EmptyContent>
+        <Button size="sm" @click="showAddModal">
+          <Plus />
+          添加
+        </Button>
+      </EmptyContent>
+    </Empty>
 
-    <!-- Loading -->
     <div v-else-if="mcpStore.isLoading" class="flex items-center justify-center py-12">
-      <i class="fas fa-circle-notch fa-spin text-2xl text-muted-foreground"></i>
+      <Loader2 class="size-8 animate-spin text-muted-foreground" />
     </div>
 
-    <!-- Server List -->
-    <div v-else :class="viewMode === 'cards' ? 'grid grid-cols-2 gap-3 max-h-[50vh] overflow-y-auto pr-2' : 'space-y-2 max-h-[50vh] overflow-y-auto pr-2'">
-      <McpServerCard
-        v-for="item in filteredServerItems"
-        :key="`${item.server.name}-${item.index}`"
-        :server="item.server"
-        :test-result="mcpStore.getTestResult(item.server.name)"
-        :is-testing="testingIndex === item.index"
-        :compact="viewMode === 'list'"
-        @test="testSingle(item.index)"
-        @edit="editServer(item.index)"
-        @delete="deleteServer(item.index)"
-      />
-    </div>
+    <ScrollArea v-else class="h-[50vh] pr-2">
+      <div :class="viewMode === 'cards' ? 'grid grid-cols-2 gap-3' : 'flex flex-col gap-2'">
+        <McpServerCard
+          v-for="item in filteredServerItems"
+          :key="`${item.server.name}-${item.index}`"
+          :server="item.server"
+          :test-result="mcpStore.getTestResult(item.server.name)"
+          :is-testing="testingIndex === item.index"
+          :compact="viewMode === 'list'"
+          @test="testSingle(item.index)"
+          @edit="editServer(item.index)"
+          @delete="deleteServer(item.index)"
+        />
+      </div>
+    </ScrollArea>
 
-    <!-- Edit Modal -->
     <McpEditModal
       v-model="showEditModal"
       :edit-server="editingServer"
@@ -125,7 +115,6 @@
       @saved="onServerSaved"
     />
 
-    <!-- JSON Import Modal -->
     <McpJsonImport
       v-model="showJsonImport"
       @imported="onServersImported"
@@ -134,12 +123,29 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick } from 'vue'
+import { ref, computed, watch } from 'vue'
+import {
+  FileJson,
+  LayoutGrid,
+  List,
+  Loader2,
+  Plus,
+  RefreshCw,
+  RotateCw,
+  Server,
+  Zap,
+} from '@lucide/vue'
 import type { MCPServer } from '@/types'
 import { useMcpStore } from '@/stores/mcpStore'
+import { useConfigStore } from '@/stores/configStore'
 import { useConfirm } from '@/composables/useConfirm'
 import { useToast } from '@/composables/useToast'
 import AppModal from '@/components/common/AppModal.vue'
+import { Button } from '@/components/ui/button'
+
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import McpStatusBadge from './McpStatusBadge.vue'
 import McpServerCard from './McpServerCard.vue'
 import McpEditModal from './McpEditModal.vue'
@@ -149,6 +155,7 @@ type PlatformFilter = 'all' | 'claude-code' | 'codex' | 'gemini'
 
 interface Props {
   modelValue: boolean
+  embedded?: boolean
 }
 
 const props = defineProps<Props>()
@@ -158,6 +165,7 @@ const emit = defineEmits<{
 }>()
 
 const mcpStore = useMcpStore()
+const configStore = useConfigStore()
 const confirm = useConfirm()
 const toast = useToast()
 
@@ -172,8 +180,8 @@ const editingServer = ref<MCPServer | null>(null)
 const editingIndex = ref<number | undefined>(undefined)
 const testingIndex = ref<number | null>(null)
 const isRefreshing = ref(false)
+const isSyncing = ref(false)
 
-// View mode
 type ViewMode = 'cards' | 'list'
 const viewMode = ref<ViewMode>('list')
 const viewModeStorageKey = 'claudia_mcp_view_mode'
@@ -185,18 +193,7 @@ function setViewMode(mode: ViewMode) {
   } catch {}
 }
 
-// Platform filter
 const currentPlatform = ref<PlatformFilter>('all')
-const tabRefs = ref<HTMLElement[]>([])
-const gliderStyle = ref({ left: '4px', width: '0px' })
-
-// Platform tabs with counts
-const platformTabs = computed(() => [
-  { label: '全部', value: 'all' as PlatformFilter, count: mcpStore.servers.length },
-  { label: 'Claude', value: 'claude-code' as PlatformFilter, count: mcpStore.servers.filter(s => s.enable_platform?.includes('claude-code')).length },
-  { label: 'Codex', value: 'codex' as PlatformFilter, count: mcpStore.servers.filter(s => s.enable_platform?.includes('codex')).length },
-  { label: 'Gemini', value: 'gemini' as PlatformFilter, count: mcpStore.servers.filter(s => s.enable_platform?.includes('gemini')).length }
-])
 
 const filteredServerItems = computed(() => {
   const withIndex = mcpStore.servers.map((server, index) => ({ server, index }))
@@ -206,52 +203,35 @@ const filteredServerItems = computed(() => {
   return withIndex.filter(item => item.server.enable_platform?.includes(currentPlatform.value))
 })
 
-// Update glider position
-function updateGlider() {
-  nextTick(() => {
-    const activeIndex = platformTabs.value.findIndex(t => t.value === currentPlatform.value)
-    if (activeIndex !== -1 && tabRefs.value[activeIndex]) {
-      const el = tabRefs.value[activeIndex]
-      gliderStyle.value = {
-        left: `${el.offsetLeft}px`,
-        width: `${el.offsetWidth}px`
-      }
-    }
-  })
+function syncTool(tool: string) {
+  if (tool === 'claude') currentPlatform.value = 'claude-code'
+  else if (tool === 'codex' || tool === 'gemini') currentPlatform.value = tool
+  else currentPlatform.value = 'all'
 }
 
-function setFilter(platform: PlatformFilter) {
-  currentPlatform.value = platform
-  updateGlider()
+function onView(value: unknown) {
+  if (value === 'cards' || value === 'list') {
+    setViewMode(value)
+  }
 }
 
-// Watch filter change to update glider
-watch(currentPlatform, () => {
-  updateGlider()
-})
-
-// 打开弹窗时加载服务器并自动检测
 watch(isOpen, async (open) => {
   if (open) {
-    // 加载保存的视图模式
     try {
       const saved = localStorage.getItem(viewModeStorageKey)
       if (saved === 'cards' || saved === 'list') viewMode.value = saved
     } catch {}
 
     await mcpStore.loadServers()
-    // 自动检测所有服务器
     if (mcpStore.servers.length > 0) {
       mcpStore.testAllServers()
     }
-    // Update glider after data loaded
-    setTimeout(updateGlider, 100)
   } else {
-    // 关闭时清除测试结果
     mcpStore.clearTestResults()
-    currentPlatform.value = 'all'
   }
 })
+
+watch(() => configStore.currentFilter, (tool) => syncTool(tool), { immediate: true })
 
 function showAddModal() {
   editingServer.value = null
@@ -321,7 +301,6 @@ async function refreshServers() {
   try {
     await mcpStore.loadServers()
     toast.success('MCP 服务器列表已刷新')
-    // 刷新后自动检测
     if (mcpStore.servers.length > 0) {
       mcpStore.testAllServers()
     }
@@ -332,21 +311,25 @@ async function refreshServers() {
   }
 }
 
+async function syncToPlatforms() {
+  isSyncing.value = true
+  try {
+    await mcpStore.syncToPlatforms()
+    toast.success('已重新同步到 Claude / Codex / Gemini 配置')
+  } catch (e: any) {
+    toast.error('同步失败: ' + (e?.message || String(e)))
+  } finally {
+    isSyncing.value = false
+  }
+}
+
 function onServerSaved() {
-  // 保存后重新加载
   mcpStore.loadServers()
 }
 
 function onServersImported() {
-  // 导入后重新加载并检测
   mcpStore.loadServers().then(() => {
     mcpStore.testAllServers()
   })
 }
 </script>
-
-<style scoped>
-.btn-sm {
-  @apply h-8 px-3 text-xs;
-}
-</style>
