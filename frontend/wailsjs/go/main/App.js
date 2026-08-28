@@ -82,6 +82,10 @@ export function GetGrokSettings() {
   return window['go']['main']['App']['GetGrokSettings']();
 }
 
+export function GetOpencodeAppliedNames() {
+  return window['go']['main']['App']['GetOpencodeAppliedNames']();
+}
+
 export function GetOpencodeSettings() {
   return window['go']['main']['App']['GetOpencodeSettings']();
 }
@@ -180,6 +184,10 @@ export function TestLatency(arg1) {
 
 export function TestOutboundProxy(arg1) {
   return window['go']['main']['App']['TestOutboundProxy'](arg1);
+}
+
+export function UnapplyEnv(arg1) {
+  return window['go']['main']['App']['UnapplyEnv'](arg1);
 }
 
 export function UpdateEnv(arg1, arg2) {

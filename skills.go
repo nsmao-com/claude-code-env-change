@@ -185,6 +185,46 @@ func (ss *SkillService) DeleteSkill(name string) error {
 	return nil
 }
 
+// ApplyToPlatform 把所有 Skill 一次性写入指定服务商的 skills 目录。
+func (ss *SkillService) ApplyToPlatform(platform string) (int, error) {
+	ss.mu.Lock()
+	defer ss.mu.Unlock()
+
+	plat, ok := normalizePlatform(platform)
+	if !ok {
+		return 0, fmt.Errorf("未知平台")
+	}
+
+	config, err := ss.loadConfig()
+	if err != nil {
+		return 0, err
+	}
+
+	added := 0
+	for name, entry := range config {
+		entry = normalizeRawSkill(entry)
+		if platformContains(entry.EnablePlatform, plat) {
+			continue
+		}
+		entry.EnablePlatform = unionPlatforms(entry.EnablePlatform, []string{plat})
+		config[name] = entry
+		added++
+	}
+	if added == 0 {
+		return 0, nil
+	}
+	if err := ss.saveConfig(config); err != nil {
+		return 0, err
+	}
+	for name, entry := range config {
+		if err := ss.syncSkill(name, entry); err != nil {
+			return added, fmt.Errorf("%s: %v", name, err)
+		}
+	}
+	notifyCloudSync()
+	return added, nil
+}
+
 func (ss *SkillService) configPath() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -282,7 +322,14 @@ func (ss *SkillService) loadConfigWithImport() (map[string]rawSkill, bool, error
 			if trimmed == "" {
 				continue
 			}
-			if _, exists := config[trimmed]; exists {
+			if existing, exists := config[trimmed]; exists {
+				next := unionPlatforms(existing.EnablePlatform, []string{item.platform})
+				if samePlatforms(existing.EnablePlatform, next) {
+					continue
+				}
+				existing.EnablePlatform = next
+				config[trimmed] = existing
+				changed = true
 				continue
 			}
 			config[trimmed] = rawSkill{
@@ -293,7 +340,34 @@ func (ss *SkillService) loadConfigWithImport() (map[string]rawSkill, bool, error
 		}
 	}
 
+	if ss.reconcileSkillPlatforms(config, imports) {
+		changed = true
+	}
+
 	return config, changed, nil
+}
+
+func (ss *SkillService) reconcileSkillPlatforms(config map[string]rawSkill, roots []struct {
+	platform string
+	root     string
+}) bool {
+	changed := false
+	for name, entry := range config {
+		present := make([]string, 0, len(roots))
+		for _, item := range roots {
+			if fileExists(filepath.Join(item.root, name, "SKILL.md")) {
+				present = append(present, item.platform)
+			}
+		}
+		present = normalizePlatforms(present)
+		if samePlatforms(entry.EnablePlatform, present) {
+			continue
+		}
+		entry.EnablePlatform = present
+		config[name] = entry
+		changed = true
+	}
+	return changed
 }
 
 func normalizeRawSkill(entry rawSkill) rawSkill {

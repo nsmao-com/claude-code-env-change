@@ -98,7 +98,9 @@ import type { Skill } from '@/types'
 import AppModal from '@/components/common/AppModal.vue'
 import BrandIcon from '@/components/common/BrandIcon.vue'
 import { useSkillStore } from '@/stores/skillStore'
+import { useConfigStore } from '@/stores/configStore'
 import { useToast } from '@/composables/useToast'
+import { toolToPlatform } from '@/lib/workspace'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -118,6 +120,7 @@ const emit = defineEmits<{
 
 const toast = useToast()
 const skillStore = useSkillStore()
+const configStore = useConfigStore()
 
 const isOpen = computed({
   get: () => props.modelValue,
@@ -128,9 +131,11 @@ const isEditing = computed(() => !!props.editSkill)
 const isSaving = ref(false)
 
 function defaultForm() {
+  const tool = configStore.currentFilter
+  const platform = tool === 'all' ? 'claude-code' : toolToPlatform(tool)
   return {
     name: '',
-    enable_platform: ['claude-code'] as string[],
+    enable_platform: [platform] as string[],
     content: ''
   }
 }
@@ -150,9 +155,11 @@ watch(() => props.editSkill, (skill) => {
 }, { immediate: true })
 
 watch(isOpen, (open) => {
-  if (!open) {
-    form.value = defaultForm()
+  if (open) {
+    if (!props.editSkill) form.value = defaultForm()
+    return
   }
+  form.value = defaultForm()
 })
 
 function onPlatforms(value: unknown) {

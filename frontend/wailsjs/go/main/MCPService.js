@@ -6,8 +6,16 @@ export function AddServers(arg1) {
   return window['go']['main']['MCPService']['AddServers'](arg1);
 }
 
+export function ApplyToPlatform(arg1) {
+  return window['go']['main']['MCPService']['ApplyToPlatform'](arg1);
+}
+
 export function ImportFromJSON(arg1) {
   return window['go']['main']['MCPService']['ImportFromJSON'](arg1);
+}
+
+export function ImportMcpMarketplace(arg1, arg2) {
+  return window['go']['main']['MCPService']['ImportMcpMarketplace'](arg1, arg2);
 }
 
 export function ListServers() {
@@ -16,6 +24,10 @@ export function ListServers() {
 
 export function SaveServers(arg1) {
   return window['go']['main']['MCPService']['SaveServers'](arg1);
+}
+
+export function SearchMcpMarketplace(arg1, arg2) {
+  return window['go']['main']['MCPService']['SearchMcpMarketplace'](arg1, arg2);
 }
 
 export function SyncToPlatforms() {

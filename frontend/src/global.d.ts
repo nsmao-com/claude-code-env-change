@@ -1,4 +1,4 @@
-import type { EnvConfig, Config, MCPServer, MCPTestResult, Skill, SkillPreset, UptimeSettings, RotationGroup, UptimeSnapshot, RouterConfig, GatewayStatus, RouterTestResult, RouterLogQuery, RouterLogPage, CloudConfig, CloudSyncResult, CloudSyncStatus } from '@/types'
+import type { EnvConfig, Config, MCPServer, MCPTestResult, Skill, SkillPreset, SkillMarketItem, McpMarketPage, UptimeSettings, RotationGroup, UptimeSnapshot, RouterConfig, GatewayStatus, RouterTestResult, RouterLogQuery, RouterLogPage, CloudConfig, CloudSyncResult, CloudSyncStatus } from '@/types'
 
 declare global {
   interface Window {
@@ -34,12 +34,18 @@ declare global {
           ImportFromJSON(jsonStr: string): Promise<MCPServer[]>
           AddServers(servers: MCPServer[]): Promise<void>
           SyncToPlatforms(): Promise<MCPServer[]>
+          ApplyToPlatform(platform: string): Promise<number>
+          SearchMcpMarketplace(query: string, cursor: string): Promise<McpMarketPage>
+          ImportMcpMarketplace(id: string, platforms: string[]): Promise<void>
         }
         SkillService: {
           ListSkills(): Promise<Skill[]>
           SaveSkill(skill: Skill): Promise<void>
           DeleteSkill(name: string): Promise<void>
           GetSkillPresets(): Promise<SkillPreset[]>
+          ApplyToPlatform(platform: string): Promise<number>
+          SearchSkillMarketplace(source: string, query: string): Promise<SkillMarketItem[]>
+          ImportSkillMarketplace(id: string): Promise<Skill>
         }
         UptimeService: {
           GetSnapshot(): Promise<UptimeSnapshot>

@@ -169,6 +169,7 @@ function onRouteFilter(value: unknown) {
 
 function onOnlyErrorsChange(checked: boolean) {
   onlyErrors.value = checked
+  toast.info(checked ? '只显示失败请求' : '显示全部请求')
   reload(true)
 }
 

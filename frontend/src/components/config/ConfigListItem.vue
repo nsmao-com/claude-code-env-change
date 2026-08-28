@@ -6,7 +6,7 @@
     :while-press="nested ? undefined : pressSpring"
     :while-hover="nested ? undefined : hoverLift"
     :class="[
-      'flex min-w-0 w-full cursor-pointer items-center gap-3 overflow-hidden px-4 py-3 transition-colors hover:bg-muted/70',
+      'flex min-w-0 w-full cursor-pointer items-start gap-3 overflow-hidden px-4 py-3 transition-colors hover:bg-muted/70',
       nested
         ? 'rounded-none bg-transparent'
         : 'rounded-2xl bg-card ring-1 ring-black/[0.04] dark:ring-white/10',
@@ -15,41 +15,52 @@
     ]"
     @click="$emit('click')"
   >
-    <GripVertical class="size-3.5 shrink-0 text-muted-foreground/50" />
-    <div
-      :class="[
-        'flex size-7 shrink-0 items-center justify-center rounded-md text-sm',
-        isActive ? 'bg-primary text-primary-foreground' : 'bg-muted',
-      ]"
-    >
-      {{ config.icon || '⌘' }}
+    <div class="flex h-8 shrink-0 items-center">
+      <GripVertical class="size-3.5 text-muted-foreground/50" />
+    </div>
+    <div class="flex h-8 shrink-0 items-center">
+      <div
+        :class="[
+          'flex size-7 items-center justify-center rounded-md text-sm',
+          isActive ? 'bg-primary text-primary-foreground' : 'bg-muted',
+        ]"
+      >
+        <ConfigIcon :value="config.icon" class="size-4" />
+      </div>
     </div>
     <div class="min-w-0 flex-1 overflow-hidden">
-      <div class="flex min-w-0 items-center gap-2">
-        <AppTooltip :content="config.name" wrap class="min-w-0 flex-1">
-          <span class="block w-full truncate text-sm font-medium">{{ config.name }}</span>
+      <div class="flex h-8 min-w-0 items-center gap-1.5">
+        <AppTooltip :content="config.name" wrap class="flex h-full min-w-0 flex-1 items-center">
+          <span class="block w-full truncate text-sm font-medium leading-5">{{ config.name }}</span>
         </AppTooltip>
-        <Badge v-if="needsRoute" variant="outline" class="shrink-0 border-brand/30 bg-brand/10 text-brand">需开启路由</Badge>
-        <Badge v-if="isActive" class="shrink-0 gap-1">
+        <Badge v-if="needsRoute" class="shrink-0">需路由</Badge>
+        <Badge v-if="needsRoute && conversionLabel" variant="outline" class="hidden shrink-0 border-brand/30 bg-brand/10 text-brand sm:inline-flex">{{ conversionLabel }}</Badge>
+        <Badge v-if="isActive" class="gap-1">
           <Check class="size-3" />
           使用中
         </Badge>
       </div>
-      <p class="mt-0.5 truncate text-xs text-muted-foreground">{{ config.description?.trim() || '暂无描述' }}</p>
+      <p class="truncate text-xs leading-4 text-muted-foreground">{{ config.description?.trim() || '暂无描述' }}</p>
     </div>
-    <span class="flex w-[88px] shrink-0 items-center gap-1 text-xs text-muted-foreground">
+    <span class="flex h-8 w-[88px] shrink-0 items-center gap-1 text-xs text-muted-foreground">
       <BrandIcon :provider="config.provider || 'claude'" class="size-3 shrink-0" />
-      <span class="truncate">{{ providerLabel }}</span>
+      <span class="truncate leading-5">{{ providerLabel }}</span>
     </span>
-    <AppTooltip class="hidden w-36 shrink-0 sm:inline-flex" :content="modelValue" wrap :disabled="!modelValue">
-      <span class="w-full truncate font-mono text-xs">{{ modelValue || '-' }}</span>
-    </AppTooltip>
-    <AppTooltip class="hidden w-44 shrink-0 xl:inline-flex" :content="baseUrlValue" wrap :disabled="!baseUrlValue">
-      <span class="w-full truncate font-mono text-xs">{{ baseUrlValue || '-' }}</span>
-    </AppTooltip>
-    <Badge v-if="isUptimeEnabled" variant="outline">{{ uptimeBadgeText }}</Badge>
-    <div class="flex shrink-0 items-center gap-1.5">
-      <Button size="sm" @click.stop="$emit('apply')">应用</Button>
+    <div class="hidden h-8 w-36 shrink-0 items-center sm:flex">
+      <AppTooltip class="flex h-full w-full items-center" :content="modelValue" wrap :disabled="!modelValue">
+        <span class="w-full truncate font-mono text-xs leading-5">{{ modelValue || '-' }}</span>
+      </AppTooltip>
+    </div>
+    <div class="hidden h-8 w-44 shrink-0 items-center xl:flex">
+      <AppTooltip class="flex h-full w-full items-center" :content="baseUrlValue" wrap :disabled="!baseUrlValue">
+        <span class="w-full truncate font-mono text-xs leading-5">{{ baseUrlValue || '-' }}</span>
+      </AppTooltip>
+    </div>
+    <div v-if="isUptimeEnabled" class="flex h-8 shrink-0 items-center">
+      <Badge variant="outline">{{ uptimeBadgeText }}</Badge>
+    </div>
+    <div class="flex h-8 shrink-0 items-center gap-1.5">
+      <Button size="sm" @click.stop="$emit('apply')">{{ applyLabel }}</Button>
       <span v-if="latencyLabel" class="shrink-0 text-right text-[11px] tabular-nums text-muted-foreground">{{ latencyLabel }}</span>
       <AppTooltip content="测速">
         <Button variant="ghost" size="icon-sm" :disabled="testing" @pointerdown.stop @click.stop="onTestLatency">
@@ -84,7 +95,9 @@ import type { EnvConfig, UptimeCheck } from '@/types'
 import { useUptimeStore } from '@/stores/uptimeStore'
 import { useConfigLatency } from '@/composables/useConfigLatency'
 import { hoverLift, listEnter, pressSpring } from '@/lib/motion'
+import { conversionTagLabel, needsUpstreamRouting } from '@/lib/upstreamFormat'
 import AppTooltip from '@/components/common/AppTooltip.vue'
+import ConfigIcon from '@/components/common/ConfigIcon.vue'
 import BrandIcon from '@/components/common/BrandIcon.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -97,6 +110,7 @@ const props = defineProps<{
 }>()
 
 const enter = computed(() => listEnter(props.index ?? 0))
+const applyLabel = computed(() => props.isActive && props.config.provider === 'opencode' ? '停用' : '应用')
 
 defineEmits<{
   click: []
@@ -118,7 +132,9 @@ const providerLabel = computed(() => {
   return labels[(props.config.provider || 'claude').toLowerCase()] || props.config.provider
 })
 
-const needsRoute = computed(() => !!props.config.upstream_format)
+const needsRoute = computed(() => needsUpstreamRouting(props.config.provider, props.config.upstream_format))
+
+const conversionLabel = computed(() => conversionTagLabel(props.config.provider, props.config.upstream_format))
 
 const modelValue = computed(() => {
   const provider = (props.config.provider || 'claude').toLowerCase()

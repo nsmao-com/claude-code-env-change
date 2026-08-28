@@ -20,7 +20,7 @@
               isActive ? 'bg-primary text-primary-foreground' : 'bg-muted',
             ]"
           >
-            {{ config.icon || '⌘' }}
+            <ConfigIcon :value="config.icon" class="size-4" />
           </div>
           <div class="min-w-0 flex-1 overflow-hidden">
             <AppTooltip :content="config.name" wrap class="block w-full min-w-0">
@@ -33,7 +33,8 @@
           </div>
         </div>
         <div class="flex shrink-0 items-center gap-1.5">
-          <Badge v-if="needsRoute" variant="outline" class="border-brand/30 bg-brand/10 text-brand">需开启路由</Badge>
+          <Badge v-if="needsRoute" class="shrink-0">需路由</Badge>
+          <Badge v-if="needsRoute && conversionLabel" variant="outline" class="shrink-0 border-brand/30 bg-brand/10 text-brand">{{ conversionLabel }}</Badge>
           <Badge v-if="isActive" class="gap-1">
             <Check class="size-3" />
             使用中
@@ -64,7 +65,7 @@
       </div>
     </CardContent>
     <CardFooter class="gap-1.5">
-      <Button size="sm" class="flex-1" @click.stop="$emit('apply')">应用</Button>
+      <Button size="sm" class="flex-1" @click.stop="$emit('apply')">{{ applyLabel }}</Button>
       <AppTooltip content="测速">
         <Button variant="ghost" size="icon-sm" :disabled="testing" @pointerdown.stop @click.stop="onTestLatency">
           <Loader2 v-if="testing" class="animate-spin" />
@@ -99,7 +100,9 @@ import type { EnvConfig, UptimeCheck } from '@/types'
 import { useUptimeStore } from '@/stores/uptimeStore'
 import { useConfigLatency } from '@/composables/useConfigLatency'
 import { hoverLift, listEnter, pressSpring } from '@/lib/motion'
+import { conversionTagLabel, needsUpstreamRouting } from '@/lib/upstreamFormat'
 import AppTooltip from '@/components/common/AppTooltip.vue'
+import ConfigIcon from '@/components/common/ConfigIcon.vue'
 import BrandIcon from '@/components/common/BrandIcon.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -112,6 +115,7 @@ const props = defineProps<{
 }>()
 
 const enter = computed(() => listEnter(props.index ?? 0))
+const applyLabel = computed(() => props.isActive && props.config.provider === 'opencode' ? '停用' : '应用')
 
 defineEmits<{
   click: []
@@ -133,7 +137,9 @@ const providerLabel = computed(() => {
   return labels[(props.config.provider || 'claude').toLowerCase()] || props.config.provider
 })
 
-const needsRoute = computed(() => !!props.config.upstream_format)
+const needsRoute = computed(() => needsUpstreamRouting(props.config.provider, props.config.upstream_format))
+
+const conversionLabel = computed(() => conversionTagLabel(props.config.provider, props.config.upstream_format))
 
 const modelValue = computed(() => {
   const provider = (props.config.provider || 'claude').toLowerCase()

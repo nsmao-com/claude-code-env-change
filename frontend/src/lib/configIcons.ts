@@ -1,0 +1,223 @@
+import type { Component } from 'vue'
+import {
+  Antenna,
+  AppWindow,
+  Archive,
+  Bell,
+  Bookmark,
+  Book,
+  Bot,
+  Box,
+  Boxes,
+  Braces,
+  Bug,
+  CircleAlert,
+  CircleCheck,
+  CircleX,
+  Cloud,
+  CloudSun,
+  Code,
+  Cog,
+  Compass,
+  Container,
+  Cpu,
+  Database,
+  Download,
+  Eye,
+  File,
+  FileCode,
+  FileText,
+  Files,
+  Fingerprint,
+  Flag,
+  Flame,
+  Folder,
+  FolderOpen,
+  GitBranch,
+  Globe,
+  HardDrive,
+  Heart,
+  Info,
+  Key,
+  KeyRound,
+  Laptop,
+  Layers,
+  LayoutGrid,
+  LayoutList,
+  Leaf,
+  Lightbulb,
+  Link,
+  Lock,
+  Map,
+  Monitor,
+  Moon,
+  Plane,
+  Plug,
+  Puzzle,
+  Radio,
+  Rocket,
+  Server,
+  Share2,
+  Shield,
+  ShieldAlert,
+  ShieldCheck,
+  Smartphone,
+  Sparkles,
+  Star,
+  Sun,
+  Target,
+  Terminal,
+  TreePalm,
+  Unlock,
+  Unplug,
+  Upload,
+  Wifi,
+  Wrench,
+  Zap,
+} from '@lucide/vue'
+
+export const LUCIDE_PREFIX = 'lucide:'
+
+export interface LucideGroup {
+  id: string
+  label: string
+  items: string[]
+}
+
+export const LUCIDE_ICON_MAP: Record<string, Component> = {
+  Antenna,
+  AppWindow,
+  Archive,
+  Bell,
+  Bookmark,
+  Book,
+  Bot,
+  Box,
+  Boxes,
+  Braces,
+  Bug,
+  CircleAlert,
+  CircleCheck,
+  CircleX,
+  Cloud,
+  CloudSun,
+  Code,
+  Cog,
+  Compass,
+  Container,
+  Cpu,
+  Database,
+  Download,
+  Eye,
+  File,
+  FileCode,
+  FileText,
+  Files,
+  Fingerprint,
+  Flag,
+  Flame,
+  Folder,
+  FolderOpen,
+  GitBranch,
+  Globe,
+  HardDrive,
+  Heart,
+  Info,
+  Key,
+  KeyRound,
+  Laptop,
+  Layers,
+  LayoutGrid,
+  LayoutList,
+  Leaf,
+  Lightbulb,
+  Link,
+  Lock,
+  Map,
+  Monitor,
+  Moon,
+  Plane,
+  Plug,
+  Puzzle,
+  Radio,
+  Rocket,
+  Server,
+  Share2,
+  Shield,
+  ShieldAlert,
+  ShieldCheck,
+  Smartphone,
+  Sparkles,
+  Star,
+  Sun,
+  Target,
+  Terminal,
+  TreePalm,
+  Unlock,
+  Unplug,
+  Upload,
+  Wifi,
+  Wrench,
+  Zap,
+}
+
+export const LUCIDE_GROUPS: LucideGroup[] = [
+  {
+    id: 'frequent',
+    label: '常用',
+    items: ['Box', 'Boxes', 'Rocket', 'Zap', 'Sparkles', 'Star', 'Target', 'Lightbulb', 'Puzzle', 'Cpu', 'Laptop', 'Key', 'Globe', 'Bot', 'Flame'],
+  },
+  {
+    id: 'dev',
+    label: '开发',
+    items: ['Code', 'Terminal', 'Braces', 'FileCode', 'GitBranch', 'Bug', 'Wrench', 'Cog', 'Database', 'Server', 'HardDrive', 'Cloud', 'Container', 'Boxes'],
+  },
+  {
+    id: 'net',
+    label: '网络',
+    items: ['Wifi', 'Globe', 'Link', 'Unplug', 'Plug', 'Share2', 'Antenna', 'Radio'],
+  },
+  {
+    id: 'security',
+    label: '安全',
+    items: ['Shield', 'ShieldCheck', 'ShieldAlert', 'Lock', 'Unlock', 'KeyRound', 'Fingerprint', 'Eye'],
+  },
+  {
+    id: 'files',
+    label: '文件',
+    items: ['Folder', 'FolderOpen', 'File', 'FileText', 'Files', 'Archive', 'Download', 'Upload', 'Book'],
+  },
+  {
+    id: 'ui',
+    label: '界面',
+    items: ['LayoutGrid', 'LayoutList', 'AppWindow', 'Monitor', 'Smartphone', 'Layers'],
+  },
+  {
+    id: 'status',
+    label: '状态',
+    items: ['CircleCheck', 'CircleAlert', 'CircleX', 'Info', 'Bell', 'Heart', 'Bookmark', 'Flag'],
+  },
+  {
+    id: 'nature',
+    label: '自然',
+    items: ['Sun', 'Moon', 'CloudSun', 'Leaf', 'TreePalm', 'Compass', 'Map', 'Plane'],
+  },
+]
+
+export function isLucideIcon(value?: string) {
+  return !!value && value.startsWith(LUCIDE_PREFIX)
+}
+
+export function lucideIconName(value?: string) {
+  if (!isLucideIcon(value)) return ''
+  return value!.slice(LUCIDE_PREFIX.length)
+}
+
+export function lucideIconValue(name: string) {
+  return LUCIDE_PREFIX + name
+}
+
+export function resolveLucideIcon(value?: string): Component | null {
+  const name = lucideIconName(value)
+  return (name && LUCIDE_ICON_MAP[name]) || null
+}

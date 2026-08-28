@@ -31,7 +31,7 @@
 
 把五套 CLI 的环境变量、MCP 服务器、Skills、提示词、用量统计和本机安装收进同一个原生窗口。配置写在本机，不经过第三方账号；换电脑时可以用 S3 兼容对象存储加密备份。
 
-当前版本 **v2.3.0**。版本说明和安装包见 [GitHub Releases](https://github.com/nsmao-com/claude-code-env-change/releases)。
+当前版本 **v2.4.0**。版本说明和安装包见 [GitHub Releases](https://github.com/nsmao-com/claude-code-env-change/releases)。
 
 ## 功能
 
@@ -39,8 +39,8 @@
 | --- | --- |
 | 环境 | 多配置、按平台筛选、拖拽排序、一键写入对应 CLI、延迟测速、JSON 拖拽导入 |
 | MCP | 管理 stdio / HTTP 服务器，同步到 Claude / Codex / Gemini / OpenCode / Grok |
-| Skills | 编辑 `SKILL.md`，从内置技能库导入，按平台启用 |
-| API 路由 | 本机协议转换网关（Anthropic Messages、Chat Completions、Responses） |
+| Skills | 编辑 `SKILL.md`，从在线市场 / 内置库导入，按平台启用 |
+| API 路由 | 本机网关端口与按厂商开关；上游格式在配置里选择（Anthropic Messages、Chat Completions、Responses） |
 | 监控 | 定时探测 Base URL，按轮换组自动切配置 |
 | 云同步 | S3 / 阿里云 OSS / 兼容端点，AES-GCM 加密后上传 |
 | 提示词 | 编辑各平台自定义系统提示词 |

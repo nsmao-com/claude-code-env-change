@@ -150,7 +150,7 @@ func (a *App) buildLocalCodexEnv() (*EnvConfig, error) {
 	variables := map[string]string{}
 	copyIfSet(variables, settings, "base_url", "OPENAI_API_KEY", "model",
 		"model_context_window", "model_max_output_tokens", "model_reasoning_effort",
-		"model_reasoning_summary", "approval_policy", "sandbox_mode", "model_verbosity")
+		"model_reasoning_summary", "plan_mode_reasoning_effort", "approval_policy", "sandbox_mode", "model_verbosity")
 
 	templates := map[string]string{}
 	if data, err := os.ReadFile(filepath.Join(codexDir, "config.toml")); err == nil && len(data) > 0 {
@@ -484,7 +484,7 @@ func (a *App) buildLocalGrokEnv() (*EnvConfig, error) {
 	variables := map[string]string{}
 	copyIfSet(variables, settings,
 		"XAI_BASE_URL", "XAI_API_KEY", "XAI_MODEL", "XAI_API_BACKEND",
-		"GROK_HOME", "XAI_MODEL_NAME", "XAI_CONTEXT_WINDOW", "XAI_MAX_TOKENS", "XAI_TEMPERATURE")
+		"GROK_HOME", "XAI_MODEL_NAME", "XAI_CONTEXT_WINDOW", "XAI_MAX_TOKENS", "XAI_TEMPERATURE", "XAI_REASONING_EFFORT")
 
 	templates := map[string]string{}
 	configFile := settings["GROK_CONFIG_PATH"]

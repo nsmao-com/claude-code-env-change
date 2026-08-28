@@ -90,6 +90,7 @@
 import { ref, computed, watch } from 'vue'
 import { Check, Loader2 } from '@lucide/vue'
 import { useMcpStore } from '@/stores/mcpStore'
+import { useConfigStore } from '@/stores/configStore'
 import BrandIcon from '@/components/common/BrandIcon.vue'
 import { useToast } from '@/composables/useToast'
 import AppModal from '@/components/common/AppModal.vue'
@@ -111,7 +112,19 @@ const emit = defineEmits<{
 }>()
 
 const mcpStore = useMcpStore()
+const configStore = useConfigStore()
 const toast = useToast()
+
+function platformsFromFilter() {
+  const tool = configStore.currentFilter
+  return {
+    claude: tool === 'all' || tool === 'claude',
+    codex: tool === 'codex',
+    gemini: tool === 'gemini',
+    opencode: tool === 'opencode',
+    grok: tool === 'grok',
+  }
+}
 
 const isOpen = computed({
   get: () => props.modelValue,
@@ -120,13 +133,7 @@ const isOpen = computed({
 
 const jsonInput = ref('')
 const isImporting = ref(false)
-const selectedPlatforms = ref({
-  claude: true,
-  codex: false,
-  gemini: false,
-  opencode: false,
-  grok: false,
-})
+const selectedPlatforms = ref(platformsFromFilter())
 
 const hasSelectedPlatform = computed(() => {
   return selectedPlatforms.value.claude || selectedPlatforms.value.codex || selectedPlatforms.value.gemini || selectedPlatforms.value.opencode || selectedPlatforms.value.grok
@@ -162,10 +169,12 @@ function onPlatforms(value: unknown) {
 }
 
 watch(isOpen, (open) => {
-  if (!open) {
-    jsonInput.value = ''
-    selectedPlatforms.value = { claude: true, codex: false, gemini: false, opencode: false, grok: false }
+  if (open) {
+    selectedPlatforms.value = platformsFromFilter()
+    return
   }
+  jsonInput.value = ''
+  selectedPlatforms.value = platformsFromFilter()
 })
 
 async function handleImport() {

@@ -10,6 +10,7 @@ export const useConfigStore = defineStore('config', () => {
   const currentEnvCodex = ref('')
   const currentEnvGemini = ref('')
   const currentEnvOpencode = ref('')
+  const currentEnvsOpencode = ref<string[]>([])
   const currentEnvGrok = ref('')
   const currentFilter = ref<Provider | 'all'>('all')
   const currentEnvTab = ref<Provider>('claude') // 当前环境面板的tab
@@ -61,6 +62,19 @@ export const useConfigStore = defineStore('config', () => {
       currentEnvCodex.value = config.current_env_codex || ''
       currentEnvGemini.value = config.current_env_gemini || ''
       currentEnvOpencode.value = config.current_env_opencode || ''
+      const listed = Array.isArray(config.current_envs_opencode) ? config.current_envs_opencode.filter(Boolean) : []
+      let extra: string[] = []
+      try {
+        extra = await configService.getOpencodeAppliedNames()
+      } catch {
+        extra = []
+      }
+      const seen = new Set<string>()
+      currentEnvsOpencode.value = [...listed, ...extra, config.current_env_opencode || ''].filter((name) => {
+        if (!name || seen.has(name)) return false
+        seen.add(name)
+        return true
+      })
       currentEnvGrok.value = config.current_env_grok || ''
     } finally {
       isLoading.value = false
@@ -83,10 +97,31 @@ export const useConfigStore = defineStore('config', () => {
   }
 
   async function applyEnv(name: string): Promise<string | undefined> {
+    const env = environments.value.find(item => item.name === name)
+    if (env?.provider === 'opencode' && isEnvActive(name, 'opencode')) {
+      await configService.unapplyEnv(name)
+      await loadConfig()
+      currentEnvsOpencode.value = currentEnvsOpencode.value.filter(item => item !== name)
+      return 'unapplied'
+    }
+    const kept = env?.provider === 'opencode' ? [...currentEnvsOpencode.value] : []
     await configService.switchToEnv(name)
     const message = await configService.applyCurrentEnv()
     await loadConfig()
+    if (env?.provider === 'opencode') {
+      const seen = new Set<string>()
+      currentEnvsOpencode.value = [...kept, name, ...currentEnvsOpencode.value].filter((item) => {
+        if (!item || seen.has(item)) return false
+        seen.add(item)
+        return true
+      })
+    }
     return message
+  }
+
+  async function unapplyEnv(name: string) {
+    await configService.unapplyEnv(name)
+    await loadConfig()
   }
 
   async function reorderEnvs(names: string[]) {
@@ -196,7 +231,7 @@ export const useConfigStore = defineStore('config', () => {
       case 'gemini':
         return currentEnvGemini.value === name
       case 'opencode':
-        return currentEnvOpencode.value === name
+        return currentEnvsOpencode.value.includes(name) || currentEnvOpencode.value === name
       case 'grok':
         return currentEnvGrok.value === name
       default:
@@ -211,6 +246,7 @@ export const useConfigStore = defineStore('config', () => {
     currentEnvCodex,
     currentEnvGemini,
     currentEnvOpencode,
+    currentEnvsOpencode,
     currentEnvGrok,
     currentFilter,
     currentEnvTab,
@@ -231,6 +267,7 @@ export const useConfigStore = defineStore('config', () => {
     updateEnv,
     deleteEnv,
     applyEnv,
+    unapplyEnv,
     reorderEnvs,
     testLatency,
     clearAllEnv,

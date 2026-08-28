@@ -22,6 +22,7 @@ export interface Config {
   current_env_codex: string
   current_env_gemini: string
   current_env_opencode: string
+  current_envs_opencode?: string[]
   current_env_grok: string
   environments: EnvConfig[]
 }
@@ -76,6 +77,36 @@ export interface SkillPreset {
   name: string
   description: string
   content: string
+}
+
+export interface SkillMarketItem {
+  id: string
+  name: string
+  description: string
+  source: string
+  repo?: string
+  path?: string
+  builtin?: boolean
+}
+
+export interface McpMarketItem {
+  id: string
+  name: string
+  title: string
+  description: string
+  website?: string
+  version?: string
+  type: string
+  command?: string
+  args?: string[]
+  url?: string
+  hint?: string
+}
+
+export interface McpMarketPage {
+  items: McpMarketItem[]
+  next?: string
+  warning?: string
 }
 
 // API 路由网关类型

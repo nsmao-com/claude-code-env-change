@@ -361,7 +361,7 @@ const platformCols = computed(() => {
     { id: 'claude' as Provider, label: 'Claude', count: configStore.claudeEnvs.length, applied: !!configStore.currentEnvClaude },
     { id: 'codex' as Provider, label: 'Codex', count: configStore.codexEnvs.length, applied: !!configStore.currentEnvCodex },
     { id: 'gemini' as Provider, label: 'Gemini', count: configStore.geminiEnvs.length, applied: !!configStore.currentEnvGemini },
-    { id: 'opencode' as Provider, label: 'OpenCode', count: configStore.opencodeEnvs.length, applied: !!configStore.currentEnvOpencode },
+    { id: 'opencode' as Provider, label: 'OpenCode', count: configStore.opencodeEnvs.length, applied: configStore.currentEnvsOpencode.length > 0 || !!configStore.currentEnvOpencode },
     { id: 'grok' as Provider, label: 'Grok', count: configStore.grokEnvs.length, applied: !!configStore.currentEnvGrok },
   ]
 })

@@ -303,6 +303,22 @@ func (ms *MCPService) loadConfig() (map[string]rawMCPServer, error) {
 		}
 	}
 
+	if imported, err := ms.importFromOpencode(payload); err == nil {
+		if ms.mergeImportedServers(payload, imported) {
+			changed = true
+		}
+	}
+
+	if imported, err := ms.importFromGrok(payload); err == nil {
+		if ms.mergeImportedServers(payload, imported) {
+			changed = true
+		}
+	}
+
+	if ms.reconcilePlatformsFromDisk(payload) {
+		changed = true
+	}
+
 	// 清理不再存在于任何平台配置中的服务器
 	if ms.cleanupDeletedServers(payload) {
 		changed = true
@@ -704,21 +720,254 @@ func (ms *MCPService) importFromGemini(existing map[string]rawMCPServer) (map[st
 	return result, nil
 }
 
+func (ms *MCPService) importFromOpencode(existing map[string]rawMCPServer) (map[string]rawMCPServer, error) {
+	path := opencodeConfigFile(nil)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return map[string]rawMCPServer{}, nil
+		}
+		return nil, err
+	}
+	if len(data) == 0 {
+		return map[string]rawMCPServer{}, nil
+	}
+	payload, err := parseJSONLikeObject(data)
+	if err != nil {
+		return nil, err
+	}
+	mcp, _ := payload["mcp"].(map[string]any)
+	result := make(map[string]rawMCPServer, len(mcp))
+	for name, raw := range mcp {
+		trimmedName := strings.TrimSpace(name)
+		if trimmedName == "" {
+			continue
+		}
+		if _, exists := existing[trimmedName]; exists {
+			continue
+		}
+		entry, ok := parseOpencodeMcpEntry(raw)
+		if !ok {
+			continue
+		}
+		entry.EnablePlatform = []string{platOpencode}
+		result[trimmedName] = entry
+	}
+	return result, nil
+}
+
+func parseOpencodeMcpEntry(raw any) (rawMCPServer, bool) {
+	m, ok := raw.(map[string]any)
+	if !ok || m == nil {
+		return rawMCPServer{}, false
+	}
+	url := strings.TrimSpace(asString(m["url"]))
+	typeHint := strings.ToLower(strings.TrimSpace(asString(m["type"])))
+	cmdParts := anyToStringSlice(m["command"])
+	command := ""
+	args := []string{}
+	if len(cmdParts) > 0 {
+		command = cmdParts[0]
+		args = cmdParts[1:]
+	}
+	if typeHint == "remote" || typeHint == "http" || typeHint == "sse" || url != "" {
+		if url == "" {
+			return rawMCPServer{}, false
+		}
+		typ := "http"
+		if typeHint == "sse" {
+			typ = "sse"
+		}
+		return rawMCPServer{
+			Type:    typ,
+			URL:     url,
+			Headers: anyToStringMap(m["headers"]),
+		}, true
+	}
+	if command == "" {
+		return rawMCPServer{}, false
+	}
+	env := anyToStringMap(m["environment"])
+	if len(env) == 0 {
+		env = anyToStringMap(m["env"])
+	}
+	return rawMCPServer{
+		Type:    "stdio",
+		Command: command,
+		Args:    cleanArgs(args),
+		Env:     env,
+	}, true
+}
+
+func (ms *MCPService) importFromGrok(existing map[string]rawMCPServer) (map[string]rawMCPServer, error) {
+	path, err := grokMcpConfigPath()
+	if err != nil {
+		return nil, err
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return map[string]rawMCPServer{}, nil
+		}
+		return nil, err
+	}
+	if len(data) == 0 {
+		return map[string]rawMCPServer{}, nil
+	}
+	var payload codexMcpFilePayload
+	if err := toml.Unmarshal(data, &payload); err != nil {
+		return nil, err
+	}
+	result := make(map[string]rawMCPServer, len(payload.Servers))
+	for name, entry := range payload.Servers {
+		trimmedName := strings.TrimSpace(name)
+		if trimmedName == "" {
+			continue
+		}
+		if _, exists := existing[trimmedName]; exists {
+			continue
+		}
+		command, _ := entry["command"].(string)
+		url, _ := entry["url"].(string)
+		typeHint, _ := entry["type"].(string)
+		if strings.TrimSpace(typeHint) == "" {
+			if strings.TrimSpace(url) != "" {
+				typeHint = "http"
+			} else {
+				typeHint = "stdio"
+			}
+		}
+		typ := normalizeServerType(typeHint)
+		if (typ == "http" || typ == "sse") && url == "" {
+			continue
+		}
+		if typ == "stdio" && command == "" {
+			continue
+		}
+		var args []string
+		if argsRaw, ok := entry["args"].([]interface{}); ok {
+			for _, arg := range argsRaw {
+				if s, ok := arg.(string); ok {
+					args = append(args, s)
+				}
+			}
+		}
+		env := make(map[string]string)
+		if envRaw, ok := entry["env"].(map[string]interface{}); ok {
+			for k, v := range envRaw {
+				if s, ok := v.(string); ok {
+					env[k] = s
+				}
+			}
+		}
+		headers := make(map[string]string)
+		if headerRaw, ok := entry["headers"].(map[string]interface{}); ok {
+			for k, v := range headerRaw {
+				if s, ok := v.(string); ok {
+					headers[k] = s
+				}
+			}
+		}
+		result[trimmedName] = rawMCPServer{
+			Type:           typ,
+			Command:        strings.TrimSpace(command),
+			Args:           cleanArgs(args),
+			Env:            cleanEnv(env),
+			URL:            strings.TrimSpace(url),
+			Headers:        cleanEnv(headers),
+			EnablePlatform: []string{platGrok},
+		}
+	}
+	return result, nil
+}
+
+func anyToStringSlice(v any) []string {
+	switch t := v.(type) {
+	case []string:
+		return cleanArgs(t)
+	case []any:
+		out := make([]string, 0, len(t))
+		for _, item := range t {
+			if s := strings.TrimSpace(asString(item)); s != "" {
+				out = append(out, s)
+			}
+		}
+		return out
+	default:
+		if s := strings.TrimSpace(asString(v)); s != "" {
+			return []string{s}
+		}
+	}
+	return nil
+}
+
+func anyToStringMap(v any) map[string]string {
+	m, ok := v.(map[string]any)
+	if !ok || m == nil {
+		return map[string]string{}
+	}
+	out := make(map[string]string, len(m))
+	for k, val := range m {
+		key := strings.TrimSpace(k)
+		if key == "" {
+			continue
+		}
+		out[key] = strings.TrimSpace(asString(val))
+	}
+	return out
+}
+
 // mergeImportedServers 合并导入的服务器
 func (ms *MCPService) mergeImportedServers(target, imported map[string]rawMCPServer) bool {
 	changed := false
 	for name, entry := range imported {
 		entry = normalizeRawEntry(entry)
 		if existing, ok := target[name]; ok {
-			entry.EnablePlatform = unionPlatforms(existing.EnablePlatform, entry.EnablePlatform)
-			if entry.Website == "" {
-				entry.Website = existing.Website
+			next := unionPlatforms(existing.EnablePlatform, entry.EnablePlatform)
+			if samePlatforms(existing.EnablePlatform, next) {
+				continue
 			}
-			if entry.Tips == "" {
-				entry.Tips = existing.Tips
-			}
+			existing.EnablePlatform = next
+			target[name] = existing
+			changed = true
+			continue
 		}
 		target[name] = entry
+		changed = true
+	}
+	return changed
+}
+
+func (ms *MCPService) reconcilePlatformsFromDisk(payload map[string]rawMCPServer) bool {
+	claude := loadClaudeEnabledServers()
+	codex := loadCodexEnabledServers()
+	gemini := loadGeminiEnabledServers()
+	opencode := loadOpencodeEnabledServers()
+	grok := loadGrokEnabledServers()
+	changed := false
+	for name, entry := range payload {
+		present := make([]string, 0, 5)
+		if containsNormalized(claude, name) {
+			present = append(present, platClaudeCode)
+		}
+		if containsNormalized(codex, name) {
+			present = append(present, platCodex)
+		}
+		if containsNormalized(gemini, name) {
+			present = append(present, platGemini)
+		}
+		if containsNormalized(opencode, name) {
+			present = append(present, platOpencode)
+		}
+		if containsNormalized(grok, name) {
+			present = append(present, platGrok)
+		}
+		present = normalizePlatforms(present)
+		if samePlatforms(entry.EnablePlatform, present) {
+			continue
+		}
+		entry.EnablePlatform = present
+		payload[name] = entry
 		changed = true
 	}
 	return changed
@@ -730,6 +979,7 @@ func (ms *MCPService) cleanupDeletedServers(payload map[string]rawMCPServer) boo
 	claudeServers := ms.getCurrentClaudeServers()
 	codexServers := ms.getCurrentCodexServers()
 	geminiServers := ms.getCurrentGeminiServers()
+	opencodeServers := loadOpencodeEnabledServers()
 	grokServers := ms.getCurrentGrokServers()
 
 	changed := false
@@ -751,9 +1001,10 @@ func (ms *MCPService) cleanupDeletedServers(payload map[string]rawMCPServer) boo
 				if _, exists := geminiServers[strings.ToLower(strings.TrimSpace(name))]; exists {
 					shouldDelete = false
 				}
-		case platOpencode:
-			// OpenCode 的 mcp 配置由 CLI 自身管理，本应用不写入，避免误删本地记录
-			shouldDelete = false
+			case platOpencode:
+				if _, exists := opencodeServers[strings.ToLower(strings.TrimSpace(name))]; exists {
+					shouldDelete = false
+				}
 			case platGrok:
 				if _, exists := grokServers[strings.ToLower(strings.TrimSpace(name))]; exists {
 					shouldDelete = false
@@ -882,6 +1133,24 @@ func unionPlatforms(primary, secondary []string) []string {
 	combined := append([]string{}, primary...)
 	combined = append(combined, secondary...)
 	return normalizePlatforms(combined)
+}
+
+func samePlatforms(a, b []string) bool {
+	left := normalizePlatforms(a)
+	right := normalizePlatforms(b)
+	if len(left) != len(right) {
+		return false
+	}
+	seen := make(map[string]struct{}, len(left))
+	for _, item := range left {
+		seen[item] = struct{}{}
+	}
+	for _, item := range right {
+		if _, ok := seen[item]; !ok {
+			return false
+		}
+	}
+	return true
 }
 
 func normalizeRawEntry(entry rawMCPServer) rawMCPServer {
@@ -1207,7 +1476,13 @@ func loadOpencodeEnabledServers() map[string]struct{} {
 func (ms *MCPService) syncOpencodeServers(servers []MCPServer) error {
 	path := opencodeConfigFile(nil)
 	desired := map[string]any{}
+	managed := map[string]struct{}{}
 	for _, server := range servers {
+		name := strings.TrimSpace(server.Name)
+		if name == "" {
+			continue
+		}
+		managed[strings.ToLower(name)] = struct{}{}
 		if !platformContains(server.EnablePlatform, platOpencode) {
 			continue
 		}
@@ -1231,7 +1506,30 @@ func (ms *MCPService) syncOpencodeServers(servers []MCPServer) error {
 		payload = parsed
 	}
 
-	payload["mcp"] = desired
+	existMcp, _ := payload["mcp"].(map[string]any)
+	if existMcp == nil {
+		existMcp = map[string]any{}
+	}
+	for name := range existMcp {
+		key := strings.ToLower(strings.TrimSpace(name))
+		if _, ok := managed[key]; !ok {
+			continue
+		}
+		keep := false
+		for desiredName := range desired {
+			if strings.EqualFold(desiredName, name) {
+				keep = true
+				break
+			}
+		}
+		if !keep {
+			delete(existMcp, name)
+		}
+	}
+	for name, entry := range desired {
+		existMcp[name] = entry
+	}
+	payload["mcp"] = existMcp
 	out, err := json.MarshalIndent(payload, "", "  ")
 	if err != nil {
 		return err
@@ -1567,6 +1865,9 @@ func (ms *MCPService) AddServers(newServers []MCPServer) error {
 	if err := ms.syncGrokServers(servers); err != nil {
 		return err
 	}
+	if err := ms.syncOpencodeServers(servers); err != nil {
+		return err
+	}
 	notifyCloudSync()
 	return nil
 }
@@ -1599,6 +1900,61 @@ func (ms *MCPService) SyncToPlatforms() ([]MCPServer, error) {
 		return servers, err
 	}
 	return servers, nil
+}
+
+// ApplyToPlatform 把所有可写入的 MCP 一次性加入指定服务商配置。
+func (ms *MCPService) ApplyToPlatform(platform string) (int, error) {
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
+
+	plat, ok := normalizePlatform(platform)
+	if !ok {
+		return 0, fmt.Errorf("未知平台")
+	}
+
+	config, err := ms.loadConfig()
+	if err != nil {
+		return 0, err
+	}
+
+	added := 0
+	for name, entry := range config {
+		entry = normalizeRawEntry(entry)
+		placeholders := detectPlaceholders(entry.URL, entry.Args, headerValues(entry.Headers)...)
+		if len(placeholders) > 0 {
+			continue
+		}
+		if platformContains(entry.EnablePlatform, plat) {
+			continue
+		}
+		entry.EnablePlatform = unionPlatforms(entry.EnablePlatform, []string{plat})
+		config[name] = entry
+		added++
+	}
+	if added == 0 {
+		return 0, nil
+	}
+	if err := ms.saveConfig(config); err != nil {
+		return 0, err
+	}
+	servers := ms.buildServersFromConfig(config)
+	if err := ms.syncClaudeServers(servers); err != nil {
+		return added, err
+	}
+	if err := ms.syncCodexServers(servers); err != nil {
+		return added, err
+	}
+	if err := ms.syncGeminiServers(servers); err != nil {
+		return added, err
+	}
+	if err := ms.syncGrokServers(servers); err != nil {
+		return added, err
+	}
+	if err := ms.syncOpencodeServers(servers); err != nil {
+		return added, err
+	}
+	notifyCloudSync()
+	return added, nil
 }
 
 // buildServersFromConfig 从配置构建服务器列表（内部使用，不加锁）

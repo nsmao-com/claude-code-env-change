@@ -7,31 +7,31 @@
 
     <Card class="mb-4">
       <CardHeader>
-        <div class="flex min-w-0 items-start justify-between gap-3">
-          <div>
-            <CardTitle>状态</CardTitle>
-            <CardDescription>
-              <template v-if="status?.last_push_at">上次上传 {{ formatTime(status.last_push_at) }}</template>
-              <template v-else>尚未上传</template>
-              <span class="mx-1">·</span>
-              <template v-if="status?.last_pull_at">上次拉取 {{ formatTime(status.last_pull_at) }}</template>
-              <template v-else>尚未拉取</template>
-            </CardDescription>
-            <p v-if="status?.last_error" class="mt-1 text-[11px] text-destructive">{{ status.last_error }}</p>
+        <CardTitle>状态</CardTitle>
+        <CardDescription>备份到对象存储，换电脑用同一套凭证拉取</CardDescription>
+        <CardAction>
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-muted-foreground">{{ form.enabled ? '已启用' : '未启用' }}</span>
+            <Switch :checked="form.enabled" :disabled="busy" @update:checked="onFlag('enabled', $event)" />
           </div>
-          <Badge :variant="form.enabled ? 'default' : 'secondary'">
-            {{ form.enabled ? '已启用' : '未启用' }}
-          </Badge>
-        </div>
+        </CardAction>
       </CardHeader>
+      <CardContent>
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div class="rounded-lg bg-muted/60 px-3 py-2.5">
+            <p class="text-[11px] text-muted-foreground">上次上传</p>
+            <p class="mt-0.5 text-sm font-medium">{{ status?.last_push_at ? formatTime(status.last_push_at) : '尚未上传' }}</p>
+          </div>
+          <div class="rounded-lg bg-muted/60 px-3 py-2.5">
+            <p class="text-[11px] text-muted-foreground">上次拉取</p>
+            <p class="mt-0.5 text-sm font-medium">{{ status?.last_pull_at ? formatTime(status.last_pull_at) : '尚未拉取' }}</p>
+          </div>
+        </div>
+        <p v-if="status?.last_error" class="mt-3 text-[11px] text-destructive">{{ status.last_error }}</p>
+      </CardContent>
     </Card>
 
     <div class="space-y-5">
-      <div class="flex items-center gap-2">
-        <Switch :checked="form.enabled" @update:checked="form.enabled = $event" />
-        <Label>启用云同步</Label>
-      </div>
-
       <div class="grid grid-cols-2 gap-3">
         <div class="grid gap-1.5">
           <Label>服务商</Label>
@@ -65,15 +65,15 @@
       />
 
       <div class="flex items-center gap-2">
-        <Switch :checked="form.path_style" @update:checked="form.path_style = $event" />
+        <Switch :checked="form.path_style" :disabled="busy" @update:checked="onFlag('path_style', $event)" />
         <Label>Path-style 访问（MinIO / 部分私有化 S3 需要）</Label>
       </div>
       <div class="flex items-center gap-2">
-        <Switch :checked="form.auto_push" @update:checked="form.auto_push = $event" />
+        <Switch :checked="form.auto_push" :disabled="busy" @update:checked="onFlag('auto_push', $event)" />
         <Label>本地配置变更后自动上传</Label>
       </div>
       <div class="flex items-center gap-2">
-        <Switch :checked="form.auto_pull_on_start" @update:checked="form.auto_pull_on_start = $event" />
+        <Switch :checked="form.auto_pull_on_start" :disabled="busy" @update:checked="onFlag('auto_pull_on_start', $event)" />
         <Label>启动时自动从云端拉取（覆盖本地）</Label>
       </div>
 
@@ -118,9 +118,8 @@ import { useConfirm } from '@/composables/useConfirm'
 import { useToast } from '@/composables/useToast'
 import AppModal from '@/components/common/AppModal.vue'
 import AppInput from '@/components/common/AppInput.vue'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -165,7 +164,15 @@ const form = reactive<CloudConfig>({
 const testing = ref(false)
 const uploading = ref(false)
 const downloading = ref(false)
-const busy = computed(() => testing.value || uploading.value || downloading.value)
+const saving = ref(false)
+const busy = computed(() => testing.value || uploading.value || downloading.value || saving.value)
+
+const flagLabels: Record<'enabled' | 'path_style' | 'auto_push' | 'auto_pull_on_start', string> = {
+  enabled: '云同步',
+  path_style: 'Path-style 访问',
+  auto_push: '变更后自动上传',
+  auto_pull_on_start: '启动时自动拉取',
+}
 
 const endpointPlaceholder = computed(() => {
   switch (form.provider) {
@@ -231,12 +238,34 @@ function formatTime(ts: number) {
   return new Date(ts).toLocaleString()
 }
 
-async function save() {
+async function persist(successMessage: string) {
+  saving.value = true
   try {
     await cloudStore.save({ ...form })
-    toast.success('云同步设置已保存')
+    toast.success(successMessage)
   } catch (e: any) {
     toast.error('保存失败: ' + (e?.message || String(e)))
+    throw e
+  } finally {
+    saving.value = false
+  }
+}
+
+async function onFlag(key: keyof typeof flagLabels, value: boolean) {
+  const prev = form[key]
+  form[key] = value
+  try {
+    await persist(value ? `已开启「${flagLabels[key]}」` : `已关闭「${flagLabels[key]}」`)
+  } catch {
+    form[key] = prev
+  }
+}
+
+async function save() {
+  try {
+    await persist('云同步设置已保存')
+  } catch {
+    /* persist 已提示 */
   }
 }
 

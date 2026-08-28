@@ -25,8 +25,8 @@
         <div class="grid gap-1.5">
           <Label>启用监控</Label>
           <div class="flex items-center gap-2">
-            <Switch :checked="form.enabled" @update:checked="form.enabled = $event" />
-            <span class="text-xs text-muted-foreground">已启用</span>
+            <Switch :checked="form.enabled" :disabled="isSavingSettings" @update:checked="onEnabledChange" />
+            <span class="text-xs text-muted-foreground">{{ form.enabled ? '已启用' : '未启用' }}</span>
           </div>
         </div>
         <div class="grid gap-1.5">
@@ -187,7 +187,7 @@ function hydrateForm() {
   form.value.timeout_seconds = uptimeStore.settings.timeout_seconds || 8
 }
 
-async function saveSettings() {
+async function persistSettings(successMessage: string) {
   if (isSavingSettings.value) return
   isSavingSettings.value = true
   try {
@@ -199,11 +199,30 @@ async function saveSettings() {
       timeout_seconds: timeoutSeconds,
       keep_last: uptimeStore.settings.keep_last || 10
     })
-    toast.success('设置已保存')
+    toast.success(successMessage)
   } catch (e: any) {
     toast.error('保存失败: ' + (e?.message || String(e)))
+    throw e
   } finally {
     isSavingSettings.value = false
+  }
+}
+
+async function onEnabledChange(value: boolean) {
+  const prev = form.value.enabled
+  form.value.enabled = value
+  try {
+    await persistSettings(value ? '已开启监控' : '已关闭监控')
+  } catch {
+    form.value.enabled = prev
+  }
+}
+
+async function saveSettings() {
+  try {
+    await persistSettings('设置已保存')
+  } catch {
+    /* persistSettings 已提示 */
   }
 }
 

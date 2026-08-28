@@ -42,6 +42,12 @@ export const useSkillStore = defineStore('skills', () => {
     await saveSkill({ ...skill, enable_platform: next })
   }
 
+  async function applyToPlatform(platform: string): Promise<number> {
+    const added = await skillService.applyToPlatform(platform)
+    await loadSkills()
+    return added
+  }
+
   return {
     skills,
     isLoading,
@@ -55,5 +61,6 @@ export const useSkillStore = defineStore('skills', () => {
     saveSkill,
     deleteSkill,
     togglePlatform,
+    applyToPlatform,
   }
 })

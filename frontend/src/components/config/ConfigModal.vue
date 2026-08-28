@@ -9,9 +9,9 @@
           <FieldLabel label="图标" :hint="tips.icon" />
           <div class="relative mt-1.5">
             <Button type="button" variant="outline" size="icon" class="text-xl" @click="showEmojiPicker = !showEmojiPicker">
-              {{ form.icon }}
+              <ConfigIcon :value="form.icon" class="size-5" />
             </Button>
-            <EmojiPicker :show="showEmojiPicker" @close="showEmojiPicker = false" @select="selectIcon" />
+            <EmojiPicker :show="showEmojiPicker" :current="form.icon" @close="showEmojiPicker = false" @select="selectIcon" />
           </div>
         </div>
         <div class="col-span-2">
@@ -32,6 +32,21 @@
           {{ item.label }}
         </template>
       </SegmentedPills>
+
+      <div class="grid gap-1.5">
+        <FieldLabel label="上游格式" :hint="tips.upstreamAdvanced" />
+        <Select v-model="upstreamSelect">
+          <SelectTrigger class="w-full">
+            <SelectValue placeholder="选择上游 API 格式" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem v-for="opt in upstreamOptions" :key="opt.value" :value="opt.value">
+              {{ opt.label }}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+        <p class="text-xs leading-relaxed text-muted-foreground">{{ upstreamHint }}</p>
+      </div>
 
       <div v-if="form.provider === 'claude'" class="space-y-4">
         <AppInput v-model="form.claude.baseUrl" label="Base URL" placeholder="https://api.anthropic.com" :tooltip="tips.baseUrlClaude">
@@ -95,8 +110,38 @@
           </div>
           <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <AppInput v-model="form.claude.maxOutputTokens" label="最大输出 Tokens" placeholder="CLAUDE_CODE_MAX_OUTPUT_TOKENS" :tooltip="tips.maxOutputClaude" />
-            <AppInput v-model="form.claude.maxThinkingTokens" label="思考 Tokens" placeholder="MAX_THINKING_TOKENS" :tooltip="tips.maxThinking" />
             <AppInput v-model="form.claude.autocompactPct" label="自动压缩阈值 %" placeholder="CLAUDE_AUTOCOMPACT_PCT_OVERRIDE" :tooltip="tips.autocompactPct" />
+          </div>
+          <div class="space-y-3 rounded-xl bg-muted/40 p-3">
+            <p class="text-xs font-medium tracking-wide text-muted-foreground uppercase">思维链</p>
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div class="grid gap-1.5">
+                <FieldLabel label="推理强度" :hint="tips.claudeEffort" />
+                <Select v-model="form.claude.effortLevel">
+                  <SelectTrigger class="w-full">
+                    <SelectValue placeholder="CLAUDE_CODE_EFFORT_LEVEL" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem v-for="item in claudeEffortItems" :key="item.value" :value="item.value">{{ item.label }}</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p class="font-mono text-[11px] text-muted-foreground">CLAUDE_CODE_EFFORT_LEVEL</p>
+              </div>
+              <AppInput v-model="form.claude.maxThinkingTokens" label="思考 Tokens（旧模型）" placeholder="MAX_THINKING_TOKENS，0 关闭" :tooltip="tips.maxThinking" />
+            </div>
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <FieldLabel label="禁用自适应思考" :hint="tips.disableAdaptiveThinking" />
+                <div class="font-mono text-[11px] text-muted-foreground">CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING</div>
+              </div>
+              <SegmentedPills
+                :model-value="triValue(form.claude.disableAdaptiveThinking)"
+                layout-id="cfg-adaptive-thinking"
+                dense
+                :items="triItems"
+                @update:model-value="v => form.claude.disableAdaptiveThinking = fromTri(v)"
+              />
+            </div>
           </div>
           <div class="flex items-center justify-between gap-3">
             <div>
@@ -151,6 +196,19 @@
               @update:model-value="v => form.claude.disableErrorReporting = fromTri(v)"
             />
           </div>
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <FieldLabel label="强制发送 effort" :hint="tips.alwaysEnableEffort" />
+              <div class="font-mono text-[11px] text-muted-foreground">CLAUDE_CODE_ALWAYS_ENABLE_EFFORT</div>
+            </div>
+            <SegmentedPills
+              :model-value="triValue(form.claude.alwaysEnableEffort)"
+              layout-id="cfg-always-effort"
+              dense
+              :items="triItems"
+              @update:model-value="v => form.claude.alwaysEnableEffort = fromTri(v)"
+            />
+          </div>
         </div>
       </div>
 
@@ -177,27 +235,64 @@
             </Button>
           </template>
         </AppInput>
-        <AppInput v-model="form.codex.model" label="Model" placeholder="gpt-4" :tooltip="tips.modelCodex" />
+        <AppInput v-model="form.codex.model" label="Model" placeholder="gpt-5.4" :tooltip="tips.modelCodex" />
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <AppInput v-model="form.codex.contextWindow" label="上下文窗口" placeholder="model_context_window" :tooltip="tips.contextWindowCodex" />
           <AppInput v-model="form.codex.maxOutputTokens" label="最大输出 Tokens" placeholder="model_max_output_tokens" :tooltip="tips.maxOutputCodex" />
         </div>
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div class="grid gap-1.5">
-            <FieldLabel label="推理强度" :hint="tips.reasoningEffort" />
-            <Select v-model="form.codex.reasoningEffort">
-              <SelectTrigger class="w-full">
-                <SelectValue placeholder="model_reasoning_effort" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="unset">不设置</SelectItem>
-                <SelectItem value="minimal">minimal</SelectItem>
-                <SelectItem value="low">low</SelectItem>
-                <SelectItem value="medium">medium</SelectItem>
-                <SelectItem value="high">high</SelectItem>
-              </SelectContent>
-            </Select>
+        <div class="space-y-3 rounded-xl bg-muted/40 p-3">
+          <p class="text-xs font-medium tracking-wide text-muted-foreground uppercase">思维链</p>
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div class="grid gap-1.5">
+              <FieldLabel label="推理强度" :hint="tips.reasoningEffort" />
+              <Select v-model="form.codex.reasoningEffort">
+                <SelectTrigger class="w-full">
+                  <SelectValue placeholder="model_reasoning_effort" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem v-for="item in openaiEffortItems" :key="item.value" :value="item.value">{{ item.label }}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div class="grid gap-1.5">
+              <FieldLabel label="Plan 模式推理" :hint="tips.planReasoningEffort" />
+              <Select v-model="form.codex.planReasoningEffort">
+                <SelectTrigger class="w-full">
+                  <SelectValue placeholder="plan_mode_reasoning_effort" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem v-for="item in openaiEffortItems" :key="'plan-' + item.value" :value="item.value">{{ item.label }}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div class="grid gap-1.5">
+              <FieldLabel label="推理摘要" :hint="tips.reasoningSummary" />
+              <Select v-model="form.codex.reasoningSummary">
+                <SelectTrigger class="w-full">
+                  <SelectValue placeholder="model_reasoning_summary" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem v-for="item in reasoningSummaryItems" :key="item.value" :value="item.value">{{ item.label }}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div class="grid gap-1.5">
+              <FieldLabel label="回复详细度" :hint="tips.modelVerbosity" />
+              <Select v-model="form.codex.verbosity">
+                <SelectTrigger class="w-full">
+                  <SelectValue placeholder="model_verbosity" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unset">不设置</SelectItem>
+                  <SelectItem value="low">low</SelectItem>
+                  <SelectItem value="medium">medium</SelectItem>
+                  <SelectItem value="high">high</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
+        </div>
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div class="grid gap-1.5">
             <FieldLabel label="审批策略" :hint="tips.approvalPolicy" />
             <Select v-model="form.codex.approvalPolicy">
@@ -227,7 +322,6 @@
               </SelectContent>
             </Select>
           </div>
-          <AppInput v-model="form.codex.reasoningSummary" label="推理摘要" placeholder="model_reasoning_summary，如 auto/concise" :tooltip="tips.reasoningSummary" />
         </div>
         <div class="grid gap-1.5">
           <FieldLabel label="config.toml 模板" :hint="tips.codexToml" />
@@ -262,7 +356,24 @@
             </Button>
           </template>
         </AppInput>
-        <AppInput v-model="form.gemini.model" label="Model" placeholder="gemini-pro" :tooltip="tips.modelGemini" />
+        <AppInput v-model="form.gemini.model" label="Model" placeholder="gemini-3.1-pro-preview" :tooltip="tips.modelGemini" />
+        <div class="space-y-3 rounded-xl bg-muted/40 p-3">
+          <p class="text-xs font-medium tracking-wide text-muted-foreground uppercase">思维链</p>
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div class="grid gap-1.5">
+              <FieldLabel label="思维等级（Gemini 3+）" :hint="tips.geminiThinkingLevel" />
+              <Select v-model="form.gemini.thinkingLevel">
+                <SelectTrigger class="w-full">
+                  <SelectValue placeholder="thinkingLevel" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem v-for="item in geminiLevelItems" :key="item.value" :value="item.value">{{ item.label }}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <AppInput v-model="form.gemini.thinkingBudget" label="思考预算（Gemini 2.5）" placeholder="-1 动态 / 0 关闭 / token 数" :tooltip="tips.geminiThinkingBudget" />
+          </div>
+        </div>
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <AppInput v-model="form.gemini.project" label="Google Cloud Project" placeholder="GOOGLE_CLOUD_PROJECT" :tooltip="tips.geminiProject" />
           <AppInput v-model="form.gemini.location" label="Location" placeholder="GOOGLE_CLOUD_LOCATION" :tooltip="tips.geminiLocation" />
@@ -288,6 +399,7 @@
             <span class="font-mono">~/.config/opencode/opencode.json</span>，
             并支持 <span class="font-mono">OPENCODE_CONFIG_DIR / OPENCODE_CONFIG</span> 覆盖路径。
             填了 Base URL 时会以 OpenAI 兼容自定义 provider 接入网关。
+            OpenCode 比较特殊：多套配置可以同时点「应用」，会合并进同一个 opencode.json，互不覆盖；再点一次「停用」只拿掉这一套。
           </p>
         </div>
         <AppInput v-model="form.opencode.baseUrl" label="Base URL" placeholder="https://your-gateway/v1" :tooltip="tips.baseUrlOpencode">
@@ -313,6 +425,34 @@
           </template>
         </AppInput>
         <AppInput v-model="form.opencode.model" label="Model" placeholder="anthropic/claude-sonnet-4" :tooltip="tips.modelOpencode" />
+        <div class="space-y-3 rounded-xl bg-muted/40 p-3">
+          <p class="text-xs font-medium tracking-wide text-muted-foreground uppercase">思维链</p>
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div class="grid gap-1.5">
+              <FieldLabel label="推理强度" :hint="tips.opencodeEffort" />
+              <Select v-model="form.opencode.reasoningEffort">
+                <SelectTrigger class="w-full">
+                  <SelectValue placeholder="reasoningEffort" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem v-for="item in openaiEffortItems" :key="'oc-' + item.value" :value="item.value">{{ item.label }}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <AppInput v-model="form.opencode.thinkingBudget" label="思考预算（Anthropic）" placeholder="budgetTokens，如 16000" :tooltip="tips.opencodeThinkingBudget" />
+            <div class="grid gap-1.5">
+              <FieldLabel label="推理摘要" :hint="tips.opencodeReasoningSummary" />
+              <Select v-model="form.opencode.reasoningSummary">
+                <SelectTrigger class="w-full">
+                  <SelectValue placeholder="reasoningSummary" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem v-for="item in reasoningSummaryItems" :key="'oc-sum-' + item.value" :value="item.value">{{ item.label }}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <AppInput v-model="form.opencode.smallModel" label="Small Model（摘要/压缩）" placeholder="openai/gpt-4.1-nano" :tooltip="tips.opencodeSmall" />
           <AppInput v-model="form.opencode.username" label="Username" placeholder="显示名" :tooltip="tips.opencodeUser" />
@@ -363,6 +503,20 @@
           </template>
         </AppInput>
         <AppInput v-model="form.grok.model" label="Model" placeholder="grok-4.6" :tooltip="tips.modelGrok" />
+        <div class="space-y-3 rounded-xl bg-muted/40 p-3">
+          <p class="text-xs font-medium tracking-wide text-muted-foreground uppercase">思维链</p>
+          <div class="grid gap-1.5">
+            <FieldLabel label="推理强度" :hint="tips.grokEffort" />
+            <Select v-model="form.grok.reasoningEffort">
+              <SelectTrigger class="w-full">
+                <SelectValue placeholder="reasoning_effort" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="item in grokEffortItems" :key="item.value" :value="item.value">{{ item.label }}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <AppInput v-model="form.grok.modelName" label="显示名" placeholder="Grok" :tooltip="tips.grokName" />
           <AppInput v-model="form.grok.contextWindow" label="上下文窗口" placeholder="131072" :tooltip="tips.grokContext" />
@@ -387,27 +541,6 @@
         </div>
       </div>
 
-      <div class="space-y-3 border-t pt-3">
-        <Button type="button" variant="ghost" size="sm" @click="showAdvanced = !showAdvanced">
-          {{ showAdvanced ? '收起高级选项' : '高级选项' }}
-        </Button>
-        <div v-if="showAdvanced" class="grid gap-1.5">
-          <FieldLabel label="上游格式" :hint="tips.upstreamAdvanced" />
-          <Select v-model="upstreamSelect">
-            <SelectTrigger class="w-full">
-              <SelectValue placeholder="选择上游 API 格式" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem v-for="opt in upstreamOptions" :key="opt.value" :value="opt.value">
-                {{ opt.label }}
-              </SelectItem>
-            </SelectContent>
-          </Select>
-          <p class="text-xs leading-relaxed text-muted-foreground">
-            原生格式可直连。其它格式必须先在左上角打开该模型商的路由开关，才会做协议转换；关闭路由则仍写原来的地址。
-          </p>
-        </div>
-      </div>
     </form>
 
     <template #footer>
@@ -427,12 +560,14 @@ import AppModal from '@/components/common/AppModal.vue'
 import AppInput from '@/components/common/AppInput.vue'
 import FieldLabel from '@/components/common/FieldLabel.vue'
 import BrandIcon from '@/components/common/BrandIcon.vue'
+import ConfigIcon from '@/components/common/ConfigIcon.vue'
 import EmojiPicker from '@/components/common/EmojiPicker.vue'
 import { Button } from '@/components/ui/button'
 import CodeEditor from '@/components/common/CodeEditor.vue'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import SegmentedPills from '@/components/layout/SegmentedPills.vue'
 import { errorMessage, formatLatency, withDefaultBaseUrl } from '@/lib/configUrl'
+import { asUpstreamFormat, conversionTagLabel, upstreamFormatOptions } from '@/lib/upstreamFormat'
 
 interface Props {
   modelValue: boolean
@@ -457,7 +592,6 @@ const isOpen = computed({
 const isEditing = computed(() => !!props.editConfig)
 const showEmojiPicker = ref(false)
 const showMore = ref(false)
-const showAdvanced = ref(false)
 type ApiKeyProvider = 'claude' | 'codex' | 'gemini' | 'opencode' | 'grok'
 const showApiKey = ref<Record<ApiKeyProvider, boolean>>({
   claude: false,
@@ -498,10 +632,10 @@ const grokBackends = [
 
 const tips = {
   name: '本软件里的显示名称，不能和其他配置重名。不会写入 CLI。',
-  icon: '列表里显示的 emoji，方便区分多套配置。',
+  icon: '列表里显示的图标。可用滑块切换 Emoji 或 Lucide，再按分类挑选。',
   description: '可选备注，只在本软件显示，不写入 CLI。',
   baseUrlClaude: 'API 根地址。官方是 https://api.anthropic.com。中转/聚合填对方给的地址，一般不要再拼 /v1/messages。右侧闪电图标可测延迟。写入 ANTHROPIC_BASE_URL。',
-  upstreamAdvanced: '上游实际返回的协议。原生可直连；Chat Completions / Anthropic Messages / Responses 等非原生格式，必须先在左上角打开该模型商的路由开关才会转换。',
+  upstreamAdvanced: '中转站实际协议。和 CLI 原生一致选「原生直连」。Claude 接 Codex/GPT 选 Responses；Codex 接 Claude 选 Anthropic Messages。改完后打开左上角对应模型商的路由开关。',
   authToken: '部分中转用 Token 而不是 API Key。对应 ANTHROPIC_AUTH_TOKEN。通常与 API Key 二选一即可。',
   modelClaude: '主模型 ID，例如 claude-sonnet-4-20250514 或中转文档里的名称。写入 ANTHROPIC_MODEL。',
   apiKeyClaude: '密钥。官方以 sk-ant- 开头，中转按对方格式。写入 ANTHROPIC_API_KEY。',
@@ -512,7 +646,10 @@ const tips = {
   defaultSonnet: 'Sonnet 档默认模型 ID。对应 ANTHROPIC_DEFAULT_SONNET_MODEL。',
   defaultOpus: 'Opus 档默认模型 ID。对应 ANTHROPIC_DEFAULT_OPUS_MODEL。',
   maxOutputClaude: '单次回复最大输出 token。对应 CLAUDE_CODE_MAX_OUTPUT_TOKENS。',
-  maxThinking: 'Extended thinking 可用的思考 token 上限。对应 MAX_THINKING_TOKENS。',
+  claudeEffort: '新模型（Opus 4.6 / Sonnet 4.6 / Claude 5 等）用自适应思考，靠 effort 控制深浅：low / medium / high / xhigh / max。auto 用模型默认。对应 CLAUDE_CODE_EFFORT_LEVEL。',
+  maxThinking: '旧模型（Opus/Sonnet 4.5 及更早）的固定思考预算。填 0 可关掉思考。新模型默认忽略此项；要在 4.6 上继续用预算，请打开「禁用自适应思考」。对应 MAX_THINKING_TOKENS。',
+  disableAdaptiveThinking: '仅对 Opus 4.6 / Sonnet 4.6 有效：设为 1 后改回 MAX_THINKING_TOKENS 固定预算。Opus 4.7、Claude 5 等始终走自适应思考，此项无效。',
+  alwaysEnableEffort: '中转/自定义模型 ID 不被识别时，设为 1 仍在请求里带上 effort。官方模型一般不用改。对应 CLAUDE_CODE_ALWAYS_ENABLE_EFFORT。',
   autocompactPct: '上下文占用到这个百分比时自动压缩，填 0–100 的数字。对应 CLAUDE_AUTOCOMPACT_PCT_OVERRIDE。',
   disableAutocompact: '1 关闭自动压缩上下文。0 开启。不设置则沿用默认。',
   httpProxy: 'Claude Code 进程的 HTTP 代理，例如 http://127.0.0.1:7890。',
@@ -529,15 +666,19 @@ const tips = {
   modelCodex: '模型 ID，例如 gpt-5 或中转文档里的名称。写入 config.toml 的 model。',
   contextWindowCodex: '模型上下文窗口大小，填数字。对应 model_context_window。',
   maxOutputCodex: '最大输出 token，填数字。对应 model_max_output_tokens。',
-  reasoningEffort: '推理强度：minimal / low / medium / high。越高越慢、越费 token。',
+  reasoningEffort: 'GPT-5 / Codex 推理强度。新模型支持 xhigh / max / ultra，旧模型常用 minimal / low / medium / high。越高越慢、越费 token。对应 model_reasoning_effort。',
+  planReasoningEffort: 'Plan 模式单独的推理强度，可与默认不同。对应 plan_mode_reasoning_effort。',
   approvalPolicy: '命令执行要不要确认。never 最省事，on-request 每次问，untrusted 更严。',
   sandboxCodex: '文件访问范围。read-only 最安全，workspace-write 可改当前项目，danger-full-access 不限制。',
-  reasoningSummary: '是否生成推理摘要，常见 auto 或 concise。对应 model_reasoning_summary。',
+  reasoningSummary: '推理摘要：auto / concise / detailed / none。对应 model_reasoning_summary。',
+  modelVerbosity: 'GPT-5 文本详细度：low / medium / high。对应 model_verbosity。',
   codexToml: '写入 ~/.codex/config.toml。可用 {{model}}、{{base_url}} 占位符，应用时替换成上面的值。',
   codexAuth: '写入 ~/.codex/auth.json。可用 {{OPENAI_API_KEY}} 占位符。',
   baseUrlGemini: 'Gemini API 根地址。官方是 https://generativelanguage.googleapis.com。写入 GOOGLE_GEMINI_BASE_URL。',
   apiKeyGemini: 'Gemini API Key，写入 GEMINI_API_KEY。',
-  modelGemini: '模型 ID，例如 gemini-2.5-pro。写入 GEMINI_MODEL。',
+  modelGemini: '模型 ID，例如 gemini-3.1-pro-preview 或 gemini-2.5-pro。写入 GEMINI_MODEL。',
+  geminiThinkingLevel: 'Gemini 3 及以后用思维等级：minimal / low / medium / high。不要和思考预算同时填。写入 settings.json 的 thinkingLevel。',
+  geminiThinkingBudget: 'Gemini 2.5 用 token 预算。-1 动态，0 关闭，或填具体数字（如 8192）。3.x 建议改用左侧等级。写入 thinkingBudget。',
   geminiProject: '走 Vertex AI 时需要的 GCP 项目 ID。对应 GOOGLE_CLOUD_PROJECT。',
   geminiLocation: 'Vertex 区域，例如 us-central1。对应 GOOGLE_CLOUD_LOCATION。',
   geminiVertex: '填 true 使用 Vertex AI，false 使用 AI Studio。对应 GOOGLE_GENAI_USE_VERTEXAI。',
@@ -549,6 +690,9 @@ const tips = {
   baseUrlOpencode: 'OpenAI 兼容网关地址，例如 https://xxx/v1。填了会作为自定义 provider 写入 opencode.json。',
   apiKeyOpencode: '网关密钥。对应 OPENCODE_API_KEY，模板里可用 {{OPENCODE_API_KEY}}。',
   modelOpencode: '完整模型名，格式 provider/model，例如 anthropic/claude-sonnet-4。',
+  opencodeEffort: '写入当前 provider 模型的 options.reasoningEffort。OpenAI 系用 none～ultra，Google 常用 low/high。',
+  opencodeThinkingBudget: 'Anthropic 旧模型的 thinking.budgetTokens。新 Claude 5 请用左侧推理强度，不要只填预算。',
+  opencodeReasoningSummary: 'OpenAI 系推理摘要：auto / concise / detailed / none。',
   opencodeSmall: '摘要/压缩用的小模型，同样用 provider/model。',
   opencodeUser: 'OpenCode 界面显示名。',
   opencodeShare: '会话分享：manual 手动、auto 自动、disabled 关闭。',
@@ -564,7 +708,8 @@ const tips = {
   grokContext: '上下文窗口，填数字，例如 131072。',
   grokMaxTokens: '单次最大输出 token，填数字。',
   grokTemp: '采样温度 0–2，越大越随机。例如 0.7。',
-  grokBackend: '上游协议。官方用 Responses；兼容网关可能是 Chat Completions 或 Messages。',
+  grokEffort: 'Grok 4.5 支持 low / medium / high；4.6 另加 xhigh。默认 high，不能关掉思考。写入 [models] default_reasoning_effort。',
+  grokBackend: 'Grok CLI 自己发出的协议。官方用 Responses。这和上面的「上游格式」不是一回事：上游格式管中转站，需要转换时才改。',
   grokHome: '配置目录，默认 ~/.grok。对应 GROK_HOME。',
   grokToml: '可选。覆盖生成的 ~/.grok/config.toml。留空则按上面的字段写入。',
 }
@@ -576,42 +721,23 @@ function onProvider(value: unknown) {
   }
 }
 
-const upstreamOptions = computed(() => {
-  const extra: Record<Provider, { value: string; label: string }[]> = {
-    claude: [
-      { value: 'native', label: 'Anthropic Messages（原生）' },
-      { value: 'chat_completions', label: 'Chat Completions（需开启路由）' },
-    ],
-    codex: [
-      { value: 'native', label: 'Responses（原生）' },
-      { value: 'chat_completions', label: 'Chat Completions（需开启路由）' },
-      { value: 'anthropic_messages', label: 'Anthropic Messages（需开启路由）' },
-    ],
-    gemini: [
-      { value: 'native', label: 'Gemini（原生）' },
-      { value: 'chat_completions', label: 'Chat Completions（需开启路由）' },
-      { value: 'anthropic_messages', label: 'Anthropic Messages（需开启路由）' },
-    ],
-    opencode: [
-      { value: 'native', label: 'Chat Completions（原生）' },
-      { value: 'anthropic_messages', label: 'Anthropic Messages（需开启路由）' },
-      { value: 'responses', label: 'Responses（需开启路由）' },
-    ],
-    grok: [
-      { value: 'native', label: 'Responses（原生）' },
-      { value: 'chat_completions', label: 'Chat Completions（需开启路由）' },
-      { value: 'anthropic_messages', label: 'Anthropic Messages（需开启路由）' },
-    ],
-  }
-  return extra[form.value.provider] || extra.claude
-})
+const upstreamOptions = computed(() => upstreamFormatOptions(form.value.provider))
 
 // Select 不接受空字符串值，用 native 哨兵值桥接
 const upstreamSelect = computed({
   get: () => form.value.upstreamFormat || 'native',
   set: (value: string) => {
-    form.value.upstreamFormat = (value === 'native' ? '' : value) as UpstreamFormat
+    form.value.upstreamFormat = asUpstreamFormat(value)
   },
+})
+
+const upstreamHint = computed(() => {
+  const name = providers.find(item => item.value === form.value.provider)?.label || form.value.provider
+  if (!form.value.upstreamFormat) {
+    return `${name} 会直连你填的 Base URL，不经过本机路由。中转站协议和 CLI 不一致时再改这一项。`
+  }
+  const conv = conversionTagLabel(form.value.provider, form.value.upstreamFormat)
+  return `卡片会标「需路由 · ${conv}」。打开左上角「${name}」路由开关后，请求先到本机网关再转到上游。`
 })
 
 function triValue(value: string) {
@@ -629,11 +755,71 @@ const triItems = [
   { value: '1', label: '1' },
 ]
 
+const effortUnset = { value: 'unset', label: '不设置' }
+const claudeEffortItems = [
+  effortUnset,
+  { value: 'auto', label: 'auto（模型默认）' },
+  { value: 'low', label: 'low' },
+  { value: 'medium', label: 'medium' },
+  { value: 'high', label: 'high' },
+  { value: 'xhigh', label: 'xhigh' },
+  { value: 'max', label: 'max' },
+]
+const openaiEffortItems = [
+  effortUnset,
+  { value: 'none', label: 'none' },
+  { value: 'minimal', label: 'minimal' },
+  { value: 'low', label: 'low' },
+  { value: 'medium', label: 'medium' },
+  { value: 'high', label: 'high' },
+  { value: 'xhigh', label: 'xhigh' },
+  { value: 'max', label: 'max' },
+  { value: 'ultra', label: 'ultra' },
+]
+const grokEffortItems = [
+  effortUnset,
+  { value: 'none', label: 'none' },
+  { value: 'minimal', label: 'minimal' },
+  { value: 'low', label: 'low' },
+  { value: 'medium', label: 'medium' },
+  { value: 'high', label: 'high' },
+  { value: 'xhigh', label: 'xhigh' },
+  { value: 'max', label: 'max' },
+]
+const geminiLevelItems = [
+  effortUnset,
+  { value: 'minimal', label: 'minimal' },
+  { value: 'low', label: 'low' },
+  { value: 'medium', label: 'medium' },
+  { value: 'high', label: 'high' },
+]
+const reasoningSummaryItems = [
+  effortUnset,
+  { value: 'auto', label: 'auto' },
+  { value: 'concise', label: 'concise' },
+  { value: 'detailed', label: 'detailed' },
+  { value: 'none', label: 'none' },
+]
+
+function selectOrUnset(value: string) {
+  return value === 'unset' ? '' : value
+}
+
+function unsetOr(value: string, fallback = 'unset') {
+  return value || fallback
+}
+
+function providerFromFilter(): Provider {
+  const filter = configStore.currentFilter
+  if (filter === 'codex' || filter === 'gemini' || filter === 'opencode' || filter === 'grok') return filter
+  return 'claude'
+}
+
 const defaultForm = () => ({
   name: '',
   description: '',
   icon: '📦',
-  provider: 'claude' as Provider,
+  provider: providerFromFilter(),
   upstreamFormat: '' as UpstreamFormat,
   claude: {
     baseUrl: '',
@@ -648,6 +834,9 @@ const defaultForm = () => ({
     defaultOpus: '',
     maxOutputTokens: '',
     maxThinkingTokens: '',
+    effortLevel: 'unset',
+    disableAdaptiveThinking: '',
+    alwaysEnableEffort: '',
     autocompactPct: '',
     disableAutocompact: '',
     disableTelemetry: '',
@@ -667,7 +856,9 @@ const defaultForm = () => ({
     contextWindow: '',
     maxOutputTokens: '',
     reasoningEffort: 'high',
-    reasoningSummary: '',
+    planReasoningEffort: 'unset',
+    reasoningSummary: 'unset',
+    verbosity: 'unset',
     approvalPolicy: 'unset',
     sandboxMode: 'unset',
     configTemplate: `model_provider = "duckcoding"
@@ -695,6 +886,8 @@ requires_openai_auth = true`,
     sandbox: '',
     maxSessionTurns: '',
     compressionThreshold: '',
+    thinkingLevel: 'unset',
+    thinkingBudget: '',
     envTemplate: `GOOGLE_GEMINI_BASE_URL={{GOOGLE_GEMINI_BASE_URL}}
 GEMINI_API_KEY={{GEMINI_API_KEY}}
 GEMINI_MODEL={{GEMINI_MODEL}}`,
@@ -713,6 +906,9 @@ GEMINI_MODEL={{GEMINI_MODEL}}`,
     baseUrl: '',
     apiKey: '',
     model: '',
+    reasoningEffort: 'unset',
+    thinkingBudget: '',
+    reasoningSummary: 'unset',
     smallModel: '',
     username: '',
     share: '',
@@ -730,6 +926,7 @@ GEMINI_MODEL={{GEMINI_MODEL}}`,
     contextWindow: '',
     maxTokens: '',
     temperature: '',
+    reasoningEffort: 'unset',
     apiBackend: 'responses',
     homeDir: '',
     configTemplate: '',
@@ -747,7 +944,6 @@ watch(() => props.editConfig, (config) => {
     form.value.icon = config.icon || '📦'
     form.value.provider = config.provider
     form.value.upstreamFormat = (config.upstream_format || '') as UpstreamFormat
-    showAdvanced.value = !!config.upstream_format
 
     if (config.provider === 'claude') {
       form.value.claude.baseUrl = config.variables.ANTHROPIC_BASE_URL || ''
@@ -762,6 +958,9 @@ watch(() => props.editConfig, (config) => {
       form.value.claude.defaultOpus = config.variables.ANTHROPIC_DEFAULT_OPUS_MODEL || ''
       form.value.claude.maxOutputTokens = config.variables.CLAUDE_CODE_MAX_OUTPUT_TOKENS || ''
       form.value.claude.maxThinkingTokens = config.variables.MAX_THINKING_TOKENS || ''
+      form.value.claude.effortLevel = unsetOr(config.variables.CLAUDE_CODE_EFFORT_LEVEL)
+      form.value.claude.disableAdaptiveThinking = config.variables.CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING || ''
+      form.value.claude.alwaysEnableEffort = config.variables.CLAUDE_CODE_ALWAYS_ENABLE_EFFORT || ''
       form.value.claude.autocompactPct = config.variables.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE || ''
       form.value.claude.disableAutocompact = config.variables.DISABLE_AUTOCOMPACT || ''
       form.value.claude.disableTelemetry = config.variables.DISABLE_TELEMETRY || ''
@@ -779,8 +978,10 @@ watch(() => props.editConfig, (config) => {
       form.value.codex.model = config.variables.model || ''
       form.value.codex.contextWindow = config.variables.model_context_window || ''
       form.value.codex.maxOutputTokens = config.variables.model_max_output_tokens || ''
-      form.value.codex.reasoningEffort = config.variables.model_reasoning_effort || 'high'
-      form.value.codex.reasoningSummary = config.variables.model_reasoning_summary || ''
+      form.value.codex.reasoningEffort = unsetOr(config.variables.model_reasoning_effort, 'high')
+      form.value.codex.planReasoningEffort = unsetOr(config.variables.plan_mode_reasoning_effort)
+      form.value.codex.reasoningSummary = unsetOr(config.variables.model_reasoning_summary)
+      form.value.codex.verbosity = unsetOr(config.variables.model_verbosity)
       form.value.codex.approvalPolicy = config.variables.approval_policy || 'unset'
       form.value.codex.sandboxMode = config.variables.sandbox_mode || 'unset'
       form.value.codex.configTemplate = config.templates?.['config.toml'] || form.value.codex.configTemplate
@@ -795,12 +996,17 @@ watch(() => props.editConfig, (config) => {
       form.value.gemini.sandbox = config.variables.GEMINI_SANDBOX || ''
       form.value.gemini.maxSessionTurns = config.variables.GEMINI_MAX_SESSION_TURNS || ''
       form.value.gemini.compressionThreshold = config.variables.GEMINI_COMPRESSION_THRESHOLD || ''
+      form.value.gemini.thinkingLevel = unsetOr(config.variables.GEMINI_THINKING_LEVEL)
+      form.value.gemini.thinkingBudget = config.variables.GEMINI_THINKING_BUDGET || ''
       form.value.gemini.envTemplate = config.templates?.['.env'] || form.value.gemini.envTemplate
       form.value.gemini.settingsTemplate = config.templates?.['settings.json'] || form.value.gemini.settingsTemplate
     } else if (config.provider === 'opencode') {
       form.value.opencode.baseUrl = config.variables.OPENCODE_BASE_URL || ''
       form.value.opencode.apiKey = config.variables.OPENCODE_API_KEY || ''
       form.value.opencode.model = config.variables.OPENCODE_MODEL || ''
+      form.value.opencode.reasoningEffort = unsetOr(config.variables.OPENCODE_REASONING_EFFORT)
+      form.value.opencode.thinkingBudget = config.variables.OPENCODE_THINKING_BUDGET || ''
+      form.value.opencode.reasoningSummary = unsetOr(config.variables.OPENCODE_REASONING_SUMMARY)
       form.value.opencode.smallModel = config.variables.OPENCODE_SMALL_MODEL || ''
       form.value.opencode.username = config.variables.OPENCODE_USERNAME || ''
       form.value.opencode.share = config.variables.OPENCODE_SHARE || ''
@@ -817,6 +1023,7 @@ watch(() => props.editConfig, (config) => {
       form.value.grok.contextWindow = config.variables.XAI_CONTEXT_WINDOW || ''
       form.value.grok.maxTokens = config.variables.XAI_MAX_TOKENS || ''
       form.value.grok.temperature = config.variables.XAI_TEMPERATURE || ''
+      form.value.grok.reasoningEffort = unsetOr(config.variables.XAI_REASONING_EFFORT)
       form.value.grok.apiBackend = config.variables.XAI_API_BACKEND || 'responses'
       form.value.grok.homeDir = config.variables.GROK_HOME || ''
       form.value.grok.configTemplate = config.templates?.['config.toml'] || ''
@@ -824,18 +1031,22 @@ watch(() => props.editConfig, (config) => {
   } else {
     form.value = defaultForm()
     originalName.value = ''
-    showAdvanced.value = false
   }
 }, { immediate: true })
 
+function resetBlankForm() {
+  form.value = defaultForm()
+  originalName.value = ''
+  showMore.value = false
+  resetApiKeyVisibility()
+}
+
 watch(isOpen, (open) => {
-  if (!open) {
-    form.value = defaultForm()
-    originalName.value = ''
-    showMore.value = false
-    showAdvanced.value = false
-    resetApiKeyVisibility()
+  if (open) {
+    if (!props.editConfig) resetBlankForm()
+    return
   }
+  resetBlankForm()
 })
 
 const latencyTesting = ref(false)
@@ -890,6 +1101,9 @@ async function handleSubmit() {
       ANTHROPIC_DEFAULT_OPUS_MODEL: form.value.claude.defaultOpus,
       CLAUDE_CODE_MAX_OUTPUT_TOKENS: form.value.claude.maxOutputTokens,
       MAX_THINKING_TOKENS: form.value.claude.maxThinkingTokens,
+      CLAUDE_CODE_EFFORT_LEVEL: selectOrUnset(form.value.claude.effortLevel),
+      CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING: form.value.claude.disableAdaptiveThinking,
+      CLAUDE_CODE_ALWAYS_ENABLE_EFFORT: form.value.claude.alwaysEnableEffort,
       CLAUDE_AUTOCOMPACT_PCT_OVERRIDE: form.value.claude.autocompactPct,
       DISABLE_AUTOCOMPACT: form.value.claude.disableAutocompact,
       DISABLE_TELEMETRY: form.value.claude.disableTelemetry,
@@ -909,8 +1123,10 @@ async function handleSubmit() {
       model: form.value.codex.model,
       model_context_window: form.value.codex.contextWindow,
       model_max_output_tokens: form.value.codex.maxOutputTokens,
-      model_reasoning_effort: form.value.codex.reasoningEffort === 'unset' ? '' : form.value.codex.reasoningEffort,
-      model_reasoning_summary: form.value.codex.reasoningSummary,
+      model_reasoning_effort: selectOrUnset(form.value.codex.reasoningEffort),
+      plan_mode_reasoning_effort: selectOrUnset(form.value.codex.planReasoningEffort),
+      model_reasoning_summary: selectOrUnset(form.value.codex.reasoningSummary),
+      model_verbosity: selectOrUnset(form.value.codex.verbosity),
       approval_policy: form.value.codex.approvalPolicy === 'unset' ? '' : form.value.codex.approvalPolicy,
       sandbox_mode: form.value.codex.sandboxMode === 'unset' ? '' : form.value.codex.sandboxMode,
     }
@@ -931,6 +1147,8 @@ async function handleSubmit() {
       GEMINI_SANDBOX: form.value.gemini.sandbox,
       GEMINI_MAX_SESSION_TURNS: form.value.gemini.maxSessionTurns,
       GEMINI_COMPRESSION_THRESHOLD: form.value.gemini.compressionThreshold,
+      GEMINI_THINKING_LEVEL: selectOrUnset(form.value.gemini.thinkingLevel),
+      GEMINI_THINKING_BUDGET: form.value.gemini.thinkingBudget,
     }
     if (form.value.gemini.envTemplate) {
       templates['.env'] = form.value.gemini.envTemplate
@@ -943,6 +1161,9 @@ async function handleSubmit() {
       OPENCODE_BASE_URL: form.value.opencode.baseUrl,
       OPENCODE_API_KEY: form.value.opencode.apiKey,
       OPENCODE_MODEL: form.value.opencode.model,
+      OPENCODE_REASONING_EFFORT: selectOrUnset(form.value.opencode.reasoningEffort),
+      OPENCODE_THINKING_BUDGET: form.value.opencode.thinkingBudget,
+      OPENCODE_REASONING_SUMMARY: selectOrUnset(form.value.opencode.reasoningSummary),
       OPENCODE_SMALL_MODEL: form.value.opencode.smallModel,
       OPENCODE_USERNAME: form.value.opencode.username,
       OPENCODE_SHARE: form.value.opencode.share,
@@ -968,6 +1189,7 @@ async function handleSubmit() {
       XAI_CONTEXT_WINDOW: form.value.grok.contextWindow,
       XAI_MAX_TOKENS: form.value.grok.maxTokens,
       XAI_TEMPERATURE: form.value.grok.temperature,
+      XAI_REASONING_EFFORT: selectOrUnset(form.value.grok.reasoningEffort),
       XAI_API_BACKEND: form.value.grok.apiBackend || 'responses',
       GROK_HOME: form.value.grok.homeDir,
     }

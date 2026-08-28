@@ -204,6 +204,7 @@ export namespace main {
 	    current_env_codex: string;
 	    current_env_gemini: string;
 	    current_env_opencode: string;
+	    current_envs_opencode: string[];
 	    current_env_grok: string;
 	    environments: EnvConfig[];
 	
@@ -218,6 +219,7 @@ export namespace main {
 	        this.current_env_codex = source["current_env_codex"];
 	        this.current_env_gemini = source["current_env_gemini"];
 	        this.current_env_opencode = source["current_env_opencode"];
+	        this.current_envs_opencode = source["current_envs_opencode"];
 	        this.current_env_grok = source["current_env_grok"];
 	        this.environments = this.convertValues(source["environments"], EnvConfig);
 	    }
@@ -495,6 +497,72 @@ export namespace main {
 	        this.latency = source["latency"];
 	    }
 	}
+	export class McpMarketItem {
+	    id: string;
+	    name: string;
+	    title: string;
+	    description: string;
+	    website: string;
+	    version: string;
+	    type: string;
+	    command: string;
+	    args: string[];
+	    url: string;
+	    hint: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new McpMarketItem(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.title = source["title"];
+	        this.description = source["description"];
+	        this.website = source["website"];
+	        this.version = source["version"];
+	        this.type = source["type"];
+	        this.command = source["command"];
+	        this.args = source["args"];
+	        this.url = source["url"];
+	        this.hint = source["hint"];
+	    }
+	}
+	export class McpMarketPage {
+	    items: McpMarketItem[];
+	    next: string;
+	    warning: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new McpMarketPage(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.items = this.convertValues(source["items"], McpMarketItem);
+	        this.next = source["next"];
+	        this.warning = source["warning"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class ModelStats {
 	    requests: number;
 	    tokens: number;
@@ -721,6 +789,30 @@ export namespace main {
 	        this.has_name = source["has_name"];
 	        this.has_description = source["has_description"];
 	        this.frontmatter_error = source["frontmatter_error"];
+	    }
+	}
+	export class SkillMarketItem {
+	    id: string;
+	    name: string;
+	    description: string;
+	    source: string;
+	    repo: string;
+	    path: string;
+	    builtin: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new SkillMarketItem(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.description = source["description"];
+	        this.source = source["source"];
+	        this.repo = source["repo"];
+	        this.path = source["path"];
+	        this.builtin = source["builtin"];
 	    }
 	}
 	export class SkillPreset {

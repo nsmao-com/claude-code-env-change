@@ -31,7 +31,7 @@ export const zh = {
     close: '关闭',
     routingOn: '已开启 {name} 路由',
     routingOff: '已关闭 {name} 路由',
-    routingHint: '开启后把 {name} 的请求转到本机网关（各模型商共用同一端口）。配置里选了非原生上游格式才会做协议转换。',
+    routingHint: '开启后把 {name} 指到本机网关（共用同一端口）。要转换协议，请先在配置里改上游格式。',
   },
   palette: {
     title: '搜索',
@@ -173,6 +173,7 @@ export const zh = {
   toast: {
     loadFailed: '加载配置失败',
     applied: '已应用: {name}',
+    unapplied: '已停用: {name}',
     applyFailed: '应用失败: {error}',
     copied: '配置已复制',
     copyFailed: '复制失败: {error}',

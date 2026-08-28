@@ -1,10 +1,12 @@
 import type { EnvConfig, Config, Provider } from '@/types'
 import {
   GetConfig,
+  GetOpencodeAppliedNames,
   AddEnv,
   UpdateEnv,
   DeleteEnv,
   SwitchToEnv,
+  UnapplyEnv,
   ApplyCurrentEnv,
   ReorderEnvs,
   RefreshConfig,
@@ -27,6 +29,15 @@ import {
 import { callApp } from '@/services/appBridge'
 
 export const configService = {
+  async getOpencodeAppliedNames(): Promise<string[]> {
+    try {
+      const names = await GetOpencodeAppliedNames()
+      return Array.isArray(names) ? names.filter(Boolean) : []
+    } catch {
+      return []
+    }
+  },
+
   async getConfig(): Promise<Config> {
     const raw = await GetConfig()
     const environments: EnvConfig[] = (raw.environments || []).map((env): EnvConfig => ({
@@ -39,6 +50,7 @@ export const configService = {
       ...raw,
       environments,
       current_env_opencode: raw.current_env_opencode || '',
+      current_envs_opencode: collectOpencodeApplied(raw),
       current_env_grok: raw.current_env_grok || '',
     }
   },
@@ -57,6 +69,10 @@ export const configService = {
 
   async switchToEnv(name: string): Promise<void> {
     return SwitchToEnv(name)
+  },
+
+  async unapplyEnv(name: string): Promise<void> {
+    return UnapplyEnv(name)
   },
 
   async applyCurrentEnv(): Promise<string> {
@@ -143,6 +159,30 @@ export const configService = {
       upstream_format: env.upstream_format as EnvConfig['upstream_format'],
     }))
   }
+}
+
+function collectOpencodeApplied(raw: {
+  current_envs_opencode?: string[]
+  current_env_opencode?: string
+  CurrentEnvsOpencode?: string[]
+  currentEnvsOpencode?: string[]
+} | null | undefined): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  const push = (value: unknown) => {
+    if (typeof value === 'string' && value.trim() && !seen.has(value.trim())) {
+      const name = value.trim()
+      seen.add(name)
+      out.push(name)
+    }
+    if (Array.isArray(value)) value.forEach(push)
+  }
+  if (!raw) return out
+  push(raw.current_envs_opencode)
+  push(raw.CurrentEnvsOpencode)
+  push(raw.currentEnvsOpencode)
+  push(raw.current_env_opencode)
+  return out
 }
 
 function normalizeProvider(provider: string | undefined): Provider {

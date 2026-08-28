@@ -4,11 +4,17 @@ import {main} from '../models';
 
 export function AddServers(arg1:Array<main.MCPServer>):Promise<void>;
 
+export function ApplyToPlatform(arg1:string):Promise<number>;
+
 export function ImportFromJSON(arg1:string):Promise<Array<main.MCPServer>>;
+
+export function ImportMcpMarketplace(arg1:string,arg2:Array<string>):Promise<void>;
 
 export function ListServers():Promise<Array<main.MCPServer>>;
 
 export function SaveServers(arg1:Array<main.MCPServer>):Promise<void>;
+
+export function SearchMcpMarketplace(arg1:string,arg2:string):Promise<main.McpMarketPage>;
 
 export function SyncToPlatforms():Promise<Array<main.MCPServer>>;
 

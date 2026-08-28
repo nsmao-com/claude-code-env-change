@@ -43,6 +43,8 @@ export function GetGeminiSettings():Promise<Record<string, string>>;
 
 export function GetGrokSettings():Promise<Record<string, string>>;
 
+export function GetOpencodeAppliedNames():Promise<Array<string>>;
+
 export function GetOpencodeSettings():Promise<Record<string, string>>;
 
 export function GetOutboundProxy():Promise<main.OutboundProxySettings>;
@@ -92,6 +94,8 @@ export function SwitchToEnv(arg1:string):Promise<void>;
 export function TestLatency(arg1:string):Promise<number>;
 
 export function TestOutboundProxy(arg1:main.OutboundProxySettings):Promise<main.ProxyTestResult>;
+
+export function UnapplyEnv(arg1:string):Promise<void>;
 
 export function UpdateEnv(arg1:string,arg2:main.EnvConfig):Promise<void>;
 

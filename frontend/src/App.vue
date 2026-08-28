@@ -229,7 +229,8 @@ async function applyConfig(index: number) {
 async function applyByName(name: string) {
   try {
     const message = await configStore.applyEnv(name)
-    if (message && message.includes('⚠')) toast.error(message)
+    if (message === 'unapplied') toast.success(t('toast.unapplied', { name }))
+    else if (message && message.includes('⚠')) toast.error(message)
     else toast.success(t('toast.applied', { name }))
   } catch (e: any) {
     toast.error(t('toast.applyFailed', { error: e.message }))

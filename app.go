@@ -41,9 +41,10 @@ type Config struct {
 	CurrentEnvClaude   string      `json:"current_env_claude"`
 	CurrentEnvCodex    string      `json:"current_env_codex"`
 	CurrentEnvGemini   string      `json:"current_env_gemini"`
-	CurrentEnvOpencode string      `json:"current_env_opencode"`
-	CurrentEnvGrok     string      `json:"current_env_grok"`
-	Environments       []EnvConfig `json:"environments"`
+	CurrentEnvOpencode  string      `json:"current_env_opencode"`
+	CurrentEnvsOpencode []string    `json:"current_envs_opencode"`
+	CurrentEnvGrok      string      `json:"current_env_grok"`
+	Environments        []EnvConfig `json:"environments"`
 }
 
 // App struct
@@ -65,6 +66,8 @@ func (a *App) OnStartup(ctx context.Context) {
 	a.ctx = ctx
 	initOutboundProxy()
 	a.loadConfig()
+	a.syncOpencodeAppliedFromDisk()
+	_ = a.saveConfig()
 	_ = RecordEnvActivation("claude", a.config.CurrentEnvClaude, time.Now())
 	_ = RecordEnvActivation("codex", a.config.CurrentEnvCodex, time.Now())
 	_ = RecordEnvActivation("gemini", a.config.CurrentEnvGemini, time.Now())
@@ -74,7 +77,23 @@ func (a *App) OnStartup(ctx context.Context) {
 
 // GetConfig 获取配置
 func (a *App) GetConfig() Config {
-	return a.config
+	a.syncOpencodeAppliedFromDisk()
+	cfg := a.config
+	cfg.CurrentEnvsOpencode = append([]string(nil), a.config.CurrentEnvsOpencode...)
+	if cfg.CurrentEnvsOpencode == nil {
+		cfg.CurrentEnvsOpencode = []string{}
+	}
+	return cfg
+}
+
+// GetOpencodeAppliedNames 当前同时挂在 opencode.json 里的 OpenCode 配置名
+func (a *App) GetOpencodeAppliedNames() []string {
+	a.syncOpencodeAppliedFromDisk()
+	names := a.opencodeCurrentNames()
+	if names == nil {
+		return []string{}
+	}
+	return names
 }
 
 // GetEnvVar 获取环境变量
@@ -117,7 +136,7 @@ func (a *App) SwitchToEnv(name string) error {
 	case "gemini":
 		a.config.CurrentEnvGemini = name
 	case "opencode":
-		a.config.CurrentEnvOpencode = name
+		a.addOpencodeCurrent(name)
 	case "grok":
 		a.config.CurrentEnvGrok = name
 	default:
@@ -128,6 +147,35 @@ func (a *App) SwitchToEnv(name string) error {
 	a.config.CurrentEnv = name
 
 	return a.saveConfig()
+}
+
+// UnapplyEnv 停用一条已应用的配置。OpenCode 可同时挂多套，停用只拿掉这一套，其它继续留在 opencode.json。
+func (a *App) UnapplyEnv(name string) error {
+	env := a.findEnv(name)
+	if env == nil {
+		return fmt.Errorf("environment '%s' not found", name)
+	}
+	if env.Provider != "opencode" {
+		return fmt.Errorf("只有 OpenCode 支持停用单套配置")
+	}
+	if !a.isOpencodeCurrent(name) {
+		return nil
+	}
+	if err := a.stripOpencodeProvider(env); err != nil {
+		return err
+	}
+	a.removeOpencodeCurrent(name)
+	if err := a.saveConfig(); err != nil {
+		return err
+	}
+	if last := a.config.CurrentEnvOpencode; last != "" {
+		if remaining := a.findEnv(last); remaining != nil {
+			if _, err := a.applyOpencodeEnv(remaining); err != nil {
+				return fmt.Errorf("已停用 %s，但刷新默认模型失败: %v", name, err)
+			}
+		}
+	}
+	return nil
 }
 
 // AddEnv adds a new environment configuration
@@ -170,6 +218,7 @@ func (a *App) UpdateEnv(oldName string, newEnv EnvConfig) error {
 				if a.config.CurrentEnvOpencode == oldName {
 					a.config.CurrentEnvOpencode = newEnv.Name
 				}
+				a.renameOpencodeCurrent(oldName, newEnv.Name)
 				if a.config.CurrentEnvGrok == oldName {
 					a.config.CurrentEnvGrok = newEnv.Name
 				}
@@ -193,7 +242,7 @@ func (a *App) isCurrentEnvName(name string) bool {
 	return a.config.CurrentEnvClaude == name ||
 		a.config.CurrentEnvCodex == name ||
 		a.config.CurrentEnvGemini == name ||
-		a.config.CurrentEnvOpencode == name ||
+		a.isOpencodeCurrent(name) ||
 		a.config.CurrentEnvGrok == name
 }
 
@@ -220,6 +269,9 @@ func (a *App) applyEnvByProvider(env *EnvConfig) (string, error) {
 func (a *App) DeleteEnv(name string) error {
 	for i, env := range a.config.Environments {
 		if env.Name == name {
+			if env.Provider == "opencode" && a.isOpencodeCurrent(name) {
+				_ = a.stripOpencodeProvider(&env)
+			}
 			// Remove environment from slice
 			a.config.Environments = append(a.config.Environments[:i], a.config.Environments[i+1:]...)
 
@@ -239,6 +291,7 @@ func (a *App) DeleteEnv(name string) error {
 			if a.config.CurrentEnvOpencode == name {
 				a.config.CurrentEnvOpencode = ""
 			}
+			a.removeOpencodeCurrent(name)
 			if a.config.CurrentEnvGrok == name {
 				a.config.CurrentEnvGrok = ""
 			}
@@ -353,8 +406,15 @@ func (a *App) ApplyCurrentEnv() (string, error) {
 	apply("Claude", a.config.CurrentEnvClaude, a.applyEnvByProvider)
 	apply("Codex", a.config.CurrentEnvCodex, a.applyEnvByProvider)
 	apply("Gemini", a.config.CurrentEnvGemini, a.applyEnvByProvider)
-	apply("OpenCode", a.config.CurrentEnvOpencode, a.applyEnvByProvider)
+	for _, name := range a.opencodeCurrentNames() {
+		apply("OpenCode", name, a.applyEnvByProvider)
+	}
 	apply("Grok", a.config.CurrentEnvGrok, a.applyEnvByProvider)
+
+	a.syncOpencodeAppliedFromDisk()
+	if err := a.saveConfig(); err != nil && len(errs) == 0 {
+		return "", err
+	}
 
 	if len(msgs) == 0 && len(errs) == 0 {
 		return "没有激活的环境可应用", nil
@@ -455,7 +515,7 @@ func (a *App) GetCodexSettings() map[string]string {
 			if v, ok := payload["model"].(string); ok {
 				result["model"] = strings.TrimSpace(v)
 			}
-			for _, key := range []string{"model_reasoning_effort", "model_reasoning_summary", "approval_policy", "sandbox_mode", "model_verbosity"} {
+			for _, key := range []string{"model_reasoning_effort", "model_reasoning_summary", "plan_mode_reasoning_effort", "approval_policy", "sandbox_mode", "model_verbosity"} {
 				if v, ok := payload[key].(string); ok && strings.TrimSpace(v) != "" {
 					result[key] = strings.TrimSpace(v)
 				}
@@ -1135,6 +1195,7 @@ func (a *App) loadConfig() error {
 	if strings.TrimSpace(a.config.CurrentEnvClaude) == "" && strings.TrimSpace(a.config.CurrentEnv) != "" {
 		a.config.CurrentEnvClaude = a.config.CurrentEnv
 	}
+	a.normalizeOpencodeCurrents()
 
 	return nil
 }

@@ -11,7 +11,7 @@
           {{ isRunning ? `运行中 :${port}` : '已停止' }}
         </Badge>
       </div>
-      <p class="mt-2 text-sm text-muted-foreground">本地协议转换网关，各模型商共用同一端口。左上角或下方可单独开关；配置高级选项里选择上游格式，开启路由后才会转换。</p>
+      <p class="mt-2 text-sm text-muted-foreground">这里只开关本机网关。上游协议在「配置」里选；打开对应模型商的开关后，才会把 CLI 指到本机这个端口。</p>
     </template>
 
     <Card class="mb-4">
@@ -27,7 +27,7 @@
                 max="65535"
                 class="w-24 font-mono text-xs"
                 @update:model-value="onPortUpdate"
-                @change="saveGatewaySettings"
+                @change="() => saveGatewaySettings()"
               />
             </div>
             <div class="flex items-center gap-2">
@@ -62,139 +62,28 @@
         <div class="mb-3">
           <Label class="text-xs font-bold uppercase tracking-wide text-muted-foreground">应用路由</Label>
           <p class="mt-1 text-xs leading-relaxed text-muted-foreground">
-            每个模型商单独开关，共用上面的端口。开启后把该 CLI 的地址改到本机网关；关闭则写回原地址。协议转换只在配置里选了非原生上游格式时发生。
+            每个模型商单独开关，共用上面的端口。开启后把该 CLI 指到本机网关；关闭则写回配置里的原地址。要转换协议，请先在配置里把上游格式改成非原生。
           </p>
         </div>
-        <div class="flex flex-wrap items-center gap-4">
-          <div v-for="item in appProviders" :key="item.id" class="flex items-center gap-2">
+        <div class="divide-y">
+          <div v-for="item in appProviders" :key="item.id" class="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
+            <div class="flex min-w-0 items-center gap-2">
+              <BrandIcon :provider="item.id" class="size-3.5 shrink-0" />
+              <div class="min-w-0">
+                <p class="text-sm font-medium">{{ item.label }}</p>
+                <p class="text-[11px] text-muted-foreground">{{ appRoutingHint(item.id) }}</p>
+              </div>
+            </div>
             <Switch
               size="sm"
               :checked="routerStore.isAppRoutingOn(item.id)"
               :disabled="routerStore.togglingApp === item.id"
               @update:checked="(value: boolean) => onAppRouting(item.id, value)"
             />
-            <BrandIcon :provider="item.id" class="size-3.5" />
-            <Label class="cursor-pointer text-xs font-medium">{{ item.label }}</Label>
           </div>
         </div>
       </CardContent>
     </Card>
-
-    <div class="mb-4 flex items-center justify-between gap-3">
-      <Button size="sm" @click="openAdd">
-        <Plus />
-        添加路由
-      </Button>
-      <span class="text-xs text-muted-foreground">共 {{ routerStore.config.routes.length }} 条路由</span>
-    </div>
-
-    <Empty v-if="routerStore.config.routes.length === 0" class="py-10">
-      <EmptyHeader>
-        <EmptyTitle>暂无自定义路由</EmptyTitle>
-        <EmptyDescription>日常用法：配置里选上游格式，再打开左上角对应模型商的路由开关。这里只用于额外的手工路由。</EmptyDescription>
-      </EmptyHeader>
-      <EmptyContent>
-        <Button size="sm" @click="openAdd">
-          <Plus />
-          添加路由
-        </Button>
-      </EmptyContent>
-    </Empty>
-
-    <ScrollArea v-else class="h-[38vh] pr-2">
-      <div class="space-y-3">
-        <Card v-for="route in routerStore.config.routes" :key="route.name" size="sm">
-          <CardHeader>
-            <div class="flex min-w-0 items-start justify-between gap-4">
-              <div class="min-w-0 flex-1 overflow-hidden">
-                <div class="flex min-w-0 items-center gap-2">
-                  <AppTooltip :content="route.name" wrap class="min-w-0 flex-1">
-                    <CardTitle>{{ route.name }}</CardTitle>
-                  </AppTooltip>
-                  <Badge :variant="route.enabled ? 'default' : 'secondary'" class="shrink-0">
-                    {{ route.enabled ? '启用' : '停用' }}
-                  </Badge>
-                  <Badge v-if="isAppRoute(route)" variant="outline" class="shrink-0">应用路由</Badge>
-                  <Badge variant="outline" class="shrink-0 font-mono">
-                    {{ directionLabel(route) }}
-                  </Badge>
-                </div>
-                <p v-if="route.description" class="mt-1 line-clamp-2 break-words text-xs text-muted-foreground">{{ route.description }}</p>
-
-                <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
-                  <AppTooltip :content="route.base_url" wrap>
-                    <span class="flex max-w-[280px] min-w-0 items-center font-mono">
-                      <Cloud class="mr-1 size-3 shrink-0 opacity-60" />
-                      <span class="truncate">{{ route.base_url }}</span>
-                    </span>
-                  </AppTooltip>
-                  <span v-if="route.default_model" class="flex min-w-0 max-w-full items-center font-mono">
-                    <Cpu class="mr-1 size-3 shrink-0 opacity-60" />
-                    <span class="truncate">{{ route.default_model }}</span>
-                  </span>
-                  <span v-if="statsOf(route.name)" class="flex items-center">
-                    <Zap class="mr-1 size-3 opacity-60" />
-                    {{ statsOf(route.name)!.total_requests }} 次请求
-                    <template v-if="statsOf(route.name)!.failed_requests > 0">
-                      / <span class="text-red-500">{{ statsOf(route.name)!.failed_requests }} 失败</span>
-                    </template>
-                  </span>
-                  <AppTooltip
-                    v-if="statsOf(route.name)?.last_request_at"
-                    :content="new Date(statsOf(route.name)!.last_request_at!).toLocaleString()"
-                  >
-                    <span class="flex items-center">
-                      <Clock class="mr-1 size-3 opacity-60" />{{ formatLastRequest(statsOf(route.name)!.last_request_at!) }}
-                    </span>
-                  </AppTooltip>
-                </div>
-
-                <AppTooltip
-                  v-if="statsOf(route.name)?.last_error"
-                  :content="statsOf(route.name)!.last_error"
-                  wrap
-                >
-                  <div class="mt-2 flex min-w-0 max-w-full items-center text-[11px] text-red-500">
-                    <TriangleAlert class="mr-1 size-3 shrink-0" />
-                    <span class="truncate">{{ statsOf(route.name)!.last_error }}</span>
-                  </div>
-                </AppTooltip>
-              </div>
-
-              <div class="flex shrink-0 items-center gap-1.5">
-                <Button variant="outline" size="icon-sm" title="复制接入 URL" @click="copyRouteUrl(route)">
-                  <Copy />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon-sm"
-                  title="测试上游连通性"
-                  :disabled="testingRoute === route.name"
-                  @click="testRoute(route)"
-                >
-                  <Loader2 v-if="testingRoute === route.name" class="animate-spin" />
-                  <Plug v-else />
-                </Button>
-                <Button
-                  :variant="route.enabled ? 'outline' : 'default'"
-                  size="icon-sm"
-                  :title="route.enabled ? '停用' : '启用'"
-                  @click="toggleRoute(route)"
-                >
-                  <Power />
-                </Button>
-                <Button variant="outline" size="icon-sm" @click="openEdit(route)">
-                  <Pencil />
-                </Button>
-                <Button variant="destructive" size="icon-sm" @click="removeRoute(route)">
-                  <Trash2 />
-                </Button>
-              </div>
-            </div>
-          </CardHeader>
-        </Card>
-      </div>
-    </ScrollArea>
 
     <div class="mt-4">
       <div class="mb-2 flex items-center justify-between gap-2">
@@ -236,49 +125,26 @@
       </div>
     </div>
 
-    <RouteEditModal v-model="showEditModal" :edit-route="editingRoute" @saved="onSaved" />
     <RouterLogsModal v-model="showLogsModal" />
   </AppModal>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch, onUnmounted } from 'vue'
-import {
-  Clock,
-  Cloud,
-  Copy,
-  Cpu,
-  Loader2,
-  Pencil,
-  Play,
-  Plug,
-  Plus,
-  Power,
-  RefreshCw,
-  Square,
-  Trash2,
-  TriangleAlert,
-  Zap,
-} from '@lucide/vue'
-import type { APIRoute, Provider } from '@/types'
+import { Loader2, Play, RefreshCw, Square } from '@lucide/vue'
+import type { Provider } from '@/types'
 import { useRouterStore } from '@/stores/routerStore'
-import { routerService } from '@/services/routerService'
-import { useConfirm } from '@/composables/useConfirm'
 import { useToast } from '@/composables/useToast'
 import AppModal from '@/components/common/AppModal.vue'
 import AppTooltip from '@/components/common/AppTooltip.vue'
 import BrandIcon from '@/components/common/BrandIcon.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-
-import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty'
+import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Switch } from '@/components/ui/switch'
 import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table'
-import RouteEditModal from './RouteEditModal.vue'
 import RouterLogsModal from './RouterLogsModal.vue'
 
 interface Props {
@@ -292,7 +158,6 @@ const emit = defineEmits<{
 }>()
 
 const routerStore = useRouterStore()
-const confirm = useConfirm()
 const toast = useToast()
 
 const isOpen = computed({
@@ -305,10 +170,7 @@ const port = computed(() => routerStore.status?.port ?? routerStore.config.port)
 
 const portInput = ref(8790)
 const autoStartInput = ref(true)
-const showEditModal = ref(false)
 const showLogsModal = ref(false)
-const editingRoute = ref<APIRoute | null>(null)
-const testingRoute = ref<string | null>(null)
 
 let pollTimer: number | null = null
 
@@ -324,7 +186,6 @@ watch(isOpen, async (open) => {
       window.clearInterval(pollTimer)
       pollTimer = null
     }
-    showEditModal.value = false
     showLogsModal.value = false
   }}, { immediate: true })
 
@@ -349,59 +210,23 @@ function onPortUpdate(value: string | number) {
   portInput.value = Number(value)
 }
 
-function onAutoStartChange(checked: boolean) {
-  autoStartInput.value = checked
-  void saveGatewaySettings()
-}
-
 function shortTime(value: string): string {
   if (!value) return ''
   const parts = value.trim().split(' ')
   return parts.length > 1 ? parts[parts.length - 1] : value
 }
 
-function statsOf(name: string) {
-  return routerStore.status?.stats?.[name]
+function appRoutingHint(id: Provider) {
+  if (!routerStore.isAppRoutingOn(id)) return '关闭时 CLI 直连配置里的地址'
+  return `已转到 127.0.0.1:${port.value}/${id}`
 }
 
-function formatLastRequest(ts: number): string {
-  const diff = Date.now() - ts
-  if (diff < 60_000) return '刚刚'
-  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)} 分钟前`
-  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)} 小时前`
-  return new Date(ts).toLocaleDateString()
-}
-
-function isAppRoute(route: APIRoute) {
-  const name = (route.name || '').toLowerCase()
-  return appProviders.some(item => item.id === name) || (route.description || '').includes('应用路由')
-}
-
-function formatName(value: string) {
-  if (value === 'anthropic') return 'Anthropic'
-  if (value === 'responses') return 'Responses'
-  return 'OpenAI'
-}
-
-function directionLabel(route: APIRoute): string {
-  const source = formatName(route.source_format)
-  const target = formatName(route.target_format)
-  if (route.source_format === route.target_format) {
-    return `${source} 直连`
-  }
-  return `${source} → ${target}`
-}
-
-function routeUrlOf(route: APIRoute): string {
-  const base = `http://127.0.0.1:${port.value}/${route.name}`
-  return route.source_format === 'openai' ? `${base}/v1` : base
-}
-
-async function saveGatewaySettings() {
+async function saveGatewaySettings(kind: 'port' | 'autostart' = 'port') {
   const p = Number(portInput.value)
   if (!p || p < 1 || p > 65535) {
     toast.error('端口必须在 1-65535 之间')
     portInput.value = routerStore.config.port
+    if (kind === 'autostart') throw new Error('invalid port')
     return
   }
   try {
@@ -415,9 +240,24 @@ async function saveGatewaySettings() {
     } catch {
       /* 没有已开启的应用路由时忽略 */
     }
-    toast.success('网关设置已保存' + (isRunning.value ? '，已重启生效' : ''))
+    if (kind === 'autostart') {
+      toast.success(autoStartInput.value ? '已开启随应用启动' : '已关闭随应用启动')
+    } else {
+      toast.success('网关设置已保存' + (isRunning.value ? '，已重启生效' : ''))
+    }
   } catch (e: any) {
     toast.error('保存失败: ' + (e?.message || String(e)))
+    if (kind === 'autostart') throw e
+  }
+}
+
+async function onAutoStartChange(checked: boolean) {
+  const prev = autoStartInput.value
+  autoStartInput.value = checked
+  try {
+    await saveGatewaySettings('autostart')
+  } catch {
+    autoStartInput.value = prev
   }
 }
 
@@ -447,69 +287,5 @@ async function stopGateway() {
   } catch (e: any) {
     toast.error('停止失败: ' + (e?.message || String(e)))
   }
-}
-
-function openAdd() {
-  editingRoute.value = null
-  showEditModal.value = true
-}
-
-function openEdit(route: APIRoute) {
-  editingRoute.value = JSON.parse(JSON.stringify(route))
-  showEditModal.value = true
-}
-
-async function toggleRoute(route: APIRoute) {
-  const routes = routerStore.config.routes.map((r) =>
-    r.name === route.name ? { ...r, enabled: !r.enabled } : r
-  )
-  try {
-    await routerStore.saveConfig({ ...routerStore.config, routes })
-    toast.success(route.enabled ? `路由 ${route.name} 已停用` : `路由 ${route.name} 已启用`)
-  } catch (e: any) {
-    toast.error('操作失败: ' + (e?.message || String(e)))
-  }
-}
-
-async function removeRoute(route: APIRoute) {
-  const ok = await confirm.show('删除路由', `确定要删除路由 "${route.name}" 吗？`, 'danger')
-  if (!ok) return
-  const routes = routerStore.config.routes.filter((r) => r.name !== route.name)
-  try {
-    await routerStore.saveConfig({ ...routerStore.config, routes })
-    toast.success('路由已删除')
-  } catch (e: any) {
-    toast.error('删除失败: ' + (e?.message || String(e)))
-  }
-}
-
-async function testRoute(route: APIRoute) {
-  testingRoute.value = route.name
-  try {
-    const result = await routerService.testRoute(route.name)
-    if (result.success) {
-      toast.success(`${route.name}: ${result.message} (${result.latency}ms)`)
-    } else {
-      toast.error(`${route.name}: ${result.message}`)
-    }
-  } catch (e: any) {
-    toast.error('测试失败: ' + (e?.message || String(e)))
-  } finally {
-    testingRoute.value = null
-  }
-}
-
-async function copyRouteUrl(route: APIRoute) {
-  const url = routeUrlOf(route)
-  try {
-    await navigator.clipboard.writeText(url)
-    toast.success(`已复制: ${url}`)
-  } catch {
-    toast.info(url)
-  }
-}
-
-function onSaved() {
-  routerStore.refreshStatus().catch(() => {})
 }
 </script>

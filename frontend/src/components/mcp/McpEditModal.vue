@@ -157,6 +157,7 @@ import { ref, computed, watch } from 'vue'
 import { Check, Globe, Terminal } from '@lucide/vue'
 import type { MCPServer } from '@/types'
 import { useMcpStore } from '@/stores/mcpStore'
+import { useConfigStore } from '@/stores/configStore'
 import { useToast } from '@/composables/useToast'
 import { errorMessage } from '@/lib/configUrl'
 import AppModal from '@/components/common/AppModal.vue'
@@ -183,6 +184,7 @@ const emit = defineEmits<{
 }>()
 
 const mcpStore = useMcpStore()
+const configStore = useConfigStore()
 const toast = useToast()
 
 const isOpen = computed({
@@ -194,6 +196,17 @@ const isEditing = computed(() => props.editServer != null && props.editIndex !==
 const editorMode = ref<'form' | 'json'>('form')
 const jsonText = ref('')
 
+function platformsFromFilter() {
+  const tool = configStore.currentFilter
+  return {
+    claude: tool === 'all' || tool === 'claude',
+    codex: tool === 'codex',
+    gemini: tool === 'gemini',
+    opencode: tool === 'opencode',
+    grok: tool === 'grok',
+  }
+}
+
 const defaultForm = () => ({
   name: '',
   type: 'stdio' as 'stdio' | 'http',
@@ -204,13 +217,7 @@ const defaultForm = () => ({
   headers: '',
   website: '',
   tips: '',
-  platforms: {
-    claude: true,
-    codex: false,
-    gemini: false,
-    opencode: false,
-    grok: false,
-  }
+  platforms: platformsFromFilter(),
 })
 
 const form = ref(defaultForm())

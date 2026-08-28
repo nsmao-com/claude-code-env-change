@@ -171,6 +171,9 @@ func (a *App) GetGrokSettings() map[string]string {
 		if def, ok := models["default"].(string); ok {
 			result["XAI_MODEL"] = strings.TrimSpace(def)
 		}
+		if v, ok := models["default_reasoning_effort"].(string); ok && strings.TrimSpace(v) != "" {
+			result["XAI_REASONING_EFFORT"] = strings.TrimSpace(v)
+		}
 	}
 	if modelMap, ok := payload["model"].(map[string]any); ok {
 		if custom, ok := modelMap["custom"].(map[string]any); ok {

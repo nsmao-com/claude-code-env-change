@@ -1,4 +1,4 @@
-import type { Skill, SkillPreset } from '@/types'
+import type { Skill, SkillMarketItem, SkillPreset } from '@/types'
 
 export const skillService = {
   async listSkills(): Promise<Skill[]> {
@@ -17,5 +17,19 @@ export const skillService = {
   async getPresets(): Promise<SkillPreset[]> {
     const presets = await window.go.main.SkillService.GetSkillPresets()
     return presets || []
+  },
+
+  async applyToPlatform(platform: string): Promise<number> {
+    const count = await window.go.main.SkillService.ApplyToPlatform(platform)
+    return typeof count === 'number' ? count : 0
+  },
+
+  async searchMarketplace(source: string, query: string): Promise<SkillMarketItem[]> {
+    const list = await window.go.main.SkillService.SearchSkillMarketplace(source, query)
+    return list || []
+  },
+
+  async importMarketplace(id: string): Promise<Skill> {
+    return window.go.main.SkillService.ImportSkillMarketplace(id)
   }
 }

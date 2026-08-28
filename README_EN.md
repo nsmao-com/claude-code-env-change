@@ -31,7 +31,7 @@
 
 One native window for five CLI toolchains: environment variables, MCP servers, Skills, prompt files, usage stats, and local installs. Everything stays on disk unless you opt into S3-compatible backup. No third-party account is required to run the app.
 
-Current release: **v2.3.0**. Release notes and binaries live on [GitHub Releases](https://github.com/nsmao-com/claude-code-env-change/releases).
+Current release: **v2.4.0**. Release notes and binaries live on [GitHub Releases](https://github.com/nsmao-com/claude-code-env-change/releases).
 
 ## Features
 
@@ -39,8 +39,8 @@ Current release: **v2.3.0**. Release notes and binaries live on [GitHub Releases
 | --- | --- |
 | Environments | Multiple profiles, per-tool filter, drag reorder, one-click apply, latency probe, drag-and-drop JSON import |
 | MCP | stdio / HTTP servers, sync into Claude / Codex / Gemini / OpenCode / Grok |
-| Skills | Edit `SKILL.md`, import from the bundled library, enable per platform |
-| API router | Local protocol gateway (Anthropic Messages, Chat Completions, Responses) |
+| Skills | Edit `SKILL.md`, import from online marketplaces or the bundled library, enable per platform |
+| API router | Local gateway port and per-vendor switches; pick upstream format in the config (Anthropic Messages, Chat Completions, Responses) |
 | Uptime | Periodic Base URL checks and rotation groups |
 | Cloud sync | S3 / Aliyun OSS / compatible endpoints, AES-GCM encrypted objects |
 | Prompts | Custom system prompts per CLI |

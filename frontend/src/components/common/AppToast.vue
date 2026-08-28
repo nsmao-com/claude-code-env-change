@@ -9,13 +9,13 @@
       <TransitionGroup
         tag="div"
         name="app-msg"
-        class="flex w-max max-w-[min(28rem,calc(100vw-1.5rem))] flex-col items-stretch gap-2"
+        class="relative flex w-full flex-col items-center gap-2"
       >
         <button
           v-for="item in toasts"
           :key="item.id"
           type="button"
-          class="app-msg-card pointer-events-auto flex items-center gap-2.5 rounded-2xl bg-white px-3.5 py-2.5 text-left"
+          class="app-msg-card pointer-events-auto inline-flex w-fit max-w-[min(28rem,calc(100vw-1.5rem))] shrink-0 items-center gap-2.5 rounded-2xl bg-white px-3.5 py-2.5 text-left"
           @click="dismiss(item.id)"
         >
           <span
@@ -26,7 +26,7 @@
             <X v-else-if="item.type === 'error'" class="size-3.5" :stroke-width="2.8" />
             <Info v-else class="size-3.5" :stroke-width="2.8" />
           </span>
-          <span class="min-w-0 flex-1 text-[13px] leading-snug font-medium text-neutral-800">{{ item.message }}</span>
+          <span class="min-w-0 break-words text-[13px] leading-snug font-medium text-neutral-800">{{ item.message }}</span>
         </button>
       </TransitionGroup>
     </div>
@@ -49,6 +49,8 @@ const iconWrap: Record<ToastType, string> = {
 
 <style>
 .app-msg-card {
+  width: max-content;
+  max-width: min(28rem, calc(100vw - 1.5rem));
   box-shadow:
     0 10px 28px rgba(15, 23, 42, 0.08),
     0 1px 3px rgba(15, 23, 42, 0.06);
@@ -61,6 +63,9 @@ const iconWrap: Record<ToastType, string> = {
     opacity 0.28s ease;
 }
 .app-msg-leave-active {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
   transition:
     transform 0.2s ease-in,
     opacity 0.16s ease-in;
@@ -71,7 +76,7 @@ const iconWrap: Record<ToastType, string> = {
 }
 .app-msg-leave-to {
   opacity: 0;
-  transform: translateY(-8px) scale(0.98);
+  transform: translateX(-50%) translateY(-8px) scale(0.98);
 }
 .app-msg-move {
   transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);

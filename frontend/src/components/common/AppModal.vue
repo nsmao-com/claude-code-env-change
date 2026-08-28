@@ -12,11 +12,9 @@
         </slot>
       </div>
     </div>
-    <ScrollArea class="min-h-0 flex-1">
-      <div class="flex min-h-full flex-col px-6 pb-6 pt-2">
-        <slot />
-      </div>
-    </ScrollArea>
+    <div class="flex min-h-0 flex-1 flex-col overflow-y-auto px-6 pb-6 pt-2">
+      <slot />
+    </div>
     <div v-if="$slots.footer" class="shrink-0 border-t px-6 py-3">
       <slot name="footer" />
     </div>
@@ -52,7 +50,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import ToolFilterChips from '@/components/layout/ToolFilterChips.vue'
 
 interface Props {

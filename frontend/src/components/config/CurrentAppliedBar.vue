@@ -46,7 +46,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { ChevronDown } from '@lucide/vue'
-import type { Provider } from '@/types'
+import type { EnvConfig, Provider } from '@/types'
 import { useConfigStore } from '@/stores/configStore'
 import BrandIcon from '@/components/common/BrandIcon.vue'
 import ConfigListItem from './ConfigListItem.vue'
@@ -66,11 +66,23 @@ const providers: Provider[] = ['claude', 'codex', 'gemini', 'opencode', 'grok']
 const appliedConfigs = computed(() => {
   const filter = configStore.currentFilter
   const list = filter === 'all' ? providers : [filter]
-  return list
-    .map((provider) => {
-      const name = configStore.activeEnvs[provider]
-      return name ? configStore.getEnvByName(name) : undefined
-    })
-    .filter((config): config is NonNullable<typeof config> => !!config)
+  const result: EnvConfig[] = []
+  const seen = new Set<string>()
+  const push = (name: string) => {
+    if (!name || seen.has(name)) return
+    const config = configStore.getEnvByName(name)
+    if (!config) return
+    seen.add(name)
+    result.push(config)
+  }
+  for (const provider of list) {
+    if (provider === 'opencode') {
+      for (const name of configStore.currentEnvsOpencode) push(name)
+      push(configStore.currentEnvOpencode)
+      continue
+    }
+    push(configStore.activeEnvs[provider])
+  }
+  return result
 })
 </script>

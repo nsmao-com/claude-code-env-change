@@ -140,7 +140,7 @@ func needsConversion(env *EnvConfig) bool {
 	case "opencode":
 		return format == UpstreamAnthropicMessages || format == UpstreamResponses
 	case "gemini":
-		return format == UpstreamChatCompletions || format == UpstreamAnthropicMessages
+		return format == UpstreamChatCompletions || format == UpstreamAnthropicMessages || format == UpstreamResponses
 	}
 	return false
 }

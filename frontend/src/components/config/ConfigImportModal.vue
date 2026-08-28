@@ -34,7 +34,7 @@
             class="flex min-w-0 items-center gap-3 px-3 py-2"
           >
             <div class="flex size-7 shrink-0 items-center justify-center rounded-md bg-background text-sm">
-              {{ item.icon }}
+              <ConfigIcon :value="item.icon" class="size-4" />
             </div>
             <div class="min-w-0 flex-1">
               <p class="truncate text-sm font-medium">{{ item.name }}</p>
@@ -72,6 +72,7 @@ import { ClipboardGetText } from '../../../wailsjs/runtime/runtime'
 import AppModal from '@/components/common/AppModal.vue'
 import FileDropZone from '@/components/common/FileDropZone.vue'
 import BrandIcon from '@/components/common/BrandIcon.vue'
+import ConfigIcon from '@/components/common/ConfigIcon.vue'
 import { Button } from '@/components/ui/button'
 
 const props = defineProps<{

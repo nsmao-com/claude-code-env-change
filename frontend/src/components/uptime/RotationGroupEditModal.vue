@@ -24,8 +24,8 @@
         <div class="grid gap-1.5">
           <Label>启用</Label>
           <div class="flex items-center gap-2">
-            <Switch :checked="form.enabled" @update:checked="form.enabled = $event" />
-            <span class="text-xs text-muted-foreground">已启用轮换</span>
+            <Switch :checked="form.enabled" @update:checked="onEnabledChange" />
+            <span class="text-xs text-muted-foreground">{{ form.enabled ? '已启用轮换' : '未启用轮换' }}</span>
           </div>
         </div>
         <div class="grid gap-1.5">
@@ -157,10 +157,16 @@ const providers = [
   { value: 'grok' as Provider, label: 'Grok' },
 ]
 
+function providerFromFilter(): Provider {
+  const filter = configStore.currentFilter
+  if (filter === 'codex' || filter === 'gemini' || filter === 'opencode' || filter === 'grok') return filter
+  return 'claude'
+}
+
 function defaultForm(): RotationGroup {
   return {
     name: '',
-    provider: 'claude',
+    provider: providerFromFilter(),
     env_names: [],
     enabled: true,
     failure_threshold: 3
@@ -184,7 +190,11 @@ watch(() => props.editGroup, (group) => {
 }, { immediate: true })
 
 watch(isOpen, (open) => {
-  if (!open) form.value = defaultForm()
+  if (open) {
+    if (!props.editGroup) form.value = defaultForm()
+    return
+  }
+  form.value = defaultForm()
 })
 
 const providerEnvs = computed<EnvConfig[]>(() => {
@@ -198,6 +208,11 @@ const availableEnvs = computed<EnvConfig[]>(() => {
 
 function envDesc(name: string): string {
   return providerEnvs.value.find(e => e.name === name)?.description || ''
+}
+
+function onEnabledChange(value: boolean) {
+  form.value.enabled = value
+  toast.success(value ? '已启用轮换' : '已停用轮换')
 }
 
 function onProvider(value: unknown) {

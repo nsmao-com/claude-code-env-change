@@ -116,6 +116,7 @@ import { ref, computed, watch } from 'vue'
 import { X } from '@lucide/vue'
 import type { APIRoute, APIFormat, Provider } from '@/types'
 import { useRouterStore } from '@/stores/routerStore'
+import { useConfigStore } from '@/stores/configStore'
 import { useToast } from '@/composables/useToast'
 import AppModal from '@/components/common/AppModal.vue'
 import AppInput from '@/components/common/AppInput.vue'
@@ -142,6 +143,7 @@ const emit = defineEmits<{
 }>()
 
 const routerStore = useRouterStore()
+const configStore = useConfigStore()
 const toast = useToast()
 
 const isOpen = computed({
@@ -204,9 +206,15 @@ const presets: Preset[] = [
   },
 ]
 
+function clientFromFilter(): Provider {
+  const filter = configStore.currentFilter
+  if (filter === 'codex' || filter === 'gemini' || filter === 'opencode' || filter === 'grok') return filter
+  return 'claude'
+}
+
 const defaultForm = () => ({
   name: '',
-  client: 'claude' as Provider,
+  client: clientFromFilter(),
   upstream: 'native',
   base_url: '',
   api_key: '',
@@ -375,6 +383,7 @@ function onClient(value: unknown) {
 
 function onEnabledChange(checked: boolean) {
   form.value.enabled = checked
+  toast.success(checked ? '已启用此路由' : '已停用此路由')
 }
 
 async function handleSubmit() {

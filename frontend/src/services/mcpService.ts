@@ -1,4 +1,4 @@
-import type { MCPServer, MCPTestResult } from '@/types'
+import type { MCPServer, MCPTestResult, McpMarketPage } from '@/types'
 
 export const mcpService = {
   async listServers(): Promise<MCPServer[]> {
@@ -25,5 +25,19 @@ export const mcpService = {
   async syncToPlatforms(): Promise<MCPServer[]> {
     const servers = await window.go.main.MCPService.SyncToPlatforms()
     return servers || []
+  },
+
+  async applyToPlatform(platform: string): Promise<number> {
+    const count = await window.go.main.MCPService.ApplyToPlatform(platform)
+    return typeof count === 'number' ? count : 0
+  },
+
+  async searchMarketplace(query: string, cursor = ''): Promise<McpMarketPage> {
+    const page = await window.go.main.MCPService.SearchMcpMarketplace(query, cursor)
+    return page || { items: [] }
+  },
+
+  async importMarketplace(id: string, platforms: string[]): Promise<void> {
+    return window.go.main.MCPService.ImportMcpMarketplace(id, platforms)
   }
 }

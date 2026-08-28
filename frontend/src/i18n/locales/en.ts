@@ -31,7 +31,7 @@ export const en = {
     close: 'Close',
     routingOn: '{name} routing on',
     routingOff: '{name} routing off',
-    routingHint: 'When on, {name} traffic goes through the local gateway (shared port). Conversion only happens for a non-native upstream format in the config.',
+    routingHint: 'When on, {name} goes through the local gateway (shared port). To convert protocols, set upstream format in the config first.',
   },
   palette: {
     title: 'Search',
@@ -173,6 +173,7 @@ export const en = {
   toast: {
     loadFailed: 'Failed to load config',
     applied: 'Applied: {name}',
+    unapplied: 'Turned off: {name}',
     applyFailed: 'Apply failed: {error}',
     copied: 'Config duplicated',
     copyFailed: 'Duplicate failed: {error}',

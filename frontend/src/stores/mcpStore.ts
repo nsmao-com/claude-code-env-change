@@ -109,6 +109,12 @@ export const useMcpStore = defineStore('mcp', () => {
     servers.value = await mcpService.syncToPlatforms()
   }
 
+  async function applyToPlatform(platform: string): Promise<number> {
+    const added = await mcpService.applyToPlatform(platform)
+    await loadServers()
+    return added
+  }
+
   async function updateServer(index: number, server: MCPServer) {
     const newList = [...servers.value]
     newList[index] = server
@@ -161,6 +167,7 @@ export const useMcpStore = defineStore('mcp', () => {
     importFromJSON,
     addServers,
     syncToPlatforms,
+    applyToPlatform,
     deleteServer,
     updateServer,
     addServer,

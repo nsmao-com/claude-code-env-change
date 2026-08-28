@@ -36,6 +36,7 @@ func TestNeedsRouting(t *testing.T) {
 		{"codex", "chat_completions", true},
 		{"codex", "anthropic_messages", true},
 		{"gemini", "chat_completions", true},
+		{"gemini", "responses", true},
 		{"opencode", "anthropic_messages", true},
 		{"grok", "chat_completions", true},
 		{"grok", "", false},
