@@ -13,7 +13,7 @@
       </div>
     </div>
     <ScrollArea class="min-h-0 flex-1">
-      <div class="px-6 pb-8 pt-1">
+      <div class="flex min-h-full flex-col px-6 pb-6 pt-2">
         <slot />
       </div>
     </ScrollArea>
@@ -33,7 +33,7 @@
           <DialogTitle>{{ title }}</DialogTitle>
         </slot>
       </DialogHeader>
-      <div class="max-h-[70vh] overflow-y-auto overflow-x-hidden p-0.5">
+      <div class="max-h-[70vh] min-w-0 overflow-x-hidden overflow-y-auto">
         <slot />
       </div>
       <DialogFooter v-if="$slots.footer">

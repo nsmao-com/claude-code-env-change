@@ -45,15 +45,31 @@ export function GetGrokSettings():Promise<Record<string, string>>;
 
 export function GetOpencodeSettings():Promise<Record<string, string>>;
 
+export function GetOutboundProxy():Promise<main.OutboundProxySettings>;
+
 export function GetPromptFile(arg1:string):Promise<main.PromptFile>;
 
 export function GetPromptFiles():Promise<Array<main.PromptFile>>;
 
 export function ImportConfig():Promise<number>;
 
+export function ImportConfigJSON(arg1:string):Promise<number>;
+
+export function ImportLocalEnv(arg1:string):Promise<Array<main.EnvConfig>>;
+
+export function ListCliTools():Promise<Array<main.CliToolStatus>>;
+
+export function ListConfigDirs():Promise<Array<main.ConfigDirInfo>>;
+
 export function OnStartup(arg1:context.Context):Promise<void>;
 
+export function OpenConfigDir(arg1:string):Promise<void>;
+
+export function OpenConfigFile(arg1:string):Promise<void>;
+
 export function OpenReleasePage():Promise<void>;
+
+export function ReadDroppedFile(arg1:string):Promise<string>;
 
 export function RefreshConfig():Promise<void>;
 
@@ -63,8 +79,16 @@ export function SavePromptFile(arg1:string,arg2:string):Promise<void>;
 
 export function SetEnvVar(arg1:string,arg2:string):Promise<void>;
 
+export function SetOutboundProxy(arg1:main.OutboundProxySettings):Promise<void>;
+
 export function SwitchToEnv(arg1:string):Promise<void>;
 
 export function TestLatency(arg1:string):Promise<number>;
 
+export function TestOutboundProxy(arg1:main.OutboundProxySettings):Promise<main.ProxyTestResult>;
+
 export function UpdateEnv(arg1:string,arg2:main.EnvConfig):Promise<void>;
+
+export function UpgradeAllCliTools():Promise<Array<main.CliUpgradeResult>>;
+
+export function UpgradeCliTool(arg1:string):Promise<main.CliUpgradeResult>;

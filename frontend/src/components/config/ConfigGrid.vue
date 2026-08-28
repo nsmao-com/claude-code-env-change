@@ -1,26 +1,45 @@
 <template>
   <section class="pt-0">
     <Card class="gap-0 overflow-hidden py-0">
+      <CurrentAppliedBar
+        @edit="emitByName('edit', $event)"
+        @apply="emitByName('apply', $event)"
+        @duplicate="emitByName('duplicate', $event)"
+        @delete="emitByName('delete', $event)"
+      />
       <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
         <div class="flex items-center gap-3">
-          <ToolFilterChips />
           <div class="relative">
             <Search class="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input id="config-search" v-model="searchQuery" class="w-[220px] rounded-full bg-muted/70 pl-8" placeholder="搜索名称、描述" />
+            <Input id="config-search" v-model="searchQuery" class="w-[200px] rounded-full bg-muted/70 pl-8" placeholder="搜索配置" />
           </div>
+          <Button variant="outline" size="sm" :disabled="importing" @click="$emit('import-local')">
+            <Upload />
+            {{ importing ? '导入中...' : '导入本机' }}
+          </Button>
+          <Button variant="outline" size="sm" @click="$emit('import-json')">
+            <FileJson />
+            导入 JSON
+          </Button>
         </div>
-        <SegmentedPills
-          :model-value="viewMode"
-          layout-id="env-view-pill"
-          dense
-          :items="[{ value: 'list', label: '列表' }, { value: 'cards', label: '卡片' }]"
-          @update:model-value="onView"
-        >
-          <template #default="{ item }">
-            <List v-if="item.value === 'list'" class="size-3.5" />
-            <LayoutGrid v-else class="size-3.5" />
-          </template>
-        </SegmentedPills>
+        <div class="flex items-center gap-2">
+          <SegmentedPills
+            :model-value="viewMode"
+            layout-id="env-view-pill"
+            dense
+            :items="[{ value: 'list', label: '列表' }, { value: 'cards', label: '卡片' }]"
+            @update:model-value="onView"
+          >
+            <template #default="{ item }">
+              <List v-if="item.value === 'list'" class="size-3.5" />
+              <LayoutGrid v-else class="size-3.5" />
+            </template>
+          </SegmentedPills>
+          <Button size="sm" @click="$emit('add')">
+            <Plus />
+            新建
+          </Button>
+        </div>
       </div>
 
       <motion.div
@@ -33,10 +52,11 @@
         <Empty class="min-h-0 items-start border-0 p-0 text-left">
           <EmptyHeader class="items-start text-left">
             <EmptyTitle>还没有环境</EmptyTitle>
-            <EmptyDescription>为 Claude、Codex、Gemini、OpenCode 或 Grok 建一条配置，点应用后会写入对应 CLI。</EmptyDescription>
+            <EmptyDescription>为 Claude、Codex、Gemini、OpenCode 或 Grok 建一条配置，点应用后会写入对应 CLI。也可以把导出的 JSON 拖进窗口。</EmptyDescription>
           </EmptyHeader>
-          <EmptyContent class="items-start">
+          <EmptyContent class="flex-row items-start">
             <Button @click="$emit('add')">新建配置</Button>
+            <Button variant="outline" @click="$emit('import-json')">导入 JSON</Button>
           </EmptyContent>
         </Empty>
       </motion.div>
@@ -65,7 +85,7 @@
         v-else
         ref="gridRef"
         :class="displayMode === 'cards'
-          ? 'grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3 p-4 pt-0'
+          ? 'grid grid-cols-[repeat(auto-fill,minmax(min(100%,260px),1fr))] gap-3 px-4 pb-4 pt-1'
           : 'divide-y'"
       >
         <template v-if="displayMode === 'cards'">
@@ -80,7 +100,6 @@
             @duplicate="$emit('duplicate', getOriginalIndex(config.name))"
             @edit="$emit('edit', getOriginalIndex(config.name))"
             @delete="$emit('delete', getOriginalIndex(config.name))"
-            @test-latency="$emit('testLatency', getOriginalIndex(config.name))"
           />
         </template>
         <template v-else>
@@ -96,7 +115,6 @@
             @duplicate="$emit('duplicate', getOriginalIndex(config.name))"
             @edit="$emit('edit', getOriginalIndex(config.name))"
             @delete="$emit('delete', getOriginalIndex(config.name))"
-            @test-latency="$emit('testLatency', getOriginalIndex(config.name))"
           />
         </template>
       </div>
@@ -109,31 +127,33 @@ import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { motion } from 'motion-v'
 import Sortable from 'sortablejs'
 import { fadeEnter } from '@/lib/motion'
-import { LayoutGrid, List, Search } from '@lucide/vue'
+import { FileJson, LayoutGrid, List, Plus, Search, Upload } from '@lucide/vue'
 import type { EnvConfig, Provider } from '@/types'
 import { useConfigStore } from '@/stores/configStore'
 import ConfigCard from './ConfigCard.vue'
 import ConfigListItem from './ConfigListItem.vue'
+import CurrentAppliedBar from './CurrentAppliedBar.vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import SegmentedPills from '@/components/layout/SegmentedPills.vue'
-import ToolFilterChips from '@/components/layout/ToolFilterChips.vue'
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty'
 
 interface Props {
   configs: EnvConfig[]
+  importing?: boolean
 }
 
 const props = defineProps<Props>()
-defineEmits<{
+const emit = defineEmits<{
   add: []
   edit: [index: number]
   apply: [index: number]
   duplicate: [index: number]
   delete: [index: number]
   reorder: [names: string[]]
-  testLatency: [index: number]
+  'import-local': []
+  'import-json': []
 }>()
 
 const configStore = useConfigStore()
@@ -187,6 +207,15 @@ function getOriginalIndex(name: string): number {
   return props.configs.findIndex(c => c.name === name)
 }
 
+function emitByName(type: 'edit' | 'apply' | 'duplicate' | 'delete', name: string) {
+  const index = getOriginalIndex(name)
+  if (index < 0) return
+  if (type === 'edit') emit('edit', index)
+  else if (type === 'apply') emit('apply', index)
+  else if (type === 'duplicate') emit('duplicate', index)
+  else emit('delete', index)
+}
+
 function isEnvActive(name: string, provider: Provider): boolean {
   return configStore.isEnvActive(name, provider)
 }
@@ -201,6 +230,8 @@ function initSortable() {
   sortableInstance = Sortable.create(gridRef.value, {
     animation: 150,
     ghostClass: 'opacity-50',
+    filter: 'button, input, textarea, [data-slot="button"]',
+    preventOnFilter: true,
     onEnd: async (evt: { oldIndex?: number; newIndex?: number }) => {
       if (evt.oldIndex === undefined || evt.newIndex === undefined || evt.oldIndex === evt.newIndex) return
       const allEnvs = configStore.environments

@@ -26,19 +26,17 @@ defineOptions({
 <template>
   <Tooltip v-if="title">
     <TooltipTrigger as-child>
-      <span class="inline-flex">
-        <Primitive
-          v-bind="$attrs"
-          data-slot="button"
-          :data-variant="variant"
-          :data-size="size"
-          :as="as"
-          :as-child="asChild"
-          :class="cn(buttonVariants({ variant, size }), props.class)"
-        >
-          <slot />
-        </Primitive>
-      </span>
+      <Primitive
+        v-bind="$attrs"
+        data-slot="button"
+        :data-variant="variant"
+        :data-size="size"
+        :as="as"
+        :as-child="asChild"
+        :class="cn(buttonVariants({ variant, size }), props.class)"
+      >
+        <slot />
+      </Primitive>
     </TooltipTrigger>
     <TooltipContent>
       {{ title }}

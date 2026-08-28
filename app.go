@@ -1,15 +1,19 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
+
+	"strconv"
 
 	"github.com/pelletier/go-toml/v2"
 	json5 "github.com/titanous/json5"
@@ -59,6 +63,7 @@ func NewApp() *App {
 // OnStartup is called when the app starts up
 func (a *App) OnStartup(ctx context.Context) {
 	a.ctx = ctx
+	initOutboundProxy()
 	a.loadConfig()
 	_ = RecordEnvActivation("claude", a.config.CurrentEnvClaude, time.Now())
 	_ = RecordEnvActivation("codex", a.config.CurrentEnvCodex, time.Now())
@@ -165,12 +170,46 @@ func (a *App) UpdateEnv(oldName string, newEnv EnvConfig) error {
 				if a.config.CurrentEnvOpencode == oldName {
 					a.config.CurrentEnvOpencode = newEnv.Name
 				}
+				if a.config.CurrentEnvGrok == oldName {
+					a.config.CurrentEnvGrok = newEnv.Name
+				}
 			}
 
-			return a.saveConfig()
+			if err := a.saveConfig(); err != nil {
+				return err
+			}
+			if a.isCurrentEnvName(newEnv.Name) {
+				if _, err := a.applyEnvByProvider(&newEnv); err != nil {
+					return fmt.Errorf("配置已保存，但写回本机失败: %v", err)
+				}
+			}
+			return nil
 		}
 	}
 	return fmt.Errorf("environment '%s' not found", oldName)
+}
+
+func (a *App) isCurrentEnvName(name string) bool {
+	return a.config.CurrentEnvClaude == name ||
+		a.config.CurrentEnvCodex == name ||
+		a.config.CurrentEnvGemini == name ||
+		a.config.CurrentEnvOpencode == name ||
+		a.config.CurrentEnvGrok == name
+}
+
+func (a *App) applyEnvByProvider(env *EnvConfig) (string, error) {
+	switch env.Provider {
+	case "codex":
+		return a.applyCodexEnv(env)
+	case "gemini":
+		return a.applyGeminiEnv(env)
+	case "opencode":
+		return a.applyOpencodeEnv(env)
+	case "grok":
+		return a.applyGrokEnv(env)
+	default:
+		return a.applyClaudeEnv(env)
+	}
 }
 
 // DeleteEnv deletes an environment configuration by name
@@ -195,6 +234,9 @@ func (a *App) DeleteEnv(name string) error {
 			}
 			if a.config.CurrentEnvOpencode == name {
 				a.config.CurrentEnvOpencode = ""
+			}
+			if a.config.CurrentEnvGrok == name {
+				a.config.CurrentEnvGrok = ""
 			}
 
 			return a.saveConfig()
@@ -230,25 +272,56 @@ func (a *App) ReorderEnvs(names []string) error {
 	return a.saveConfig()
 }
 
-// TestLatency 测试 URL 延迟
+// TestLatency 测试 URL 延迟。能连上（含 4xx/5xx）即视为测速成功，返回往返毫秒。
 func (a *App) TestLatency(urlStr string) (int64, error) {
-	if urlStr == "" {
-		return 0, fmt.Errorf("URL 为空")
-	}
-
-	// 简单的 HTTP GET 请求测速
-	start := time.Now()
-	client := http.Client{
-		Timeout: 5 * time.Second,
-	}
-	resp, err := client.Get(urlStr)
+	urlStr, err := normalizeProbeURL(urlStr)
 	if err != nil {
 		return 0, err
 	}
-	defer resp.Body.Close()
 
-	duration := time.Since(start).Milliseconds()
-	return duration, nil
+	client := &http.Client{
+		Timeout: 8 * time.Second,
+		CheckRedirect: func(_ *http.Request, via []*http.Request) error {
+			if len(via) >= 5 {
+				return http.ErrUseLastResponse
+			}
+			return nil
+		},
+	}
+
+	start := time.Now()
+	resp, err := probeURL(client, http.MethodHead, urlStr)
+	if err != nil {
+		resp, err = probeURL(client, http.MethodGet, urlStr)
+	}
+	if err != nil {
+		return time.Since(start).Milliseconds(), fmt.Errorf("无法连接: %v", err)
+	}
+	defer resp.Body.Close()
+	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 64<<10))
+	return time.Since(start).Milliseconds(), nil
+}
+
+func normalizeProbeURL(urlStr string) (string, error) {
+	urlStr = strings.TrimSpace(urlStr)
+	if urlStr == "" {
+		return "", fmt.Errorf("URL 为空")
+	}
+	lower := strings.ToLower(urlStr)
+	if !strings.HasPrefix(lower, "http://") && !strings.HasPrefix(lower, "https://") {
+		urlStr = "https://" + urlStr
+	}
+	return urlStr, nil
+}
+
+func probeURL(client *http.Client, method, urlStr string) (*http.Response, error) {
+	req, err := http.NewRequest(method, urlStr, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", "AI-ENV/"+appVersion)
+	req.Header.Set("Accept", "*/*")
+	return client.Do(req)
 }
 
 // ApplyCurrentEnv 应用当前环境：把每个 Provider 各自激活的环境写入对应 CLI 配置文件
@@ -378,6 +451,16 @@ func (a *App) GetCodexSettings() map[string]string {
 			if v, ok := payload["model"].(string); ok {
 				result["model"] = strings.TrimSpace(v)
 			}
+			for _, key := range []string{"model_reasoning_effort", "model_reasoning_summary", "approval_policy", "sandbox_mode", "model_verbosity"} {
+				if v, ok := payload[key].(string); ok && strings.TrimSpace(v) != "" {
+					result[key] = strings.TrimSpace(v)
+				}
+			}
+			for _, key := range []string{"model_context_window", "model_max_output_tokens", "project_doc_max_bytes"} {
+				if n, ok := asInt(payload[key]); ok {
+					result[key] = strconv.Itoa(n)
+				}
+			}
 
 			// base_url 可能位于:
 			// 1) 顶层 base_url
@@ -488,13 +571,16 @@ func (a *App) applyClaudeEnv(env *EnvConfig) (string, error) {
 			envMap[key] = value
 		}
 	}
-	// 上游格式非原生时：自动建路由并让 Claude Code 指向本地网关
+	// 上游格式非原生时：自动建路由并让 Claude Code 指向本地网关。
+	// 关闭路由时删除自动路由，env 里仍是原始地址，settings.json 会写回原配置。
 	if needsRouting(env) {
 		localBase, err := wireRouterForEnv(env)
 		if err != nil {
 			return "", err
 		}
 		envMap["ANTHROPIC_BASE_URL"] = localBase
+	} else {
+		restoreOriginalRouting(env)
 	}
 	// 根据配置添加 Claude Code 优化选项
 	if env.AttributionHeader != "" {
@@ -542,6 +628,8 @@ func (a *App) applyCodexEnv(env *EnvConfig) (string, error) {
 			variables[k] = v
 		}
 		variables["base_url"] = strings.TrimRight(localBase, "/") + "/v1"
+	} else {
+		restoreOriginalRouting(env)
 	}
 
 	// 1. 处理 config.toml
@@ -568,7 +656,7 @@ requires_openai_auth = true
 	}
 
 	configFile := filepath.Join(codexDir, "config.toml")
-	configData, err := buildCodexConfigData(configContent, configFile)
+	configData, err := buildCodexConfigData(configContent, configFile, variables)
 	if err != nil {
 		return "", fmt.Errorf("序列化 config.toml 失败: %v", err)
 	}
@@ -595,10 +683,11 @@ requires_openai_auth = true
 	return "Codex 配置已应用", nil
 }
 
-func buildCodexConfigData(configContent, configFile string) ([]byte, error) {
+func buildCodexConfigData(configContent, configFile string, vars map[string]string) ([]byte, error) {
 	existingMcpServers := readCodexMcpServers(configFile)
 	var payload map[string]any
 	if err := toml.Unmarshal([]byte(configContent), &payload); err == nil && payload != nil {
+		injectCodexExtras(payload, vars)
 		if len(existingMcpServers) > 0 {
 			if _, ok := payload["mcp_servers"]; !ok {
 				payload["mcp_servers"] = existingMcpServers
@@ -657,6 +746,17 @@ GEMINI_MODEL=%s
 `, env.Variables["GOOGLE_GEMINI_BASE_URL"], env.Variables["GEMINI_API_KEY"], env.Variables["GEMINI_MODEL"])
 	}
 
+	envContent = appendMissingEnvLines(envContent, env.Variables, []string{
+		"GOOGLE_GEMINI_BASE_URL",
+		"GEMINI_API_KEY",
+		"GEMINI_MODEL",
+		"GOOGLE_API_KEY",
+		"GOOGLE_CLOUD_PROJECT",
+		"GOOGLE_CLOUD_LOCATION",
+		"GOOGLE_GENAI_USE_VERTEXAI",
+		"GEMINI_SANDBOX",
+	})
+
 	envFile := filepath.Join(geminiDir, ".env")
 	if err := os.WriteFile(envFile, []byte(envContent), 0644); err != nil {
 		return "", fmt.Errorf("写入 .env 失败: %v", err)
@@ -692,6 +792,7 @@ GEMINI_MODEL=%s
 	}
 
 	deepMergeMap(existingSettings, desiredSettings)
+	injectGeminiSettingsExtras(existingSettings, env.Variables)
 	settingsContent, err := json.MarshalIndent(existingSettings, "", "  ")
 	if err != nil {
 		return "", fmt.Errorf("序列化 settings.json 失败: %v", err)
@@ -924,25 +1025,52 @@ func (a *App) ImportConfig() (int, error) {
 	if err != nil {
 		return 0, fmt.Errorf("读取配置文件失败: %v", err)
 	}
+	return a.mergeImportedConfigJSON(data)
+}
 
-	var importedConfig Config
-	err = json.Unmarshal(data, &importedConfig)
+// ImportConfigJSON 从 JSON 文本导入配置（拖拽/粘贴）
+func (a *App) ImportConfigJSON(payload string) (int, error) {
+	return a.mergeImportedConfigJSON([]byte(payload))
+}
+
+// ReadDroppedFile 读取用户拖入的本地文本文件（导入预览用）
+func (a *App) ReadDroppedFile(path string) (string, error) {
+	if strings.TrimSpace(path) == "" {
+		return "", fmt.Errorf("路径为空")
+	}
+	ext := strings.ToLower(filepath.Ext(path))
+	switch ext {
+	case "", ".json", ".txt", ".jsonc":
+	default:
+		return "", fmt.Errorf("只支持 JSON 文件")
+	}
+	data, err := os.ReadFile(path)
 	if err != nil {
+		return "", fmt.Errorf("读取文件失败: %v", err)
+	}
+	if len(data) > 8<<20 {
+		return "", fmt.Errorf("文件太大（上限 8MB）")
+	}
+	data = bytes.TrimPrefix(data, []byte("\xef\xbb\xbf"))
+	return string(data), nil
+}
+
+func (a *App) mergeImportedConfigJSON(data []byte) (int, error) {
+	data = bytes.TrimPrefix(data, []byte("\xef\xbb\xbf"))
+	var importedConfig Config
+	if err := json.Unmarshal(data, &importedConfig); err != nil {
 		return 0, fmt.Errorf("解析配置文件失败: %v", err)
 	}
 
-	// 合并配置：检查是否有重名的环境配置
 	existingNames := make(map[string]bool)
 	for _, env := range a.config.Environments {
 		existingNames[env.Name] = true
 	}
 
-	// 导入新配置，重名的配置添加后缀
 	importCount := 0
 	for _, importedEnv := range importedConfig.Environments {
 		name := importedEnv.Name
 		if existingNames[name] {
-			// 如果重名，添加后缀
 			suffix := 1
 			for {
 				newName := fmt.Sprintf("%s_imported_%d", name, suffix)
@@ -958,12 +1086,12 @@ func (a *App) ImportConfig() (int, error) {
 		importCount++
 	}
 
-	// 保存合并后的配置
-	err = a.saveConfig()
-	if err != nil {
+	if importCount == 0 {
+		return 0, fmt.Errorf("文件里没有可导入的环境配置")
+	}
+	if err := a.saveConfig(); err != nil {
 		return 0, fmt.Errorf("保存配置失败: %v", err)
 	}
-
 	return importCount, nil
 }
 

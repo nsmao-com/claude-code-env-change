@@ -7,7 +7,7 @@
         :key="kpi.label"
         class="group rounded-3xl bg-card p-5 shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition-shadow duration-300 hover:shadow-[0_8px_28px_-12px_rgba(16,24,40,0.18)]"
       >
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between gap-2">
           <p class="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">{{ kpi.label }}</p>
           <span class="flex size-7 items-center justify-center rounded-full" :class="kpi.iconClass">
             <component :is="kpi.icon" class="size-3.5" />
@@ -120,15 +120,15 @@
           >
             <p class="text-[11px] font-semibold text-white">{{ chartPoints[hoverIndex].label }}</p>
             <div class="mt-2 space-y-1.5">
-              <div class="flex items-center justify-between text-[10.5px]">
+              <div class="flex items-center justify-between gap-2 text-[10.5px]">
                 <span class="flex items-center gap-1.5 text-white/60"><span class="size-1.5 rounded-full bg-brand" />配置数</span>
                 <span class="font-semibold text-white tabular-nums">{{ chartPoints[hoverIndex].value }}</span>
               </div>
-              <div class="flex items-center justify-between text-[10.5px]">
+              <div class="flex items-center justify-between gap-2 text-[10.5px]">
                 <span class="flex items-center gap-1.5 text-white/60"><span class="size-1.5 rounded-full bg-emerald-400" />已写入</span>
                 <span class="font-semibold text-white tabular-nums">{{ chartPoints[hoverIndex].applied }}</span>
               </div>
-              <div class="flex items-center justify-between text-[10.5px]">
+              <div class="flex items-center justify-between gap-2 text-[10.5px]">
                 <span class="text-white/60">状态</span>
                 <span :class="chartPoints[hoverIndex].active ? 'text-emerald-400' : 'text-white/40'">{{ chartPoints[hoverIndex].active ? '已应用' : '未应用' }}</span>
               </div>
@@ -136,7 +136,7 @@
           </div>
         </div>
 
-        <div class="mt-4 flex items-center justify-between border-t border-white/[0.07] pt-4">
+        <div class="mt-4 flex items-center justify-between gap-3 border-t border-white/[0.07] pt-4">
           <div class="flex gap-6">
             <div>
               <p class="text-[9.5px] tracking-wide text-white/35 uppercase">峰值</p>
@@ -201,17 +201,20 @@
 
       <!-- 深色平台列表 -->
       <div class="col-span-12 rounded-3xl bg-[#161616] p-5 lg:col-span-4">
-        <div class="mb-3 flex items-center justify-between px-1">
+        <div class="mb-3 flex items-center justify-between gap-2 px-1">
           <p class="text-[13px] font-semibold text-white">平台状态</p>
           <span class="text-[10px] text-white/35">点击筛选 · 状态 · 走势</span>
         </div>
         <div class="space-y-2">
-          <button
+          <AppTooltip
             v-for="row in platformRows"
             :key="row.id"
+            :content="`筛选 ${row.label}`"
+            class="block w-full"
+          >
+          <button
             type="button"
             class="flex w-full items-center gap-3 rounded-2xl bg-[#242424] px-3 py-3 text-left transition-all duration-200 hover:bg-[#2E2E2E] hover:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]"
-            :title="`筛选 ${row.label}`"
             @click="selectPlatform(row.id)"
           >
             <span class="relative flex size-2.5 shrink-0">
@@ -225,6 +228,7 @@
             <SparkLine :values="row.spark" :width="44" :height="18" class="shrink-0 opacity-90" />
             <span class="shrink-0 text-[11px] font-semibold tabular-nums" :class="row.applied ? 'text-emerald-400' : 'text-white/30'">{{ row.count }}</span>
           </button>
+          </AppTooltip>
         </div>
       </div>
 
@@ -295,12 +299,11 @@
           </div>
           <button
             type="button"
-            class="flex h-10 w-full items-center gap-2 rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600 px-3.5 text-xs font-medium text-white shadow-[0_8px_20px_-8px_rgba(16,185,129,0.5)] transition-transform hover:scale-[1.01] active:scale-[0.99]"
+            class="flex h-10 w-full items-center gap-2 rounded-full bg-primary px-3.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/80"
             @click="$emit('add')"
           >
-            <Loader2 class="size-3.5 shrink-0 animate-spin" />
-            <span class="truncate">进行中 · {{ pendingPlatforms }} 待写入</span>
-            <span class="ml-auto shrink-0 text-[10px] text-white/70">新建配置</span>
+            <Plus class="size-3.5 shrink-0" />
+            <span class="truncate">新建配置</span>
           </button>
         </div>
       </div>
@@ -319,15 +322,16 @@ import {
   Database,
   HeartPulse,
   Layers,
-  Loader2,
   Minus,
   MousePointer2,
+  Plus,
   TrendingUp,
 } from '@lucide/vue'
 import type { AppPage, Provider } from '@/types'
 import { useConfigStore } from '@/stores/configStore'
 import { useRouterStore } from '@/stores/routerStore'
 import SparkLine from '@/components/common/SparkLine.vue'
+import AppTooltip from '@/components/common/AppTooltip.vue'
 
 defineEmits<{
   add: []
@@ -363,7 +367,6 @@ const platformCols = computed(() => {
 })
 
 const appliedPlatforms = computed(() => platformCols.value.filter(c => c.applied).map(c => c.label).join(' ') || '暂无')
-const pendingPlatforms = computed(() => platformCols.value.filter(c => !c.applied).map(c => c.label).join(' ') || '全部完成')
 
 // ---------- KPI ----------
 function sparkFrom(values: number[]) {

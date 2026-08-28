@@ -116,7 +116,7 @@ func TestMergeWriteOpencodeConfigPreservesOtherKeys(t *testing.T) {
 		t.Fatal(err)
 	}
 	incoming := defaultOpencodeConfig(&EnvConfig{Variables: map[string]string{"OPENCODE_MODEL": "m-new"}})
-	if err := mergeWriteOpencodeConfig(file, incoming); err != nil {
+	if err := mergeWriteOpencodeConfig(file, incoming, nil); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(file)

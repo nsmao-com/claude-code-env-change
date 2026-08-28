@@ -10,7 +10,7 @@ const props = defineProps<{
 <template>
   <div
     data-slot="card-description"
-    :class="cn('text-muted-foreground text-sm', props.class)"
+    :class="cn('min-w-0 max-w-full break-words text-muted-foreground text-sm', props.class)"
   >
     <slot />
   </div>

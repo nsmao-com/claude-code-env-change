@@ -16,7 +16,7 @@
     </SidebarContent>
 
     <SidebarFooter class="gap-2 px-3 pb-4">
-      <div class="flex items-center justify-between px-1">
+      <div class="flex items-center justify-between gap-2 px-1">
         <span class="text-xs text-muted-foreground">延迟</span>
         <Button variant="ghost" size="icon-xs" @click="testAllLatency">
           <RefreshCw :class="['size-3.5', isTesting && 'animate-spin']" />
@@ -24,7 +24,7 @@
       </div>
       <div v-if="!hasAnyConfig && !isTesting" class="px-1 text-xs text-muted-foreground">未检测</div>
       <div v-else class="space-y-1 px-1">
-        <div v-for="item in latencyItems" :key="item.provider" class="flex items-center justify-between text-xs">
+        <div v-for="item in latencyItems" :key="item.provider" class="flex items-center justify-between gap-2 text-xs">
           <span class="flex items-center gap-1.5">
             <BrandIcon :provider="item.provider" class="size-3 text-muted-foreground" />
             {{ item.name }}

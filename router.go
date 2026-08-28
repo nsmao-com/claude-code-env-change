@@ -123,16 +123,7 @@ func NewRouterService() *RouterService {
 	rs := &RouterService{
 		stats: map[string]*RouteStats{},
 		client: &http.Client{
-			Transport: &http.Transport{
-				DialContext: (&net.Dialer{
-					Timeout:   15 * time.Second,
-					KeepAlive: 30 * time.Second,
-				}).DialContext,
-				MaxIdleConns:        100,
-				IdleConnTimeout:     90 * time.Second,
-				TLSHandshakeTimeout: 15 * time.Second,
-			},
-			// 不设整体超时：流式响应需要长连接
+			// Transport 为空时使用 http.DefaultTransport，以便跟随系统出站代理
 		},
 	}
 	globalRouterService = rs

@@ -35,7 +35,7 @@
               <Label class="cursor-pointer text-xs font-bold uppercase tracking-wide text-muted-foreground">随应用启动</Label>
             </div>
           </div>
-          <div class="flex items-center">
+          <div class="flex items-center gap-2">
             <Button
               v-if="isRunning"
               variant="destructive"
@@ -57,7 +57,7 @@
       </CardContent>
     </Card>
 
-    <div class="mb-4 flex items-center justify-between">
+    <div class="mb-4 flex items-center justify-between gap-3">
       <Button size="sm" @click="openAdd">
         <Plus />
         添加路由
@@ -82,27 +82,31 @@
       <div class="space-y-3">
         <Card v-for="route in routerStore.config.routes" :key="route.name" size="sm">
           <CardHeader>
-            <div class="flex items-start justify-between gap-4">
-              <div class="min-w-0 flex-1">
-                <div class="flex flex-wrap items-center gap-2">
-                  <CardTitle>{{ route.name }}</CardTitle>
-                  <Badge :variant="route.enabled ? 'default' : 'secondary'">
+            <div class="flex min-w-0 items-start justify-between gap-4">
+              <div class="min-w-0 flex-1 overflow-hidden">
+                <div class="flex min-w-0 items-center gap-2">
+                  <AppTooltip :content="route.name" wrap class="min-w-0 flex-1">
+                    <CardTitle>{{ route.name }}</CardTitle>
+                  </AppTooltip>
+                  <Badge :variant="route.enabled ? 'default' : 'secondary'" class="shrink-0">
                     {{ route.enabled ? '启用' : '停用' }}
                   </Badge>
-                  <Badge variant="outline" class="font-mono">
+                  <Badge variant="outline" class="shrink-0 font-mono">
                     {{ directionLabel(route) }}
                   </Badge>
                 </div>
-                <p v-if="route.description" class="mt-1 text-xs text-muted-foreground">{{ route.description }}</p>
+                <p v-if="route.description" class="mt-1 line-clamp-2 break-words text-xs text-muted-foreground">{{ route.description }}</p>
 
                 <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
                   <AppTooltip :content="route.base_url" wrap>
-                    <span class="flex max-w-[280px] items-center truncate font-mono">
-                      <Cloud class="mr-1 size-3 opacity-60" />{{ route.base_url }}
+                    <span class="flex max-w-[280px] min-w-0 items-center font-mono">
+                      <Cloud class="mr-1 size-3 shrink-0 opacity-60" />
+                      <span class="truncate">{{ route.base_url }}</span>
                     </span>
                   </AppTooltip>
-                  <span v-if="route.default_model" class="flex items-center font-mono">
-                    <Cpu class="mr-1 size-3 opacity-60" />{{ route.default_model }}
+                  <span v-if="route.default_model" class="flex min-w-0 max-w-full items-center font-mono">
+                    <Cpu class="mr-1 size-3 shrink-0 opacity-60" />
+                    <span class="truncate">{{ route.default_model }}</span>
                   </span>
                   <span v-if="statsOf(route.name)" class="flex items-center">
                     <Zap class="mr-1 size-3 opacity-60" />
@@ -126,13 +130,14 @@
                   :content="statsOf(route.name)!.last_error"
                   wrap
                 >
-                  <div class="mt-2 flex max-w-[480px] items-center truncate text-[11px] text-red-500">
-                    <TriangleAlert class="mr-1 size-3" />{{ statsOf(route.name)!.last_error }}
+                  <div class="mt-2 flex min-w-0 max-w-full items-center text-[11px] text-red-500">
+                    <TriangleAlert class="mr-1 size-3 shrink-0" />
+                    <span class="truncate">{{ statsOf(route.name)!.last_error }}</span>
                   </div>
                 </AppTooltip>
               </div>
 
-              <div class="flex shrink-0 items-center">
+              <div class="flex shrink-0 items-center gap-1.5">
                 <Button variant="outline" size="icon-sm" title="复制接入 URL" @click="copyRouteUrl(route)">
                   <Copy />
                 </Button>
@@ -168,9 +173,9 @@
     </ScrollArea>
 
     <div class="mt-4">
-      <div class="mb-2 flex items-center justify-between">
+      <div class="mb-2 flex items-center justify-between gap-2">
         <span class="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">最近请求</span>
-        <div class="flex items-center">
+        <div class="flex items-center gap-1.5">
           <Button variant="ghost" size="sm" @click="showLogsModal = true">查看全部</Button>
           <Button variant="ghost" size="icon-sm" @click="routerStore.refreshStatus()">
             <RefreshCw />
@@ -184,8 +189,16 @@
             <TableRow v-for="(log, i) in recentLogs" :key="i">
               <TableCell class="w-20 text-muted-foreground">{{ shortTime(log.time) }}</TableCell>
               <TableCell class="font-bold">{{ log.route }}</TableCell>
-              <TableCell class="max-w-[180px] truncate text-muted-foreground" :title="log.path">{{ log.path }}</TableCell>
-              <TableCell class="max-w-[140px] truncate text-muted-foreground">{{ log.model }}</TableCell>
+              <TableCell class="max-w-[180px] truncate text-muted-foreground">
+                <AppTooltip :content="log.path" wrap :disabled="!log.path">
+                  <span class="block truncate">{{ log.path }}</span>
+                </AppTooltip>
+              </TableCell>
+              <TableCell class="max-w-[140px] truncate text-muted-foreground">
+                <AppTooltip :content="log.model" wrap :disabled="!log.model">
+                  <span class="block truncate">{{ log.model }}</span>
+                </AppTooltip>
+              </TableCell>
               <TableCell
                 class="w-14"
                 :class="log.status_code >= 400 ? 'font-bold text-red-500' : 'text-green-600'"

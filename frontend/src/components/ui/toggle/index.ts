@@ -4,7 +4,7 @@ import { cva } from 'class-variance-authority'
 export { default as Toggle } from './Toggle.vue'
 
 export const toggleVariants = cva(
-  'hover:text-foreground focus-visible:ring-1 focus-visible:ring-black/10 dark:focus-visible:ring-white/15 aria-invalid:border-destructive gap-1 rounded-full text-sm font-medium transition-[color,background-color,box-shadow,transform] duration-200 ease-out [&_svg:not([class*=size-])]:size-4 group/toggle hover:bg-muted inline-flex items-center justify-center whitespace-nowrap outline-none disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 data-[state=on]:bg-foreground data-[state=on]:text-background data-[state=on]:hover:bg-foreground/85',
+  'hover:text-foreground aria-invalid:border-destructive gap-1 rounded-full text-sm font-medium transition-[color,background-color,box-shadow,transform] duration-200 ease-out [&_svg:not([class*=size-])]:size-4 group/toggle hover:bg-muted inline-flex items-center justify-center whitespace-nowrap outline-none disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 data-[state=on]:bg-foreground data-[state=on]:text-background data-[state=on]:hover:bg-foreground/85',
   {
     variants: {
       variant: {

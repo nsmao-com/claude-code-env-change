@@ -169,6 +169,36 @@ func wireRouterForEnv(env *EnvConfig) (string, error) {
 	return routerLocalBase(rs, env), nil
 }
 
+// restoreOriginalRouting 关闭协议转换时：删掉自动路由，让 CLI 继续用配置里的原始地址。
+func restoreOriginalRouting(env *EnvConfig) {
+	_ = removeAutoRouteForEnv(env)
+}
+
+func removeAutoRouteForEnv(env *EnvConfig) error {
+	rs := globalRouterService
+	if rs == nil || env == nil {
+		return nil
+	}
+	name := sanitizeAutoRouteName(env.Name)
+	rs.mu.Lock()
+	filtered := make([]APIRoute, 0, len(rs.config.Routes))
+	found := false
+	for _, route := range rs.config.Routes {
+		if strings.EqualFold(route.Name, name) {
+			found = true
+			continue
+		}
+		filtered = append(filtered, route)
+	}
+	if !found {
+		rs.mu.Unlock()
+		return nil
+	}
+	rs.config.Routes = filtered
+	rs.mu.Unlock()
+	return rs.SaveRouterConfig(rs.config)
+}
+
 // upsertAutoRoute 按名称替换/追加自动路由并落盘（网关运行中会热重启生效）
 func (rs *RouterService) upsertAutoRoute(route APIRoute) error {
 	rs.mu.Lock()

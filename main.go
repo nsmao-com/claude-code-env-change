@@ -31,7 +31,7 @@ func main() {
 
 	// Create application with options
 	err := wails.Run(&options.App{
-		Title:  "Claude Code 环境管理器",
+		Title:  "AI ENV",
 		Width:  1200,
 		Height: 800,
 		MinWidth:  940,
@@ -46,6 +46,10 @@ func main() {
 		OnShutdown:       nil,
 		WindowStartState: options.Normal,
 		Frameless:        true, // 启用无边框模式
+		DragAndDrop: &options.DragAndDrop{
+			EnableFileDrop:     true,
+			DisableWebViewDrop: true,
+		},
 		Windows: &windows.Options{
 			WebviewIsTransparent:              false,
 			WindowIsTranslucent:               false,

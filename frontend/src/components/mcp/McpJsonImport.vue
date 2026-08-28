@@ -2,10 +2,19 @@
   <AppModal v-model="isOpen" title="导入 MCP 服务器" size="lg">
     <div class="space-y-4">
       <p class="text-sm text-muted-foreground">
-        粘贴 MCP 配置 JSON，支持 Claude/Codex/Gemini 格式
+        拖拽 JSON 文件，或粘贴 MCP 配置。支持 Claude / Codex / Gemini 格式。
       </p>
 
-      <div class="rounded-lg bg-muted p-3 font-mono text-xs text-muted-foreground">
+      <FileDropZone
+        compact
+        title="拖拽 MCP JSON 到这里"
+        hint="支持 .json，也可点击选择文件"
+        @file="onDropFile"
+        @clear="jsonInput = ''"
+        @error="onDropError"
+      />
+
+      <div class="rounded-xl bg-muted/40 p-3 font-mono text-xs text-muted-foreground">
         <p>• mcpServers 对象: {"mcpServers": {...}}</p>
         <p>• 服务器列表对象: {"server1": {...}, "server2": {...}}</p>
         <p>• 单个服务器: {"command": "npx", "args": [...]}</p>
@@ -17,7 +26,8 @@
           type="multiple"
           :model-value="selectedPlatformKeys"
           variant="outline"
-          class="w-full"
+          :spacing="2"
+          class="flex w-full flex-wrap"
           @update:model-value="onPlatforms"
         >
           <ToggleGroupItem value="claude" class="flex-1">
@@ -50,9 +60,11 @@
 
       <div class="grid gap-1.5">
         <Label>JSON 内容</Label>
-        <Textarea
+        <CodeEditor
           v-model="jsonInput"
-          class="min-h-64 font-mono text-xs"
+          language="json"
+          class="min-h-64"
+          max-height="22rem"
           placeholder='{"mcpServers": {"filesystem": {"command": "npx", "args": ["-y", "@modelcontextprotocol/server-filesystem"]}}}'
         />
       </div>
@@ -81,9 +93,10 @@ import { useMcpStore } from '@/stores/mcpStore'
 import BrandIcon from '@/components/common/BrandIcon.vue'
 import { useToast } from '@/composables/useToast'
 import AppModal from '@/components/common/AppModal.vue'
+import FileDropZone from '@/components/common/FileDropZone.vue'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
+import CodeEditor from '@/components/common/CodeEditor.vue'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 
 interface Props {
@@ -128,6 +141,14 @@ const selectedPlatformKeys = computed(() => {
   if (selectedPlatforms.value.grok) keys.push('grok')
   return keys
 })
+
+function onDropFile(file: { name: string, text: string }) {
+  jsonInput.value = file.text.replace(/^\uFEFF/, '')
+}
+
+function onDropError(message: string) {
+  toast.error(message)
+}
 
 function onPlatforms(value: unknown) {
   const keys = Array.isArray(value) ? value : []

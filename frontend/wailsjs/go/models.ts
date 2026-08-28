@@ -28,6 +28,66 @@ export namespace main {
 	        this.enabled = source["enabled"];
 	    }
 	}
+	export class CliToolStatus {
+	    id: string;
+	    name: string;
+	    command: string;
+	    installed: boolean;
+	    runnable: boolean;
+	    current_version: string;
+	    latest_version: string;
+	    install_path: string;
+	    install_method: string;
+	    config_dir: string;
+	    config_exists: boolean;
+	    platform: string;
+	    upgradable: boolean;
+	    error: string;
+	    extra_paths: string[];
+	    npm_package: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new CliToolStatus(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.command = source["command"];
+	        this.installed = source["installed"];
+	        this.runnable = source["runnable"];
+	        this.current_version = source["current_version"];
+	        this.latest_version = source["latest_version"];
+	        this.install_path = source["install_path"];
+	        this.install_method = source["install_method"];
+	        this.config_dir = source["config_dir"];
+	        this.config_exists = source["config_exists"];
+	        this.platform = source["platform"];
+	        this.upgradable = source["upgradable"];
+	        this.error = source["error"];
+	        this.extra_paths = source["extra_paths"];
+	        this.npm_package = source["npm_package"];
+	    }
+	}
+	export class CliUpgradeResult {
+	    id: string;
+	    success: boolean;
+	    message: string;
+	    log: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new CliUpgradeResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.success = source["success"];
+	        this.message = source["message"];
+	        this.log = source["log"];
+	    }
+	}
 	export class CloudConfig {
 	    enabled: boolean;
 	    provider: string;
@@ -180,6 +240,60 @@ export namespace main {
 		    return a;
 		}
 	}
+	export class ConfigDirFile {
+	    name: string;
+	    path: string;
+	    exists: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new ConfigDirFile(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.path = source["path"];
+	        this.exists = source["exists"];
+	    }
+	}
+	export class ConfigDirInfo {
+	    id: string;
+	    name: string;
+	    dir: string;
+	    exists: boolean;
+	    files: ConfigDirFile[];
+	
+	    static createFrom(source: any = {}) {
+	        return new ConfigDirInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.dir = source["dir"];
+	        this.exists = source["exists"];
+	        this.files = this.convertValues(source["files"], ConfigDirFile);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	
 	export class RouterLogEntry {
 	    time: string;
@@ -304,12 +418,15 @@ export namespace main {
 	    args?: string[];
 	    env?: Record<string, string>;
 	    url?: string;
+	    headers?: Record<string, string>;
 	    website?: string;
 	    tips?: string;
 	    enable_platform: string[];
 	    enabled_in_claude: boolean;
 	    enabled_in_codex: boolean;
 	    enabled_in_gemini: boolean;
+	    enabled_in_opencode: boolean;
+	    enabled_in_grok: boolean;
 	    missing_placeholders: string[];
 	
 	    static createFrom(source: any = {}) {
@@ -324,12 +441,15 @@ export namespace main {
 	        this.args = source["args"];
 	        this.env = source["env"];
 	        this.url = source["url"];
+	        this.headers = source["headers"];
 	        this.website = source["website"];
 	        this.tips = source["tips"];
 	        this.enable_platform = source["enable_platform"];
 	        this.enabled_in_claude = source["enabled_in_claude"];
 	        this.enabled_in_codex = source["enabled_in_codex"];
 	        this.enabled_in_gemini = source["enabled_in_gemini"];
+	        this.enabled_in_opencode = source["enabled_in_opencode"];
+	        this.enabled_in_grok = source["enabled_in_grok"];
 	        this.missing_placeholders = source["missing_placeholders"];
 	    }
 	}
@@ -365,6 +485,20 @@ export namespace main {
 	        this.cost = source["cost"];
 	    }
 	}
+	export class OutboundProxySettings {
+	    enabled: boolean;
+	    url: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new OutboundProxySettings(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.enabled = source["enabled"];
+	        this.url = source["url"];
+	    }
+	}
 	export class PromptFile {
 	    provider: string;
 	    path: string;
@@ -381,6 +515,22 @@ export namespace main {
 	        this.path = source["path"];
 	        this.content = source["content"];
 	        this.exists = source["exists"];
+	    }
+	}
+	export class ProxyTestResult {
+	    success: boolean;
+	    message: string;
+	    latency: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new ProxyTestResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.success = source["success"];
+	        this.message = source["message"];
+	        this.latency = source["latency"];
 	    }
 	}
 	export class RotationGroup {

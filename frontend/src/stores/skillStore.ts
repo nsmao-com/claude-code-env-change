@@ -34,6 +34,14 @@ export const useSkillStore = defineStore('skills', () => {
     await loadSkills()
   }
 
+  async function togglePlatform(skill: Skill, platform: string) {
+    const enabled = skill.enable_platform || []
+    const next = enabled.includes(platform)
+      ? enabled.filter(item => item !== platform)
+      : [...enabled, platform]
+    await saveSkill({ ...skill, enable_platform: next })
+  }
+
   return {
     skills,
     isLoading,
@@ -45,6 +53,7 @@ export const useSkillStore = defineStore('skills', () => {
     grokCount,
     loadSkills,
     saveSkill,
-    deleteSkill
+    deleteSkill,
+    togglePlatform,
   }
 })

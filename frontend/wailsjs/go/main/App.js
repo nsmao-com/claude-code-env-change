@@ -86,6 +86,10 @@ export function GetOpencodeSettings() {
   return window['go']['main']['App']['GetOpencodeSettings']();
 }
 
+export function GetOutboundProxy() {
+  return window['go']['main']['App']['GetOutboundProxy']();
+}
+
 export function GetPromptFile(arg1) {
   return window['go']['main']['App']['GetPromptFile'](arg1);
 }
@@ -98,12 +102,40 @@ export function ImportConfig() {
   return window['go']['main']['App']['ImportConfig']();
 }
 
+export function ImportConfigJSON(arg1) {
+  return window['go']['main']['App']['ImportConfigJSON'](arg1);
+}
+
+export function ImportLocalEnv(arg1) {
+  return window['go']['main']['App']['ImportLocalEnv'](arg1);
+}
+
+export function ListCliTools() {
+  return window['go']['main']['App']['ListCliTools']();
+}
+
+export function ListConfigDirs() {
+  return window['go']['main']['App']['ListConfigDirs']();
+}
+
 export function OnStartup(arg1) {
   return window['go']['main']['App']['OnStartup'](arg1);
 }
 
+export function OpenConfigDir(arg1) {
+  return window['go']['main']['App']['OpenConfigDir'](arg1);
+}
+
+export function OpenConfigFile(arg1) {
+  return window['go']['main']['App']['OpenConfigFile'](arg1);
+}
+
 export function OpenReleasePage() {
   return window['go']['main']['App']['OpenReleasePage']();
+}
+
+export function ReadDroppedFile(arg1) {
+  return window['go']['main']['App']['ReadDroppedFile'](arg1);
 }
 
 export function RefreshConfig() {
@@ -122,6 +154,10 @@ export function SetEnvVar(arg1, arg2) {
   return window['go']['main']['App']['SetEnvVar'](arg1, arg2);
 }
 
+export function SetOutboundProxy(arg1) {
+  return window['go']['main']['App']['SetOutboundProxy'](arg1);
+}
+
 export function SwitchToEnv(arg1) {
   return window['go']['main']['App']['SwitchToEnv'](arg1);
 }
@@ -130,6 +166,18 @@ export function TestLatency(arg1) {
   return window['go']['main']['App']['TestLatency'](arg1);
 }
 
+export function TestOutboundProxy(arg1) {
+  return window['go']['main']['App']['TestOutboundProxy'](arg1);
+}
+
 export function UpdateEnv(arg1, arg2) {
   return window['go']['main']['App']['UpdateEnv'](arg1, arg2);
+}
+
+export function UpgradeAllCliTools() {
+  return window['go']['main']['App']['UpgradeAllCliTools']();
+}
+
+export function UpgradeCliTool(arg1) {
+  return window['go']['main']['App']['UpgradeCliTool'](arg1);
 }

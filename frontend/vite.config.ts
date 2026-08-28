@@ -25,7 +25,7 @@ export default defineConfig({
         manualChunks(id) {
           if (!id.includes('node_modules')) return
           if (id.includes('chart.js') || id.includes('vue-chartjs')) return 'chart'
-          if (id.includes('vue3-emoji-picker')) return 'emoji'
+          if (id.includes('codemirror') || id.includes('@lezer')) return 'codemirror'
           if (id.includes('@headlessui')) return 'headless'
           if (id.includes('sortablejs')) return 'sortable'
           if (id.includes('/vue/') || id.includes('\\vue\\') || id.includes('pinia')) return 'vue'

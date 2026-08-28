@@ -120,6 +120,17 @@ export const useMcpStore = defineStore('mcp', () => {
     await saveServers(newList)
   }
 
+  async function togglePlatform(name: string, platform: string) {
+    const index = servers.value.findIndex(item => item.name === name)
+    if (index < 0) return
+    const current = servers.value[index]
+    const enabled = current.enable_platform || []
+    const next = enabled.includes(platform)
+      ? enabled.filter(item => item !== platform)
+      : [...enabled, platform]
+    await updateServer(index, { ...current, enable_platform: next })
+  }
+
   function getTestResult(serverName: string): MCPTestResult | undefined {
     return testResults.value.get(serverName)
   }
@@ -153,6 +164,7 @@ export const useMcpStore = defineStore('mcp', () => {
     deleteServer,
     updateServer,
     addServer,
+    togglePlatform,
     getTestResult,
     clearTestResults
   }

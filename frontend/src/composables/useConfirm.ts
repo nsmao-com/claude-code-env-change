@@ -1,11 +1,20 @@
 import { ref } from 'vue'
 
-// 确认弹窗状态
 const isOpen = ref(false)
 const title = ref('')
 const message = ref('')
 const confirmType = ref<'danger' | 'warning' | 'info'>('info')
 let resolvePromise: ((value: boolean) => void) | null = null
+let settled = false
+
+function finish(value: boolean) {
+  if (settled) return
+  settled = true
+  isOpen.value = false
+  const resolve = resolvePromise
+  resolvePromise = null
+  resolve?.(value)
+}
 
 export function useConfirm() {
   const show = (
@@ -16,6 +25,7 @@ export function useConfirm() {
     title.value = dialogTitle
     message.value = dialogMessage
     confirmType.value = type
+    settled = false
     isOpen.value = true
 
     return new Promise((resolve) => {
@@ -23,17 +33,8 @@ export function useConfirm() {
     })
   }
 
-  const confirm = () => {
-    isOpen.value = false
-    resolvePromise?.(true)
-    resolvePromise = null
-  }
-
-  const cancel = () => {
-    isOpen.value = false
-    resolvePromise?.(false)
-    resolvePromise = null
-  }
+  const confirm = () => finish(true)
+  const cancel = () => finish(false)
 
   return {
     isOpen,

@@ -7,7 +7,7 @@
 
     <Card class="mb-4">
       <CardHeader>
-        <div class="flex items-center justify-between">
+        <div class="flex min-w-0 items-start justify-between gap-3">
           <div>
             <CardTitle>状态</CardTitle>
             <CardDescription>
@@ -26,7 +26,7 @@
       </CardHeader>
     </Card>
 
-    <div class="space-y-4">
+    <div class="space-y-5">
       <div class="flex items-center gap-2">
         <Switch :checked="form.enabled" @update:checked="form.enabled = $event" />
         <Label>启用云同步</Label>
@@ -84,8 +84,8 @@
     </div>
 
     <template #footer>
-      <div class="flex w-full items-center justify-between">
-        <div class="flex">
+      <div class="flex w-full items-center justify-between gap-3">
+        <div class="flex gap-2">
           <Button type="button" variant="outline" size="sm" :disabled="busy" @click="testConn">
             <Loader2 v-if="testing" class="animate-spin" />
             <Unplug v-else />

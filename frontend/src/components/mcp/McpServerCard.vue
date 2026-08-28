@@ -1,11 +1,11 @@
 <template>
   <div
     :class="[
-      'group rounded-lg border border-border bg-background transition-colors hover:border-primary/50',
+      'group min-w-0 overflow-hidden rounded-lg border border-border bg-background transition-colors hover:border-primary/50',
       compact ? 'p-2.5' : 'p-4',
     ]"
   >
-    <div class="flex items-center justify-between gap-3">
+    <div class="flex min-w-0 items-center justify-between gap-3">
       <div class="flex min-w-0 flex-1 items-center gap-3">
         <div
           :class="[
@@ -17,25 +17,16 @@
           <Terminal v-else :class="['text-primary', compact ? 'size-3.5' : 'size-5']" />
         </div>
 
-        <div class="min-w-0 flex-1">
-          <div class="flex flex-wrap items-center gap-2">
-            <h4 :class="['font-semibold', compact ? 'text-xs' : 'text-sm']">{{ server.name }}</h4>
-            <Badge
-              v-for="p in enabledPlatforms"
-              :key="p.key"
-              variant="outline"
-              :class="['gap-1 text-[10px]', p.class]"
-            >
-              <BrandIcon :provider="p.brand" class="size-3" />
-              {{ p.label }}
-            </Badge>
-            <Badge
-              v-if="enabledPlatforms.length === 0"
-              variant="outline"
-              class="text-[10px] text-muted-foreground"
-            >
-              未启用
-            </Badge>
+        <div class="min-w-0 flex-1 overflow-hidden">
+          <AppTooltip :content="server.name" wrap class="block w-full min-w-0">
+            <h4 :class="['min-w-0 truncate font-semibold', compact ? 'text-xs' : 'text-sm']">{{ server.name }}</h4>
+          </AppTooltip>
+          <div class="mt-1 flex min-w-0 flex-wrap items-center gap-2">
+            <PlatformChips
+              :enabled="platforms"
+              :compact="compact"
+              @toggle="$emit('toggle-platform', $event)"
+            />
             <Badge
               v-if="testResult"
               variant="outline"
@@ -46,11 +37,13 @@
             </Badge>
           </div>
 
-          <div v-if="!compact" class="mt-1 truncate font-mono text-xs text-muted-foreground">
-            {{ detailInfo }}
-          </div>
+          <AppTooltip v-if="!compact" :content="detailInfo" wrap class="mt-1 block w-full min-w-0">
+            <div class="truncate font-mono text-xs text-muted-foreground">
+              {{ detailInfo }}
+            </div>
+          </AppTooltip>
 
-          <div v-if="!compact && server.tips" class="mt-1 text-xs text-muted-foreground">
+          <div v-if="!compact && server.tips" class="mt-1 line-clamp-2 break-words text-xs text-muted-foreground">
             {{ server.tips }}
           </div>
         </div>
@@ -58,48 +51,51 @@
 
       <div
         :class="[
-          'flex shrink-0 gap-1 transition-opacity',
+          'flex shrink-0 gap-1.5 transition-opacity',
           compact ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
         ]"
       >
+        <AppTooltip content="测试连接">
         <Button
           variant="ghost"
           size="icon-sm"
-          title="测试连接"
           :disabled="isTesting"
           @click="$emit('test')"
         >
           <Loader2 v-if="isTesting" class="animate-spin" />
           <Zap v-else />
         </Button>
+        </AppTooltip>
+        <AppTooltip v-if="server.website" content="官网">
         <Button
-          v-if="server.website"
           as="a"
           :href="server.website"
           target="_blank"
           variant="ghost"
           size="icon-sm"
-          title="官网"
         >
           <ExternalLink />
         </Button>
+        </AppTooltip>
+        <AppTooltip content="编辑">
         <Button
           variant="ghost"
           size="icon-sm"
-          title="编辑"
           @click="$emit('edit')"
         >
           <Pencil />
         </Button>
+        </AppTooltip>
+        <AppTooltip content="删除">
         <Button
           variant="ghost"
           size="icon-sm"
           class="text-muted-foreground hover:text-destructive"
-          title="删除"
           @click="$emit('delete')"
         >
           <Trash2 />
         </Button>
+        </AppTooltip>
       </div>
     </div>
 
@@ -117,7 +113,8 @@
 import { computed } from 'vue'
 import { Check, ExternalLink, Globe, Loader2, Pencil, Terminal, Trash2, TriangleAlert, Zap } from '@lucide/vue'
 import type { MCPServer, MCPTestResult } from '@/types'
-import BrandIcon from '@/components/common/BrandIcon.vue'
+import AppTooltip from '@/components/common/AppTooltip.vue'
+import PlatformChips from '@/components/common/PlatformChips.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 
@@ -134,19 +131,10 @@ defineEmits<{
   test: []
   edit: []
   delete: []
+  'toggle-platform': [platform: string]
 }>()
 
 const platforms = computed(() => props.server.enable_platform || [])
-
-const PLATFORM_ITEMS = [
-  { key: 'claude-code', brand: 'claude', label: 'Claude', class: 'border-green-500/20 bg-green-500/10 text-green-500' },
-  { key: 'codex', brand: 'codex', label: 'Codex', class: 'border-brand/20 bg-brand/10 text-brand' },
-  { key: 'gemini', brand: 'gemini', label: 'Gemini', class: 'border-blue-500/20 bg-blue-500/10 text-blue-600 dark:text-blue-400' },
-  { key: 'opencode', brand: 'opencode', label: 'OpenCode', class: 'border-foreground/15 bg-foreground/5 text-foreground/80' },
-  { key: 'grok', brand: 'grok', label: 'Grok', class: 'border-stone-500/25 bg-stone-500/10 text-stone-600 dark:text-stone-400' },
-]
-
-const enabledPlatforms = computed(() => PLATFORM_ITEMS.filter(p => platforms.value.includes(p.key)))
 const hasPlaceholder = computed(() =>
   props.server.missing_placeholders && props.server.missing_placeholders.length > 0
 )

@@ -1,12 +1,12 @@
 <p align="center">
-  <img src="build/appicon.png" width="72" height="72" alt="Claude Code 环境管理器" />
+  <img src="build/appicon.png" width="72" height="72" alt="AI ENV" />
 </p>
 
-<h1 align="center">Claude Code 环境管理器</h1>
+<h1 align="center">AI ENV</h1>
 
 <p align="center">
   面向 Claude Code、Codex、Gemini CLI、OpenCode、Grok 的本地桌面工作台。<br />
-  一处管理环境配置、MCP、Skills、本地 API 路由、监控轮换与云端备份。
+  一处管理环境配置、MCP、Skills、本地 API 路由、监控轮换、云端备份和本机 CLI。
 </p>
 
 <p align="center">
@@ -24,27 +24,30 @@
 </p>
 
 <p align="center">
-  <img src="portal.png" alt="应用界面" width="100%" />
+  <img src="portal.png" alt="AI ENV 界面" width="100%" />
 </p>
 
 ## 这是什么
 
-把四套 CLI 的环境变量、MCP 服务器、Skills、提示词和用量统计收进同一个原生窗口。配置写在本机，不经过第三方账号；需要换电脑时，可以用 S3 兼容对象存储加密备份。
+把五套 CLI 的环境变量、MCP 服务器、Skills、提示词、用量统计和本机安装收进同一个原生窗口。配置写在本机，不经过第三方账号；换电脑时可以用 S3 兼容对象存储加密备份。
 
-当前版本 **v2.0.0**。
+当前版本 **v2.2.0**。版本说明和安装包见 [GitHub Releases](https://github.com/nsmao-com/claude-code-env-change/releases)。
 
 ## 功能
 
 | 模块 | 说明 |
 | --- | --- |
-| 环境 | 多配置、按平台筛选、拖拽排序、一键写入对应 CLI、延迟测速 |
-| MCP | 管理 stdio / HTTP 服务器，同步到 Claude / Codex / Gemini |
+| 环境 | 多配置、按平台筛选、拖拽排序、一键写入对应 CLI、延迟测速、JSON 拖拽导入 |
+| MCP | 管理 stdio / HTTP 服务器，同步到 Claude / Codex / Gemini / OpenCode / Grok |
 | Skills | 编辑 `SKILL.md`，从内置技能库导入，按平台启用 |
-| API 路由 | 本机 Anthropic ↔ OpenAI 网关，含 Codex Responses API |
+| API 路由 | 本机协议转换网关（Anthropic Messages、Chat Completions、Responses） |
 | 监控 | 定时探测 Base URL，按轮换组自动切配置 |
 | 云同步 | S3 / 阿里云 OSS / 兼容端点，AES-GCM 加密后上传 |
 | 提示词 | 编辑各平台自定义系统提示词 |
 | 统计 | 请求量、Token、花费估算、模型分布、活动热力图 |
+| 设置 | 语言、主题、强调色、出站代理 |
+| CLI | 检测本机 Claude / Codex / Gemini / OpenCode / Grok，按 pnpm / npm / 原生方式升级 |
+| 配置目录 | 打开各家 CLI 的本机配置目录和关键文件 |
 | 更新 | 检测 GitHub Release，Windows 可在应用内下载并替换 |
 
 ## 安装
@@ -89,20 +92,21 @@ wails build
 
 ```
 ~/.claude-env-switcher/
-  config.json      环境配置
-  mcp.json         MCP 服务器
-  skills.json      Skills 索引
+  config.json            环境配置
+  mcp.json               MCP 服务器
+  skills.json            Skills 索引
+  outbound-proxy.json    出站代理
 ```
 
 应用写入的 CLI 文件（按平台）：
 
 | 平台 | 路径 |
 | --- | --- |
-| Claude Code | 系统环境变量 + Claude settings |
+| Claude Code | `~/.claude/settings.json` |
 | Codex | `~/.codex/config.toml`、`~/.codex/auth.json` |
 | Gemini CLI | `~/.gemini/.env`、`~/.gemini/settings.json` |
-| OpenCode | `~/.config/opencode/opencode.json`（可用 `OPENCODE_CONFIG_DIR` / `OPENCODE_CONFIG` 覆盖路径） |
-| Grok | `~/.grok/config.toml` |
+| OpenCode | `~/.config/opencode/opencode.json`（可用 `OPENCODE_CONFIG_DIR` / `OPENCODE_CONFIG` 覆盖） |
+| Grok | `~/.grok/config.toml`（可用 `GROK_HOME` 覆盖） |
 
 旧版本若在启动目录留下了可写的 `config.json`，会继续使用该文件。
 
@@ -111,17 +115,17 @@ wails build
 ```
 ┌─────────────────────────────────────────────┐
 │  Vue 3  ·  Pinia  ·  shadcn-vue  ·  Tailwind 4 │
-│  motion-v  ·  Chart.js                       │
+│  motion-v  ·  Chart.js  ·  CodeMirror        │
 └──────────────────────┬──────────────────────┘
                        │ Wails bindings
 ┌──────────────────────▼──────────────────────┐
 │  Go  ·  Wails v2                             │
 │  环境 / MCP / Skills / 路由网关               │
-│  监控轮换 / OSS 云同步 / GitHub 更新          │
+│  监控轮换 / OSS 云同步 / CLI 检测升级          │
 └─────────────────────────────────────────────┘
 ```
 
-本地路由网关把 Anthropic Messages 与 OpenAI Chat Completions（含 Codex Responses）互相转换，让同一份上游 Key 给多套 CLI 用。密钥只存在本机配置里。
+本地路由网关把 Anthropic Messages、OpenAI Chat Completions 与 Codex Responses 互相转换，让同一份上游 Key 给多套 CLI 用。密钥只存在本机配置里。
 
 ## 技术栈
 
@@ -146,32 +150,11 @@ wails build
 - 不要用自制 Button / Input / Dialog 替代 `frontend/src/components/ui/` 里的 shadcn 组件。
 - 窗口是无边框的，标题栏负责拖拽和窗口按钮。
 
-## 更新日志
-
-### 未发布
-
-- OpenClaw Provider 移除，替换为 OpenCode：配置写入 `~/.config/opencode/opencode.json`，Skills 同步到 `~/.config/opencode/skills`，提示词支持 `~/.config/opencode/AGENTS.md`。
-
-### v2.0.0
-
-- 桌面壳改为顶栏文字导航 + 浅灰画布 + 白色圆角宫格，去掉左侧栏。
-- 界面全面切到 shadcn-vue 与 Tailwind CSS 4，弹窗 / 下拉 / 输入 / 确认框统一走导入组件。
-- 新增本机 API 路由（Anthropic ↔ OpenAI，含 Responses API）。
-- 新增 S3 兼容云同步（含阿里云 OSS）。
-- 新增 GitHub Release 检测与 Windows 应用内更新。
-- OpenClaw、监控轮换、Skills 预设库与用量统计一并纳入同一工作台。
-
-### v1.0.6
-
-- OpenClaw Provider 全链路。
-- Skills 同步到 `~/.openclaw/skills`。
-- MCP 编辑弹窗二次打开表单为空的修复。
-
-更早的记录见 Git 标签 `v1.0.0` … `v1.0.5`。
-
 ## 贡献
 
 Issue 和 Pull Request 开在 [nsmao-com/claude-code-env-change](https://github.com/nsmao-com/claude-code-env-change)。改 UI 时请保持现有 shadcn 组件与顶栏导航结构。
+
+版本记录写在 [Releases](https://github.com/nsmao-com/claude-code-env-change/releases)，不在本文件维护。
 
 ## 许可证
 

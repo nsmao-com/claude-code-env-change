@@ -5,7 +5,8 @@
       <p class="mt-2 text-sm text-muted-foreground">管理 Claude/Codex/Gemini/OpenCode 的自定义 SKILL.md</p>
     </template>
 
-    <div class="mb-4 flex items-center justify-between">
+    <div class="flex h-full min-h-0 flex-1 flex-col">
+    <div class="mb-4 flex shrink-0 flex-wrap items-center justify-between gap-3">
       <div class="flex items-center gap-2">
         <Button size="sm" @click="openCreate">
           <Plus />
@@ -25,8 +26,8 @@
       </span>
     </div>
 
-    <div v-if="showPresets" class="mb-4 rounded-xl border border-dashed border-border bg-secondary/20 p-4">
-      <div class="mb-3 flex items-center justify-between">
+    <div v-if="showPresets" class="mb-4 shrink-0 rounded-xl border border-dashed border-border bg-secondary/20 p-4">
+      <div class="mb-3 flex items-center justify-between gap-3">
         <span class="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">内置技能库</span>
         <span class="text-[10px] text-muted-foreground">点击「导入」后可选择启用平台</span>
       </div>
@@ -36,14 +37,16 @@
           <EmptyTitle>{{ isLoadingPresets ? '加载中...' : '暂无预设' }}</EmptyTitle>
         </EmptyHeader>
       </Empty>
-      <div v-else class="grid grid-cols-2 gap-2">
+      <div v-else class="grid grid-cols-2 gap-3">
         <Card v-for="preset in presets" :key="preset.name" size="sm">
           <CardHeader>
-            <div class="flex items-start justify-between gap-2">
-              <div class="min-w-0">
-                <div class="flex items-center gap-1.5">
-                  <CardTitle class="truncate">{{ preset.name }}</CardTitle>
-                  <Badge v-if="installedNames.has(preset.name)" variant="secondary">已导入</Badge>
+            <div class="flex min-w-0 items-start justify-between gap-2">
+              <div class="min-w-0 flex-1 overflow-hidden">
+                <div class="flex min-w-0 items-center gap-1.5">
+                  <AppTooltip :content="preset.name" wrap class="min-w-0 flex-1">
+                    <CardTitle>{{ preset.name }}</CardTitle>
+                  </AppTooltip>
+                  <Badge v-if="installedNames.has(preset.name)" variant="secondary" class="shrink-0">已导入</Badge>
                 </div>
                 <CardDescription class="line-clamp-2">{{ preset.description }}</CardDescription>
               </div>
@@ -59,7 +62,7 @@
 
     <Empty
       v-if="filteredSkills.length === 0 && !skillStore.isLoading"
-      class="min-h-[240px]"
+      class="min-h-0 flex-1"
     >
       <EmptyHeader>
         <EmptyMedia variant="icon">
@@ -70,65 +73,37 @@
       </EmptyHeader>
     </Empty>
 
-    <div v-else-if="skillStore.isLoading" class="flex items-center justify-center py-12">
+    <div v-else-if="skillStore.isLoading" class="flex min-h-0 flex-1 items-center justify-center">
       <Loader2 class="size-8 animate-spin text-muted-foreground" />
     </div>
 
-    <ScrollArea v-else class="h-[50vh] pr-2">
-      <div class="space-y-3">
-        <Card v-for="skill in filteredSkills" :key="skill.name" size="sm">
+    <ScrollArea v-else class="h-full min-h-0 flex-1 pr-2">
+      <div class="space-y-3 pb-2">
+        <Card v-for="skill in filteredSkills" :key="skill.name">
           <CardHeader>
-            <div class="flex items-start justify-between gap-4">
-              <div class="min-w-0">
-                <div class="flex items-center gap-2">
-                  <CardTitle class="truncate">{{ skill.name }}</CardTitle>
-                  <Badge
+            <div class="flex min-w-0 items-start justify-between gap-4">
+              <div class="min-w-0 flex-1 overflow-hidden">
+                <div class="flex min-w-0 items-center gap-2">
+                  <AppTooltip :content="skill.name" wrap class="min-w-0 flex-1">
+                    <CardTitle>{{ skill.name }}</CardTitle>
+                  </AppTooltip>
+                  <AppTooltip
                     v-if="!skill.has_frontmatter || !skill.has_name || !skill.has_description"
-                    variant="destructive"
-                    title="SKILL.md frontmatter 可能不完整"
+                    content="SKILL.md frontmatter 可能不完整"
                   >
-                    格式问题
-                  </Badge>
+                    <Badge variant="destructive" class="shrink-0">
+                      格式问题
+                    </Badge>
+                  </AppTooltip>
                 </div>
-                <CardDescription class="mt-1 whitespace-pre-line">
+                <CardDescription class="mt-1 line-clamp-3 whitespace-pre-line">
                   {{ skill.description || skill.frontmatter_error || '（未提供 description）' }}
                 </CardDescription>
-                <div class="mt-3 flex flex-wrap gap-2">
-                  <Badge variant="outline" class="gap-1">
-                    <BrandIcon provider="claude" class="size-3" />
-                    Claude:
-                    <span :class="skill.enabled_in_claude ? 'text-green-600' : 'text-muted-foreground'">
-                      {{ skill.enabled_in_claude ? '已安装' : '未安装' }}
-                    </span>
-                  </Badge>
-                  <Badge variant="outline" class="gap-1">
-                    <BrandIcon provider="codex" class="size-3" />
-                    Codex:
-                    <span :class="skill.enabled_in_codex ? 'text-green-600' : 'text-muted-foreground'">
-                      {{ skill.enabled_in_codex ? '已安装' : '未安装' }}
-                    </span>
-                  </Badge>
-                  <Badge variant="outline" class="gap-1">
-                    <BrandIcon provider="gemini" class="size-3" />
-                    Gemini:
-                    <span :class="skill.enabled_in_gemini ? 'text-green-600' : 'text-muted-foreground'">
-                      {{ skill.enabled_in_gemini ? '已安装' : '未安装' }}
-                    </span>
-                  </Badge>
-                  <Badge variant="outline" class="gap-1">
-                    <BrandIcon provider="opencode" class="size-3" />
-                    OpenCode:
-                    <span :class="skill.enabled_in_opencode ? 'text-green-600' : 'text-muted-foreground'">
-                      {{ skill.enabled_in_opencode ? '已安装' : '未安装' }}
-                    </span>
-                  </Badge>
-                  <Badge variant="outline" class="gap-1">
-                    <BrandIcon provider="grok" class="size-3" />
-                    Grok:
-                    <span :class="skill.enabled_in_grok ? 'text-green-600' : 'text-muted-foreground'">
-                      {{ skill.enabled_in_grok ? '已安装' : '未安装' }}
-                    </span>
-                  </Badge>
+                <div class="mt-3">
+                  <PlatformChips
+                    :enabled="skill.enable_platform || []"
+                    @toggle="togglePlatform(skill, $event)"
+                  />
                 </div>
               </div>
               <div class="flex shrink-0 items-center gap-2">
@@ -146,6 +121,7 @@
         </Card>
       </div>
     </ScrollArea>
+    </div>
 
     <SkillEditModal v-model="showEditModal" :edit-skill="editingSkill" @saved="onSaved" />
   </AppModal>
@@ -156,7 +132,8 @@ import { ref, computed, watch } from 'vue'
 import { Download, Layers, Loader2, Pencil, Plus, RefreshCw, Store, Trash2 } from '@lucide/vue'
 import type { Skill, SkillPreset } from '@/types'
 import AppModal from '@/components/common/AppModal.vue'
-import BrandIcon from '@/components/common/BrandIcon.vue'
+import AppTooltip from '@/components/common/AppTooltip.vue'
+import PlatformChips from '@/components/common/PlatformChips.vue'
 import SkillEditModal from './SkillEditModal.vue'
 import { useSkillStore } from '@/stores/skillStore'
 import { skillService } from '@/services/skillService'
@@ -279,5 +256,24 @@ async function remove(skill: Skill) {
 
 function onSaved() {
   showEditModal.value = false
+}
+
+async function togglePlatform(skill: Skill, platform: string) {
+  try {
+    const wasOn = skill.enable_platform?.includes(platform)
+    await skillStore.togglePlatform(skill, platform)
+    toast.success(wasOn ? `已从 ${platformLabel(platform)} 移除` : `已加入 ${platformLabel(platform)}`)
+  } catch (e: any) {
+    toast.error('切换失败: ' + (e?.message || String(e)))
+  }
+}
+
+function platformLabel(platform: string) {
+  if (platform === 'claude-code') return 'Claude'
+  if (platform === 'codex') return 'Codex'
+  if (platform === 'gemini') return 'Gemini'
+  if (platform === 'opencode') return 'OpenCode'
+  if (platform === 'grok') return 'Grok'
+  return platform
 }
 </script>

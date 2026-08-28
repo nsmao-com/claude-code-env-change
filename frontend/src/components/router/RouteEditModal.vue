@@ -66,12 +66,12 @@
       </div>
 
       <div class="mb-4">
-        <div class="mb-1.5 flex items-center justify-between">
+        <div class="mb-1.5 flex items-center justify-between gap-2">
           <Label>模型映射</Label>
           <Button type="button" variant="link" size="sm" @click="addMappingRow">添加一行</Button>
         </div>
         <div class="space-y-2">
-          <div v-for="(row, i) in mappingRows" :key="i" class="flex items-center">
+          <div v-for="(row, i) in mappingRows" :key="i" class="flex items-center gap-1">
             <Input
               v-model="row.source"
               class="flex-1 font-mono text-xs"
@@ -102,7 +102,7 @@
         <p class="font-bold text-foreground">接入方式</p>
         <template v-if="form.source_format === 'anthropic'">
           <div v-for="snippet in claudeSnippets" :key="snippet.label" class="space-y-1">
-            <div class="flex items-center justify-between">
+            <div class="flex items-center justify-between gap-2">
               <span class="text-muted-foreground">{{ snippet.label }}</span>
               <Button type="button" variant="link" size="sm" @click="copyText(snippet.text, snippet.label)">复制</Button>
             </div>
@@ -111,7 +111,7 @@
           <p class="text-muted-foreground">API Key 任意填写即可（网关使用路由里配置的上游 Key）。</p>
         </template>
         <template v-else>
-          <div class="flex items-center justify-between">
+          <div class="flex items-center justify-between gap-2">
             <span class="text-muted-foreground">Codex config.toml（~/.codex/config.toml）</span>
             <Button type="button" variant="link" size="sm" @click="copyText(codexSnippet, 'Codex 配置')">复制</Button>
           </div>

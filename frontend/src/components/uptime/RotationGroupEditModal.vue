@@ -39,7 +39,7 @@
       </div>
 
       <div class="border-t pt-4">
-        <div class="mb-2 flex items-center justify-between">
+        <div class="mb-2 flex items-center justify-between gap-2">
           <h4 class="text-sm font-medium">组内配置（顺序）</h4>
           <span class="text-xs text-muted-foreground">共 {{ form.env_names.length }} 个</span>
         </div>
@@ -61,7 +61,7 @@
               <div class="truncate font-mono text-sm font-medium">{{ idx + 1 }}. {{ name }}</div>
               <div class="truncate text-[11px] text-muted-foreground">{{ envDesc(name) }}</div>
             </div>
-            <div class="flex shrink-0">
+            <div class="flex shrink-0 gap-1">
               <Button type="button" variant="ghost" size="icon-sm" title="上移" :disabled="idx === 0" @click="moveUp(idx)">
                 <ArrowUp />
               </Button>
@@ -76,7 +76,7 @@
         </div>
 
         <div class="mt-4">
-          <div class="mb-2 flex items-center justify-between">
+          <div class="mb-2 flex items-center justify-between gap-2">
             <h4 class="text-sm font-medium">可用配置</h4>
             <span class="text-xs text-muted-foreground">{{ availableEnvs.length }} 个</span>
           </div>

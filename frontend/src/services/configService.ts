@@ -21,8 +21,10 @@ import {
   GetOpencodeSettings,
   GetGrokSettings,
   ExportConfig,
-  ImportConfig
+  ImportConfig,
+  ImportLocalEnv
 } from '../../wailsjs/go/main/App'
+import { callApp } from '@/services/appBridge'
 
 export const configService = {
   async getConfig(): Promise<Config> {
@@ -123,6 +125,23 @@ export const configService = {
 
   async importConfig(): Promise<number> {
     return ImportConfig()
+  },
+
+  async importConfigJSON(payload: string): Promise<number> {
+    return callApp<number>('ImportConfigJSON', payload)
+  },
+
+  async readDroppedFile(path: string): Promise<string> {
+    return callApp<string>('ReadDroppedFile', path)
+  },
+
+  async importLocalEnv(provider: Provider | 'all'): Promise<EnvConfig[]> {
+    const list = await ImportLocalEnv(provider)
+    return (list || []).map((env): EnvConfig => ({
+      ...env,
+      provider: normalizeProvider(env.provider),
+      upstream_format: env.upstream_format as EnvConfig['upstream_format'],
+    }))
   }
 }
 

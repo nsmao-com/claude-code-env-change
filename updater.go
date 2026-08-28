@@ -21,7 +21,7 @@ import (
 )
 
 // 与 wails.json info.productVersion 保持一致
-const appVersion = "2.0.0"
+const appVersion = "2.2.0"
 
 const (
 	githubOwner = "nsmao-com"
@@ -300,14 +300,7 @@ func httpGetBytes(url string, timeout time.Duration, accept string) ([]byte, err
 }
 
 func githubHTTPClient(timeout time.Duration) *http.Client {
-	return &http.Client{
-		Timeout: timeout,
-		Transport: &http.Transport{
-			Proxy:                 http.ProxyFromEnvironment,
-			TLSHandshakeTimeout:   12 * time.Second,
-			ResponseHeaderTimeout: 15 * time.Second,
-		},
-	}
+	return &http.Client{Timeout: timeout}
 }
 
 func downloadWithProgress(a *App, url, dest string, expectedSize int64) error {
@@ -340,13 +333,7 @@ func downloadOne(a *App, url, dest string, expectedSize int64) error {
 	req.Header.Set("User-Agent", "claude-env-switcher/"+appVersion)
 	req.Header.Set("Accept", "application/octet-stream")
 
-	client := &http.Client{
-		Transport: &http.Transport{
-			Proxy:                 http.ProxyFromEnvironment,
-			TLSHandshakeTimeout:   15 * time.Second,
-			ResponseHeaderTimeout: 30 * time.Second,
-		},
-	}
+	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("下载失败: %v", err)

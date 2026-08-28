@@ -1,12 +1,12 @@
 <p align="center">
-  <img src="build/appicon.png" width="72" height="72" alt="Claude Code Env Switcher" />
+  <img src="build/appicon.png" width="72" height="72" alt="AI ENV" />
 </p>
 
-<h1 align="center">Claude Code Env Switcher</h1>
+<h1 align="center">AI ENV</h1>
 
 <p align="center">
   A local desktop workspace for Claude Code, Codex, Gemini CLI, OpenCode, and Grok.<br />
-  Manage environments, MCP servers, skills, a local API router, uptime rotation, and encrypted cloud backups in one window.
+  Manage environments, MCP servers, skills, a local API router, uptime rotation, cloud backups, and installed CLIs in one window.
 </p>
 
 <p align="center">
@@ -24,27 +24,30 @@
 </p>
 
 <p align="center">
-  <img src="portal.png" alt="Application screenshot" width="100%" />
+  <img src="portal.png" alt="AI ENV screenshot" width="100%" />
 </p>
 
 ## What it is
 
-One native window for four CLI toolchains: environment variables, MCP servers, Skills, prompt files, and usage stats. Everything stays on disk unless you opt into S3-compatible backup. No third-party account is required to run the app.
+One native window for five CLI toolchains: environment variables, MCP servers, Skills, prompt files, usage stats, and local installs. Everything stays on disk unless you opt into S3-compatible backup. No third-party account is required to run the app.
 
-Current release: **v2.0.0**.
+Current release: **v2.2.0**. Release notes and binaries live on [GitHub Releases](https://github.com/nsmao-com/claude-code-env-change/releases).
 
 ## Features
 
 | Module | What it does |
 | --- | --- |
-| Environments | Multiple profiles, per-tool filter, drag reorder, one-click apply, latency probe |
-| MCP | stdio / HTTP servers, sync into Claude / Codex / Gemini |
+| Environments | Multiple profiles, per-tool filter, drag reorder, one-click apply, latency probe, drag-and-drop JSON import |
+| MCP | stdio / HTTP servers, sync into Claude / Codex / Gemini / OpenCode / Grok |
 | Skills | Edit `SKILL.md`, import from the bundled library, enable per platform |
-| API router | Local Anthropic ↔ OpenAI gateway, including Codex Responses API |
+| API router | Local protocol gateway (Anthropic Messages, Chat Completions, Responses) |
 | Uptime | Periodic Base URL checks and rotation groups |
 | Cloud sync | S3 / Aliyun OSS / compatible endpoints, AES-GCM encrypted objects |
 | Prompts | Custom system prompts per CLI |
 | Stats | Requests, tokens, cost estimate, model mix, activity heatmap |
+| Settings | Language, theme, accent, outbound proxy |
+| CLI | Detect local Claude / Codex / Gemini / OpenCode / Grok and upgrade via pnpm, npm, or native update |
+| Config folders | Open each CLI’s config directory and key files |
 | Updates | GitHub Release check; Windows can download and replace in-app |
 
 ## Install
@@ -87,20 +90,21 @@ Output lands in `build/bin/`.
 
 ```
 ~/.claude-env-switcher/
-  config.json      environments
-  mcp.json         MCP servers
-  skills.json      skills index
+  config.json            environments
+  mcp.json               MCP servers
+  skills.json            skills index
+  outbound-proxy.json    outbound proxy
 ```
 
 Files written into each CLI:
 
 | Tool | Path |
 | --- | --- |
-| Claude Code | process env + Claude settings |
+| Claude Code | `~/.claude/settings.json` |
 | Codex | `~/.codex/config.toml`, `~/.codex/auth.json` |
 | Gemini CLI | `~/.gemini/.env`, `~/.gemini/settings.json` |
-| OpenCode | `~/.config/opencode/opencode.json` (overridable via `OPENCODE_CONFIG_DIR` / `OPENCODE_CONFIG`) |
-| Grok | `~/.grok/config.toml` |
+| OpenCode | `~/.config/opencode/opencode.json` (`OPENCODE_CONFIG_DIR` / `OPENCODE_CONFIG`) |
+| Grok | `~/.grok/config.toml` (`GROK_HOME`) |
 
 A writable `config.json` next to the executable, left over from older builds, is still honored.
 
@@ -109,17 +113,17 @@ A writable `config.json` next to the executable, left over from older builds, is
 ```
 ┌─────────────────────────────────────────────┐
 │  Vue 3  ·  Pinia  ·  shadcn-vue  ·  Tailwind 4 │
-│  motion-v  ·  Chart.js                       │
+│  motion-v  ·  Chart.js  ·  CodeMirror        │
 └──────────────────────┬──────────────────────┘
                        │ Wails bindings
 ┌──────────────────────▼──────────────────────┐
 │  Go  ·  Wails v2                             │
 │  env / MCP / skills / local API gateway      │
-│  uptime rotation / OSS sync / GitHub updater │
+│  uptime rotation / OSS sync / CLI upgrades   │
 └─────────────────────────────────────────────┘
 ```
 
-The local gateway translates Anthropic Messages and OpenAI Chat Completions (including Codex Responses) so one upstream key can feed multiple CLIs. Keys never leave the machine unless you enable cloud sync.
+The local gateway translates Anthropic Messages, OpenAI Chat Completions, and Codex Responses so one upstream key can feed multiple CLIs. Keys never leave the machine unless you enable cloud sync.
 
 ## Stack
 
@@ -144,32 +148,11 @@ The local gateway translates Anthropic Messages and OpenAI Chat Completions (inc
 - Import components from `frontend/src/components/ui/` instead of hand-rolling buttons, inputs, or dialogs.
 - The window is frameless; the title bar owns dragging and window controls.
 
-## Changelog
-
-### Unreleased
-
-- Replaced the OpenClaw provider with OpenCode: config is written to `~/.config/opencode/opencode.json`, skills sync to `~/.config/opencode/skills`, and prompt editing supports `~/.config/opencode/AGENTS.md`.
-
-### v2.0.0
-
-- Shell is a top text nav on a light-gray canvas with white rounded cards. The left sidebar is gone.
-- UI rebuilt on shadcn-vue and Tailwind CSS 4. Dialogs, menus, and inputs are imported components.
-- Local API router (Anthropic ↔ OpenAI, including Responses API).
-- S3-compatible cloud sync (including Aliyun OSS).
-- GitHub Release detection and in-app apply on Windows.
-- OpenClaw, uptime rotation, skill presets, and usage stats live in the same workspace.
-
-### v1.0.6
-
-- Full OpenClaw provider path.
-- Skills sync into `~/.openclaw/skills`.
-- MCP edit modal no longer opens empty on the second visit.
-
-Earlier history is in tags `v1.0.0` … `v1.0.5`.
-
 ## Contributing
 
 Issues and pull requests: [nsmao-com/claude-code-env-change](https://github.com/nsmao-com/claude-code-env-change). Keep the shadcn component set and the top navigation when touching UI.
+
+Release notes live on [Releases](https://github.com/nsmao-com/claude-code-env-change/releases), not in this file.
 
 ## License
 

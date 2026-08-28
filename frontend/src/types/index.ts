@@ -34,12 +34,15 @@ export interface MCPServer {
   args?: string[]
   env?: Record<string, string>
   url?: string
+  headers?: Record<string, string>
   website?: string
   tips?: string
   enable_platform: string[]
   enabled_in_claude: boolean
   enabled_in_codex: boolean
   enabled_in_gemini: boolean
+  enabled_in_opencode?: boolean
+  enabled_in_grok?: boolean
   missing_placeholders: string[]
 }
 
@@ -211,7 +214,58 @@ export interface UptimeSnapshot {
 // Provider 类型
 export type Provider = 'claude' | 'codex' | 'gemini' | 'opencode' | 'grok'
 
-export type AppPage = 'env' | 'mcp' | 'skills' | 'router' | 'uptime' | 'cloud' | 'prompts' | 'stats'
+export type AppPage = 'home' | 'env' | 'mcp' | 'skills' | 'router' | 'uptime' | 'cloud' | 'prompts' | 'stats' | 'settings'
+
+export interface OutboundProxySettings {
+  enabled: boolean
+  url: string
+}
+
+export interface ProxyTestResult {
+  success: boolean
+  message: string
+  latency: number
+}
+
+export interface CliToolStatus {
+  id: string
+  name: string
+  command: string
+  installed: boolean
+  runnable: boolean
+  current_version: string
+  latest_version: string
+  install_path: string
+  install_method: string
+  config_dir: string
+  config_exists: boolean
+  platform: string
+  upgradable: boolean
+  error: string
+  extra_paths: string[]
+  npm_package: string
+}
+
+export interface CliUpgradeResult {
+  id: string
+  success: boolean
+  message: string
+  log: string
+}
+
+export interface ConfigDirFile {
+  name: string
+  path: string
+  exists: boolean
+}
+
+export interface ConfigDirInfo {
+  id: string
+  name: string
+  dir: string
+  exists: boolean
+  files: ConfigDirFile[]
+}
 
 export interface UpdateInfo {
   available: boolean

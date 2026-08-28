@@ -56,12 +56,15 @@ type MCPServer struct {
 	Args                []string          `json:"args,omitempty"`
 	Env                 map[string]string `json:"env,omitempty"`
 	URL                 string            `json:"url,omitempty"`
+	Headers             map[string]string `json:"headers,omitempty"`
 	Website             string            `json:"website,omitempty"`
 	Tips                string            `json:"tips,omitempty"`
 	EnablePlatform      []string          `json:"enable_platform"`
 	EnabledInClaude     bool              `json:"enabled_in_claude"`
 	EnabledInCodex      bool              `json:"enabled_in_codex"`
 	EnabledInGemini     bool              `json:"enabled_in_gemini"`
+	EnabledInOpencode   bool              `json:"enabled_in_opencode"`
+	EnabledInGrok       bool              `json:"enabled_in_grok"`
 	MissingPlaceholders []string          `json:"missing_placeholders"`
 }
 
@@ -72,6 +75,7 @@ type rawMCPServer struct {
 	Args           []string          `json:"args,omitempty"`
 	Env            map[string]string `json:"env,omitempty"`
 	URL            string            `json:"url,omitempty"`
+	Headers        map[string]string `json:"headers,omitempty"`
 	Website        string            `json:"website,omitempty"`
 	Tips           string            `json:"tips,omitempty"`
 	EnablePlatform []string          `json:"enable_platform"`
@@ -94,6 +98,7 @@ type claudeDesktopServer struct {
 	Args    []string          `json:"args,omitempty"`
 	Env     map[string]string `json:"env,omitempty"`
 	URL     string            `json:"url,omitempty"`
+	Headers map[string]string `json:"headers,omitempty"`
 }
 
 // ListServers 列出所有 MCP 服务器
@@ -109,6 +114,8 @@ func (ms *MCPService) ListServers() ([]MCPServer, error) {
 	claudeEnabled := loadClaudeEnabledServers()
 	codexEnabled := loadCodexEnabledServers()
 	geminiEnabled := loadGeminiEnabledServers()
+	opencodeEnabled := loadOpencodeEnabledServers()
+	grokEnabled := loadGrokEnabledServers()
 
 	names := make([]string, 0, len(config))
 	for name := range config {
@@ -122,20 +129,23 @@ func (ms *MCPService) ListServers() ([]MCPServer, error) {
 		typ := normalizeServerType(entry.Type)
 		platforms := normalizePlatforms(entry.EnablePlatform)
 		server := MCPServer{
-			Name:            name,
-			Type:            typ,
-			Command:         strings.TrimSpace(entry.Command),
-			Args:            cloneArgs(entry.Args),
-			Env:             cloneEnv(entry.Env),
-			URL:             strings.TrimSpace(entry.URL),
-			Website:         strings.TrimSpace(entry.Website),
-			Tips:            strings.TrimSpace(entry.Tips),
-			EnablePlatform:  platforms,
-			EnabledInClaude: containsNormalized(claudeEnabled, name),
-			EnabledInCodex:  containsNormalized(codexEnabled, name),
-			EnabledInGemini: containsNormalized(geminiEnabled, name),
+			Name:              name,
+			Type:              typ,
+			Command:           strings.TrimSpace(entry.Command),
+			Args:              cloneArgs(entry.Args),
+			Env:               cloneEnv(entry.Env),
+			URL:               strings.TrimSpace(entry.URL),
+			Headers:           cloneEnv(entry.Headers),
+			Website:           strings.TrimSpace(entry.Website),
+			Tips:              strings.TrimSpace(entry.Tips),
+			EnablePlatform:    platforms,
+			EnabledInClaude:   containsNormalized(claudeEnabled, name),
+			EnabledInCodex:    containsNormalized(codexEnabled, name),
+			EnabledInGemini:   containsNormalized(geminiEnabled, name),
+			EnabledInOpencode: containsNormalized(opencodeEnabled, name),
+			EnabledInGrok:     containsNormalized(grokEnabled, name),
 		}
-		server.MissingPlaceholders = detectPlaceholders(server.URL, server.Args)
+		server.MissingPlaceholders = detectPlaceholders(server.URL, server.Args, headerValues(server.Headers)...)
 		servers = append(servers, server)
 	}
 
@@ -170,6 +180,7 @@ func (ms *MCPService) SaveServers(servers []MCPServer) error {
 			return fmt.Errorf("%s 需要提供 url", name)
 		}
 
+		headers := cleanEnv(server.Headers)
 		normalized[i] = MCPServer{
 			Name:            name,
 			Type:            typ,
@@ -177,6 +188,7 @@ func (ms *MCPService) SaveServers(servers []MCPServer) error {
 			Args:            args,
 			Env:             env,
 			URL:             url,
+			Headers:         headers,
 			Website:         strings.TrimSpace(server.Website),
 			Tips:            strings.TrimSpace(server.Tips),
 			EnablePlatform:  platforms,
@@ -191,12 +203,13 @@ func (ms *MCPService) SaveServers(servers []MCPServer) error {
 			Args:           args,
 			Env:            env,
 			URL:            url,
+			Headers:        headers,
 			Website:        normalized[i].Website,
 			Tips:           normalized[i].Tips,
 			EnablePlatform: platforms,
 		}
 
-		placeholders := detectPlaceholders(url, args)
+		placeholders := detectPlaceholders(url, args, headerValues(headers)...)
 		normalized[i].MissingPlaceholders = placeholders
 		if len(placeholders) > 0 {
 			normalized[i].EnablePlatform = []string{}
@@ -222,6 +235,9 @@ func (ms *MCPService) SaveServers(servers []MCPServer) error {
 		return err
 	}
 	if err := ms.syncGrokServers(normalized); err != nil {
+		return err
+	}
+	if err := ms.syncOpencodeServers(normalized); err != nil {
 		return err
 	}
 
@@ -359,6 +375,7 @@ func (ms *MCPService) importFromClaude(existing map[string]rawMCPServer) (map[st
 			Args:           cleanArgs(entry.Args),
 			Env:            cleanEnv(entry.Env),
 			URL:            strings.TrimSpace(entry.URL),
+			Headers:        cleanEnv(entry.Headers),
 			EnablePlatform: []string{platClaudeCode},
 		}
 	}
@@ -601,12 +618,22 @@ func (ms *MCPService) importFromCodex(existing map[string]rawMCPServer) (map[str
 			}
 		}
 
+		headers := make(map[string]string)
+		if headerRaw, ok := entry["headers"].(map[string]interface{}); ok {
+			for k, v := range headerRaw {
+				if s, ok := v.(string); ok {
+					headers[k] = s
+				}
+			}
+		}
+
 		result[trimmedName] = rawMCPServer{
 			Type:           typ,
 			Command:        strings.TrimSpace(command),
 			Args:           cleanArgs(args),
 			Env:            cleanEnv(env),
 			URL:            strings.TrimSpace(url),
+			Headers:        cleanEnv(headers),
 			EnablePlatform: []string{platCodex},
 		}
 	}
@@ -865,6 +892,7 @@ func normalizeRawEntry(entry rawMCPServer) rawMCPServer {
 	entry.Tips = strings.TrimSpace(entry.Tips)
 	entry.Args = cleanArgs(entry.Args)
 	entry.Env = cleanEnv(entry.Env)
+	entry.Headers = cleanEnv(entry.Headers)
 	entry.EnablePlatform = normalizePlatforms(entry.EnablePlatform)
 	return entry
 }
@@ -1003,6 +1031,9 @@ func buildClaudeDesktopEntry(server MCPServer) claudeDesktopServer {
 	entry := claudeDesktopServer{Type: server.Type}
 	if server.Type == "http" || server.Type == "sse" {
 		entry.URL = server.URL
+		if len(server.Headers) > 0 {
+			entry.Headers = server.Headers
+		}
 	} else {
 		entry.Command = server.Command
 		if len(server.Args) > 0 {
@@ -1020,6 +1051,9 @@ func buildCodexEntry(server MCPServer) map[string]any {
 	entry["type"] = server.Type
 	if server.Type == "http" || server.Type == "sse" {
 		entry["url"] = server.URL
+		if len(server.Headers) > 0 {
+			entry["headers"] = server.Headers
+		}
 	} else {
 		entry["command"] = server.Command
 		if len(server.Args) > 0 {
@@ -1129,11 +1163,132 @@ func buildGrokMcpEntry(server MCPServer) map[string]any {
 	return entry
 }
 
-func detectPlaceholders(url string, args []string) []string {
+func loadGrokEnabledServers() map[string]struct{} {
+	result := map[string]struct{}{}
+	path, err := grokMcpConfigPath()
+	if err != nil {
+		return result
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return result
+	}
+	var payload codexMcpFilePayload
+	if err := toml.Unmarshal(data, &payload); err != nil {
+		return result
+	}
+	for name := range payload.Servers {
+		result[strings.ToLower(strings.TrimSpace(name))] = struct{}{}
+	}
+	return result
+}
+
+func loadOpencodeEnabledServers() map[string]struct{} {
+	result := map[string]struct{}{}
+	path := opencodeConfigFile(nil)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return result
+	}
+	payload, err := parseJSONLikeObject(data)
+	if err != nil {
+		return result
+	}
+	mcp, _ := payload["mcp"].(map[string]any)
+	for name := range mcp {
+		trimmed := strings.ToLower(strings.TrimSpace(name))
+		if trimmed != "" {
+			result[trimmed] = struct{}{}
+		}
+	}
+	return result
+}
+
+func (ms *MCPService) syncOpencodeServers(servers []MCPServer) error {
+	path := opencodeConfigFile(nil)
+	desired := map[string]any{}
+	for _, server := range servers {
+		if !platformContains(server.EnablePlatform, platOpencode) {
+			continue
+		}
+		desired[server.Name] = buildOpencodeMcpEntry(server)
+	}
+
+	payload := map[string]any{}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+		if len(desired) == 0 {
+			return nil
+		}
+	} else if len(data) > 0 {
+		parsed, parseErr := parseJSONLikeObject(data)
+		if parseErr != nil {
+			return fmt.Errorf("解析 %s 失败，为保护原文件已中止同步: %v", path, parseErr)
+		}
+		payload = parsed
+	}
+
+	payload["mcp"] = desired
+	out, err := json.MarshalIndent(payload, "", "  ")
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(path, out, 0o644)
+}
+
+func buildOpencodeMcpEntry(server MCPServer) map[string]any {
+	if server.Type == "http" || server.Type == "sse" {
+		entry := map[string]any{
+			"type":    "remote",
+			"url":     server.URL,
+			"enabled": true,
+		}
+		if len(server.Headers) > 0 {
+			entry["headers"] = server.Headers
+		}
+		return entry
+	}
+	cmd := make([]string, 0, 1+len(server.Args))
+	if strings.TrimSpace(server.Command) != "" {
+		cmd = append(cmd, server.Command)
+	}
+	cmd = append(cmd, server.Args...)
+	entry := map[string]any{
+		"type":    "local",
+		"command": cmd,
+		"enabled": true,
+	}
+	if len(server.Env) > 0 {
+		entry["environment"] = server.Env
+	}
+	return entry
+}
+
+func headerValues(headers map[string]string) []string {
+	if len(headers) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(headers))
+	for _, v := range headers {
+		out = append(out, v)
+	}
+	return out
+}
+
+func detectPlaceholders(url string, args []string, extra ...string) []string {
 	set := make(map[string]struct{})
 	collectPlaceholders(set, url)
 	for _, arg := range args {
 		collectPlaceholders(set, arg)
+	}
+	for _, item := range extra {
+		collectPlaceholders(set, item)
 	}
 	if len(set) == 0 {
 		return []string{}
@@ -1326,6 +1481,7 @@ func (ms *MCPService) parseClaudeFormat(servers map[string]claudeDesktopServer) 
 			Args:           cleanArgs(entry.Args),
 			Env:            cleanEnv(entry.Env),
 			URL:            strings.TrimSpace(entry.URL),
+			Headers:        cleanEnv(entry.Headers),
 			EnablePlatform: []string{platClaudeCode}, // 默认启用 Claude
 		}
 
@@ -1439,6 +1595,9 @@ func (ms *MCPService) SyncToPlatforms() ([]MCPServer, error) {
 	if err := ms.syncGrokServers(servers); err != nil {
 		return servers, err
 	}
+	if err := ms.syncOpencodeServers(servers); err != nil {
+		return servers, err
+	}
 	return servers, nil
 }
 
@@ -1447,6 +1606,8 @@ func (ms *MCPService) buildServersFromConfig(config map[string]rawMCPServer) []M
 	claudeEnabled := loadClaudeEnabledServers()
 	codexEnabled := loadCodexEnabledServers()
 	geminiEnabled := loadGeminiEnabledServers()
+	opencodeEnabled := loadOpencodeEnabledServers()
+	grokEnabled := loadGrokEnabledServers()
 
 	names := make([]string, 0, len(config))
 	for name := range config {
@@ -1460,20 +1621,23 @@ func (ms *MCPService) buildServersFromConfig(config map[string]rawMCPServer) []M
 		typ := normalizeServerType(entry.Type)
 		platforms := normalizePlatforms(entry.EnablePlatform)
 		server := MCPServer{
-			Name:            name,
-			Type:            typ,
-			Command:         strings.TrimSpace(entry.Command),
-			Args:            cloneArgs(entry.Args),
-			Env:             cloneEnv(entry.Env),
-			URL:             strings.TrimSpace(entry.URL),
-			Website:         strings.TrimSpace(entry.Website),
-			Tips:            strings.TrimSpace(entry.Tips),
-			EnablePlatform:  platforms,
-			EnabledInClaude: containsNormalized(claudeEnabled, name),
-			EnabledInCodex:  containsNormalized(codexEnabled, name),
-			EnabledInGemini: containsNormalized(geminiEnabled, name),
+			Name:              name,
+			Type:              typ,
+			Command:           strings.TrimSpace(entry.Command),
+			Args:              cloneArgs(entry.Args),
+			Env:               cloneEnv(entry.Env),
+			URL:               strings.TrimSpace(entry.URL),
+			Headers:           cloneEnv(entry.Headers),
+			Website:           strings.TrimSpace(entry.Website),
+			Tips:              strings.TrimSpace(entry.Tips),
+			EnablePlatform:    platforms,
+			EnabledInClaude:   containsNormalized(claudeEnabled, name),
+			EnabledInCodex:    containsNormalized(codexEnabled, name),
+			EnabledInGemini:   containsNormalized(geminiEnabled, name),
+			EnabledInOpencode: containsNormalized(opencodeEnabled, name),
+			EnabledInGrok:     containsNormalized(grokEnabled, name),
 		}
-		server.MissingPlaceholders = detectPlaceholders(server.URL, server.Args)
+		server.MissingPlaceholders = detectPlaceholders(server.URL, server.Args, headerValues(server.Headers)...)
 		servers = append(servers, server)
 	}
 

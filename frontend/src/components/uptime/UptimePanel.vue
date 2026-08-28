@@ -49,7 +49,7 @@
       </CardFooter>
     </Card>
 
-    <div class="mb-3 flex items-center justify-between gap-4">
+    <div class="mb-4 flex items-center justify-between gap-4">
       <div>
         <h4 class="text-sm font-medium">轮换组</h4>
         <p class="mt-1 text-xs text-muted-foreground">
@@ -78,15 +78,17 @@
       <div class="space-y-3">
         <Card v-for="group in uptimeStore.groups" :key="group.name">
           <CardHeader>
-            <div class="flex items-start justify-between gap-4">
-              <div class="min-w-0">
-                <div class="flex items-center gap-2">
-                  <CardTitle class="truncate">{{ group.name }}</CardTitle>
-                  <Badge variant="outline" class="gap-1">
+            <div class="flex min-w-0 items-start justify-between gap-4">
+              <div class="min-w-0 flex-1 overflow-hidden">
+                <div class="flex min-w-0 items-center gap-2">
+                  <AppTooltip :content="group.name" wrap class="min-w-0 flex-1">
+                    <CardTitle>{{ group.name }}</CardTitle>
+                  </AppTooltip>
+                  <Badge variant="outline" class="shrink-0 gap-1">
                     <BrandIcon :provider="group.provider" class="size-3" />
                     {{ providerLabel(group.provider) }}
                   </Badge>
-                  <Badge :variant="group.enabled ? 'default' : 'secondary'">
+                  <Badge :variant="group.enabled ? 'default' : 'secondary'" class="shrink-0">
                     {{ group.enabled ? 'Enabled' : 'Disabled' }}
                   </Badge>
                 </div>
@@ -94,12 +96,14 @@
                   连续失败阈值：<span class="font-mono">{{ group.failure_threshold }}</span>
                 </CardDescription>
                 <div class="mt-3 flex flex-wrap gap-2">
-                  <Badge v-for="name in group.env_names" :key="name" variant="outline" class="font-mono">
-                    {{ name }}
-                  </Badge>
+                  <AppTooltip v-for="name in group.env_names" :key="name" :content="name" wrap>
+                    <Badge variant="outline" class="max-w-full shrink truncate font-mono">
+                      {{ name }}
+                    </Badge>
+                  </AppTooltip>
                 </div>
               </div>
-              <div class="flex shrink-0">
+              <div class="flex shrink-0 gap-2">
                 <Button variant="outline" size="sm" @click="toggleGroup(group)">
                   <Power />
                   {{ group.enabled ? '停用' : '启用' }}
@@ -128,6 +132,7 @@ import { ref, computed, watch } from 'vue'
 import { Loader2, Pencil, Plus, Power, Save, Shuffle, Trash2, Zap } from '@lucide/vue'
 import type { RotationGroup } from '@/types'
 import AppModal from '@/components/common/AppModal.vue'
+import AppTooltip from '@/components/common/AppTooltip.vue'
 import BrandIcon from '@/components/common/BrandIcon.vue'
 import RotationGroupEditModal from './RotationGroupEditModal.vue'
 import { useUptimeStore } from '@/stores/uptimeStore'

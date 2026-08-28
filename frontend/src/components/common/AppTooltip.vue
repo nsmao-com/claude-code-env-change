@@ -8,7 +8,7 @@
         <slot />
       </span>
     </TooltipTrigger>
-    <TooltipContent :side="side" :class="wrap ? 'whitespace-normal break-words' : undefined">
+    <TooltipContent :side="side" :class="wrap ? 'max-w-xs whitespace-normal break-words text-left leading-relaxed' : undefined">
       {{ content }}
     </TooltipContent>
   </Tooltip>

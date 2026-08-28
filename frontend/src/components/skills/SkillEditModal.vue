@@ -47,7 +47,7 @@
         </div>
       </div>
 
-      <div class="flex items-center justify-between">
+      <div class="flex items-center justify-between gap-3">
         <Label>SKILL.md</Label>
         <Button type="button" variant="outline" size="sm" @click="insertTemplate">
           <Sparkles />
@@ -73,7 +73,7 @@
     </form>
 
     <template #footer>
-      <div class="flex items-center justify-between">
+      <div class="flex items-center justify-between gap-3">
         <p class="flex items-center text-xs text-muted-foreground">
           <Info class="mr-1.5 size-3.5" />
           保存后建议重启对应 CLI 生效

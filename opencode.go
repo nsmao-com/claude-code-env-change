@@ -57,7 +57,7 @@ func (a *App) applyOpencodeEnv(env *EnvConfig) (string, error) {
 		content = defaultOpencodeConfig(env)
 	}
 
-	if err := mergeWriteOpencodeConfig(configFile, content); err != nil {
+	if err := mergeWriteOpencodeConfig(configFile, content, env.Variables); err != nil {
 		return "", err
 	}
 	return fmt.Sprintf("OpenCode 配置已应用到 %s", configFile), nil
@@ -73,6 +73,8 @@ func defaultOpencodeConfig(env *EnvConfig) string {
 	payload := map[string]any{
 		"$schema": "https://opencode.ai/config.json",
 	}
+
+	injectOpencodeExtras(payload, env.Variables)
 
 	if baseURL != "" {
 		modelID := model
@@ -123,7 +125,7 @@ func applyOpencodeTemplate(tmpl string, env *EnvConfig) string {
 }
 
 // mergeWriteOpencodeConfig 合并写入 opencode.json，保留用户已有的 agent/mcp 等配置
-func mergeWriteOpencodeConfig(configFile, incoming string) error {
+func mergeWriteOpencodeConfig(configFile, incoming string, vars map[string]string) error {
 	desired, err := parseJSONLikeObject([]byte(incoming))
 	if err != nil {
 		// 模板内容不是可解析 JSON/JSON5 时按原样写入
@@ -140,6 +142,7 @@ func mergeWriteOpencodeConfig(configFile, incoming string) error {
 	}
 
 	deepMergeMap(existing, desired)
+	injectOpencodeExtras(existing, vars)
 	data, err := json.MarshalIndent(existing, "", "  ")
 	if err != nil {
 		return fmt.Errorf("序列化 OpenCode 配置失败: %v", err)

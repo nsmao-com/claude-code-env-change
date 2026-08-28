@@ -118,9 +118,6 @@ func (ss *SkillService) SaveSkill(skill Skill) error {
 	}
 
 	enablePlatform := normalizePlatforms(skill.EnablePlatform)
-	if len(enablePlatform) == 0 {
-		return fmt.Errorf("请至少选择一个平台")
-	}
 
 	content := strings.TrimSpace(skill.Content)
 	if content == "" {

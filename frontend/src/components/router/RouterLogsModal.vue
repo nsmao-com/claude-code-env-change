@@ -89,16 +89,16 @@
       </Table>
     </div>
 
-    <div class="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+    <div class="mt-3 flex items-center justify-between gap-3 text-xs text-muted-foreground">
       <span>共 {{ total }} 条 · 第 {{ page }} / {{ pageCount }} 页</span>
-      <div class="flex items-center">
+      <div class="flex items-center gap-2">
         <Button variant="outline" size="sm" :disabled="offset <= 0" @click="prevPage">上一页</Button>
         <Button variant="outline" size="sm" :disabled="offset + pageSize >= total" @click="nextPage">下一页</Button>
       </div>
     </div>
 
     <template #footer>
-      <div class="flex justify-between">
+      <div class="flex justify-between gap-3">
         <Button type="button" variant="destructive" @click="clearLogs">清空日志</Button>
         <Button type="button" variant="secondary" @click="isOpen = false">关闭</Button>
       </div>

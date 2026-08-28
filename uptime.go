@@ -466,23 +466,16 @@ func runUptimeCheck(client *http.Client, url string) UptimeCheck {
 	start := time.Now()
 	check := UptimeCheck{At: start.Unix()}
 
-	req, err := http.NewRequest(http.MethodHead, url, nil)
+	normalized, err := normalizeProbeURL(url)
 	if err != nil {
 		check.Success = false
 		check.Error = err.Error()
 		return check
 	}
 
-	resp, err := client.Do(req)
+	resp, err := probeURL(client, http.MethodHead, normalized)
 	if err != nil {
-		// fallback GET
-		req, reqErr := http.NewRequest(http.MethodGet, url, nil)
-		if reqErr != nil {
-			check.Success = false
-			check.Error = err.Error()
-			return check
-		}
-		resp, err = client.Do(req)
+		resp, err = probeURL(client, http.MethodGet, normalized)
 	}
 	if err != nil {
 		check.Success = false

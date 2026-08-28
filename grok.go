@@ -45,7 +45,7 @@ func (a *App) applyGrokEnv(env *EnvConfig) (string, error) {
 		content = defaultGrokToml(env)
 	}
 
-	if err := mergeWriteGrokConfig(configFile, content); err != nil {
+	if err := mergeWriteGrokConfig(configFile, content, env.Variables); err != nil {
 		return "", err
 	}
 	return fmt.Sprintf("Grok 配置已应用到 %s", configFile), nil
@@ -102,7 +102,7 @@ func applyGrokTemplate(tmpl string, env *EnvConfig) string {
 	return out
 }
 
-func mergeWriteGrokConfig(configFile, incoming string) error {
+func mergeWriteGrokConfig(configFile, incoming string, vars map[string]string) error {
 	existing := map[string]any{}
 	if data, err := os.ReadFile(configFile); err == nil && len(data) > 0 {
 		_ = toml.Unmarshal(data, &existing)
@@ -123,6 +123,7 @@ func mergeWriteGrokConfig(configFile, incoming string) error {
 			}
 		}
 	}
+	injectGrokExtras(next, vars)
 
 	data, err := toml.Marshal(next)
 	if err != nil {

@@ -10,7 +10,7 @@
     <Tabs v-model="activeTab">
       <SegmentedPills
         v-if="configStore.currentFilter === 'all'"
-        class="mb-3"
+        class="mb-4"
         :model-value="activeTab"
         layout-id="prompt-tab-pill"
         :items="tabs"
@@ -28,11 +28,13 @@
 
       <template v-else>
         <TabsContent v-for="tab in tabs" :key="tab.value" :value="tab.value" class="flex flex-col gap-3">
-          <div class="flex items-center justify-between">
+          <div class="flex items-center justify-between gap-3">
             <div class="flex min-w-0 items-center gap-3">
-              <span class="max-w-md truncate font-mono text-xs text-muted-foreground" :title="fileOf(tab.value)?.path">
-                {{ fileOf(tab.value)?.path || '-' }}
-              </span>
+              <AppTooltip :content="fileOf(tab.value)?.path" wrap :disabled="!fileOf(tab.value)?.path" class="min-w-0 max-w-md">
+                <span class="block truncate font-mono text-xs text-muted-foreground">
+                  {{ fileOf(tab.value)?.path || '-' }}
+                </span>
+              </AppTooltip>
               <Badge v-if="fileOf(tab.value)?.exists">已存在</Badge>
               <Badge v-else variant="outline">未创建</Badge>
             </div>
@@ -59,7 +61,7 @@
     </Tabs>
 
     <template #footer>
-      <div class="flex items-center justify-between">
+      <div class="flex items-center justify-between gap-3">
         <p class="flex items-center text-xs text-muted-foreground">
           <Info class="mr-1.5 size-3.5" />
           修改后需要重启 CLI 工具生效
@@ -85,6 +87,7 @@ import { useConfirm } from '@/composables/useConfirm'
 import { useToast } from '@/composables/useToast'
 import { useConfigStore } from '@/stores/configStore'
 import AppModal from '@/components/common/AppModal.vue'
+import AppTooltip from '@/components/common/AppTooltip.vue'
 import BrandIcon from '@/components/common/BrandIcon.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'

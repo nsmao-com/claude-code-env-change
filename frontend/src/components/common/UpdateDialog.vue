@@ -59,7 +59,7 @@
           </div>
 
           <div v-if="applying" class="space-y-2">
-            <div class="flex items-center justify-between text-xs text-muted-foreground">
+            <div class="flex items-center justify-between gap-2 text-xs text-muted-foreground">
               <span>{{ progressMessage }}</span>
               <span class="font-mono">{{ Math.round(progress) }}%</span>
             </div>

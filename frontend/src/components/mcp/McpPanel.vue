@@ -8,7 +8,7 @@
       <p class="mt-2 text-sm text-muted-foreground">管理 Model Context Protocol 服务器</p>
     </template>
 
-    <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+    <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
       <div class="flex items-center gap-2">
         <Button size="sm" @click="showAddModal">
           <Plus />
@@ -36,7 +36,6 @@
           size="sm"
           variant="outline"
           :disabled="isRefreshing"
-          title="重新获取 MCP 服务器列表"
           @click="refreshServers"
         >
           <Loader2 v-if="isRefreshing" class="animate-spin" />
@@ -47,7 +46,6 @@
           size="sm"
           variant="outline"
           :disabled="isSyncing"
-          title="把已保存的 MCP 配置重新写入 Claude/Codex/Gemini 配置文件"
           @click="syncToPlatforms"
         >
           <Loader2 v-if="isSyncing" class="animate-spin" />
@@ -89,7 +87,7 @@
     </div>
 
     <ScrollArea v-else class="h-[50vh] pr-2">
-      <div :class="viewMode === 'cards' ? 'grid grid-cols-2 gap-3' : 'flex flex-col gap-2'">
+      <div :class="viewMode === 'cards' ? 'grid grid-cols-2 gap-3' : 'flex flex-col gap-2.5'">
         <McpServerCard
           v-for="item in filteredServerItems"
           :key="`${item.server.name}-${item.index}`"
@@ -100,6 +98,7 @@
           @test="testSingle(item.index)"
           @edit="editServer(item.index)"
           @delete="deleteServer(item.index)"
+          @toggle-platform="togglePlatform(item.server, $event)"
         />
       </div>
     </ScrollArea>
@@ -239,6 +238,7 @@ function cloneServerForEdit(server: MCPServer): MCPServer {
     ...server,
     args: [...(server.args || [])],
     env: { ...(server.env || {}) },
+    headers: { ...(server.headers || {}) },
     enable_platform: [...(server.enable_platform || [])],
     missing_placeholders: [...(server.missing_placeholders || [])]
   }
@@ -310,7 +310,7 @@ async function syncToPlatforms() {
   isSyncing.value = true
   try {
     await mcpStore.syncToPlatforms()
-    toast.success('已重新同步到 Claude / Codex / Gemini 配置')
+    toast.success('已重新同步到 Claude / Codex / Gemini / OpenCode / Grok')
   } catch (e: any) {
     toast.error('同步失败: ' + (e?.message || String(e)))
   } finally {
@@ -326,5 +326,28 @@ function onServersImported() {
   mcpStore.loadServers().then(() => {
     mcpStore.testAllServers()
   })
+}
+
+async function togglePlatform(server: MCPServer, platform: string) {
+  if (server.missing_placeholders?.length) {
+    toast.error('请先补全占位符再启用平台')
+    return
+  }
+  try {
+    await mcpStore.togglePlatform(server.name, platform)
+    const on = (mcpStore.servers.find(item => item.name === server.name)?.enable_platform || []).includes(platform)
+    toast.success(on ? `已加入 ${platformLabel(platform)}` : `已从 ${platformLabel(platform)} 移除`)
+  } catch (e: any) {
+    toast.error('切换失败: ' + (e?.message || String(e)))
+  }
+}
+
+function platformLabel(platform: string) {
+  if (platform === 'claude-code') return 'Claude'
+  if (platform === 'codex') return 'Codex'
+  if (platform === 'gemini') return 'Gemini'
+  if (platform === 'opencode') return 'OpenCode'
+  if (platform === 'grok') return 'Grok'
+  return platform
 }
 </script>

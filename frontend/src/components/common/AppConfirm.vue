@@ -6,13 +6,14 @@
         <AlertDialogDescription>{{ message }}</AlertDialogDescription>
       </AlertDialogHeader>
       <AlertDialogFooter>
-        <AlertDialogCancel @click="cancel">取消</AlertDialogCancel>
-        <AlertDialogAction
-          :class="confirmType === 'danger' ? 'bg-destructive text-white hover:bg-destructive/90' : undefined"
+        <Button type="button" variant="outline" @click="cancel">取消</Button>
+        <Button
+          type="button"
+          :variant="confirmType === 'danger' ? 'destructive' : 'default'"
           @click="confirm"
         >
           确定
-        </AlertDialogAction>
+        </Button>
       </AlertDialogFooter>
     </AlertDialogContent>
   </AlertDialog>
@@ -20,10 +21,9 @@
 
 <script setup lang="ts">
 import { useConfirm } from '@/composables/useConfirm'
+import { Button } from '@/components/ui/button'
 import {
   AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,

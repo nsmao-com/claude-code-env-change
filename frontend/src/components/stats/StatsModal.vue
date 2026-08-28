@@ -30,11 +30,11 @@
         <span class="mt-2 text-sm text-muted-foreground">加载中...</span>
       </div>
 
-      <div class="grid grid-cols-3 gap-3" :class="{ 'pointer-events-none opacity-30': loading }">
+      <div class="grid grid-cols-2 gap-3 lg:grid-cols-4" :class="{ 'pointer-events-none opacity-30': loading }">
         <motion.div v-for="(card, i) in kpiItems" :key="card.label" :initial="{ opacity: 0, y: 12 }" :animate="{ opacity: 1, y: 0 }" :transition="{ delay: i * 0.05, duration: 0.28, ease: [0.22, 1, 0.36, 1] }">
           <Card size="sm">
             <CardHeader class="px-5">
-              <div class="flex items-start justify-between">
+              <div class="flex items-start justify-between gap-2">
                 <CardDescription>{{ card.label }}</CardDescription>
                 <component :is="card.icon" class="size-4 text-muted-foreground" />
               </div>
@@ -76,7 +76,7 @@
 
         <Card>
           <CardHeader class="px-5">
-            <div class="flex items-center justify-between">
+            <div class="flex items-center justify-between gap-2">
               <CardTitle>按模型</CardTitle>
               <div v-if="modelPages > 1" class="flex items-center gap-1 text-xs text-muted-foreground">
                 <Button variant="ghost" size="icon-xs" :disabled="modelPage <= 0" @click="modelPage -= 1">
@@ -108,6 +108,105 @@
             <Empty v-if="pagedModels.length === 0" class="h-40 border-0">
               <EmptyHeader>
                 <EmptyTitle>暂无模型数据</EmptyTitle>
+              </EmptyHeader>
+            </Empty>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2" :class="{ 'pointer-events-none opacity-30': loading }">
+        <Card>
+          <CardHeader class="px-5">
+            <CardTitle>请求趋势</CardTitle>
+            <CardDescription>按小时的请求量</CardDescription>
+          </CardHeader>
+          <CardContent class="px-5 pb-5">
+            <div v-if="lineLabels.length" class="h-56">
+              <Line class="size-full" :data="requestLineData" :options="lineOptions" />
+            </div>
+            <Empty v-else class="h-48 border-0">
+              <EmptyHeader>
+                <EmptyTitle>暂无趋势数据</EmptyTitle>
+              </EmptyHeader>
+            </Empty>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader class="px-5">
+            <CardTitle>花费趋势</CardTitle>
+            <CardDescription>按小时估算花费（USD）</CardDescription>
+          </CardHeader>
+          <CardContent class="px-5 pb-5">
+            <div v-if="lineLabels.length" class="h-56">
+              <Line class="size-full" :data="costLineData" :options="lineOptions" />
+            </div>
+            <Empty v-else class="h-48 border-0">
+              <EmptyHeader>
+                <EmptyTitle>暂无花费数据</EmptyTitle>
+              </EmptyHeader>
+            </Empty>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader class="px-5">
+            <CardTitle>输入 / 输出 Tokens</CardTitle>
+            <CardDescription>按小时堆叠对比</CardDescription>
+          </CardHeader>
+          <CardContent class="px-5 pb-5">
+            <div v-if="lineLabels.length" class="h-56">
+              <Bar class="size-full" :data="tokenBarData" :options="stackedBarOptions" />
+            </div>
+            <Empty v-else class="h-48 border-0">
+              <EmptyHeader>
+                <EmptyTitle>暂无 Token 数据</EmptyTitle>
+              </EmptyHeader>
+            </Empty>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader class="px-5">
+            <CardTitle>模型花费</CardTitle>
+            <CardDescription>各模型估算花费</CardDescription>
+          </CardHeader>
+          <CardContent class="px-5 pb-5">
+            <div v-if="modelCostBars.labels.length" class="h-56">
+              <Bar class="size-full" :data="modelCostBars" :options="barOptions" />
+            </div>
+            <Empty v-else class="h-48 border-0">
+              <EmptyHeader>
+                <EmptyTitle>暂无模型花费</EmptyTitle>
+              </EmptyHeader>
+            </Empty>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader class="px-5">
+            <CardTitle>配置用量</CardTitle>
+            <CardDescription>按环境配置归因的请求量</CardDescription>
+          </CardHeader>
+          <CardContent class="px-5 pb-5">
+            <div v-if="envBarData.labels.length" class="h-56">
+              <Bar class="size-full" :data="envBarData" :options="barOptions" />
+            </div>
+            <Empty v-else class="h-48 border-0">
+              <EmptyHeader>
+                <EmptyTitle>暂无配置用量</EmptyTitle>
+              </EmptyHeader>
+            </Empty>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader class="px-5">
+            <CardTitle>缓存命中</CardTitle>
+            <CardDescription>Cache Read vs Cache Write</CardDescription>
+          </CardHeader>
+          <CardContent class="px-5 pb-5">
+            <div v-if="cacheDoughnut.labels.length" class="mx-auto h-56 max-w-xs">
+              <Doughnut class="size-full" :data="cacheDoughnut" :options="doughnutOptions" />
+            </div>
+            <Empty v-else class="h-48 border-0">
+              <EmptyHeader>
+                <EmptyTitle>暂无缓存数据</EmptyTitle>
               </EmptyHeader>
             </Empty>
           </CardContent>
@@ -146,14 +245,20 @@
           </div>
           <div class="flex min-w-0 flex-1 gap-0.5">
             <div v-for="(week, weekIdx) in heatmapGrid" :key="weekIdx" class="flex min-w-0 flex-1 flex-col gap-0.5">
-              <div
+              <AppTooltip
                 v-for="(day, dayIdx) in week"
                 :key="dayIdx"
-                class="aspect-square w-full rounded-[2px]"
-                :class="day.date ? 'cursor-pointer hover:outline hover:outline-2 hover:outline-primary' : 'cursor-default'"
-                :style="{ backgroundColor: day.date ? getHeatmapColor(day.requests) : 'transparent', outline: day.isToday ? '2px solid var(--primary)' : undefined }"
-                :title="day.date ? `${day.date}: ${day.requests} 次请求, ${formatNumber(day.tokens)} tokens, $${formatCost(day.cost)}` : ''"
-              />
+                :content="day.date ? `${day.date}: ${day.requests} 次请求, ${formatNumber(day.tokens)} tokens, $${formatCost(day.cost)}` : ''"
+                :disabled="!day.date"
+                wrap
+                class="block w-full"
+              >
+                <div
+                  class="aspect-square w-full rounded-[2px]"
+                  :class="day.date ? 'cursor-pointer hover:outline hover:outline-2 hover:outline-primary' : 'cursor-default'"
+                  :style="{ backgroundColor: day.date ? getHeatmapColor(day.requests) : 'transparent', outline: day.isToday ? '2px solid var(--primary)' : undefined }"
+                />
+              </AppTooltip>
             </div>
           </div>
         </div>
@@ -189,15 +294,22 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { motion } from 'motion-v'
-import { Activity, Calendar, ChartLine, ChevronLeft, ChevronRight, Coins, FolderOpen, Loader2, RefreshCw } from '@lucide/vue'
-import { Doughnut } from 'vue-chartjs'
+import { Activity, Calendar, ChartLine, ChevronLeft, ChevronRight, Coins, Database, FolderOpen, Loader2, RefreshCw } from '@lucide/vue'
+import { Bar, Doughnut, Line } from 'vue-chartjs'
 import {
   Chart as ChartJS,
   ArcElement,
+  BarElement,
+  CategoryScale,
+  Filler,
+  Legend,
+  LinearScale,
+  LineElement,
+  PointElement,
   Tooltip,
-  Legend
 } from 'chart.js'
 import AppModal from '@/components/common/AppModal.vue'
+import AppTooltip from '@/components/common/AppTooltip.vue'
 import ToolFilterChips from '@/components/layout/ToolFilterChips.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -205,11 +317,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Empty, EmptyHeader, EmptyTitle } from '@/components/ui/empty'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Progress } from '@/components/ui/progress'
-import { getStatsOverview, getUsageStats, getHeatmapData, getLogDirectory, type UsageStats, type HeatmapData, type ModelStats, type StatsPlatform } from '@/services/logService'
+import { getStatsOverview, getUsageStats, getHeatmapData, getLogDirectory, getEnvUsageSummary, type UsageStats, type HeatmapData, type ModelStats, type StatsPlatform, type EnvUsageSummary } from '@/services/logService'
 import { useConfigStore } from '@/stores/configStore'
 import { useToast } from '@/composables/useToast'
 
-ChartJS.register(ArcElement, Tooltip, Legend)
+ChartJS.register(ArcElement, BarElement, CategoryScale, Filler, Legend, LinearScale, LineElement, PointElement, Tooltip)
 
 const CHART_COLORS = ['#8B7CF6', '#5B9CF6', '#F472B6', '#F5C16C', '#2DD4BF', '#C4B5FD', '#94A3B8']
 const dayTabs = [
@@ -242,6 +354,7 @@ const days = ref(7)
 const platform = ref<StatsPlatform>('all')
 const stats = ref<UsageStats | null>(null)
 const heatmap = ref<HeatmapData[]>([])
+const envSummary = ref<Record<string, EnvUsageSummary>>({})
 const logDirectory = ref('')
 const heatmapWeeks = 26
 
@@ -252,11 +365,24 @@ const totalTokens = computed(() => {
   return (stats.value.total_input_tokens || 0) + (stats.value.total_output_tokens || 0)
 })
 
-const kpiItems = computed(() => [
-  { label: '总请求', value: formatNumber(stats.value?.total_requests || 0), icon: Activity },
-  { label: '总 Tokens', value: formatNumber(totalTokens.value), icon: ChartLine },
-  { label: '总花费', value: `$${formatCost(stats.value?.total_cost || 0)}`, icon: Coins },
-])
+const kpiItems = computed(() => {
+  const requests = stats.value?.total_requests || 0
+  const cost = stats.value?.total_cost || 0
+  const cacheRead = stats.value?.total_cache_read || 0
+  const cacheWrite = stats.value?.total_cache_write || 0
+  const input = stats.value?.total_input_tokens || 0
+  const output = stats.value?.total_output_tokens || 0
+  return [
+    { label: '总请求', value: formatNumber(requests), icon: Activity },
+    { label: '总 Tokens', value: formatNumber(totalTokens.value), icon: ChartLine },
+    { label: '总花费', value: `$${formatCost(cost)}`, icon: Coins },
+    { label: '均次花费', value: `$${formatCost(requests ? cost / requests : 0)}`, icon: Coins },
+    { label: '输入 Tokens', value: formatNumber(input), icon: ChartLine },
+    { label: '输出 Tokens', value: formatNumber(output), icon: ChartLine },
+    { label: 'Cache Read', value: formatNumber(cacheRead), icon: Database },
+    { label: 'Cache Write', value: formatNumber(cacheWrite), icon: Database },
+  ]
+})
 
 const sortedModelStats = computed(() => {
   if (!stats.value?.by_model) return {}
@@ -309,6 +435,118 @@ const doughnutData = computed(() => ({
     hoverOffset: 4,
   }],
 }))
+
+const lineLabels = computed(() => (stats.value?.series || []).map(item => item.hour.slice(5)))
+
+const requestLineData = computed(() => ({
+  labels: lineLabels.value,
+  datasets: [{
+    label: '请求',
+    data: (stats.value?.series || []).map(item => item.requests),
+    borderColor: CHART_COLORS[0],
+    backgroundColor: 'rgba(139, 124, 246, 0.15)',
+    fill: true,
+    tension: 0.35,
+    pointRadius: 0,
+  }],
+}))
+
+const costLineData = computed(() => ({
+  labels: lineLabels.value,
+  datasets: [{
+    label: '花费',
+    data: (stats.value?.series || []).map(item => Number(item.cost.toFixed(4))),
+    borderColor: CHART_COLORS[3],
+    backgroundColor: 'rgba(245, 193, 108, 0.18)',
+    fill: true,
+    tension: 0.35,
+    pointRadius: 0,
+  }],
+}))
+
+const tokenBarData = computed(() => ({
+  labels: lineLabels.value,
+  datasets: [
+    {
+      label: '输入',
+      data: (stats.value?.series || []).map(item => item.input_tokens),
+      backgroundColor: CHART_COLORS[1],
+      stack: 'tokens',
+    },
+    {
+      label: '输出',
+      data: (stats.value?.series || []).map(item => item.output_tokens),
+      backgroundColor: CHART_COLORS[2],
+      stack: 'tokens',
+    },
+  ],
+}))
+
+const modelCostBars = computed(() => {
+  const top = modelEntries.value.slice(0, 8)
+  return {
+    labels: top.map(item => formatModelName(item.name)),
+    datasets: [{
+      label: '花费',
+      data: top.map(item => Number(item.stats.cost.toFixed(4))),
+      backgroundColor: top.map(item => item.color),
+    }],
+  }
+})
+
+const envBarData = computed(() => {
+  const entries = Object.entries(envSummary.value || {}).sort((a, b) => b[1].requests - a[1].requests).slice(0, 8)
+  return {
+    labels: entries.map(([name]) => name),
+    datasets: [{
+      label: '请求',
+      data: entries.map(([, item]) => item.requests),
+      backgroundColor: CHART_COLORS[0],
+    }],
+  }
+})
+
+const cacheDoughnut = computed(() => {
+  const read = stats.value?.total_cache_read || 0
+  const write = stats.value?.total_cache_write || 0
+  if (!read && !write) return { labels: [] as string[], datasets: [] }
+  return {
+    labels: ['Cache Read', 'Cache Write'],
+    datasets: [{
+      data: [read, write],
+      backgroundColor: [CHART_COLORS[5], CHART_COLORS[3]],
+      borderWidth: 0,
+    }],
+  }
+})
+
+const lineOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: { legend: { display: false } },
+  scales: {
+    x: { ticks: { maxTicksLimit: 8, color: 'oklch(0.55 0 0)' }, grid: { display: false } },
+    y: { ticks: { color: 'oklch(0.55 0 0)' }, grid: { color: 'oklch(0.9 0 0 / 0.4)' } },
+  },
+}
+
+const barOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: { legend: { display: false } },
+  scales: {
+    x: { ticks: { color: 'oklch(0.55 0 0)' }, grid: { display: false } },
+    y: { ticks: { color: 'oklch(0.55 0 0)' }, grid: { color: 'oklch(0.9 0 0 / 0.4)' } },
+  },
+}
+
+const stackedBarOptions = {
+  ...barOptions,
+  scales: {
+    x: { stacked: true, ticks: { maxTicksLimit: 8, color: 'oklch(0.55 0 0)' }, grid: { display: false } },
+    y: { stacked: true, ticks: { color: 'oklch(0.55 0 0)' }, grid: { color: 'oklch(0.9 0 0 / 0.4)' } },
+  },
+}
 
 const doughnutOptions = {
   responsive: true,
@@ -469,6 +707,7 @@ async function loadData() {
     stats.value = data.stats
     heatmap.value = data.heatmap || []
     logDirectory.value = data.log_directory || ''
+    envSummary.value = await getEnvUsageSummary(days.value).catch(() => ({}))
   } catch {
     // 后端未重新编译（没有合并接口）时，回退到原有两个接口
     try {
@@ -479,6 +718,7 @@ async function loadData() {
       stats.value = statsData
       heatmap.value = heatmapData
       logDirectory.value = await getLogDirectory().catch(() => '')
+      envSummary.value = await getEnvUsageSummary(days.value).catch(() => ({}))
     } catch (err) {
       console.error('统计数据加载失败', err)
       toastError(`统计数据加载失败: ${err instanceof Error ? err.message : String(err)}`)

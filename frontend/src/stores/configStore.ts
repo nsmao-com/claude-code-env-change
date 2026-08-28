@@ -138,6 +138,22 @@ export const useConfigStore = defineStore('config', () => {
     return count
   }
 
+  async function importConfigJSON(payload: string): Promise<number> {
+    const count = await configService.importConfigJSON(payload)
+    await loadConfig()
+    return count
+  }
+
+  async function readDroppedFile(path: string): Promise<string> {
+    return configService.readDroppedFile(path)
+  }
+
+  async function importLocalEnv(provider: Provider | 'all' = 'all'): Promise<EnvConfig[]> {
+    const added = await configService.importLocalEnv(provider)
+    await loadConfig()
+    return added
+  }
+
   async function getCurrentSettings(provider: Provider): Promise<Record<string, string>> {
     switch (provider) {
       case 'claude':
@@ -225,6 +241,9 @@ export const useConfigStore = defineStore('config', () => {
     clearGrokSettings,
     exportConfig,
     importConfig,
+    importConfigJSON,
+    readDroppedFile,
+    importLocalEnv,
     getCurrentSettings,
     setFilter,
     setEnvTab,
