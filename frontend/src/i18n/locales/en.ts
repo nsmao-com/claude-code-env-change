@@ -29,6 +29,9 @@ export const en = {
     minimize: 'Minimize',
     maximize: 'Maximize',
     close: 'Close',
+    routingOn: '{name} routing on',
+    routingOff: '{name} routing off',
+    routingHint: 'When on, {name} traffic goes through the local gateway (shared port). Conversion only happens for a non-native upstream format in the config.',
   },
   palette: {
     title: 'Search',
@@ -190,6 +193,11 @@ export const en = {
     clearedOpencode: 'OpenCode model config cleared',
     clearedGrok: 'Grok API key removed from config.toml',
     clearedAll: 'All configs cleared',
+    languageSet: 'Language set to {name}',
+    themeSet: 'Theme set to {name}',
+    accentSet: 'Accent set to {name}',
+    settingOn: '{name} on',
+    settingOff: '{name} off',
   },
   confirm: {
     deleteConfig: 'Delete config',

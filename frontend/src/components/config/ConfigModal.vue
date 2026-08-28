@@ -42,22 +42,6 @@
             </Button>
           </template>
         </AppInput>
-        <div class="grid gap-1.5">
-          <FieldLabel label="上游格式" :hint="tips.upstreamClaude" />
-          <Select v-model="upstreamSelect">
-            <SelectTrigger class="w-full">
-              <SelectValue placeholder="选择上游 API 格式" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem v-for="opt in upstreamOptions" :key="opt.value" :value="opt.value">
-                {{ opt.label }}
-              </SelectItem>
-            </SelectContent>
-          </Select>
-          <p v-if="form.upstreamFormat" class="text-xs leading-relaxed text-muted-foreground">
-            应用时由本地路由做协议转换，Claude Code 会指向本机网关；真实上游仍用上面的地址与密钥。切回原生后会写回原地址并删除自动路由。
-          </p>
-        </div>
         <AppInput v-model="form.claude.authToken" label="Auth Token" placeholder="可选" :tooltip="tips.authToken" />
         <AppInput v-model="form.claude.model" label="Model" placeholder="claude-sonnet-4-20250514" :tooltip="tips.modelClaude" />
         <AppInput
@@ -179,22 +163,6 @@
             </Button>
           </template>
         </AppInput>
-        <div class="grid gap-1.5">
-          <FieldLabel label="上游格式" :hint="tips.upstreamCodex" />
-          <Select v-model="upstreamSelect">
-            <SelectTrigger class="w-full">
-              <SelectValue placeholder="选择上游 API 格式" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem v-for="opt in upstreamOptions" :key="opt.value" :value="opt.value">
-                {{ opt.label }}
-              </SelectItem>
-            </SelectContent>
-          </Select>
-          <p v-if="form.upstreamFormat" class="text-xs leading-relaxed text-muted-foreground">
-            应用时由本地路由把 Responses 请求转成上游格式，Codex 会指向本机网关（wire_api 保持 responses）。切回原生后会写回原地址并删除自动路由。
-          </p>
-        </div>
         <AppInput
           v-model="form.codex.apiKey"
           label="API Key"
@@ -418,6 +386,28 @@
           <CodeEditor v-model="form.grok.configTemplate" language="toml" placeholder="留空则按上面的字段生成" class="min-h-32" />
         </div>
       </div>
+
+      <div class="space-y-3 border-t pt-3">
+        <Button type="button" variant="ghost" size="sm" @click="showAdvanced = !showAdvanced">
+          {{ showAdvanced ? '收起高级选项' : '高级选项' }}
+        </Button>
+        <div v-if="showAdvanced" class="grid gap-1.5">
+          <FieldLabel label="上游格式" :hint="tips.upstreamAdvanced" />
+          <Select v-model="upstreamSelect">
+            <SelectTrigger class="w-full">
+              <SelectValue placeholder="选择上游 API 格式" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem v-for="opt in upstreamOptions" :key="opt.value" :value="opt.value">
+                {{ opt.label }}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+          <p class="text-xs leading-relaxed text-muted-foreground">
+            原生格式可直连。其它格式必须先在左上角打开该模型商的路由开关，才会做协议转换；关闭路由则仍写原来的地址。
+          </p>
+        </div>
+      </div>
     </form>
 
     <template #footer>
@@ -467,6 +457,7 @@ const isOpen = computed({
 const isEditing = computed(() => !!props.editConfig)
 const showEmojiPicker = ref(false)
 const showMore = ref(false)
+const showAdvanced = ref(false)
 type ApiKeyProvider = 'claude' | 'codex' | 'gemini' | 'opencode' | 'grok'
 const showApiKey = ref<Record<ApiKeyProvider, boolean>>({
   claude: false,
@@ -510,7 +501,7 @@ const tips = {
   icon: '列表里显示的 emoji，方便区分多套配置。',
   description: '可选备注，只在本软件显示，不写入 CLI。',
   baseUrlClaude: 'API 根地址。官方是 https://api.anthropic.com。中转/聚合填对方给的地址，一般不要再拼 /v1/messages。右侧闪电图标可测延迟。写入 ANTHROPIC_BASE_URL。',
-  upstreamClaude: '上游实际协议。官方 Anthropic 选「原生」。若中转是 OpenAI Chat Completions，选对应项，应用后会走本机路由做协议转换。',
+  upstreamAdvanced: '上游实际返回的协议。原生可直连；Chat Completions / Anthropic Messages / Responses 等非原生格式，必须先在左上角打开该模型商的路由开关才会转换。',
   authToken: '部分中转用 Token 而不是 API Key。对应 ANTHROPIC_AUTH_TOKEN。通常与 API Key 二选一即可。',
   modelClaude: '主模型 ID，例如 claude-sonnet-4-20250514 或中转文档里的名称。写入 ANTHROPIC_MODEL。',
   apiKeyClaude: '密钥。官方以 sk-ant- 开头，中转按对方格式。写入 ANTHROPIC_API_KEY。',
@@ -534,7 +525,6 @@ const tips = {
   disableTelemetry: '1 关闭遥测上报。不设置则沿用 CLI 默认。',
   disableErrorReporting: '1 关闭错误上报。不设置则沿用 CLI 默认。',
   baseUrlCodex: 'OpenAI 兼容 API 根地址，官方是 https://api.openai.com/v1。写入 config.toml 的 base_url。',
-  upstreamCodex: 'Codex 原生是 Responses。若上游是 Chat Completions 或 Anthropic Messages，选对应项并走本机路由转换。',
   apiKeyCodex: '写入 auth.json 的 OPENAI_API_KEY。官方以 sk- 开头，中转按对方格式。',
   modelCodex: '模型 ID，例如 gpt-5 或中转文档里的名称。写入 config.toml 的 model。',
   contextWindowCodex: '模型上下文窗口大小，填数字。对应 model_context_window。',
@@ -586,22 +576,34 @@ function onProvider(value: unknown) {
   }
 }
 
-// 上游格式选项：按 provider 给出原生格式与可转换格式（与后端 needsRouting 支持的转换矩阵一致）
 const upstreamOptions = computed(() => {
-  if (form.value.provider === 'claude') {
-    return [
+  const extra: Record<Provider, { value: string; label: string }[]> = {
+    claude: [
       { value: 'native', label: 'Anthropic Messages（原生）' },
       { value: 'chat_completions', label: 'Chat Completions（需开启路由）' },
-    ]
-  }
-  if (form.value.provider === 'codex') {
-    return [
+    ],
+    codex: [
       { value: 'native', label: 'Responses（原生）' },
       { value: 'chat_completions', label: 'Chat Completions（需开启路由）' },
       { value: 'anthropic_messages', label: 'Anthropic Messages（需开启路由）' },
-    ]
+    ],
+    gemini: [
+      { value: 'native', label: 'Gemini（原生）' },
+      { value: 'chat_completions', label: 'Chat Completions（需开启路由）' },
+      { value: 'anthropic_messages', label: 'Anthropic Messages（需开启路由）' },
+    ],
+    opencode: [
+      { value: 'native', label: 'Chat Completions（原生）' },
+      { value: 'anthropic_messages', label: 'Anthropic Messages（需开启路由）' },
+      { value: 'responses', label: 'Responses（需开启路由）' },
+    ],
+    grok: [
+      { value: 'native', label: 'Responses（原生）' },
+      { value: 'chat_completions', label: 'Chat Completions（需开启路由）' },
+      { value: 'anthropic_messages', label: 'Anthropic Messages（需开启路由）' },
+    ],
   }
-  return []
+  return extra[form.value.provider] || extra.claude
 })
 
 // Select 不接受空字符串值，用 native 哨兵值桥接
@@ -744,10 +746,8 @@ watch(() => props.editConfig, (config) => {
     form.value.description = config.description || ''
     form.value.icon = config.icon || '📦'
     form.value.provider = config.provider
-    form.value.upstreamFormat = (config.upstream_format
-      && (config.provider === 'claude' || config.provider === 'codex')
-      ? config.upstream_format
-      : '') as UpstreamFormat
+    form.value.upstreamFormat = (config.upstream_format || '') as UpstreamFormat
+    showAdvanced.value = !!config.upstream_format
 
     if (config.provider === 'claude') {
       form.value.claude.baseUrl = config.variables.ANTHROPIC_BASE_URL || ''
@@ -824,6 +824,7 @@ watch(() => props.editConfig, (config) => {
   } else {
     form.value = defaultForm()
     originalName.value = ''
+    showAdvanced.value = false
   }
 }, { immediate: true })
 
@@ -832,6 +833,7 @@ watch(isOpen, (open) => {
     form.value = defaultForm()
     originalName.value = ''
     showMore.value = false
+    showAdvanced.value = false
     resetApiKeyVisibility()
   }
 })
@@ -949,6 +951,11 @@ async function handleSubmit() {
       OPENCODE_CONFIG_DIR: form.value.opencode.configDir,
       OPENCODE_CONFIG: form.value.opencode.configPath
     }
+    if (isEditing.value && props.editConfig?.variables) {
+      for (const key of ['OPENCODE_PROVIDER_ID', 'OPENCODE_PROVIDER_NAME', 'OPENCODE_NPM', 'OPENCODE_MODELS']) {
+        if (props.editConfig.variables[key]) variables[key] = props.editConfig.variables[key]
+      }
+    }
     if (form.value.opencode.configTemplate) {
       templates['opencode.json'] = form.value.opencode.configTemplate
     }
@@ -976,9 +983,7 @@ async function handleSubmit() {
     variables,
     templates,
     icon: form.value.icon,
-    upstream_format: form.value.provider === 'claude' || form.value.provider === 'codex'
-      ? form.value.upstreamFormat
-      : '',
+    upstream_format: form.value.upstreamFormat,
     attribution_header: form.value.provider === 'claude' ? form.value.claude.attributionHeader : '',
     disable_nonessential_traffic: form.value.provider === 'claude' ? form.value.claude.disableNonessentialTraffic : ''
   }

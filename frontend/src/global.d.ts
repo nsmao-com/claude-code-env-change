@@ -21,6 +21,9 @@ declare global {
           GetClaudeSettings(): Promise<Record<string, string>>
           GetCodexSettings(): Promise<Record<string, string>>
           GetGeminiSettings(): Promise<Record<string, string>>
+          GetProviderRouting(): Promise<Record<string, boolean>>
+          SetProviderRouting(provider: string, enabled: boolean): Promise<void>
+          RefreshRoutedProviders(): Promise<void>
           ExportConfig(path: string): Promise<void>
           ImportConfig(path: string): Promise<void>
         }

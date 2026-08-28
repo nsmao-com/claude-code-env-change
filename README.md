@@ -31,7 +31,7 @@
 
 把五套 CLI 的环境变量、MCP 服务器、Skills、提示词、用量统计和本机安装收进同一个原生窗口。配置写在本机，不经过第三方账号；换电脑时可以用 S3 兼容对象存储加密备份。
 
-当前版本 **v2.2.0**。版本说明和安装包见 [GitHub Releases](https://github.com/nsmao-com/claude-code-env-change/releases)。
+当前版本 **v2.3.0**。版本说明和安装包见 [GitHub Releases](https://github.com/nsmao-com/claude-code-env-change/releases)。
 
 ## 功能
 

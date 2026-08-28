@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -28,19 +29,19 @@ func (a *App) ImportLocalEnv(provider string) ([]EnvConfig, error) {
 	added := make([]EnvConfig, 0, len(targets))
 	var errs []string
 	for _, item := range targets {
-		env, err := a.buildLocalEnv(item)
+		envs, err := a.buildLocalEnvs(item)
 		if err != nil {
 			errs = append(errs, err.Error())
 			continue
 		}
-		if env == nil {
-			continue
+		for _, env := range envs {
+			env := env
+			if err := a.AddEnv(env); err != nil {
+				errs = append(errs, fmt.Sprintf("%s: %v", item, err))
+				continue
+			}
+			added = append(added, env)
 		}
-		if err := a.AddEnv(*env); err != nil {
-			errs = append(errs, fmt.Sprintf("%s: %v", item, err))
-			continue
-		}
-		added = append(added, *env)
 	}
 
 	if len(added) == 0 {
@@ -53,17 +54,44 @@ func (a *App) ImportLocalEnv(provider string) ([]EnvConfig, error) {
 }
 
 func (a *App) buildLocalEnv(provider string) (*EnvConfig, error) {
+	envs, err := a.buildLocalEnvs(provider)
+	if err != nil {
+		return nil, err
+	}
+	if len(envs) == 0 {
+		return nil, nil
+	}
+	return &envs[0], nil
+}
+
+func (a *App) buildLocalEnvs(provider string) ([]EnvConfig, error) {
 	switch provider {
 	case "claude":
-		return a.buildLocalClaudeEnv()
+		env, err := a.buildLocalClaudeEnv()
+		if err != nil || env == nil {
+			return nil, err
+		}
+		return []EnvConfig{*env}, nil
 	case "codex":
-		return a.buildLocalCodexEnv()
+		env, err := a.buildLocalCodexEnv()
+		if err != nil || env == nil {
+			return nil, err
+		}
+		return []EnvConfig{*env}, nil
 	case "gemini":
-		return a.buildLocalGeminiEnv()
+		env, err := a.buildLocalGeminiEnv()
+		if err != nil || env == nil {
+			return nil, err
+		}
+		return []EnvConfig{*env}, nil
 	case "opencode":
-		return a.buildLocalOpencodeEnv()
+		return a.buildLocalOpencodeEnvs()
 	case "grok":
-		return a.buildLocalGrokEnv()
+		env, err := a.buildLocalGrokEnv()
+		if err != nil || env == nil {
+			return nil, err
+		}
+		return []EnvConfig{*env}, nil
 	default:
 		return nil, fmt.Errorf("未知平台 %s", provider)
 	}
@@ -212,61 +240,240 @@ func (a *App) buildLocalGeminiEnv() (*EnvConfig, error) {
 }
 
 func (a *App) buildLocalOpencodeEnv() (*EnvConfig, error) {
-	settings := a.GetOpencodeSettings()
-	if v := settings["OPENCODE_BASE_URL"]; v != "" {
-		settings["OPENCODE_BASE_URL"] = resolveImportedBaseURL(v)
+	envs, err := a.buildLocalOpencodeEnvs()
+	if err != nil || len(envs) == 0 {
+		return nil, err
 	}
-	variables := map[string]string{}
-	copyIfSet(variables, settings,
-		"OPENCODE_BASE_URL", "OPENCODE_API_KEY", "OPENCODE_MODEL",
-		"OPENCODE_CONFIG_DIR", "OPENCODE_CONFIG", "OPENCODE_SMALL_MODEL",
-		"OPENCODE_USERNAME")
+	return &envs[0], nil
+}
 
-	templates := map[string]string{}
-	configFile := settings["OPENCODE_CONFIG"]
-	if configFile == "" {
-		configFile = opencodeConfigFile(nil)
+func (a *App) buildLocalOpencodeEnvs() ([]EnvConfig, error) {
+	configFile := opencodeConfigFile(nil)
+	data, err := os.ReadFile(configFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
 	}
-	if data, err := os.ReadFile(configFile); err == nil && len(data) > 0 {
-		tmpl := string(data)
-		for _, key := range []string{"OPENCODE_BASE_URL", "OPENCODE_API_KEY", "OPENCODE_MODEL"} {
-			if v := strings.TrimSpace(variables[key]); v != "" {
-				tmpl = strings.ReplaceAll(tmpl, v, "{{"+key+"}}")
-			}
-		}
-		templates["opencode.json"] = tmpl
-		var payload map[string]any
-		if parsed, err := parseJSONLikeObject(data); err == nil {
-			payload = parsed
-			if v, ok := payload["small_model"].(string); ok {
-				variables["OPENCODE_SMALL_MODEL"] = strings.TrimSpace(v)
-			}
-			if v, ok := payload["username"].(string); ok {
-				variables["OPENCODE_USERNAME"] = strings.TrimSpace(v)
-			}
-			if v, ok := payload["autoupdate"].(bool); ok {
-				variables["OPENCODE_AUTOUPDATE"] = bool01(v)
-			}
-			if v, ok := payload["snapshot"].(bool); ok {
-				variables["OPENCODE_SNAPSHOT"] = bool01(v)
-			}
-			if v, ok := payload["share"].(string); ok {
-				variables["OPENCODE_SHARE"] = strings.TrimSpace(v)
-			}
-		}
+	payload, err := parseJSONLikeObject(data)
+	if err != nil {
+		return nil, fmt.Errorf("解析 OpenCode 配置失败: %v", err)
 	}
 
-	if !hasAnyValue(variables, "OPENCODE_BASE_URL", "OPENCODE_API_KEY", "OPENCODE_MODEL") && len(templates) == 0 {
-		return nil, nil
+	providers := opencodeProviderMap(payload)
+	authKeys := loadOpencodeAuthKeys()
+	defaultModel := ""
+	if v, ok := payload["model"].(string); ok {
+		defaultModel = strings.TrimSpace(v)
+	}
+
+	globals := map[string]string{
+		"OPENCODE_CONFIG_DIR": resolveOpencodeConfigDir(nil),
+		"OPENCODE_CONFIG":     configFile,
+	}
+	if v, ok := payload["small_model"].(string); ok {
+		globals["OPENCODE_SMALL_MODEL"] = strings.TrimSpace(v)
+	}
+	if v, ok := payload["username"].(string); ok {
+		globals["OPENCODE_USERNAME"] = strings.TrimSpace(v)
+	}
+	if v, ok := payload["share"].(string); ok {
+		globals["OPENCODE_SHARE"] = strings.TrimSpace(v)
+	}
+	if v, ok := payload["autoupdate"].(bool); ok {
+		globals["OPENCODE_AUTOUPDATE"] = bool01(v)
+	}
+	if v, ok := payload["snapshot"].(bool); ok {
+		globals["OPENCODE_SNAPSHOT"] = bool01(v)
+	}
+
+	var out []EnvConfig
+	if len(providers) > 0 {
+		ids := make([]string, 0, len(providers))
+		for id := range providers {
+			ids = append(ids, id)
+		}
+		sort.Strings(ids)
+		matchedDefault := false
+		for _, id := range ids {
+			raw, _ := providers[id].(map[string]any)
+			env := a.envFromOpencodeProvider(id, raw, authKeys[id], defaultModel, globals)
+			if env == nil {
+				continue
+			}
+			if defaultModel != "" && strings.HasPrefix(defaultModel, id+"/") {
+				matchedDefault = true
+				copyIfSet(env.Variables, globals, "OPENCODE_SMALL_MODEL", "OPENCODE_USERNAME", "OPENCODE_SHARE", "OPENCODE_AUTOUPDATE", "OPENCODE_SNAPSHOT")
+			}
+			out = append(out, *env)
+		}
+		if !matchedDefault && len(out) > 0 {
+			copyIfSet(out[0].Variables, globals, "OPENCODE_SMALL_MODEL", "OPENCODE_USERNAME", "OPENCODE_SHARE", "OPENCODE_AUTOUPDATE", "OPENCODE_SNAPSHOT")
+		}
+	}
+
+	if len(out) == 0 && (defaultModel != "" || len(authKeys) > 0) {
+		variables := map[string]string{}
+		copyIfSet(variables, globals, "OPENCODE_CONFIG_DIR", "OPENCODE_CONFIG", "OPENCODE_SMALL_MODEL", "OPENCODE_USERNAME", "OPENCODE_SHARE", "OPENCODE_AUTOUPDATE", "OPENCODE_SNAPSHOT")
+		variables["OPENCODE_MODEL"] = defaultModel
+		if key := firstAuthKey(authKeys); key != "" {
+			variables["OPENCODE_API_KEY"] = key
+		}
+		out = append(out, EnvConfig{
+			Name:        a.uniqueEnvName("本机 OpenCode"),
+			Description: "从本机 OpenCode 配置导入",
+			Provider:    "opencode",
+			Variables:   variables,
+			Icon:        "💻",
+		})
+	}
+	return out, nil
+}
+
+func (a *App) envFromOpencodeProvider(id string, raw map[string]any, authKey, defaultModel string, globals map[string]string) *EnvConfig {
+	if raw == nil {
+		raw = map[string]any{}
+	}
+	display := strings.TrimSpace(asString(raw["name"]))
+	if display == "" {
+		display = id
+	}
+	npmPkg := strings.TrimSpace(asString(raw["npm"]))
+	options, _ := raw["options"].(map[string]any)
+	baseURL := ""
+	apiKey := ""
+	if options != nil {
+		baseURL = resolveImportedBaseURL(asString(options["baseURL"]))
+		apiKey = strings.TrimSpace(asString(options["apiKey"]))
+	}
+	if apiKey == "" {
+		apiKey = strings.TrimSpace(authKey)
+	}
+	modelIDs := opencodeProviderModelIDs(raw["models"])
+	model := ""
+	if defaultModel != "" && (strings.HasPrefix(defaultModel, id+"/") || strings.HasPrefix(defaultModel, id+"\\")) {
+		model = defaultModel
+	} else if len(modelIDs) > 0 {
+		model = id + "/" + modelIDs[0]
+	}
+
+	if baseURL == "" && apiKey == "" && model == "" && len(modelIDs) == 0 {
+		return nil
+	}
+
+	variables := map[string]string{
+		"OPENCODE_PROVIDER_ID":   id,
+		"OPENCODE_PROVIDER_NAME": display,
+	}
+	copyIfSet(variables, globals, "OPENCODE_CONFIG_DIR", "OPENCODE_CONFIG")
+	if baseURL != "" {
+		variables["OPENCODE_BASE_URL"] = baseURL
+	}
+	if apiKey != "" {
+		variables["OPENCODE_API_KEY"] = apiKey
+	}
+	if model != "" {
+		variables["OPENCODE_MODEL"] = model
+	}
+	if npmPkg != "" {
+		variables["OPENCODE_NPM"] = npmPkg
+	}
+	if len(modelIDs) > 0 {
+		variables["OPENCODE_MODELS"] = strings.Join(modelIDs, ",")
 	}
 	return &EnvConfig{
-		Name:        a.uniqueEnvName("本机 OpenCode"),
-		Description: "从本机 OpenCode 配置导入",
+		Name:        a.uniqueEnvName("本机 OpenCode · " + display),
+		Description: "从本机 OpenCode provider " + id + " 导入",
 		Provider:    "opencode",
 		Variables:   variables,
-		Templates:   templates,
 		Icon:        "💻",
-	}, nil
+	}
+}
+
+func opencodeProviderMap(payload map[string]any) map[string]any {
+	if payload == nil {
+		return nil
+	}
+	if p, ok := payload["provider"].(map[string]any); ok && len(p) > 0 {
+		return p
+	}
+	if p, ok := payload["providers"].(map[string]any); ok && len(p) > 0 {
+		return p
+	}
+	return nil
+}
+
+func opencodeProviderModelIDs(raw any) []string {
+	models, ok := raw.(map[string]any)
+	if !ok || len(models) == 0 {
+		return nil
+	}
+	ids := make([]string, 0, len(models))
+	for id := range models {
+		id = strings.TrimSpace(id)
+		if id != "" {
+			ids = append(ids, id)
+		}
+	}
+	sort.Strings(ids)
+	return ids
+}
+
+func opencodeAuthFile() string {
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".local", "share", "opencode", "auth.json")
+}
+
+func loadOpencodeAuthKeys() map[string]string {
+	out := map[string]string{}
+	data, err := os.ReadFile(opencodeAuthFile())
+	if err != nil || len(data) == 0 {
+		return out
+	}
+	payload, err := parseJSONLikeObject(data)
+	if err != nil {
+		return out
+	}
+	for id, raw := range payload {
+		entry, ok := raw.(map[string]any)
+		if !ok {
+			continue
+		}
+		key := strings.TrimSpace(asString(entry["key"]))
+		if key == "" {
+			key = strings.TrimSpace(asString(entry["apiKey"]))
+		}
+		if key != "" {
+			out[id] = key
+		}
+	}
+	return out
+}
+
+func firstAuthKey(keys map[string]string) string {
+	ids := make([]string, 0, len(keys))
+	for id := range keys {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	for _, id := range ids {
+		if keys[id] != "" {
+			return keys[id]
+		}
+	}
+	return ""
+}
+
+func asString(v any) string {
+	switch t := v.(type) {
+	case string:
+		return t
+	case fmt.Stringer:
+		return t.String()
+	default:
+		return ""
+	}
 }
 
 func (a *App) buildLocalGrokEnv() (*EnvConfig, error) {

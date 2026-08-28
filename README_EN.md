@@ -31,7 +31,7 @@
 
 One native window for five CLI toolchains: environment variables, MCP servers, Skills, prompt files, usage stats, and local installs. Everything stays on disk unless you opt into S3-compatible backup. No third-party account is required to run the app.
 
-Current release: **v2.2.0**. Release notes and binaries live on [GitHub Releases](https://github.com/nsmao-com/claude-code-env-change/releases).
+Current release: **v2.3.0**. Release notes and binaries live on [GitHub Releases](https://github.com/nsmao-com/claude-code-env-change/releases).
 
 ## Features
 

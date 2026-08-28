@@ -17,6 +17,8 @@ export function ReloadFromDisk():Promise<void>;
 
 export function SaveRouterConfig(arg1:main.RouterConfig):Promise<void>;
 
+export function SetAppRouting(arg1:string,arg2:boolean):Promise<void>;
+
 export function StartGateway():Promise<void>;
 
 export function StopGateway():Promise<void>;

@@ -295,6 +295,32 @@ export namespace main {
 		}
 	}
 	
+	export class EnvUsageSummary {
+	    provider: string;
+	    requests: number;
+	    input_tokens: number;
+	    output_tokens: number;
+	    cache_read_tokens: number;
+	    cache_write_tokens: number;
+	    total_cost: number;
+	    last_timestamp?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new EnvUsageSummary(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.provider = source["provider"];
+	        this.requests = source["requests"];
+	        this.input_tokens = source["input_tokens"];
+	        this.output_tokens = source["output_tokens"];
+	        this.cache_read_tokens = source["cache_read_tokens"];
+	        this.cache_write_tokens = source["cache_write_tokens"];
+	        this.total_cost = source["total_cost"];
+	        this.last_timestamp = source["last_timestamp"];
+	    }
+	}
 	export class RouterLogEntry {
 	    time: string;
 	    route: string;
@@ -558,6 +584,7 @@ export namespace main {
 	    port: number;
 	    auto_start: boolean;
 	    routes: APIRoute[];
+	    app_routing?: Record<string, boolean>;
 	
 	    static createFrom(source: any = {}) {
 	        return new RouterConfig(source);
@@ -568,6 +595,7 @@ export namespace main {
 	        this.port = source["port"];
 	        this.auto_start = source["auto_start"];
 	        this.routes = this.convertValues(source["routes"], APIRoute);
+	        this.app_routing = source["app_routing"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -759,6 +787,7 @@ export namespace main {
 	    stats: UsageStats;
 	    heatmap: HeatmapData[];
 	    log_directory: string;
+	    env_summary: Record<string, EnvUsageSummary>;
 	
 	    static createFrom(source: any = {}) {
 	        return new StatsOverview(source);
@@ -769,6 +798,7 @@ export namespace main {
 	        this.stats = this.convertValues(source["stats"], UsageStats);
 	        this.heatmap = this.convertValues(source["heatmap"], HeatmapData);
 	        this.log_directory = source["log_directory"];
+	        this.env_summary = this.convertValues(source["env_summary"], EnvUsageSummary, true);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -913,6 +943,7 @@ export namespace main {
 	    total_cost: number;
 	    session_id: string;
 	    project_path: string;
+	    provider?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new UsageRecord(source);
@@ -929,6 +960,7 @@ export namespace main {
 	        this.total_cost = source["total_cost"];
 	        this.session_id = source["session_id"];
 	        this.project_path = source["project_path"];
+	        this.provider = source["provider"];
 	    }
 	}
 

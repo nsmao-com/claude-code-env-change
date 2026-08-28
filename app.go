@@ -198,17 +198,21 @@ func (a *App) isCurrentEnvName(name string) bool {
 }
 
 func (a *App) applyEnvByProvider(env *EnvConfig) (string, error) {
-	switch env.Provider {
+	live, err := prepareLiveEnv(env)
+	if err != nil {
+		return "", err
+	}
+	switch live.Provider {
 	case "codex":
-		return a.applyCodexEnv(env)
+		return a.applyCodexEnv(live)
 	case "gemini":
-		return a.applyGeminiEnv(env)
+		return a.applyGeminiEnv(live)
 	case "opencode":
-		return a.applyOpencodeEnv(env)
+		return a.applyOpencodeEnv(live)
 	case "grok":
-		return a.applyGrokEnv(env)
+		return a.applyGrokEnv(live)
 	default:
-		return a.applyClaudeEnv(env)
+		return a.applyClaudeEnv(live)
 	}
 }
 
@@ -346,11 +350,11 @@ func (a *App) ApplyCurrentEnv() (string, error) {
 		msgs = append(msgs, label+": "+msg)
 	}
 
-	apply("Claude", a.config.CurrentEnvClaude, a.applyClaudeEnv)
-	apply("Codex", a.config.CurrentEnvCodex, a.applyCodexEnv)
-	apply("Gemini", a.config.CurrentEnvGemini, a.applyGeminiEnv)
-	apply("OpenCode", a.config.CurrentEnvOpencode, a.applyOpencodeEnv)
-	apply("Grok", a.config.CurrentEnvGrok, a.applyGrokEnv)
+	apply("Claude", a.config.CurrentEnvClaude, a.applyEnvByProvider)
+	apply("Codex", a.config.CurrentEnvCodex, a.applyEnvByProvider)
+	apply("Gemini", a.config.CurrentEnvGemini, a.applyEnvByProvider)
+	apply("OpenCode", a.config.CurrentEnvOpencode, a.applyEnvByProvider)
+	apply("Grok", a.config.CurrentEnvGrok, a.applyEnvByProvider)
 
 	if len(msgs) == 0 && len(errs) == 0 {
 		return "没有激活的环境可应用", nil
@@ -571,17 +575,6 @@ func (a *App) applyClaudeEnv(env *EnvConfig) (string, error) {
 			envMap[key] = value
 		}
 	}
-	// 上游格式非原生时：自动建路由并让 Claude Code 指向本地网关。
-	// 关闭路由时删除自动路由，env 里仍是原始地址，settings.json 会写回原配置。
-	if needsRouting(env) {
-		localBase, err := wireRouterForEnv(env)
-		if err != nil {
-			return "", err
-		}
-		envMap["ANTHROPIC_BASE_URL"] = localBase
-	} else {
-		restoreOriginalRouting(env)
-	}
 	// 根据配置添加 Claude Code 优化选项
 	if env.AttributionHeader != "" {
 		envMap["CLAUDE_CODE_ATTRIBUTION_HEADER"] = env.AttributionHeader
@@ -616,21 +609,7 @@ func (a *App) applyCodexEnv(env *EnvConfig) (string, error) {
 		return "", fmt.Errorf("创建 .codex 目录失败: %v", err)
 	}
 
-	// 上游格式非原生时：自动建路由，base_url 指向本地网关（wire_api 保持 responses）
 	variables := env.Variables
-	if needsRouting(env) {
-		localBase, err := wireRouterForEnv(env)
-		if err != nil {
-			return "", err
-		}
-		variables = make(map[string]string, len(env.Variables)+1)
-		for k, v := range env.Variables {
-			variables[k] = v
-		}
-		variables["base_url"] = strings.TrimRight(localBase, "/") + "/v1"
-	} else {
-		restoreOriginalRouting(env)
-	}
 
 	// 1. 处理 config.toml
 	var configContent string

@@ -29,7 +29,7 @@
         <AppTooltip :content="config.name" wrap class="min-w-0 flex-1">
           <span class="block w-full truncate text-sm font-medium">{{ config.name }}</span>
         </AppTooltip>
-        <Badge v-if="needsRoute" variant="outline" class="shrink-0 border-brand/30 bg-brand/10 text-brand">需路由</Badge>
+        <Badge v-if="needsRoute" variant="outline" class="shrink-0 border-brand/30 bg-brand/10 text-brand">需开启路由</Badge>
         <Badge v-if="isActive" class="shrink-0 gap-1">
           <Check class="size-3" />
           使用中

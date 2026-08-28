@@ -222,15 +222,12 @@ func (a *App) inspectCliTool(spec cliSpec) CliToolStatus {
 	}
 
 	if status.Installed {
-		bin := status.InstallPath
-		if bin == "" {
-			bin = spec.Command
+		bin, ver, out, runErr := firstRunnableCli(copies, spec.Command)
+		if bin != "" {
+			status.InstallPath = bin
+			status.InstallMethod = detectInstallMethod(bin)
 		}
-		out, runErr := runTool(8*time.Second, bin, "--version")
-		if runErr != nil && strings.TrimSpace(out) == "" {
-			out, runErr = runTool(8*time.Second, bin, "version")
-		}
-		status.CurrentVersion = extractVersion(out)
+		status.CurrentVersion = ver
 		if runErr != nil && status.CurrentVersion == "" {
 			status.Runnable = false
 			status.Error = truncateCliError(out, runErr)
@@ -259,9 +256,13 @@ func (a *App) upgradeOne(spec cliSpec) CliUpgradeResult {
 	if installer == "" {
 		return CliUpgradeResult{ID: spec.ID, Success: false, Message: spec.Name + " 未安装，且没有可用的在线安装源"}
 	}
+	latest := status.LatestVersion
+	if latest == "" && spec.NpmPackage != "" {
+		latest, _ = npmLatestVersion(spec.NpmPackage)
+	}
 	a.emitCliProgress(spec.ID, "start", spec.Name+" 使用 "+installer+" 更新中")
 
-	var out string
+	var log strings.Builder
 	var err error
 	switch installer {
 	case "native":
@@ -269,41 +270,251 @@ func (a *App) upgradeOne(spec cliSpec) CliUpgradeResult {
 		if bin == "" {
 			bin = spec.Command
 		}
-		out, err = runTool(4*time.Minute, bin, spec.UpdateArgs...)
-	case "pnpm":
-		pnpm := findPnpmNear(status.InstallPath)
-		if pnpm == "" {
-			return CliUpgradeResult{ID: spec.ID, Success: false, Message: "未找到 pnpm，无法更新 " + spec.Name}
-		}
-		out, err = runTool(4*time.Minute, pnpm, "add", "-g", spec.NpmPackage+"@latest")
-	case "npm":
-		npm := findNpm()
-		if npm == "" {
-			return CliUpgradeResult{ID: spec.ID, Success: false, Message: "未找到 npm，无法更新 " + spec.Name}
-		}
-		out, err = runTool(4*time.Minute, npm, "install", "-g", spec.NpmPackage+"@latest")
+		out, runErr := runTool(4*time.Minute, bin, spec.UpdateArgs...)
+		log.WriteString(out)
+		err = runErr
+	case "pnpm", "npm":
+		out, runErr := upgradeNpmPackage(spec, status, latest)
+		log.WriteString(out)
+		err = runErr
 	default:
 		return CliUpgradeResult{ID: spec.ID, Success: false, Message: spec.Name + " 未安装，且没有可用的在线安装源"}
 	}
-
-	if err != nil {
-		return CliUpgradeResult{ID: spec.ID, Success: false, Message: truncateCliError(out, err), Log: out}
+	if err != nil && strings.TrimSpace(log.String()) == "" {
+		return CliUpgradeResult{ID: spec.ID, Success: false, Message: truncateCliError(log.String(), err), Log: log.String()}
 	}
-	after := a.inspectCliTool(spec)
-	if status.LatestVersion != "" && after.CurrentVersion != "" && versionLess(after.CurrentVersion, status.LatestVersion) {
+
+	if repair := repairNativeBinary(spec, status.InstallPath); repair != "" {
+		log.WriteString("\n")
+		log.WriteString(repair)
+	}
+	if latest != "" && len(spec.UpdateArgs) > 0 && status.InstallPath != "" {
+		if ver := readCliVersion(status.InstallPath); ver == "" || versionLess(ver, latest) {
+			out, _ := runTool(4*time.Minute, status.InstallPath, spec.UpdateArgs...)
+			if strings.TrimSpace(out) != "" {
+				log.WriteString("\n")
+				log.WriteString(out)
+			}
+		}
+	}
+
+	afterVer := readCliVersion(status.InstallPath)
+	if afterVer == "" {
+		after := a.inspectCliTool(spec)
+		afterVer = after.CurrentVersion
+		if after.InstallPath != "" {
+			status.InstallPath = after.InstallPath
+		}
+	}
+	out := strings.TrimSpace(log.String())
+	if latest != "" && (afterVer == "" || versionLess(afterVer, latest)) {
+		current := afterVer
+		if current == "" {
+			current = "未知"
+		}
 		return CliUpgradeResult{
 			ID:      spec.ID,
 			Success: false,
-			Message: spec.Name + " 命令已执行，但当前仍是 " + after.CurrentVersion + "（目标 " + status.LatestVersion + "）。可能更新了另一份安装，当前 PATH 指向 " + after.InstallPath,
+			Message: spec.Name + " 未升到 " + latest + "（当前 " + current + "）。pnpm 10 可能跳过了 native 安装脚本，请看下方日志。",
 			Log:     out,
 		}
 	}
 	msg := spec.Name + " 已更新"
-	if after.CurrentVersion != "" {
-		msg += "到 " + after.CurrentVersion
+	if afterVer != "" {
+		msg += "到 " + afterVer
 	}
 	msg += "（" + installer + "）"
 	return CliUpgradeResult{ID: spec.ID, Success: true, Message: msg, Log: out}
+}
+
+func upgradeNpmPackage(spec cliSpec, status CliToolStatus, latest string) (string, error) {
+	pkg := spec.NpmPackage
+	if latest != "" {
+		pkg += "@" + latest
+	} else {
+		pkg += "@latest"
+	}
+	var log strings.Builder
+	var lastErr error
+	ok := false
+
+	if pnpm := findPnpmNear(status.InstallPath); pnpm != "" || detectInstallMethod(status.InstallPath) == "pnpm" {
+		if pnpm == "" {
+			pnpm = findPnpm()
+		}
+		if pnpm != "" {
+			env := pnpmEnvFor(status.InstallPath)
+			args := []string{"add", "-g", pkg, "--ignore-scripts=false", "--allow-build=" + spec.NpmPackage}
+			out, err := runToolEnv(4*time.Minute, env, pnpm, args...)
+			log.WriteString(out)
+			if err != nil && (strings.Contains(out, "Unknown option") || strings.Contains(out, "allow-build")) {
+				out, err = runToolEnv(4*time.Minute, env, pnpm, "add", "-g", pkg, "--ignore-scripts=false")
+				if strings.TrimSpace(out) != "" {
+					log.WriteString("\n")
+					log.WriteString(out)
+				}
+			}
+			if err != nil {
+				lastErr = err
+			} else {
+				ok = true
+			}
+		}
+	}
+
+	if npm := findNpm(); npm != "" {
+		out, err := runTool(4*time.Minute, npm, "install", "-g", pkg)
+		if strings.TrimSpace(out) != "" {
+			if log.Len() > 0 {
+				log.WriteString("\n")
+			}
+			log.WriteString(out)
+		}
+		if err != nil {
+			lastErr = err
+		} else {
+			ok = true
+		}
+	}
+	if !ok {
+		return log.String(), lastErr
+	}
+	return log.String(), nil
+}
+
+func pnpmHomeFrom(installPath string) string {
+	dir := filepath.Dir(strings.TrimSpace(installPath))
+	if dir != "" && dir != "." && (dirExists(filepath.Join(dir, "global")) || dirExists(filepath.Join(dir, "store"))) {
+		return dir
+	}
+	if home := strings.TrimSpace(os.Getenv("PNPM_HOME")); home != "" && dirExists(home) {
+		return home
+	}
+	if local := os.Getenv("LOCALAPPDATA"); local != "" {
+		candidate := filepath.Join(local, "pnpm")
+		if dirExists(candidate) {
+			return candidate
+		}
+	}
+	return ""
+}
+
+func pnpmEnvFor(installPath string) []string {
+	home := pnpmHomeFrom(installPath)
+	if home == "" {
+		return nil
+	}
+	return []string{"PNPM_HOME=" + home}
+}
+
+func readCliVersion(bin string) string {
+	if strings.TrimSpace(bin) == "" {
+		return ""
+	}
+	out, err := runTool(8*time.Second, bin, "--version")
+	ver := extractVersion(out)
+	if ver == "" && err != nil {
+		out, _ = runTool(8*time.Second, bin, "version")
+		ver = extractVersion(out)
+	}
+	return ver
+}
+
+func findNode() string {
+	if runtime.GOOS == "windows" {
+		if p, err := exec.LookPath("node.exe"); err == nil {
+			return p
+		}
+	}
+	if p, err := exec.LookPath("node"); err == nil {
+		return p
+	}
+	if bin := pickBin(listCommandCopies("node")); bin != "" {
+		return bin
+	}
+	return ""
+}
+
+func npmPackageDir(root, pkg string) string {
+	parts := []string{strings.TrimSpace(root)}
+	parts = append(parts, strings.Split(pkg, "/")...)
+	return filepath.Join(parts...)
+}
+
+func isWindowsPE(path string) bool {
+	f, err := os.Open(path)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+	var magic [2]byte
+	if _, err := f.Read(magic[:]); err != nil {
+		return false
+	}
+	return magic[0] == 'M' && magic[1] == 'Z'
+}
+
+func repairNativeBinary(spec cliSpec, installPath string) string {
+	if spec.NpmPackage == "" {
+		return ""
+	}
+	node := findNode()
+	if node == "" {
+		return ""
+	}
+	var roots []string
+	if home := pnpmHomeFrom(installPath); home != "" {
+		if pnpm := findPnpmNear(installPath); pnpm != "" {
+			if out, err := runToolEnv(15*time.Second, pnpmEnvFor(installPath), pnpm, "root", "-g"); err == nil {
+				if root := strings.TrimSpace(firstLine(out)); root != "" {
+					roots = append(roots, root)
+				}
+			}
+		}
+		roots = append(roots, filepath.Join(home, "global", "5", "node_modules"))
+	}
+	if npm := findNpm(); npm != "" {
+		if out, err := runTool(15*time.Second, npm, "root", "-g"); err == nil {
+			if root := strings.TrimSpace(firstLine(out)); root != "" {
+				roots = append(roots, root)
+			}
+		}
+	}
+	var log strings.Builder
+	seen := map[string]struct{}{}
+	for _, root := range roots {
+		dir := npmPackageDir(root, spec.NpmPackage)
+		key := strings.ToLower(filepath.Clean(dir))
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		script := filepath.Join(dir, "install.cjs")
+		if !fileExists(script) {
+			script = filepath.Join(dir, "install.js")
+		}
+		if !fileExists(script) {
+			continue
+		}
+		exe := filepath.Join(dir, "bin", spec.Command+".exe")
+		if runtime.GOOS != "windows" {
+			exe = filepath.Join(dir, "bin", spec.Command)
+		}
+		if fileExists(exe) && (runtime.GOOS != "windows" || isWindowsPE(exe)) {
+			continue
+		}
+		out, err := runToolRawEnvDir(2*time.Minute, nil, dir, node, script)
+		if strings.TrimSpace(out) != "" {
+			if log.Len() > 0 {
+				log.WriteString("\n")
+			}
+			log.WriteString(out)
+		}
+		if err != nil && log.Len() == 0 {
+			log.WriteString(err.Error())
+		}
+	}
+	return log.String()
 }
 
 func chooseInstaller(status CliToolStatus, spec cliSpec) string {
@@ -424,6 +635,10 @@ func findPkgBin(name string) string {
 }
 
 func runTool(timeout time.Duration, name string, args ...string) (string, error) {
+	return runToolEnv(timeout, nil, name, args...)
+}
+
+func runToolEnv(timeout time.Duration, extraEnv []string, name string, args ...string) (string, error) {
 	resolved := name
 	if !filepath.IsAbs(name) && filepath.Base(name) == name {
 		if p, err := exec.LookPath(name); err == nil {
@@ -432,16 +647,24 @@ func runTool(timeout time.Duration, name string, args ...string) (string, error)
 			resolved = pickBin(copies)
 		}
 	}
-	return runToolRaw(timeout, resolved, args...)
+	return runToolRawEnv(timeout, extraEnv, resolved, args...)
 }
 
 func runToolRaw(timeout time.Duration, name string, args ...string) (string, error) {
+	return runToolRawEnv(timeout, nil, name, args...)
+}
+
+func runToolRawEnv(timeout time.Duration, extraEnv []string, name string, args ...string) (string, error) {
+	return runToolRawEnvDir(timeout, extraEnv, "", name, args...)
+}
+
+func runToolRawEnvDir(timeout time.Duration, extraEnv []string, dir, name string, args ...string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	bin, argv := wrapIfScript(name, args)
-	cmd := exec.Command(bin, argv...)
-	configureHiddenCmd(cmd)
-	cmd.Env = os.Environ()
+	cmd := startToolCommand(ctx, name, args, extraEnv)
+	if dir != "" {
+		cmd.Dir = dir
+	}
 	var buf bytes.Buffer
 	cmd.Stdout = &buf
 	cmd.Stderr = &buf
@@ -526,6 +749,41 @@ func scanKnownBins(name string) []string {
 		}
 	}
 	return out
+}
+
+func firstRunnableCli(copies []string, command string) (bin, version, out string, runErr error) {
+	order := make([]string, 0, len(copies)+1)
+	order = append(order, copies...)
+	if command != "" {
+		order = append(order, command)
+	}
+	order = uniquePaths(order)
+	preferred := pickBin(order)
+	if preferred != "" {
+		order = uniquePaths(append([]string{preferred}, order...))
+	}
+	var lastOut string
+	var lastErr error
+	for _, path := range order {
+		o, err := runTool(8*time.Second, path, "--version")
+		if v := extractVersion(o); v != "" {
+			return path, v, o, err
+		}
+		if err != nil && strings.TrimSpace(o) == "" {
+			o, err = runTool(8*time.Second, path, "version")
+			if v := extractVersion(o); v != "" {
+				return path, v, o, err
+			}
+		}
+		lastOut, lastErr = o, err
+	}
+	if preferred != "" {
+		return preferred, "", lastOut, lastErr
+	}
+	if len(order) > 0 {
+		return order[0], "", lastOut, lastErr
+	}
+	return "", "", lastOut, lastErr
 }
 
 func pickBin(paths []string) string {

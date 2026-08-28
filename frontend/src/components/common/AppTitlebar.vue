@@ -22,17 +22,13 @@
       @mouseleave="hoveredTool = null"
       @focusout="onNavFocusOut"
     >
-      <button
+      <div
         v-for="item in navItems"
         :key="item.id"
-        type="button"
-        class="relative isolate flex h-9 cursor-pointer items-center rounded-full px-2.5 outline-none"
+        class="relative isolate flex h-9 items-center rounded-full px-2.5"
         :class="showToolPill(item.id) ? 'text-foreground' : 'text-muted-foreground'"
-        :aria-label="item.label"
-        :aria-current="isToolActive(item.id) ? 'page' : undefined"
         @mouseenter="hoveredTool = item.id"
-        @focus="hoveredTool = item.id"
-        @click="onToolClick(item.id)"
+        @focusin="hoveredTool = item.id"
       >
         <motion.span
           v-if="showToolPill(item.id)"
@@ -40,7 +36,13 @@
           class="absolute inset-0 rounded-full bg-card shadow-[0_1px_2px_rgba(16,24,40,0.06)] ring-1 ring-black/[0.08] dark:ring-white/10"
           :transition="{ type: 'spring', stiffness: 520, damping: 38 }"
         />
-        <span class="relative z-10 flex items-center">
+        <button
+          type="button"
+          class="relative z-10 flex cursor-pointer items-center outline-none"
+          :aria-label="item.label"
+          :aria-current="isToolActive(item.id) ? 'page' : undefined"
+          @click="onToolClick(item.id)"
+        >
           <House v-if="item.id === 'home'" class="size-4 shrink-0" />
           <BrandIcon
             v-else
@@ -59,8 +61,24 @@
               >{{ item.label }}</span>
             </span>
           </span>
-        </span>
-      </button>
+        </button>
+        <AppTooltip
+          v-if="item.id !== 'home'"
+          wrap
+          class="relative z-10 ml-1.5 shrink-0"
+          :content="t('titlebar.routingHint', { name: item.label })"
+        >
+          <Switch
+            size="sm"
+            :checked="routerStore.isAppRoutingOn(item.id)"
+            :disabled="routerStore.togglingApp === item.id"
+            :aria-label="t('titlebar.routingHint', { name: item.label })"
+            @pointerdown.stop
+            @click.stop
+            @update:checked="(value: boolean) => onRoutingToggle(item.id as Provider, value)"
+          />
+        </AppTooltip>
+      </div>
     </div>
 
     <div class="flex-1" />
@@ -165,7 +183,7 @@
         <button
           type="button"
           class="flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          @click="setDark(!isDark)"
+          @click="onToggleDark"
         >
           <Sun v-if="isDark" class="size-4" />
           <Moon v-else class="size-4" />
@@ -215,12 +233,15 @@ import type { AppPage, Provider } from '@/types'
 import { APP_PAGES } from '@/lib/nav'
 import { WORKSPACE_TOOLS } from '@/lib/workspace'
 import { useConfigStore } from '@/stores/configStore'
+import { useRouterStore } from '@/stores/routerStore'
 import { useTheme } from '@/composables/useTheme'
 import { useI18n } from '@/composables/useI18n'
+import { useToast } from '@/composables/useToast'
 import { updateService } from '@/services/updateService'
 import AppLogo from '@/components/common/AppLogo.vue'
 import AppTooltip from '@/components/common/AppTooltip.vue'
 import BrandIcon from '@/components/common/BrandIcon.vue'
+import { Switch } from '@/components/ui/switch'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -253,9 +274,11 @@ const emit = defineEmits<{
 }>()
 
 const configStore = useConfigStore()
+const routerStore = useRouterStore()
 const { isDark, setDark } = useTheme()
 const { t } = useI18n()
-const appVersion = ref('2.2.0')
+const toast = useToast()
+const appVersion = ref('2.3.0')
 
 const providerIcons = WORKSPACE_TOOLS.filter(item => item.id !== 'all') as { id: Provider; label: string }[]
 const navItems = computed(() => [
@@ -311,12 +334,33 @@ function onNavFocusOut(event: FocusEvent) {
   if (!next || !root.contains(next)) hoveredTool.value = null
 }
 
+function onToggleDark() {
+  const next = !isDark.value
+  setDark(next)
+  toast.success(t('toast.themeSet', { name: next ? t('settings.themeDark') : t('settings.themeLight') }))
+}
+
+async function onRoutingToggle(provider: Provider, enabled: boolean) {
+  const label = providerIcons.find(item => item.id === provider)?.label || provider
+  try {
+    await routerStore.setAppRouting(provider, enabled)
+    toast.success(enabled
+      ? t('titlebar.routingOn', { name: label })
+      : t('titlebar.routingOff', { name: label }))
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : String(e)
+    toast.error(message)
+  }
+}
+
 onMounted(async () => {
   try {
     appVersion.value = await updateService.version()
   } catch {
     /* ignore */
   }
+  routerStore.loadConfig().catch(() => {})
+  routerStore.refreshStatus().catch(() => {})
 })
 
 function closeWindow() {

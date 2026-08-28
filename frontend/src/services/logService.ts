@@ -69,6 +69,7 @@ export interface StatsOverview {
   stats: UsageStats
   heatmap: HeatmapData[]
   log_directory: string
+  env_summary?: Record<string, EnvUsageSummary>
 }
 
 // 统计页合并接口：日志只解析一遍，同时返回统计、热力图与日志目录

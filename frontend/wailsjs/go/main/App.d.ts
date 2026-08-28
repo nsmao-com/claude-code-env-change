@@ -51,6 +51,8 @@ export function GetPromptFile(arg1:string):Promise<main.PromptFile>;
 
 export function GetPromptFiles():Promise<Array<main.PromptFile>>;
 
+export function GetProviderRouting():Promise<Record<string, boolean>>;
+
 export function ImportConfig():Promise<number>;
 
 export function ImportConfigJSON(arg1:string):Promise<number>;
@@ -73,6 +75,8 @@ export function ReadDroppedFile(arg1:string):Promise<string>;
 
 export function RefreshConfig():Promise<void>;
 
+export function RefreshRoutedProviders():Promise<void>;
+
 export function ReorderEnvs(arg1:Array<string>):Promise<void>;
 
 export function SavePromptFile(arg1:string,arg2:string):Promise<void>;
@@ -80,6 +84,8 @@ export function SavePromptFile(arg1:string,arg2:string):Promise<void>;
 export function SetEnvVar(arg1:string,arg2:string):Promise<void>;
 
 export function SetOutboundProxy(arg1:main.OutboundProxySettings):Promise<void>;
+
+export function SetProviderRouting(arg1:string,arg2:boolean):Promise<void>;
 
 export function SwitchToEnv(arg1:string):Promise<void>;
 

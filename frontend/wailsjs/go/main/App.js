@@ -98,6 +98,10 @@ export function GetPromptFiles() {
   return window['go']['main']['App']['GetPromptFiles']();
 }
 
+export function GetProviderRouting() {
+  return window['go']['main']['App']['GetProviderRouting']();
+}
+
 export function ImportConfig() {
   return window['go']['main']['App']['ImportConfig']();
 }
@@ -142,6 +146,10 @@ export function RefreshConfig() {
   return window['go']['main']['App']['RefreshConfig']();
 }
 
+export function RefreshRoutedProviders() {
+  return window['go']['main']['App']['RefreshRoutedProviders']();
+}
+
 export function ReorderEnvs(arg1) {
   return window['go']['main']['App']['ReorderEnvs'](arg1);
 }
@@ -156,6 +164,10 @@ export function SetEnvVar(arg1, arg2) {
 
 export function SetOutboundProxy(arg1) {
   return window['go']['main']['App']['SetOutboundProxy'](arg1);
+}
+
+export function SetProviderRouting(arg1, arg2) {
+  return window['go']['main']['App']['SetProviderRouting'](arg1, arg2);
 }
 
 export function SwitchToEnv(arg1) {

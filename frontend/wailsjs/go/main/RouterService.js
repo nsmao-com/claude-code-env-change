@@ -30,6 +30,10 @@ export function SaveRouterConfig(arg1) {
   return window['go']['main']['RouterService']['SaveRouterConfig'](arg1);
 }
 
+export function SetAppRouting(arg1, arg2) {
+  return window['go']['main']['RouterService']['SetAppRouting'](arg1, arg2);
+}
+
 export function StartGateway() {
   return window['go']['main']['RouterService']['StartGateway']();
 }

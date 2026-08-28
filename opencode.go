@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -37,7 +38,15 @@ func opencodeConfigFile(vars map[string]string) string {
 	if v := strings.TrimSpace(os.Getenv("OPENCODE_CONFIG")); v != "" {
 		return expandAndNormalizePath(v, home, configDir)
 	}
-	return filepath.Join(configDir, "opencode.json")
+	jsonPath := filepath.Join(configDir, "opencode.json")
+	jsoncPath := filepath.Join(configDir, "opencode.jsonc")
+	if fileExists(jsonPath) {
+		return jsonPath
+	}
+	if fileExists(jsoncPath) {
+		return jsoncPath
+	}
+	return jsonPath
 }
 
 func opencodeSkillsRoot() string {
@@ -76,30 +85,61 @@ func defaultOpencodeConfig(env *EnvConfig) string {
 
 	injectOpencodeExtras(payload, env.Variables)
 
-	if baseURL != "" {
+	providerID := strings.TrimSpace(env.Variables["OPENCODE_PROVIDER_ID"])
+	providerName := strings.TrimSpace(env.Variables["OPENCODE_PROVIDER_NAME"])
+	npmPkg := strings.TrimSpace(env.Variables["OPENCODE_NPM"])
+	if providerID == "" {
+		providerID = "custom"
+	}
+	if providerName == "" {
+		providerName = "Custom"
+	}
+	if npmPkg == "" {
+		npmPkg = "@ai-sdk/openai-compatible"
+	}
+
+	if baseURL != "" || apiKey != "" || model != "" {
 		modelID := model
-		if idx := strings.LastIndex(modelID, "/"); idx >= 0 {
+		if idx := strings.LastIndex(modelID, "/"); idx >= 0 && modelID[:idx] == providerID {
+			modelID = modelID[idx+1:]
+		} else if idx := strings.LastIndex(modelID, "/"); idx >= 0 && providerID == "custom" {
 			modelID = modelID[idx+1:]
 		}
 		if modelID == "" {
 			modelID = "custom-model"
 		}
-		payload["model"] = "custom/" + modelID
+		payload["model"] = providerID + "/" + modelID
 
-		options := map[string]any{"baseURL": baseURL}
+		options := map[string]any{}
+		if baseURL != "" {
+			options["baseURL"] = baseURL
+		}
 		if apiKey != "" {
 			options["apiKey"] = apiKey
 		}
-		payload["provider"] = map[string]any{
-			"custom": map[string]any{
-				"npm":     "@ai-sdk/openai-compatible",
-				"name":    "Custom",
-				"options": options,
-				"models": map[string]any{
-					modelID: map[string]any{},
-				},
-			},
+		models := map[string]any{}
+		ids := []string{}
+		for _, id := range strings.Split(env.Variables["OPENCODE_MODELS"], ",") {
+			id = strings.TrimSpace(id)
+			if id != "" {
+				ids = append(ids, id)
+			}
 		}
+		if len(ids) == 0 {
+			ids = []string{modelID}
+		}
+		for _, id := range ids {
+			models[id] = map[string]any{"name": id}
+		}
+		entry := map[string]any{
+			"npm":     npmPkg,
+			"name":    providerName,
+			"models":  models,
+		}
+		if len(options) > 0 {
+			entry["options"] = options
+		}
+		payload["provider"] = map[string]any{providerID: entry}
 	} else if model != "" {
 		payload["model"] = model
 	}
@@ -181,16 +221,53 @@ func (a *App) GetOpencodeSettings() map[string]string {
 	if v, ok := payload["model"].(string); ok {
 		result["OPENCODE_MODEL"] = strings.TrimSpace(v)
 	}
-	if providers, ok := payload["provider"].(map[string]any); ok && providers != nil {
-		if custom, ok := providers["custom"].(map[string]any); ok && custom != nil {
-			if options, ok := custom["options"].(map[string]any); ok && options != nil {
-				if v, ok := options["baseURL"].(string); ok {
-					result["OPENCODE_BASE_URL"] = strings.TrimSpace(v)
-				}
-				if v, ok := options["apiKey"].(string); ok {
-					result["OPENCODE_API_KEY"] = strings.TrimSpace(v)
-				}
+	providers := opencodeProviderMap(payload)
+	if len(providers) == 0 {
+		return result
+	}
+	chosenID := "custom"
+	if model := result["OPENCODE_MODEL"]; model != "" {
+		if idx := strings.Index(model, "/"); idx > 0 {
+			chosenID = model[:idx]
+		}
+	}
+	raw, ok := providers[chosenID].(map[string]any)
+	if !ok {
+		ids := make([]string, 0, len(providers))
+		for id := range providers {
+			ids = append(ids, id)
+		}
+		sort.Strings(ids)
+		for _, id := range ids {
+			if m, good := providers[id].(map[string]any); good {
+				chosenID = id
+				raw = m
+				break
 			}
+		}
+	}
+	if raw == nil {
+		return result
+	}
+	result["OPENCODE_PROVIDER_ID"] = chosenID
+	if v := strings.TrimSpace(asString(raw["name"])); v != "" {
+		result["OPENCODE_PROVIDER_NAME"] = v
+	}
+	if v := strings.TrimSpace(asString(raw["npm"])); v != "" {
+		result["OPENCODE_NPM"] = v
+	}
+	if options, ok := raw["options"].(map[string]any); ok && options != nil {
+		if v, ok := options["baseURL"].(string); ok {
+			result["OPENCODE_BASE_URL"] = strings.TrimSpace(v)
+		}
+		if v, ok := options["apiKey"].(string); ok {
+			result["OPENCODE_API_KEY"] = strings.TrimSpace(v)
+		}
+	}
+	if ids := opencodeProviderModelIDs(raw["models"]); len(ids) > 0 {
+		result["OPENCODE_MODELS"] = strings.Join(ids, ",")
+		if result["OPENCODE_MODEL"] == "" {
+			result["OPENCODE_MODEL"] = chosenID + "/" + ids[0]
 		}
 	}
 	return result

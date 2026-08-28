@@ -76,7 +76,7 @@
               class="flex size-9 items-center justify-center rounded-full outline-none transition-transform hover:scale-105"
               :aria-pressed="settings.accent === item.id"
               :aria-label="t(`settings.accent${capitalize(item.id)}`)"
-              @click="settings.accent = item.id"
+              @click="onAccent(item.id)"
             >
               <span
                 class="relative flex size-6 items-center justify-center rounded-full"
@@ -100,21 +100,21 @@
               <p class="text-sm font-medium">{{ t('settings.reducedMotion') }}</p>
               <p class="mt-0.5 text-xs text-muted-foreground">{{ t('settings.reducedMotionHint') }}</p>
             </div>
-            <Switch :checked="settings.reducedMotion" @update:checked="settings.reducedMotion = $event" />
+            <Switch :checked="settings.reducedMotion" @update:checked="onFlag('reducedMotion', $event, 'settings.reducedMotion')" />
           </div>
           <div class="flex items-start justify-between gap-4">
             <div class="min-w-0">
               <p class="text-sm font-medium">{{ t('settings.checkUpdateOnLaunch') }}</p>
               <p class="mt-0.5 text-xs text-muted-foreground">{{ t('settings.checkUpdateOnLaunchHint') }}</p>
             </div>
-            <Switch :checked="settings.checkUpdateOnLaunch" @update:checked="settings.checkUpdateOnLaunch = $event" />
+            <Switch :checked="settings.checkUpdateOnLaunch" @update:checked="onFlag('checkUpdateOnLaunch', $event, 'settings.checkUpdateOnLaunch')" />
           </div>
           <div class="flex items-start justify-between gap-4">
             <div class="min-w-0">
               <p class="text-sm font-medium">{{ t('settings.restoreLastPage') }}</p>
               <p class="mt-0.5 text-xs text-muted-foreground">{{ t('settings.restoreLastPageHint') }}</p>
             </div>
-            <Switch :checked="settings.restoreLastPage" @update:checked="settings.restoreLastPage = $event" />
+            <Switch :checked="settings.restoreLastPage" @update:checked="onFlag('restoreLastPage', $event, 'settings.restoreLastPage')" />
           </div>
         </CardContent>
       </Card>
@@ -151,7 +151,7 @@
             :placeholder="proxyProtocol === 'socks5' ? 'socks5://127.0.0.1:7891' : 'http://127.0.0.1:7890'"
             :hint="t('settings.proxyUrlHint')"
             :disabled="proxySaving"
-            @blur="saveProxy"
+            @blur="() => saveProxy()"
           />
           <div class="flex flex-wrap items-center gap-2">
             <Button variant="outline" size="sm" :disabled="proxyTesting || proxySaving" @click="testProxy">
@@ -257,7 +257,7 @@ const open = computed({
 const { settings } = useSettings()
 const { t } = useI18n()
 const toast = useToast()
-const appVersion = ref('2.2.0')
+const appVersion = ref('2.3.0')
 const section = ref<'general' | 'cli' | 'dirs'>('general')
 const proxy = reactive<OutboundProxySettings>({ enabled: false, url: 'http://127.0.0.1:7890' })
 const proxySaving = ref(false)
@@ -277,11 +277,33 @@ function onSection(value: string) {
 }
 
 function onLanguage(value: string) {
-  if (value === 'zh' || value === 'en') settings.language = value as Locale
+  if (value !== 'zh' && value !== 'en') return
+  if (settings.language === value) return
+  settings.language = value as Locale
+  toast.success(t('toast.languageSet', { name: t(value === 'zh' ? 'settings.zh' : 'settings.en') }))
 }
 
 function onTheme(value: string) {
-  if (value === 'system' || value === 'light' || value === 'dark') settings.theme = value as ThemeMode
+  if (value !== 'system' && value !== 'light' && value !== 'dark') return
+  if (settings.theme === value) return
+  settings.theme = value as ThemeMode
+  const name = value === 'system'
+    ? t('settings.themeSystem')
+    : value === 'light'
+      ? t('settings.themeLight')
+      : t('settings.themeDark')
+  toast.success(t('toast.themeSet', { name }))
+}
+
+function onAccent(id: AccentId) {
+  if (settings.accent === id) return
+  settings.accent = id
+  toast.success(t('toast.accentSet', { name: t(`settings.accent${capitalize(id)}`) }))
+}
+
+function onFlag(key: 'reducedMotion' | 'checkUpdateOnLaunch' | 'restoreLastPage', value: boolean, nameKey: string) {
+  settings[key] = value
+  toast.success(value ? t('toast.settingOn', { name: t(nameKey) }) : t('toast.settingOff', { name: t(nameKey) }))
 }
 
 function rewriteProxyScheme(url: string, protocol: 'http' | 'socks5') {
@@ -293,15 +315,15 @@ function rewriteProxyScheme(url: string, protocol: 'http' | 'socks5') {
 function onProxyProtocol(value: string) {
   if (value !== 'http' && value !== 'socks5') return
   proxy.url = rewriteProxyScheme(proxy.url, value)
-  saveProxy()
+  saveProxy('saved')
 }
 
 async function onProxyEnabled(value: boolean) {
   proxy.enabled = value
-  await saveProxy()
+  await saveProxy('toggle')
 }
 
-async function saveProxy() {
+async function saveProxy(kind: 'silent' | 'saved' | 'toggle' = 'silent') {
   if (proxySaving.value) return
   proxySaving.value = true
   try {
@@ -314,6 +336,12 @@ async function saveProxy() {
     proxy.enabled = pickBool(applied, 'enabled', 'Enabled')
     const url = pickText(applied, 'url', 'URL', 'Url')
     if (url) proxy.url = url
+    if (kind === 'saved') toast.success(t('settings.proxySaved'))
+    if (kind === 'toggle') {
+      toast.success(proxy.enabled
+        ? t('toast.settingOn', { name: t('settings.proxyEnable') })
+        : t('toast.settingOff', { name: t('settings.proxyEnable') }))
+    }
   } catch (e: unknown) {
     toast.error(t('settings.proxySaveFailed', { error: e instanceof Error ? e.message : String(e) }))
   } finally {

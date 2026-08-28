@@ -3,6 +3,8 @@
 package main
 
 import (
+	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -59,6 +61,38 @@ func wrapIfScript(path string, args []string) (string, []string) {
 	default:
 		return path, args
 	}
+}
+
+func quoteCmdArg(s string) string {
+	return `"` + strings.ReplaceAll(s, `"`, `""`) + `"`
+}
+
+func startToolCommand(ctx context.Context, name string, args []string, extraEnv []string) *exec.Cmd {
+	env := append(os.Environ(), extraEnv...)
+	ext := strings.ToLower(filepath.Ext(name))
+	if ext == ".cmd" || ext == ".bat" {
+		comspec := os.Getenv("ComSpec")
+		if comspec == "" {
+			comspec = filepath.Join(os.Getenv("SystemRoot"), "System32", "cmd.exe")
+		}
+		inner := quoteCmdArg(name)
+		for _, arg := range args {
+			inner += " " + quoteCmdArg(arg)
+		}
+		cmd := exec.CommandContext(ctx, comspec)
+		cmd.Env = env
+		cmd.SysProcAttr = &syscall.SysProcAttr{
+			HideWindow:    true,
+			CreationFlags: 0x08000000,
+			CmdLine:       fmt.Sprintf(`%s /d /s /c "%s"`, comspec, inner),
+		}
+		return cmd
+	}
+	bin, argv := wrapIfScript(name, args)
+	cmd := exec.CommandContext(ctx, bin, argv...)
+	cmd.Env = env
+	configureHiddenCmd(cmd)
+	return cmd
 }
 
 func listCommandCopies(name string) []string {

@@ -2,22 +2,23 @@ package main
 
 import (
 	"fmt"
+	"maps"
 	"net/url"
 	"strings"
 )
 
 // 上游格式取值：
-//   ""                     —— 原生直连（默认，不走路由）
-//   "chat_completions"     —— OpenAI Chat Completions（需开启路由）
-//   "anthropic_messages"   —— Anthropic Messages（需开启路由）
-//   "responses"            —— OpenAI Responses（需开启路由）
+//
+//	""                     —— 原生直连（默认）
+//	"chat_completions"     —— OpenAI Chat Completions（需开启该模型商路由才转换）
+//	"anthropic_messages"   —— Anthropic Messages（需开启该模型商路由才转换）
+//	"responses"            —— OpenAI Responses（需开启该模型商路由才转换）
 const (
 	UpstreamChatCompletions   = "chat_completions"
 	UpstreamAnthropicMessages = "anthropic_messages"
 	UpstreamResponses         = "responses"
 )
 
-// normalizeUpstreamFormat 归一化上游格式；不认识的值按原生直连处理
 func normalizeUpstreamFormat(value string) string {
 	switch strings.ToLower(strings.TrimSpace(value)) {
 	case UpstreamChatCompletions:
@@ -31,7 +32,6 @@ func normalizeUpstreamFormat(value string) string {
 	}
 }
 
-// upstreamFormatLabel 供错误提示使用
 func upstreamFormatLabel(format string) string {
 	switch format {
 	case UpstreamChatCompletions:
@@ -41,10 +41,16 @@ func upstreamFormatLabel(format string) string {
 	case UpstreamResponses:
 		return "Responses"
 	}
-	return ""
+	return "原生"
 }
 
-// sanitizeAutoRouteName 由配置名生成合法路由名（满足 routeNamePattern）
+func providerRouteName(provider string) string {
+	if p, ok := knownProvider(provider); ok {
+		return p
+	}
+	return "claude"
+}
+
 func sanitizeAutoRouteName(name string) string {
 	lower := strings.ToLower(strings.TrimSpace(name))
 	var b strings.Builder
@@ -68,7 +74,21 @@ func sanitizeAutoRouteName(name string) string {
 	return "env-" + out
 }
 
-// upstreamVarsForEnv 取真实上游地址与密钥
+func defaultUpstreamURL(provider string) string {
+	switch provider {
+	case "claude":
+		return "https://api.anthropic.com"
+	case "codex":
+		return "https://api.openai.com/v1"
+	case "gemini":
+		return "https://generativelanguage.googleapis.com"
+	case "grok":
+		return "https://api.x.ai/v1"
+	default:
+		return ""
+	}
+}
+
 func upstreamVarsForEnv(env *EnvConfig) (baseURL, apiKey, model string) {
 	switch env.Provider {
 	case "claude":
@@ -82,41 +102,183 @@ func upstreamVarsForEnv(env *EnvConfig) (baseURL, apiKey, model string) {
 		baseURL = env.Variables["base_url"]
 		apiKey = env.Variables["OPENAI_API_KEY"]
 		model = env.Variables["model"]
+	case "gemini":
+		baseURL = env.Variables["GOOGLE_GEMINI_BASE_URL"]
+		apiKey = env.Variables["GEMINI_API_KEY"]
+		if apiKey == "" {
+			apiKey = env.Variables["GOOGLE_API_KEY"]
+		}
+		model = env.Variables["GEMINI_MODEL"]
+	case "opencode":
+		baseURL = env.Variables["OPENCODE_BASE_URL"]
+		apiKey = env.Variables["OPENCODE_API_KEY"]
+		model = env.Variables["OPENCODE_MODEL"]
+	case "grok":
+		baseURL = env.Variables["XAI_BASE_URL"]
+		apiKey = env.Variables["XAI_API_KEY"]
+		model = env.Variables["XAI_MODEL"]
+	}
+	if strings.TrimSpace(baseURL) == "" {
+		baseURL = defaultUpstreamURL(env.Provider)
 	}
 	return baseURL, apiKey, model
 }
 
-// needsRouting 判断该配置是否需要本地路由做协议转换
-func needsRouting(env *EnvConfig) bool {
+func needsConversion(env *EnvConfig) bool {
+	if env == nil {
+		return false
+	}
 	format := normalizeUpstreamFormat(env.UpstreamFormat)
 	if format == "" {
 		return false
 	}
 	switch env.Provider {
 	case "claude":
-		// Claude Code 原生说 Anthropic Messages：只有 Chat Completions 上游需要转换
-		// （Anthropic Messages 上游 = 直连；Responses 上游的转换暂不支持，前端不提供该选项）
-		return format == UpstreamChatCompletions
-	case "codex":
-		// Codex 原生说 Responses：Chat Completions / Anthropic Messages 上游都需要转换
+		return format == UpstreamChatCompletions || format == UpstreamResponses
+	case "codex", "grok":
+		return format == UpstreamChatCompletions || format == UpstreamAnthropicMessages
+	case "opencode":
+		return format == UpstreamAnthropicMessages || format == UpstreamResponses
+	case "gemini":
 		return format == UpstreamChatCompletions || format == UpstreamAnthropicMessages
 	}
 	return false
 }
 
-// routerLocalBase 返回写入 CLI 配置的本地路由地址，如 http://127.0.0.1:8790/env-myconfig
-func routerLocalBase(rs *RouterService, env *EnvConfig) string {
+func needsRouting(env *EnvConfig) bool {
+	return needsConversion(env)
+}
+
+func sourceFormatForEnv(env *EnvConfig) string {
+	switch env.Provider {
+	case "claude":
+		return "anthropic"
+	case "grok":
+		if strings.EqualFold(strings.TrimSpace(env.Variables["XAI_API_BACKEND"]), "messages") {
+			return "anthropic"
+		}
+		return "openai"
+	default:
+		return "openai"
+	}
+}
+
+func targetFormatForEnv(env *EnvConfig) string {
+	format := normalizeUpstreamFormat(env.UpstreamFormat)
+	switch format {
+	case UpstreamAnthropicMessages:
+		return "anthropic"
+	case UpstreamChatCompletions:
+		return "openai"
+	case UpstreamResponses:
+		return "responses"
+	}
+	switch env.Provider {
+	case "claude":
+		return "anthropic"
+	case "opencode":
+		return "openai"
+	case "gemini":
+		return "openai"
+	default:
+		return "responses"
+	}
+}
+
+func isAppRoutingOn(provider string) bool {
+	rs := globalRouterService
+	if rs == nil {
+		return false
+	}
+	p, ok := knownProvider(provider)
+	if !ok {
+		return false
+	}
+	rs.mu.Lock()
+	defer rs.mu.Unlock()
+	if rs.config.AppRouting == nil {
+		return false
+	}
+	return rs.config.AppRouting[p]
+}
+
+func cloneEnvConfig(env *EnvConfig) *EnvConfig {
+	if env == nil {
+		return nil
+	}
+	out := *env
+	out.Variables = maps.Clone(env.Variables)
+	if out.Variables == nil {
+		out.Variables = map[string]string{}
+	}
+	if env.Templates != nil {
+		out.Templates = maps.Clone(env.Templates)
+	}
+	return &out
+}
+
+func routerPort(rs *RouterService) int {
 	rs.mu.Lock()
 	port := rs.config.Port
 	rs.mu.Unlock()
 	if port <= 0 {
 		port = defaultRouterPort
 	}
-	return fmt.Sprintf("http://127.0.0.1:%d/%s", port, sanitizeAutoRouteName(env.Name))
+	return port
 }
 
-// wireRouterForEnv 按 cc-switch 模型为配置自动建路由并确保网关在运行。
-// 返回应写入 CLI 的本地路由 base（已含 /v1 需求除外）。
+func routerLocalBase(rs *RouterService, provider string) string {
+	return fmt.Sprintf("http://127.0.0.1:%d/%s", routerPort(rs), providerRouteName(provider))
+}
+
+func originalURLHasV1(original string) bool {
+	u := strings.ToLower(strings.TrimRight(strings.TrimSpace(original), "/"))
+	return strings.HasSuffix(u, "/v1") || strings.Contains(u, "/v1/")
+}
+
+func rewriteLiveBaseURL(env *EnvConfig, localBase string) {
+	base := strings.TrimRight(localBase, "/")
+	switch env.Provider {
+	case "claude":
+		env.Variables["ANTHROPIC_BASE_URL"] = base
+	case "codex":
+		env.Variables["base_url"] = base + "/v1"
+	case "gemini":
+		env.Variables["GOOGLE_GEMINI_BASE_URL"] = base
+	case "opencode":
+		orig := env.Variables["OPENCODE_BASE_URL"]
+		if orig == "" || originalURLHasV1(orig) {
+			env.Variables["OPENCODE_BASE_URL"] = base + "/v1"
+		} else {
+			env.Variables["OPENCODE_BASE_URL"] = base
+		}
+	case "grok":
+		orig := env.Variables["XAI_BASE_URL"]
+		if orig == "" || originalURLHasV1(orig) {
+			env.Variables["XAI_BASE_URL"] = base + "/v1"
+		} else {
+			env.Variables["XAI_BASE_URL"] = base
+		}
+	}
+}
+
+func prepareLiveEnv(env *EnvConfig) (*EnvConfig, error) {
+	live := cloneEnvConfig(env)
+	if live == nil {
+		return nil, fmt.Errorf("环境配置为空")
+	}
+	if isAppRoutingOn(live.Provider) {
+		localBase, err := wireRouterForEnv(live)
+		if err != nil {
+			return nil, err
+		}
+		rewriteLiveBaseURL(live, localBase)
+	} else {
+		restoreOriginalRouting(live)
+	}
+	return live, nil
+}
+
 func wireRouterForEnv(env *EnvConfig) (string, error) {
 	rs := globalRouterService
 	if rs == nil {
@@ -126,60 +288,56 @@ func wireRouterForEnv(env *EnvConfig) (string, error) {
 	format := normalizeUpstreamFormat(env.UpstreamFormat)
 	baseURL, apiKey, model := upstreamVarsForEnv(env)
 	if strings.TrimSpace(baseURL) == "" {
-		return "", fmt.Errorf("此配置未填写上游 Base URL，无法开启路由转换")
+		return "", fmt.Errorf("此配置未填写上游 Base URL，无法开启路由")
 	}
 	if _, err := url.Parse(baseURL); err != nil {
 		return "", fmt.Errorf("上游 Base URL 无效: %v", err)
 	}
 
-	// 目标协议：路由把请求转成上游说的协议
-	target := "openai"
-	if format == UpstreamAnthropicMessages {
-		target = "anthropic"
-	}
-
 	route := APIRoute{
-		Name:         sanitizeAutoRouteName(env.Name),
-		Description:  fmt.Sprintf("配置 %q 的自动路由（上游格式: %s）", env.Name, upstreamFormatLabel(format)),
-		SourceFormat: "anthropic",
-		TargetFormat: target,
+		Name:         providerRouteName(env.Provider),
+		Description:  fmt.Sprintf("配置 %q 的应用路由（上游格式: %s）", env.Name, upstreamFormatLabel(format)),
+		SourceFormat: sourceFormatForEnv(env),
+		TargetFormat: targetFormatForEnv(env),
 		BaseURL:      strings.TrimRight(strings.TrimSpace(baseURL), "/"),
 		APIKey:       apiKey,
 		DefaultModel: model,
 		Enabled:      true,
 	}
-	if env.Provider == "codex" {
-		route.SourceFormat = "openai"
-	}
 
 	if err := rs.upsertAutoRoute(route); err != nil {
 		return "", fmt.Errorf("写入路由配置失败: %v", err)
 	}
+	_ = removeAutoRouteByName(sanitizeAutoRouteName(env.Name))
 
-	// 网关没在运行时自动拉起；失败则按 cc-switch 的口径提示
 	rs.mu.Lock()
 	running := rs.running
 	rs.mu.Unlock()
 	if !running {
 		if err := rs.StartGateway(); err != nil {
-			return "", fmt.Errorf("此供应商使用 %s 接口格式，需要路由服务才能正常工作，请先启动路由（%v）", upstreamFormatLabel(format), err)
+			if needsConversion(env) {
+				return "", fmt.Errorf("此供应商使用 %s 接口格式，需要路由服务才能正常工作，请先启动路由（%v）", upstreamFormatLabel(format), err)
+			}
+			return "", fmt.Errorf("启动路由网关失败: %v", err)
 		}
 	}
 
-	return routerLocalBase(rs, env), nil
+	return routerLocalBase(rs, env.Provider), nil
 }
 
-// restoreOriginalRouting 关闭协议转换时：删掉自动路由，让 CLI 继续用配置里的原始地址。
 func restoreOriginalRouting(env *EnvConfig) {
-	_ = removeAutoRouteForEnv(env)
+	if env == nil {
+		return
+	}
+	_ = removeAutoRouteByName(providerRouteName(env.Provider))
+	_ = removeAutoRouteByName(sanitizeAutoRouteName(env.Name))
 }
 
-func removeAutoRouteForEnv(env *EnvConfig) error {
+func removeAutoRouteByName(name string) error {
 	rs := globalRouterService
-	if rs == nil || env == nil {
+	if rs == nil || strings.TrimSpace(name) == "" {
 		return nil
 	}
-	name := sanitizeAutoRouteName(env.Name)
 	rs.mu.Lock()
 	filtered := make([]APIRoute, 0, len(rs.config.Routes))
 	found := false
@@ -195,11 +353,11 @@ func removeAutoRouteForEnv(env *EnvConfig) error {
 		return nil
 	}
 	rs.config.Routes = filtered
+	cfg := rs.config
 	rs.mu.Unlock()
-	return rs.SaveRouterConfig(rs.config)
+	return rs.SaveRouterConfig(cfg)
 }
 
-// upsertAutoRoute 按名称替换/追加自动路由并落盘（网关运行中会热重启生效）
 func (rs *RouterService) upsertAutoRoute(route APIRoute) error {
 	rs.mu.Lock()
 	config := rs.config
@@ -216,4 +374,106 @@ func (rs *RouterService) upsertAutoRoute(route APIRoute) error {
 	}
 	rs.mu.Unlock()
 	return rs.SaveRouterConfig(config)
+}
+
+func (rs *RouterService) SetAppRouting(provider string, enabled bool) error {
+	p, ok := knownProvider(provider)
+	if !ok {
+		return fmt.Errorf("未知模型商: %s", provider)
+	}
+	rs.mu.Lock()
+	if rs.config.AppRouting == nil {
+		rs.config.AppRouting = defaultAppRouting()
+	}
+	rs.config.AppRouting[p] = enabled
+	cfg := rs.config
+	rs.mu.Unlock()
+	return rs.SaveRouterConfig(cfg)
+}
+
+func (a *App) currentEnvNameForProvider(provider string) string {
+	switch provider {
+	case "codex":
+		return a.config.CurrentEnvCodex
+	case "gemini":
+		return a.config.CurrentEnvGemini
+	case "opencode":
+		return a.config.CurrentEnvOpencode
+	case "grok":
+		return a.config.CurrentEnvGrok
+	default:
+		return a.config.CurrentEnvClaude
+	}
+}
+
+func (a *App) GetProviderRouting() map[string]bool {
+	out := defaultAppRouting()
+	rs := globalRouterService
+	if rs == nil {
+		return out
+	}
+	rs.mu.Lock()
+	defer rs.mu.Unlock()
+	for key, enabled := range rs.config.AppRouting {
+		if p, ok := knownProvider(key); ok {
+			out[p] = enabled
+		}
+	}
+	return out
+}
+
+func (a *App) SetProviderRouting(provider string, enabled bool) error {
+	p, ok := knownProvider(provider)
+	if !ok {
+		return fmt.Errorf("未知模型商: %s", provider)
+	}
+	rs := globalRouterService
+	if rs == nil {
+		return fmt.Errorf("路由服务未初始化")
+	}
+	if err := rs.SetAppRouting(p, enabled); err != nil {
+		return err
+	}
+	if enabled {
+		rs.mu.Lock()
+		running := rs.running
+		rs.mu.Unlock()
+		if !running {
+			if err := rs.StartGateway(); err != nil {
+				return fmt.Errorf("启动路由网关失败: %v", err)
+			}
+		}
+	}
+	env := a.findEnv(a.currentEnvNameForProvider(p))
+	if env == nil {
+		if !enabled {
+			_ = removeAutoRouteByName(p)
+		}
+		return nil
+	}
+	if _, err := a.applyEnvByProvider(env); err != nil {
+		_ = rs.SetAppRouting(p, !enabled)
+		return err
+	}
+	return nil
+}
+
+func (a *App) RefreshRoutedProviders() error {
+	var errs []string
+	for _, provider := range []string{"claude", "codex", "gemini", "opencode", "grok"} {
+		if !isAppRoutingOn(provider) {
+			continue
+		}
+		env := a.findEnv(a.currentEnvNameForProvider(provider))
+		if env == nil {
+			continue
+		}
+		if _, err := a.applyEnvByProvider(env); err != nil {
+			errs = append(errs, fmt.Sprintf("%s: %v", provider, err))
+		}
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("%s", strings.Join(errs, "；"))
+	}
+	return nil
 }

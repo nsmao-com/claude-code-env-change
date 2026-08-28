@@ -29,13 +29,16 @@ func TestNeedsRouting(t *testing.T) {
 	}{
 		{"claude", "", false},
 		{"claude", "chat_completions", true},
-		{"claude", "anthropic_messages", false}, // 同协议直连
-		{"claude", "responses", false},          // 暂不支持的组合，前端不提供
+		{"claude", "anthropic_messages", false},
+		{"claude", "responses", true},
 		{"codex", "", false},
 		{"codex", "responses", false},
 		{"codex", "chat_completions", true},
 		{"codex", "anthropic_messages", true},
-		{"gemini", "chat_completions", false}, // gemini 不参与路由
+		{"gemini", "chat_completions", true},
+		{"opencode", "anthropic_messages", true},
+		{"grok", "chat_completions", true},
+		{"grok", "", false},
 	}
 	for _, c := range cases {
 		env := &EnvConfig{Provider: c.provider, UpstreamFormat: c.format}

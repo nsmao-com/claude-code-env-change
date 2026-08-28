@@ -55,6 +55,34 @@ func (rs *RouterService) serveResponsesEndpoint(w http.ResponseWriter, r *http.R
 	inboundModel := req.Model
 	mappedModel := route.mapModel(req.Model)
 	target := normalizeAPIFormat(route.TargetFormat)
+
+	if target == "responses" {
+		payload := map[string]any{}
+		_ = json.Unmarshal(body, &payload)
+		if mappedModel != "" {
+			payload["model"] = mappedModel
+		}
+		upstream, err := rs.newUpstreamRequest(route, r.Method, "/v1/responses", payload)
+		if err != nil {
+			rs.finishRequest(w, route, r, start, http.StatusBadGateway, inboundModel, err, true)
+			writeOpenAIError(w, http.StatusBadGateway, "api_error", err.Error())
+			return
+		}
+		resp, err := rs.client.Do(upstream)
+		if err != nil {
+			rs.finishRequest(w, route, r, start, http.StatusBadGateway, inboundModel, err, true)
+			writeOpenAIError(w, http.StatusBadGateway, "api_error", fmt.Sprintf("上游请求失败: %v", err))
+			return
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			rs.relayUpstreamError(w, resp, route, r, start, inboundModel, false)
+			return
+		}
+		rs.proxyResponse(w, resp, route, r, start, inboundModel)
+		return
+	}
+
 	converted := responsesRequestToOpenAI(req, mappedModel)
 
 	if target == "openai" {

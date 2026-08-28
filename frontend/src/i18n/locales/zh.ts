@@ -29,6 +29,9 @@ export const zh = {
     minimize: '最小化',
     maximize: '最大化',
     close: '关闭',
+    routingOn: '已开启 {name} 路由',
+    routingOff: '已关闭 {name} 路由',
+    routingHint: '开启后把 {name} 的请求转到本机网关（各模型商共用同一端口）。配置里选了非原生上游格式才会做协议转换。',
   },
   palette: {
     title: '搜索',
@@ -190,6 +193,11 @@ export const zh = {
     clearedOpencode: 'OpenCode 模型配置已清除',
     clearedGrok: 'Grok API Key 已从 config.toml 清除',
     clearedAll: '所有配置已清除',
+    languageSet: '语言已切换为 {name}',
+    themeSet: '主题已切换为 {name}',
+    accentSet: '强调色已设为 {name}',
+    settingOn: '已开启 {name}',
+    settingOff: '已关闭 {name}',
   },
   confirm: {
     deleteConfig: '删除配置',

@@ -3,6 +3,8 @@
 package main
 
 import (
+	"context"
+	"os"
 	"os/exec"
 	"runtime"
 	"time"
@@ -12,6 +14,12 @@ func extraBinDirs() []string { return nil }
 
 func wrapIfScript(path string, args []string) (string, []string) {
 	return path, args
+}
+
+func startToolCommand(ctx context.Context, name string, args []string, extraEnv []string) *exec.Cmd {
+	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.Env = append(os.Environ(), extraEnv...)
+	return cmd
 }
 
 func configureHiddenCmd(cmd *exec.Cmd) {}

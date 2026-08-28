@@ -11,7 +11,7 @@
           {{ isRunning ? `运行中 :${port}` : '已停止' }}
         </Badge>
       </div>
-      <p class="mt-2 text-sm text-muted-foreground">本地协议转换网关：Anthropic ↔ OpenAI（含 Codex Responses API），跨工具复用 API</p>
+      <p class="mt-2 text-sm text-muted-foreground">本地协议转换网关，各模型商共用同一端口。左上角或下方可单独开关；配置高级选项里选择上游格式，开启路由后才会转换。</p>
     </template>
 
     <Card class="mb-4">
@@ -57,6 +57,29 @@
       </CardContent>
     </Card>
 
+    <Card class="mb-4">
+      <CardContent>
+        <div class="mb-3">
+          <Label class="text-xs font-bold uppercase tracking-wide text-muted-foreground">应用路由</Label>
+          <p class="mt-1 text-xs leading-relaxed text-muted-foreground">
+            每个模型商单独开关，共用上面的端口。开启后把该 CLI 的地址改到本机网关；关闭则写回原地址。协议转换只在配置里选了非原生上游格式时发生。
+          </p>
+        </div>
+        <div class="flex flex-wrap items-center gap-4">
+          <div v-for="item in appProviders" :key="item.id" class="flex items-center gap-2">
+            <Switch
+              size="sm"
+              :checked="routerStore.isAppRoutingOn(item.id)"
+              :disabled="routerStore.togglingApp === item.id"
+              @update:checked="(value: boolean) => onAppRouting(item.id, value)"
+            />
+            <BrandIcon :provider="item.id" class="size-3.5" />
+            <Label class="cursor-pointer text-xs font-medium">{{ item.label }}</Label>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+
     <div class="mb-4 flex items-center justify-between gap-3">
       <Button size="sm" @click="openAdd">
         <Plus />
@@ -67,8 +90,8 @@
 
     <Empty v-if="routerStore.config.routes.length === 0" class="py-10">
       <EmptyHeader>
-        <EmptyTitle>暂无路由</EmptyTitle>
-        <EmptyDescription>添加路由后，即可让 Claude Code 使用 OpenAI 兼容接口、Codex 使用 Claude 接口</EmptyDescription>
+        <EmptyTitle>暂无自定义路由</EmptyTitle>
+        <EmptyDescription>日常用法：配置里选上游格式，再打开左上角对应模型商的路由开关。这里只用于额外的手工路由。</EmptyDescription>
       </EmptyHeader>
       <EmptyContent>
         <Button size="sm" @click="openAdd">
@@ -91,6 +114,7 @@
                   <Badge :variant="route.enabled ? 'default' : 'secondary'" class="shrink-0">
                     {{ route.enabled ? '启用' : '停用' }}
                   </Badge>
+                  <Badge v-if="isAppRoute(route)" variant="outline" class="shrink-0">应用路由</Badge>
                   <Badge variant="outline" class="shrink-0 font-mono">
                     {{ directionLabel(route) }}
                   </Badge>
@@ -236,13 +260,14 @@ import {
   TriangleAlert,
   Zap,
 } from '@lucide/vue'
-import type { APIRoute } from '@/types'
+import type { APIRoute, Provider } from '@/types'
 import { useRouterStore } from '@/stores/routerStore'
 import { routerService } from '@/services/routerService'
 import { useConfirm } from '@/composables/useConfirm'
 import { useToast } from '@/composables/useToast'
 import AppModal from '@/components/common/AppModal.vue'
 import AppTooltip from '@/components/common/AppTooltip.vue'
+import BrandIcon from '@/components/common/BrandIcon.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -312,6 +337,14 @@ onUnmounted(() => {
 
 const recentLogs = computed(() => (routerStore.status?.logs ?? []).slice(-10).reverse())
 
+const appProviders: { id: Provider; label: string }[] = [
+  { id: 'claude', label: 'Claude' },
+  { id: 'codex', label: 'Codex' },
+  { id: 'gemini', label: 'Gemini' },
+  { id: 'opencode', label: 'OpenCode' },
+  { id: 'grok', label: 'Grok' },
+]
+
 function onPortUpdate(value: string | number) {
   portInput.value = Number(value)
 }
@@ -339,13 +372,24 @@ function formatLastRequest(ts: number): string {
   return new Date(ts).toLocaleDateString()
 }
 
+function isAppRoute(route: APIRoute) {
+  const name = (route.name || '').toLowerCase()
+  return appProviders.some(item => item.id === name) || (route.description || '').includes('应用路由')
+}
+
+function formatName(value: string) {
+  if (value === 'anthropic') return 'Anthropic'
+  if (value === 'responses') return 'Responses'
+  return 'OpenAI'
+}
+
 function directionLabel(route: APIRoute): string {
-  const source = route.source_format === 'anthropic' ? 'Anthropic' : 'OpenAI'
-  const target = route.target_format === 'anthropic' ? 'Anthropic' : 'OpenAI'
+  const source = formatName(route.source_format)
+  const target = formatName(route.target_format)
   if (route.source_format === route.target_format) {
     return `${source} 直连`
   }
-  return route.source_format === 'anthropic' ? `${source} → ${target}` : `${target} ← ${source}`
+  return `${source} → ${target}`
 }
 
 function routeUrlOf(route: APIRoute): string {
@@ -366,9 +410,24 @@ async function saveGatewaySettings() {
       port: p,
       auto_start: autoStartInput.value
     })
+    try {
+      await routerStore.refreshRoutedProviders()
+    } catch {
+      /* 没有已开启的应用路由时忽略 */
+    }
     toast.success('网关设置已保存' + (isRunning.value ? '，已重启生效' : ''))
   } catch (e: any) {
     toast.error('保存失败: ' + (e?.message || String(e)))
+  }
+}
+
+async function onAppRouting(provider: Provider, enabled: boolean) {
+  try {
+    await routerStore.setAppRouting(provider, enabled)
+    const label = appProviders.find(item => item.id === provider)?.label || provider
+    toast.success(enabled ? `已开启 ${label} 路由` : `已关闭 ${label} 路由`)
+  } catch (e: any) {
+    toast.error(e?.message || String(e))
   }
 }
 

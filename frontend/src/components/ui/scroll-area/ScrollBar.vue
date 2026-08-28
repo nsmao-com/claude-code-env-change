@@ -17,11 +17,16 @@ const delegatedProps = reactiveOmit(props, 'class')
     data-slot="scroll-area-scrollbar"
     :data-orientation="orientation"
     v-bind="delegatedProps"
-    :class="cn('data-horizontal:h-2.5 data-horizontal:flex-col data-horizontal:border-t data-horizontal:border-t-transparent data-vertical:h-full data-vertical:w-2.5 data-vertical:border-l data-vertical:border-l-transparent flex touch-none p-px transition-colors select-none', props.class)"
+    :class="cn(
+      'flex touch-none select-none p-0.5 transition-colors',
+      'data-vertical:h-full data-vertical:w-1.5',
+      'data-horizontal:h-1.5 data-horizontal:flex-col',
+      props.class,
+    )"
   >
     <ScrollAreaThumb
       data-slot="scroll-area-thumb"
-      class="rounded-full relative flex-1 bg-border"
+      class="relative flex-1 rounded-full bg-foreground/20 transition-colors hover:bg-foreground/40"
     />
   </ScrollAreaScrollbar>
 </template>

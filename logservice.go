@@ -36,6 +36,7 @@ type UsageRecord struct {
 	TotalCost       float64 `json:"total_cost"`
 	SessionID       string  `json:"session_id"`
 	ProjectPath     string  `json:"project_path"`
+	Provider        string  `json:"provider,omitempty"`
 }
 
 // ModelStats 模型统计
@@ -177,10 +178,22 @@ func (ls *LogService) GetHeatmapData(days int, platform string) ([]HeatmapData, 
 
 // StatsOverview 统计页一次性数据：日志只解析一遍，同时产出统计与热力图
 type StatsOverview struct {
-	Stats        UsageStats    `json:"stats"`
-	Heatmap      []HeatmapData `json:"heatmap"`
-	LogDirectory string        `json:"log_directory"`
+	Stats        UsageStats                     `json:"stats"`
+	Heatmap      []HeatmapData                  `json:"heatmap"`
+	LogDirectory string                         `json:"log_directory"`
+	EnvSummary   map[string]EnvUsageSummary     `json:"env_summary"`
 }
+
+type cachedLogFile struct {
+	modUnix int64
+	size    int64
+	records []UsageRecord
+}
+
+var (
+	logFileCache   = map[string]cachedLogFile{}
+	logFileCacheMu sync.Mutex
+)
 
 // recordTimeLayout UsageRecord.Timestamp 的固定格式，字典序即时间序，可直接做字符串比较
 const recordTimeLayout = "2006-01-02 15:04:05"
@@ -209,6 +222,7 @@ func (ls *LogService) GetStatsOverview(statsDays, heatmapDays int, platform stri
 		Stats:        aggregateUsageStats(records, statsCutoff),
 		Heatmap:      aggregateHeatmap(records, heatmapCutoff),
 		LogDirectory: ls.getClaudeProjectsDir(),
+		EnvSummary:   ls.aggregateEnvUsage(records, statsDays),
 	}, nil
 }
 
@@ -384,9 +398,12 @@ func (ls *LogService) GetEnvUsageSummary(days int) (map[string]EnvUsageSummary, 
 	if days <= 0 {
 		days = 7
 	}
+	records := ls.loadRecordsForPlatform(days, "all")
+	return ls.aggregateEnvUsage(records, days), nil
+}
 
+func (ls *LogService) aggregateEnvUsage(records []UsageRecord, days int) map[string]EnvUsageSummary {
 	byEnv := map[string]EnvUsageSummary{}
-
 	activations, err := LoadEnvActivations()
 	if err != nil {
 		activations = map[string][]EnvActivationEvent{}
@@ -394,6 +411,7 @@ func (ls *LogService) GetEnvUsageSummary(days int) (map[string]EnvUsageSummary, 
 
 	cutoff := time.Now().AddDate(0, 0, -days)
 	cutoffUnix := cutoff.Unix()
+	cutoffStr := cutoff.Local().Format(recordTimeLayout)
 
 	providers := []string{"claude", "codex", "gemini"}
 	prepared := map[string][]EnvActivationEvent{}
@@ -403,65 +421,83 @@ func (ls *LogService) GetEnvUsageSummary(days int) (map[string]EnvUsageSummary, 
 			prepared[p] = events
 			continue
 		}
-		// 若最早事件晚于 cutoff，则用最早 env 回填一个 cutoff 事件，让区间内的日志都有归属
 		if events[0].At > cutoffUnix {
 			events = append([]EnvActivationEvent{{At: cutoffUnix, Provider: p, EnvName: events[0].EnvName}}, events...)
 		}
 		prepared[p] = events
 	}
 
-	accumulate := func(provider string, records []UsageRecord) {
-		events := prepared[provider]
-		for _, record := range records {
-			ts, _ := parseTimestamp(record.Timestamp)
-			if ts.IsZero() || ts.Before(cutoff) {
-				continue
-			}
-			envName := activeEnvAt(events, ts.Unix())
-			if strings.TrimSpace(envName) == "" {
-				continue
-			}
+	for _, record := range records {
+		if record.Timestamp < cutoffStr {
+			continue
+		}
+		provider := record.Provider
+		if provider == "" {
+			continue
+		}
+		ts, _ := parseTimestamp(record.Timestamp)
+		if ts.IsZero() {
+			continue
+		}
+		envName := activeEnvAt(prepared[provider], ts.Unix())
+		if strings.TrimSpace(envName) == "" {
+			continue
+		}
+		item := byEnv[envName]
+		item.Provider = provider
+		item.Requests++
+		item.InputTokens += int64(record.InputTokens)
+		item.OutputTokens += int64(record.OutputTokens)
+		item.CacheReadTokens += int64(record.CacheReadTokens)
+		item.CacheWriteTokens += int64(record.CacheWriteTokens)
+		item.TotalCost += record.TotalCost
+		if item.LastTimestamp == "" || record.Timestamp > item.LastTimestamp {
+			item.LastTimestamp = record.Timestamp
+		}
+		byEnv[envName] = item
+	}
+	return byEnv
+}
 
-			item := byEnv[envName]
-			item.Provider = provider
-			item.Requests++
-			item.InputTokens += int64(record.InputTokens)
-			item.OutputTokens += int64(record.OutputTokens)
-			item.CacheReadTokens += int64(record.CacheReadTokens)
-			item.CacheWriteTokens += int64(record.CacheWriteTokens)
-			item.TotalCost += record.TotalCost
-			if item.LastTimestamp == "" || record.Timestamp > item.LastTimestamp {
-				item.LastTimestamp = record.Timestamp
-			}
-			byEnv[envName] = item
+func cachedParseFile(path string, parseAll func() ([]UsageRecord, error), cutoff time.Time) []UsageRecord {
+	info, err := os.Stat(path)
+	if err != nil {
+		return nil
+	}
+	mod, size := info.ModTime().UnixNano(), info.Size()
+	logFileCacheMu.Lock()
+	hit, ok := logFileCache[path]
+	if ok && hit.modUnix == mod && hit.size == size {
+		recs := hit.records
+		logFileCacheMu.Unlock()
+		return filterRecordsByCutoff(recs, cutoff)
+	}
+	logFileCacheMu.Unlock()
+
+	recs, err := parseAll()
+	if err != nil || recs == nil {
+		recs = []UsageRecord{}
+	}
+	logFileCacheMu.Lock()
+	logFileCache[path] = cachedLogFile{modUnix: mod, size: size, records: recs}
+	logFileCacheMu.Unlock()
+	return filterRecordsByCutoff(recs, cutoff)
+}
+
+func filterRecordsByCutoff(records []UsageRecord, cutoff time.Time) []UsageRecord {
+	if cutoff.IsZero() || len(records) == 0 {
+		out := make([]UsageRecord, len(records))
+		copy(out, records)
+		return out
+	}
+	cutoffStr := cutoff.Local().Format(recordTimeLayout)
+	out := make([]UsageRecord, 0, len(records)/2)
+	for _, record := range records {
+		if record.Timestamp >= cutoffStr {
+			out = append(out, record)
 		}
 	}
-
-	// 三个平台并发读取，聚合结果加锁写入
-	var (
-		wg sync.WaitGroup
-		mu sync.Mutex
-	)
-	for _, item := range []struct {
-		provider string
-		read     func() []UsageRecord
-	}{
-		{"claude", func() []UsageRecord { records, _ := ls.readClaudeLogs(days); return records }},
-		{"codex", func() []UsageRecord { records, _ := ls.readCodexLogs(days); return records }},
-		{"gemini", func() []UsageRecord { records, _ := ls.readGeminiLogs(days); return records }},
-	} {
-		wg.Add(1)
-		go func(provider string, read func() []UsageRecord) {
-			defer wg.Done()
-			records := read()
-			mu.Lock()
-			defer mu.Unlock()
-			accumulate(provider, records)
-		}(item.provider, item.read)
-	}
-	wg.Wait()
-
-	return byEnv, nil
+	return out
 }
 
 // readClaudeLogs 读取 Claude Code 日志文件
@@ -504,11 +540,9 @@ func (ls *LogService) readClaudeLogs(days int) ([]UsageRecord, error) {
 	}
 
 	return parseFilesConcurrently(paths, func(path string) []UsageRecord {
-		fileRecords, err := ls.parseJSONLFile(path, extractProjectPath(path), cutoff)
-		if err != nil {
-			return nil // 忽略解析错误
-		}
-		return fileRecords
+		return cachedParseFile(path, func() ([]UsageRecord, error) {
+			return ls.parseJSONLFile(path, extractProjectPath(path), time.Time{})
+		}, cutoff)
 	}), nil
 }
 
@@ -666,13 +700,10 @@ func (ls *LogService) readGeminiLogs(days int) ([]UsageRecord, error) {
 	}
 
 	return parseFilesConcurrently(paths, func(path string) []UsageRecord {
-		// path = <tmp>/<项目hash>/chats/<session>.json，项目 hash 取倒数第三段
 		projectHash := filepath.Base(filepath.Dir(filepath.Dir(path)))
-		sessionRecords, err := ls.parseGeminiSession(path, projectHash, cutoff)
-		if err != nil {
-			return nil // 忽略解析错误
-		}
-		return sessionRecords
+		return cachedParseFile(path, func() ([]UsageRecord, error) {
+			return ls.parseGeminiSession(path, projectHash, time.Time{})
+		}, cutoff)
 	}), nil
 }
 
@@ -726,6 +757,7 @@ func (ls *LogService) parseGeminiSession(path string, projectHash string, cutoff
 			TotalCost:        cost,
 			SessionID:        session.SessionID,
 			ProjectPath:      projectHash,
+			Provider:         "gemini",
 		}
 
 		records = append(records, record)
@@ -821,7 +853,7 @@ func (ls *LogService) parseJSONLFile(path string, projectPath string, cutoff tim
 
 	for scanner.Scan() {
 		line := scanner.Text()
-		if line == "" {
+		if line == "" || !strings.Contains(line, `"usage"`) {
 			continue
 		}
 
@@ -860,6 +892,7 @@ func (ls *LogService) parseJSONLFile(path string, projectPath string, cutoff tim
 			TotalCost:        cost,
 			SessionID:        sessionID,
 			ProjectPath:      projectPath,
+			Provider:         "claude",
 		}
 
 		records = append(records, record)
@@ -995,11 +1028,9 @@ func (ls *LogService) readCodexLogs(days int) ([]UsageRecord, error) {
 	}
 
 	return parseFilesConcurrently(paths, func(path string) []UsageRecord {
-		sessionRecords, err := ls.parseCodexSession(path, filepath.Base(path), cutoff)
-		if err != nil {
-			return nil // 忽略解析错误
-		}
-		return sessionRecords
+		return cachedParseFile(path, func() ([]UsageRecord, error) {
+			return ls.parseCodexSession(path, filepath.Base(path), time.Time{})
+		}, cutoff)
 	}), nil
 }
 
@@ -1100,6 +1131,7 @@ func (ls *LogService) parseCodexSession(path string, sessionID string, cutoff ti
 					TotalCost:        cost,
 					SessionID:        sessionID,
 					ProjectPath:      filepath.Base(path),
+					Provider:         "codex",
 				}
 
 				records = append(records, record)

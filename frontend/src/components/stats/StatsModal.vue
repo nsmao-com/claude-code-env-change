@@ -19,18 +19,25 @@
           </SelectItem>
         </SelectContent>
       </Select>
+      <span v-if="loading" class="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <Loader2 class="size-3.5 animate-spin" />
+        加载中
+      </span>
       <Button variant="ghost" size="icon-sm" class="rounded-full" :disabled="loading" @click="refresh">
         <RefreshCw :class="['size-3.5', loading && 'animate-spin']" />
       </Button>
     </template>
 
     <div class="relative min-h-[200px]">
-      <div v-if="loading" class="absolute inset-0 z-10 flex flex-col items-center justify-center rounded-2xl bg-background/90">
-        <Loader2 class="size-6 animate-spin text-muted-foreground" />
-        <span class="mt-2 text-sm text-muted-foreground">加载中...</span>
+      <div
+        v-if="loading"
+        class="sticky top-0 z-20 mb-3 flex items-center gap-2 rounded-xl border bg-background/95 px-3 py-2 text-sm text-muted-foreground shadow-sm backdrop-blur"
+      >
+        <Loader2 class="size-4 animate-spin" />
+        正在加载统计数据...
       </div>
 
-      <div class="grid grid-cols-2 gap-3 lg:grid-cols-4" :class="{ 'pointer-events-none opacity-30': loading }">
+      <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <motion.div v-for="(card, i) in kpiItems" :key="card.label" :initial="{ opacity: 0, y: 12 }" :animate="{ opacity: 1, y: 0 }" :transition="{ delay: i * 0.05, duration: 0.28, ease: [0.22, 1, 0.36, 1] }">
           <Card size="sm">
             <CardHeader class="px-5">
@@ -44,7 +51,7 @@
         </motion.div>
       </div>
 
-      <div class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2" :class="{ 'pointer-events-none opacity-30': loading }">
+      <div class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader class="px-5">
             <CardTitle>用量分布</CardTitle>
@@ -114,7 +121,7 @@
         </Card>
       </div>
 
-      <div class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2" :class="{ 'pointer-events-none opacity-30': loading }">
+      <div class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader class="px-5">
             <CardTitle>请求趋势</CardTitle>
@@ -432,7 +439,7 @@ const doughnutData = computed(() => ({
     data: doughnutSlices.value.map(s => s.value),
     backgroundColor: doughnutSlices.value.map(s => s.color),
     borderWidth: 0,
-    hoverOffset: 4,
+    hoverOffset: 10,
   }],
 }))
 
@@ -448,6 +455,8 @@ const requestLineData = computed(() => ({
     fill: true,
     tension: 0.35,
     pointRadius: 0,
+    pointHoverRadius: 4,
+    pointHitRadius: 16,
   }],
 }))
 
@@ -461,6 +470,8 @@ const costLineData = computed(() => ({
     fill: true,
     tension: 0.35,
     pointRadius: 0,
+    pointHoverRadius: 4,
+    pointHitRadius: 16,
   }],
 }))
 
@@ -516,35 +527,51 @@ const cacheDoughnut = computed(() => {
       data: [read, write],
       backgroundColor: [CHART_COLORS[5], CHART_COLORS[3]],
       borderWidth: 0,
+      hoverOffset: 10,
     }],
   }
 })
 
+const axisTick = { color: 'oklch(0.55 0 0)' }
+const axisGrid = { color: 'oklch(0.9 0 0 / 0.4)' }
+const indexHover = {
+  mode: 'index' as const,
+  intersect: false,
+}
+
 const lineOptions = {
   responsive: true,
   maintainAspectRatio: false,
-  plugins: { legend: { display: false } },
+  interaction: indexHover,
+  plugins: {
+    legend: { display: false },
+    tooltip: { ...indexHover },
+  },
   scales: {
-    x: { ticks: { maxTicksLimit: 8, color: 'oklch(0.55 0 0)' }, grid: { display: false } },
-    y: { ticks: { color: 'oklch(0.55 0 0)' }, grid: { color: 'oklch(0.9 0 0 / 0.4)' } },
+    x: { ticks: { maxTicksLimit: 8, ...axisTick }, grid: { display: false } },
+    y: { ticks: axisTick, grid: axisGrid },
   },
 }
 
 const barOptions = {
   responsive: true,
   maintainAspectRatio: false,
-  plugins: { legend: { display: false } },
+  interaction: indexHover,
+  plugins: {
+    legend: { display: false },
+    tooltip: { ...indexHover },
+  },
   scales: {
-    x: { ticks: { color: 'oklch(0.55 0 0)' }, grid: { display: false } },
-    y: { ticks: { color: 'oklch(0.55 0 0)' }, grid: { color: 'oklch(0.9 0 0 / 0.4)' } },
+    x: { ticks: axisTick, grid: { display: false } },
+    y: { ticks: axisTick, grid: axisGrid },
   },
 }
 
 const stackedBarOptions = {
   ...barOptions,
   scales: {
-    x: { stacked: true, ticks: { maxTicksLimit: 8, color: 'oklch(0.55 0 0)' }, grid: { display: false } },
-    y: { stacked: true, ticks: { color: 'oklch(0.55 0 0)' }, grid: { color: 'oklch(0.9 0 0 / 0.4)' } },
+    x: { stacked: true, ticks: { maxTicksLimit: 8, ...axisTick }, grid: { display: false } },
+    y: { stacked: true, ticks: axisTick, grid: axisGrid },
   },
 }
 
@@ -552,6 +579,7 @@ const doughnutOptions = {
   responsive: true,
   maintainAspectRatio: false,
   cutout: '72%',
+  interaction: { mode: 'nearest' as const, intersect: true },
   plugins: {
     legend: { display: false },
     tooltip: {
@@ -684,6 +712,27 @@ function getHeatmapColor(requests: number): string {
   return 'var(--heatmap-4, #216e39)'
 }
 
+function compactSeries(series: NonNullable<UsageStats['series']>, maxPoints = 56) {
+  if (!series.length || series.length <= maxPoints) return series
+  const byDay = new Map<string, (typeof series)[number]>()
+  for (const item of series) {
+    const key = item.hour.slice(0, 10)
+    const prev = byDay.get(key)
+    if (!prev) {
+      byDay.set(key, { ...item, hour: key })
+      continue
+    }
+    prev.requests += item.requests
+    prev.input_tokens += item.input_tokens
+    prev.output_tokens += item.output_tokens
+    prev.cost += item.cost
+  }
+  const daily = Array.from(byDay.values())
+  if (daily.length <= maxPoints) return daily
+  const step = Math.ceil(daily.length / maxPoints)
+  return daily.filter((_, index) => index % step === 0)
+}
+
 function onDays(value: unknown) {
   if (typeof value !== 'string') return
   const d = Number(value)
@@ -704,23 +753,26 @@ async function loadData() {
   loading.value = true
   try {
     const data = await getStatsOverview(days.value, heatmapWeeks * 7, platform.value)
-    stats.value = data.stats
+    const nextStats = data.stats
+    if (nextStats?.series) nextStats.series = compactSeries(nextStats.series)
+    stats.value = nextStats
     heatmap.value = data.heatmap || []
     logDirectory.value = data.log_directory || ''
-    envSummary.value = await getEnvUsageSummary(days.value).catch(() => ({}))
+    envSummary.value = data.env_summary != null
+      ? data.env_summary
+      : await getEnvUsageSummary(days.value).catch(() => ({}))
   } catch {
-    // 后端未重新编译（没有合并接口）时，回退到原有两个接口
     try {
       const [statsData, heatmapData] = await Promise.all([
         getUsageStats(days.value, platform.value),
         getHeatmapData(heatmapWeeks * 7, platform.value),
       ])
+      if (statsData?.series) statsData.series = compactSeries(statsData.series)
       stats.value = statsData
       heatmap.value = heatmapData
       logDirectory.value = await getLogDirectory().catch(() => '')
       envSummary.value = await getEnvUsageSummary(days.value).catch(() => ({}))
     } catch (err) {
-      console.error('统计数据加载失败', err)
       toastError(`统计数据加载失败: ${err instanceof Error ? err.message : String(err)}`)
     }
   } finally {

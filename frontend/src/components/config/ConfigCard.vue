@@ -33,7 +33,7 @@
           </div>
         </div>
         <div class="flex shrink-0 items-center gap-1.5">
-          <Badge v-if="needsRoute" variant="outline" class="border-brand/30 bg-brand/10 text-brand">需路由</Badge>
+          <Badge v-if="needsRoute" variant="outline" class="border-brand/30 bg-brand/10 text-brand">需开启路由</Badge>
           <Badge v-if="isActive" class="gap-1">
             <Check class="size-3" />
             使用中

@@ -8,7 +8,7 @@ export interface EnvConfig {
   provider: Provider
   templates?: Record<string, string>
   icon?: string
-  /** 上游 API 格式：空 = 原生直连；其余值需本地路由做协议转换 */
+  /** 上游 API 格式：空 = 原生直连；其余值需开启该模型商路由后才转换 */
   upstream_format?: UpstreamFormat
   // Claude Code 特有配置 (值为 "0" 或 "1"，空字符串表示不设置)
   attribution_header: string
@@ -79,7 +79,7 @@ export interface SkillPreset {
 }
 
 // API 路由网关类型
-export type APIFormat = 'anthropic' | 'openai'
+export type APIFormat = 'anthropic' | 'openai' | 'responses'
 
 export interface APIRoute {
   name: string
@@ -97,6 +97,7 @@ export interface RouterConfig {
   port: number
   auto_start: boolean
   routes: APIRoute[]
+  app_routing?: Record<string, boolean>
 }
 
 export interface RouteStats {

@@ -48,9 +48,10 @@ type APIRoute struct {
 
 // RouterConfig 网关配置
 type RouterConfig struct {
-	Port      int        `json:"port"`
-	AutoStart bool       `json:"auto_start"`
-	Routes    []APIRoute `json:"routes"`
+	Port       int             `json:"port"`
+	AutoStart  bool            `json:"auto_start"`
+	Routes     []APIRoute      `json:"routes"`
+	AppRouting map[string]bool `json:"app_routing,omitempty"` // 按模型商开关：claude/codex/gemini/opencode/grok
 }
 
 // RouteStats 路由运行统计
@@ -197,15 +198,46 @@ func (rs *RouterService) normalizeConfig(config *RouterConfig) {
 		config.Routes[i].SourceFormat = normalizeAPIFormat(config.Routes[i].SourceFormat)
 		config.Routes[i].TargetFormat = normalizeAPIFormat(config.Routes[i].TargetFormat)
 	}
+	config.AppRouting = normalizeAppRouting(config.AppRouting)
 }
 
 func normalizeAPIFormat(value string) string {
 	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "openai":
+	case "openai", "chat_completions":
 		return "openai"
+	case "responses":
+		return "responses"
 	default:
 		return "anthropic"
 	}
+}
+
+func defaultAppRouting() map[string]bool {
+	return map[string]bool{
+		"claude":   false,
+		"codex":    false,
+		"gemini":   false,
+		"opencode": false,
+		"grok":     false,
+	}
+}
+
+func knownProvider(value string) (string, bool) {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "claude", "codex", "gemini", "opencode", "grok":
+		return strings.ToLower(strings.TrimSpace(value)), true
+	}
+	return "", false
+}
+
+func normalizeAppRouting(raw map[string]bool) map[string]bool {
+	out := defaultAppRouting()
+	for key, enabled := range raw {
+		if provider, ok := knownProvider(key); ok {
+			out[provider] = enabled
+		}
+	}
+	return out
 }
 
 // GetRouterConfig 获取路由配置
@@ -482,7 +514,8 @@ func (rs *RouterService) TestRoute(name string) RouterTestResult {
 	var err error
 	target := normalizeAPIFormat(route.TargetFormat)
 
-	if target == "anthropic" {
+	switch target {
+	case "anthropic":
 		if model == "" {
 			model = "claude-3-5-haiku-latest"
 		}
@@ -492,7 +525,17 @@ func (rs *RouterService) TestRoute(name string) RouterTestResult {
 			"messages":   []map[string]string{{"role": "user", "content": "ping"}},
 		}
 		req, err = rs.newUpstreamRequest(*route, "POST", "/v1/messages", payload)
-	} else {
+	case "responses":
+		if model == "" {
+			model = "gpt-4o-mini"
+		}
+		payload := map[string]any{
+			"model":             model,
+			"input":             "ping",
+			"max_output_tokens": 16,
+		}
+		req, err = rs.newUpstreamRequest(*route, "POST", "/v1/responses", payload)
+	default:
 		if model == "" {
 			model = "gpt-4o-mini"
 		}
@@ -557,7 +600,12 @@ func (rs *RouterService) handleRoot(w http.ResponseWriter, r *http.Request) {
 	case "responses":
 		rs.serveResponsesEndpoint(w, r, route)
 	default:
-		writeJSONError(w, http.StatusNotFound, fmt.Sprintf("未知接口: /%s", path))
+		rest := strings.Join(parts[1:], "/")
+		if rest == "" {
+			writeJSONError(w, http.StatusNotFound, fmt.Sprintf("未知接口: /%s", path))
+			return
+		}
+		rs.servePassthrough(w, r, route, rest)
 	}
 }
 
@@ -898,19 +946,80 @@ func (rs *RouterService) newUpstreamRequest(route APIRoute, method, endpoint str
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json, text/event-stream")
+	applyRouteAuth(req, route)
+	return req, nil
+}
 
+func applyRouteAuth(req *http.Request, route APIRoute) {
+	if route.APIKey == "" {
+		return
+	}
 	target := normalizeAPIFormat(route.TargetFormat)
 	if target == "anthropic" {
-		if route.APIKey != "" {
-			req.Header.Set("x-api-key", route.APIKey)
+		req.Header.Set("x-api-key", route.APIKey)
+		if req.Header.Get("anthropic-version") == "" {
+			req.Header.Set("anthropic-version", "2023-06-01")
 		}
-		req.Header.Set("anthropic-version", "2023-06-01")
-	} else {
-		if route.APIKey != "" {
-			req.Header.Set("Authorization", "Bearer "+route.APIKey)
-		}
+		return
 	}
-	return req, nil
+	if req.Header.Get("Authorization") == "" {
+		req.Header.Set("Authorization", "Bearer "+route.APIKey)
+	}
+	if req.Header.Get("x-goog-api-key") == "" {
+		req.Header.Set("x-goog-api-key", route.APIKey)
+	}
+}
+
+var hopByHopHeaders = map[string]bool{
+	"Connection":          true,
+	"Keep-Alive":          true,
+	"Proxy-Authenticate":  true,
+	"Proxy-Authorization": true,
+	"Te":                  true,
+	"Trailers":            true,
+	"Transfer-Encoding":   true,
+	"Upgrade":             true,
+}
+
+func (rs *RouterService) servePassthrough(w http.ResponseWriter, r *http.Request, route APIRoute, rest string) {
+	start := time.Now()
+	targetURL := strings.TrimRight(route.BaseURL, "/") + "/" + strings.TrimLeft(rest, "/")
+	if r.URL.RawQuery != "" {
+		targetURL += "?" + r.URL.RawQuery
+	}
+
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxGatewayBodyBytes))
+	if err != nil {
+		rs.finishRequest(w, route, r, start, http.StatusBadRequest, "", fmt.Errorf("读取请求体失败: %v", err), true)
+		writeJSONError(w, http.StatusBadRequest, "读取请求体失败")
+		return
+	}
+
+	upstream, err := http.NewRequest(r.Method, targetURL, strings.NewReader(string(body)))
+	if err != nil {
+		rs.finishRequest(w, route, r, start, http.StatusBadGateway, "", err, true)
+		writeJSONError(w, http.StatusBadGateway, err.Error())
+		return
+	}
+	for key, values := range r.Header {
+		if hopByHopHeaders[http.CanonicalHeaderKey(key)] {
+			continue
+		}
+		if strings.EqualFold(key, "Host") || strings.EqualFold(key, "Content-Length") {
+			continue
+		}
+		upstream.Header[key] = append([]string(nil), values...)
+	}
+	applyRouteAuth(upstream, route)
+
+	resp, err := rs.client.Do(upstream)
+	if err != nil {
+		rs.finishRequest(w, route, r, start, http.StatusBadGateway, "", err, true)
+		writeJSONError(w, http.StatusBadGateway, fmt.Sprintf("上游请求失败: %v", err))
+		return
+	}
+	defer resp.Body.Close()
+	rs.proxyResponse(w, resp, route, r, start, "")
 }
 
 func writeJSON(w http.ResponseWriter, statusCode int, payload any) {
