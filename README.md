@@ -24,7 +24,7 @@
 </p>
 
 <p align="center">
-  <img src="portal.png" alt="AI ENV 界面" width="100%" />
+  <img src="portal.png" alt="AI ENV 首页" width="100%" />
 </p>
 
 ## 这是什么
