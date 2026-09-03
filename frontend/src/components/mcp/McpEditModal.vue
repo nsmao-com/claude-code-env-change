@@ -106,10 +106,10 @@
                 Codex
                 <Check v-if="form.platforms.codex" />
               </ToggleGroupItem>
-              <ToggleGroupItem value="gemini" class="flex-1">
-                <BrandIcon provider="gemini" />
-                Gemini
-                <Check v-if="form.platforms.gemini" />
+              <ToggleGroupItem value="antigravity" class="flex-1">
+                <BrandIcon provider="antigravity" />
+                Antigravity
+                <Check v-if="form.platforms.antigravity" />
               </ToggleGroupItem>
               <ToggleGroupItem value="opencode" class="flex-1">
                 <BrandIcon provider="opencode" />
@@ -201,7 +201,7 @@ function platformsFromFilter() {
   return {
     claude: tool === 'all' || tool === 'claude',
     codex: tool === 'codex',
-    gemini: tool === 'gemini',
+    antigravity: tool === 'antigravity',
     opencode: tool === 'opencode',
     grok: tool === 'grok',
   }
@@ -226,7 +226,7 @@ const selectedPlatformKeys = computed(() => {
   const keys: string[] = []
   if (form.value.platforms.claude) keys.push('claude')
   if (form.value.platforms.codex) keys.push('codex')
-  if (form.value.platforms.gemini) keys.push('gemini')
+  if (form.value.platforms.antigravity) keys.push('antigravity')
   if (form.value.platforms.opencode) keys.push('opencode')
   if (form.value.platforms.grok) keys.push('grok')
   return keys
@@ -242,7 +242,7 @@ function onPlatforms(value: unknown) {
   const keys = Array.isArray(value) ? value : []
   form.value.platforms.claude = keys.includes('claude')
   form.value.platforms.codex = keys.includes('codex')
-  form.value.platforms.gemini = keys.includes('gemini')
+  form.value.platforms.antigravity = keys.includes('antigravity')
   form.value.platforms.opencode = keys.includes('opencode')
   form.value.platforms.grok = keys.includes('grok')
 }
@@ -284,7 +284,7 @@ function platformsFromForm(): string[] {
   const enablePlatform: string[] = []
   if (form.value.platforms.claude) enablePlatform.push('claude-code')
   if (form.value.platforms.codex) enablePlatform.push('codex')
-  if (form.value.platforms.gemini) enablePlatform.push('gemini')
+  if (form.value.platforms.antigravity) enablePlatform.push('antigravity')
   if (form.value.platforms.opencode) enablePlatform.push('opencode')
   if (form.value.platforms.grok) enablePlatform.push('grok')
   return enablePlatform
@@ -294,7 +294,7 @@ function applyPlatforms(list?: string[]) {
   const platforms = list || []
   form.value.platforms.claude = platforms.includes('claude-code')
   form.value.platforms.codex = platforms.includes('codex')
-  form.value.platforms.gemini = platforms.includes('gemini')
+  form.value.platforms.antigravity = platforms.includes('antigravity')
   form.value.platforms.opencode = platforms.includes('opencode')
   form.value.platforms.grok = platforms.includes('grok')
 }
@@ -341,7 +341,7 @@ function serverFromForm(): MCPServer | string {
     enable_platform: platformsFromForm(),
     enabled_in_claude: false,
     enabled_in_codex: false,
-    enabled_in_gemini: false,
+    enabled_in_antigravity: false,
     missing_placeholders: []
   }
 }

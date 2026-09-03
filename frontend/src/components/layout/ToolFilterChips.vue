@@ -28,7 +28,7 @@ const configStore = useConfigStore()
 const ICON_COLORS: Record<string, string> = {
   claude: 'text-[#D97757]',
   codex: 'text-[#1A1D21] dark:text-white/80',
-  gemini: 'text-[#4F6BED]',
+  antigravity: 'text-[#4F6BED]',
   opencode: 'text-[#131010] dark:text-white/80',
   grok: 'text-[#6B7280]',
 }
@@ -38,7 +38,7 @@ function iconColor(id: string) {
 }
 
 function onTool(value: string) {
-  if (value === 'all' || value === 'claude' || value === 'codex' || value === 'gemini' || value === 'opencode' || value === 'grok') {
+  if (value === 'all' || value === 'claude' || value === 'codex' || value === 'antigravity' || value === 'opencode' || value === 'grok') {
     configStore.setFilter(value as Provider | 'all')
   }
 }

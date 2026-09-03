@@ -154,7 +154,7 @@ func (ss *SkillService) ImportSkillMarketplace(id string) (Skill, error) {
 	return Skill{
 		Name:             name,
 		Content:          content,
-		EnablePlatform:   []string{platClaudeCode, platCodex, platGemini, platOpencode, platGrok},
+		EnablePlatform:   []string{platClaudeCode, platCodex, platAntigravity, platOpencode, platGrok},
 		FrontmatterName:  meta.Name,
 		Description:      firstNonEmpty(meta.Description, item.Description),
 		HasFrontmatter:   meta.HasFrontmatter,
@@ -183,7 +183,7 @@ func skillFromPreset(preset SkillPreset) Skill {
 	return Skill{
 		Name:            preset.Name,
 		Content:         preset.Content,
-		EnablePlatform:  []string{platClaudeCode, platCodex, platGemini, platOpencode, platGrok},
+		EnablePlatform:  []string{platClaudeCode, platCodex, platAntigravity, platOpencode, platGrok},
 		FrontmatterName: firstNonEmpty(meta.Name, preset.Name),
 		Description:     firstNonEmpty(meta.Description, preset.Description),
 		HasFrontmatter:  meta.HasFrontmatter,
@@ -468,8 +468,8 @@ func fetchSkillsShCatalog(query string) ([]SkillMarketItem, error) {
 
 func parseSkillsShList(data []byte) []SkillMarketItem {
 	var payload struct {
-		Data []json.RawMessage `json:"data"`
-		Skills []json.RawMessage `json:"skills"`
+		Data    []json.RawMessage `json:"data"`
+		Skills  []json.RawMessage `json:"skills"`
 		Results []json.RawMessage `json:"results"`
 	}
 	rows := []json.RawMessage{}
@@ -717,7 +717,7 @@ func importSkillsSh(id string) (Skill, error) {
 	return Skill{
 		Name:             name,
 		Content:          content,
-		EnablePlatform:   []string{platClaudeCode, platCodex, platGemini, platOpencode, platGrok},
+		EnablePlatform:   []string{platClaudeCode, platCodex, platAntigravity, platOpencode, platGrok},
 		FrontmatterName:  meta.Name,
 		Description:      firstNonEmpty(meta.Description, desc),
 		HasFrontmatter:   meta.HasFrontmatter,

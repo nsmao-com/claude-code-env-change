@@ -85,7 +85,7 @@
           <div class="flex justify-end">
             <Button
               size="sm"
-              :disabled="busyId === tool.id || upgradingAll || (!tool.installed && !tool.npm_package)"
+              :disabled="busyId === tool.id || upgradingAll || (!tool.installed && !tool.npm_package && !tool.can_install)"
               @click="upgradeOne(tool)"
             >
               <Loader2 v-if="busyId === tool.id" class="animate-spin" />

@@ -7,7 +7,7 @@ import { callApp } from '@/services/appBridge'
 const emptyAppRouting = (): Record<string, boolean> => ({
   claude: false,
   codex: false,
-  gemini: false,
+  antigravity: false,
   opencode: false,
   grok: false,
 })

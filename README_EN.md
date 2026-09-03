@@ -5,7 +5,7 @@
 <h1 align="center">AI ENV</h1>
 
 <p align="center">
-  A local desktop workspace for Claude Code, Codex, Gemini CLI, OpenCode, and Grok.<br />
+  A local desktop workspace for Claude Code, Codex, Antigravity CLI (agy), OpenCode, and Grok.<br />
   Manage environments, MCP servers, skills, a local API router, uptime rotation, cloud backups, and installed CLIs in one window.
 </p>
 
@@ -38,7 +38,7 @@ Current release: **v2.4.0**. Release notes and binaries live on [GitHub Releases
 | Module | What it does |
 | --- | --- |
 | Environments | Multiple profiles, per-tool filter, drag reorder, one-click apply, latency probe, drag-and-drop JSON import |
-| MCP | stdio / HTTP servers, sync into Claude / Codex / Gemini / OpenCode / Grok |
+| MCP | stdio / HTTP servers, sync into Claude / Codex / Antigravity / OpenCode / Grok |
 | Skills | Edit `SKILL.md`, import from online marketplaces or the bundled library, enable per platform |
 | API router | Local gateway port and per-vendor switches; pick upstream format in the config (Anthropic Messages, Chat Completions, Responses) |
 | Uptime | Periodic Base URL checks and rotation groups |
@@ -46,7 +46,7 @@ Current release: **v2.4.0**. Release notes and binaries live on [GitHub Releases
 | Prompts | Custom system prompts per CLI |
 | Stats | Requests, tokens, cost estimate, model mix, activity heatmap |
 | Settings | Language, theme, accent, outbound proxy |
-| CLI | Detect local Claude / Codex / Gemini / OpenCode / Grok and upgrade via pnpm, npm, or native update |
+| CLI | Detect local Claude / Codex / Antigravity / OpenCode / Grok; install/upgrade via pnpm, npm, official installer, or native update |
 | Config folders | Open each CLI’s config directory and key files |
 | Updates | GitHub Release check; Windows can download and replace in-app |
 
@@ -102,7 +102,7 @@ Files written into each CLI:
 | --- | --- |
 | Claude Code | `~/.claude/settings.json` |
 | Codex | `~/.codex/config.toml`, `~/.codex/auth.json` |
-| Gemini CLI | `~/.gemini/.env`, `~/.gemini/settings.json` |
+| Antigravity CLI | `~/.gemini/antigravity-cli/settings.json`, `~/.gemini/config/mcp_config.json`; API key & endpoint are written to user environment variables (agy only reads env vars) |
 | OpenCode | `~/.config/opencode/opencode.json` (`OPENCODE_CONFIG_DIR` / `OPENCODE_CONFIG`) |
 | Grok | `~/.grok/config.toml` (`GROK_HOME`) |
 

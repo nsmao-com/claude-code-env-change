@@ -3,7 +3,7 @@ import type { Provider, UpstreamFormat } from '@/types'
 const PROVIDER_SHORT: Record<string, string> = {
   claude: 'Claude',
   codex: 'Codex',
-  gemini: 'Gemini',
+  antigravity: 'Antigravity',
   opencode: 'OpenCode',
   grok: 'Grok',
 }
@@ -15,8 +15,8 @@ export function nativeProtocolLabel(provider: string): string {
     case 'codex':
     case 'grok':
       return 'Responses'
-    case 'gemini':
-      return 'Gemini'
+    case 'antigravity':
+      return 'Antigravity'
     case 'opencode':
       return 'Chat Completions'
     default:
@@ -35,7 +35,7 @@ export function upstreamFormatOptions(provider: string): { value: string; label:
     case 'codex':
     case 'grok':
       return [native, chat, anthropic]
-    case 'gemini':
+    case 'antigravity':
       return [native, chat, anthropic, responses]
     case 'opencode':
       return [native, anthropic, responses]
@@ -55,7 +55,7 @@ export function needsUpstreamRouting(provider: string, format?: string): boolean
       return value === 'chat_completions' || value === 'anthropic_messages'
     case 'opencode':
       return value === 'anthropic_messages' || value === 'responses'
-    case 'gemini':
+    case 'antigravity':
       return value === 'chat_completions' || value === 'anthropic_messages' || value === 'responses'
     default:
       return true

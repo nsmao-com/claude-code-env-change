@@ -26,15 +26,15 @@
     <div v-if="expanded" class="divide-y border-t">
       <ConfigListItem
         v-for="config in appliedConfigs"
-        :key="config.name"
+        :key="`${config.name}-${config.provider}`"
         :config="config"
         nested
         is-active
-        @click="$emit('edit', config.name)"
-        @apply="$emit('apply', config.name)"
-        @duplicate="$emit('duplicate', config.name)"
-        @edit="$emit('edit', config.name)"
-        @delete="$emit('delete', config.name)"
+        @click="$emit('edit', config.name, config.provider)"
+        @apply="$emit('apply', config.name, config.provider)"
+        @duplicate="$emit('duplicate', config.name, config.provider)"
+        @edit="$emit('edit', config.name, config.provider)"
+        @delete="$emit('delete', config.name, config.provider)"
       />
       <p v-if="appliedConfigs.length === 0" class="px-4 py-3 text-xs text-muted-foreground">
         当前筛选下还没有已应用的配置
@@ -52,36 +52,37 @@ import BrandIcon from '@/components/common/BrandIcon.vue'
 import ConfigListItem from './ConfigListItem.vue'
 
 defineEmits<{
-  edit: [name: string]
-  apply: [name: string]
-  duplicate: [name: string]
-  delete: [name: string]
+  edit: [name: string, provider: string]
+  apply: [name: string, provider: string]
+  duplicate: [name: string, provider: string]
+  delete: [name: string, provider: string]
 }>()
 
 const expanded = ref(false)
 const configStore = useConfigStore()
 
-const providers: Provider[] = ['claude', 'codex', 'gemini', 'opencode', 'grok']
+const providers: Provider[] = ['claude', 'codex', 'antigravity', 'opencode', 'grok']
 
 const appliedConfigs = computed(() => {
   const filter = configStore.currentFilter
   const list = filter === 'all' ? providers : [filter]
   const result: EnvConfig[] = []
   const seen = new Set<string>()
-  const push = (name: string) => {
-    if (!name || seen.has(name)) return
-    const config = configStore.getEnvByName(name)
+  const push = (name: string, provider: string) => {
+    const key = `${provider}/${name}`
+    if (!name || seen.has(key)) return
+    const config = configStore.getEnvByName(name, provider)
     if (!config) return
-    seen.add(name)
+    seen.add(key)
     result.push(config)
   }
   for (const provider of list) {
     if (provider === 'opencode') {
-      for (const name of configStore.currentEnvsOpencode) push(name)
-      push(configStore.currentEnvOpencode)
+      for (const name of configStore.currentEnvsOpencode) push(name, provider)
+      push(configStore.currentEnvOpencode, provider)
       continue
     }
-    push(configStore.activeEnvs[provider])
+    push(configStore.activeEnvs[provider], provider)
   }
   return result
 })

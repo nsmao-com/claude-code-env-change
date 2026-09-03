@@ -8,7 +8,7 @@ export const useConfigStore = defineStore('config', () => {
   const environments = ref<EnvConfig[]>([])
   const currentEnvClaude = ref('')
   const currentEnvCodex = ref('')
-  const currentEnvGemini = ref('')
+  const currentEnvAntigravity = ref('')
   const currentEnvOpencode = ref('')
   const currentEnvsOpencode = ref<string[]>([])
   const currentEnvGrok = ref('')
@@ -27,7 +27,7 @@ export const useConfigStore = defineStore('config', () => {
   const activeEnvs = computed(() => ({
     claude: currentEnvClaude.value,
     codex: currentEnvCodex.value,
-    gemini: currentEnvGemini.value,
+    antigravity: currentEnvAntigravity.value,
     opencode: currentEnvOpencode.value,
     grok: currentEnvGrok.value,
   }))
@@ -40,8 +40,8 @@ export const useConfigStore = defineStore('config', () => {
     environments.value.filter(env => env.provider === 'codex')
   )
 
-  const geminiEnvs = computed(() =>
-    environments.value.filter(env => env.provider === 'gemini')
+  const antigravityEnvs = computed(() =>
+    environments.value.filter(env => env.provider === 'antigravity')
   )
 
   const opencodeEnvs = computed(() =>
@@ -60,7 +60,7 @@ export const useConfigStore = defineStore('config', () => {
       environments.value = config.environments || []
       currentEnvClaude.value = config.current_env_claude || ''
       currentEnvCodex.value = config.current_env_codex || ''
-      currentEnvGemini.value = config.current_env_gemini || ''
+      currentEnvAntigravity.value = config.current_env_antigravity || ''
       currentEnvOpencode.value = config.current_env_opencode || ''
       const listed = Array.isArray(config.current_envs_opencode) ? config.current_envs_opencode.filter(Boolean) : []
       let extra: string[] = []
@@ -86,18 +86,18 @@ export const useConfigStore = defineStore('config', () => {
     await loadConfig()
   }
 
-  async function updateEnv(oldName: string, config: EnvConfig) {
-    await configService.updateEnv(oldName, config)
+  async function updateEnv(oldName: string, oldProvider: string, config: EnvConfig) {
+    await configService.updateEnv(oldName, oldProvider, config)
     await loadConfig()
   }
 
-  async function deleteEnv(name: string) {
-    await configService.deleteEnv(name)
+  async function deleteEnv(name: string, provider: string) {
+    await configService.deleteEnv(name, provider)
     await loadConfig()
   }
 
-  async function applyEnv(name: string): Promise<string | undefined> {
-    const env = environments.value.find(item => item.name === name)
+  async function applyEnv(name: string, provider: string): Promise<string | undefined> {
+    const env = getEnvByName(name, provider)
     if (env?.provider === 'opencode' && isEnvActive(name, 'opencode')) {
       await configService.unapplyEnv(name)
       await loadConfig()
@@ -105,7 +105,7 @@ export const useConfigStore = defineStore('config', () => {
       return 'unapplied'
     }
     const kept = env?.provider === 'opencode' ? [...currentEnvsOpencode.value] : []
-    await configService.switchToEnv(name)
+    await configService.switchToEnv(name, env?.provider || 'claude')
     const message = await configService.applyCurrentEnv()
     await loadConfig()
     if (env?.provider === 'opencode') {
@@ -148,8 +148,8 @@ export const useConfigStore = defineStore('config', () => {
     await loadConfig()
   }
 
-  async function clearGeminiSettings() {
-    await configService.clearGeminiSettings()
+  async function clearAntigravitySettings() {
+    await configService.clearAntigravitySettings()
     await loadConfig()
   }
 
@@ -195,8 +195,8 @@ export const useConfigStore = defineStore('config', () => {
         return configService.getClaudeSettings()
       case 'codex':
         return configService.getCodexSettings()
-      case 'gemini':
-        return configService.getGeminiSettings()
+      case 'antigravity':
+        return configService.getAntigravitySettings()
       case 'opencode':
         return configService.getOpencodeSettings()
       case 'grok':
@@ -218,8 +218,8 @@ export const useConfigStore = defineStore('config', () => {
     currentEnvTab.value = tab
   }
 
-  function getEnvByName(name: string): EnvConfig | undefined {
-    return environments.value.find(env => env.name === name)
+  function getEnvByName(name: string, provider?: string): EnvConfig | undefined {
+    return environments.value.find(env => env.name === name && (provider === undefined || env.provider === provider))
   }
 
   function isEnvActive(name: string, provider: Provider): boolean {
@@ -228,8 +228,8 @@ export const useConfigStore = defineStore('config', () => {
         return currentEnvClaude.value === name
       case 'codex':
         return currentEnvCodex.value === name
-      case 'gemini':
-        return currentEnvGemini.value === name
+      case 'antigravity':
+        return currentEnvAntigravity.value === name
       case 'opencode':
         return currentEnvsOpencode.value.includes(name) || currentEnvOpencode.value === name
       case 'grok':
@@ -244,7 +244,7 @@ export const useConfigStore = defineStore('config', () => {
     environments,
     currentEnvClaude,
     currentEnvCodex,
-    currentEnvGemini,
+    currentEnvAntigravity,
     currentEnvOpencode,
     currentEnvsOpencode,
     currentEnvGrok,
@@ -257,7 +257,7 @@ export const useConfigStore = defineStore('config', () => {
     activeEnvs,
     claudeEnvs,
     codexEnvs,
-    geminiEnvs,
+    antigravityEnvs,
     opencodeEnvs,
     grokEnvs,
 
@@ -273,7 +273,7 @@ export const useConfigStore = defineStore('config', () => {
     clearAllEnv,
     clearClaudeSettings,
     clearCodexSettings,
-    clearGeminiSettings,
+    clearAntigravitySettings,
     clearOpencodeSettings,
     clearGrokSettings,
     exportConfig,

@@ -5,7 +5,7 @@
         <h1 class="text-[2.5rem] leading-none font-semibold tracking-tight">MCP</h1>
         <McpStatusBadge />
       </div>
-      <p class="mt-2 text-sm text-muted-foreground">刷新会检查 Claude / Codex / Gemini / OpenCode / Grok 配置里是否已有这些服务器</p>
+      <p class="mt-2 text-sm text-muted-foreground">刷新会检查 Claude / Codex / Antigravity / OpenCode / Grok 配置里是否已有这些服务器</p>
     </template>
 
     <div class="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
@@ -209,7 +209,7 @@ import McpServerCard from './McpServerCard.vue'
 import McpEditModal from './McpEditModal.vue'
 import McpJsonImport from './McpJsonImport.vue'
 
-type PlatformFilter = 'all' | 'claude-code' | 'codex' | 'gemini' | 'opencode' | 'grok'
+type PlatformFilter = 'all' | 'claude-code' | 'codex' | 'antigravity' | 'opencode' | 'grok'
 
 interface Props {
   modelValue: boolean
@@ -272,7 +272,7 @@ const filteredServerItems = computed(() => {
 
 function syncTool(tool: string) {
   if (tool === 'claude') currentPlatform.value = 'claude-code'
-  else if (tool === 'codex' || tool === 'gemini' || tool === 'opencode' || tool === 'grok') currentPlatform.value = tool
+  else if (tool === 'codex' || tool === 'antigravity' || tool === 'opencode' || tool === 'grok') currentPlatform.value = tool
   else currentPlatform.value = 'all'
 }
 
@@ -312,7 +312,7 @@ function toggleMarket() {
 }
 
 function importPlatforms(): string[] {
-  if (currentPlatform.value === 'all') return ['claude-code', 'codex', 'gemini', 'opencode', 'grok']
+  if (currentPlatform.value === 'all') return ['claude-code', 'codex', 'antigravity', 'opencode', 'grok']
   return [currentPlatform.value]
 }
 
@@ -425,7 +425,7 @@ async function syncToPlatforms() {
   isSyncing.value = true
   try {
     await mcpStore.syncToPlatforms()
-    toast.success('已重新同步到 Claude / Codex / Gemini / OpenCode / Grok')
+    toast.success('已重新同步到 Claude / Codex / Antigravity / OpenCode / Grok')
   } catch (e: any) {
     toast.error('同步失败: ' + (e?.message || String(e)))
   } finally {
@@ -474,7 +474,7 @@ async function togglePlatform(server: MCPServer, platform: string) {
 function platformLabel(platform: string) {
   if (platform === 'claude-code') return 'Claude'
   if (platform === 'codex') return 'Codex'
-  if (platform === 'gemini') return 'Gemini'
+  if (platform === 'antigravity') return 'Antigravity'
   if (platform === 'opencode') return 'OpenCode'
   if (platform === 'grok') return 'Grok'
   return platform

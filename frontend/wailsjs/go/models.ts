@@ -42,6 +42,7 @@ export namespace main {
 	    config_exists: boolean;
 	    platform: string;
 	    upgradable: boolean;
+	    can_install: boolean;
 	    error: string;
 	    extra_paths: string[];
 	    npm_package: string;
@@ -65,6 +66,7 @@ export namespace main {
 	        this.config_exists = source["config_exists"];
 	        this.platform = source["platform"];
 	        this.upgradable = source["upgradable"];
+	        this.can_install = source["can_install"];
 	        this.error = source["error"];
 	        this.extra_paths = source["extra_paths"];
 	        this.npm_package = source["npm_package"];
@@ -202,7 +204,7 @@ export namespace main {
 	    current_env: string;
 	    current_env_claude: string;
 	    current_env_codex: string;
-	    current_env_gemini: string;
+	    current_env_antigravity: string;
 	    current_env_opencode: string;
 	    current_envs_opencode: string[];
 	    current_env_grok: string;
@@ -217,7 +219,7 @@ export namespace main {
 	        this.current_env = source["current_env"];
 	        this.current_env_claude = source["current_env_claude"];
 	        this.current_env_codex = source["current_env_codex"];
-	        this.current_env_gemini = source["current_env_gemini"];
+	        this.current_env_antigravity = source["current_env_antigravity"];
 	        this.current_env_opencode = source["current_env_opencode"];
 	        this.current_envs_opencode = source["current_envs_opencode"];
 	        this.current_env_grok = source["current_env_grok"];
@@ -452,7 +454,7 @@ export namespace main {
 	    enable_platform: string[];
 	    enabled_in_claude: boolean;
 	    enabled_in_codex: boolean;
-	    enabled_in_gemini: boolean;
+	    enabled_in_antigravity: boolean;
 	    enabled_in_opencode: boolean;
 	    enabled_in_grok: boolean;
 	    missing_placeholders: string[];
@@ -475,7 +477,7 @@ export namespace main {
 	        this.enable_platform = source["enable_platform"];
 	        this.enabled_in_claude = source["enabled_in_claude"];
 	        this.enabled_in_codex = source["enabled_in_codex"];
-	        this.enabled_in_gemini = source["enabled_in_gemini"];
+	        this.enabled_in_antigravity = source["enabled_in_antigravity"];
 	        this.enabled_in_opencode = source["enabled_in_opencode"];
 	        this.enabled_in_grok = source["enabled_in_grok"];
 	        this.missing_placeholders = source["missing_placeholders"];
@@ -759,7 +761,7 @@ export namespace main {
 	    enable_platform: string[];
 	    enabled_in_claude: boolean;
 	    enabled_in_codex: boolean;
-	    enabled_in_gemini: boolean;
+	    enabled_in_antigravity: boolean;
 	    enabled_in_opencode: boolean;
 	    enabled_in_grok: boolean;
 	    frontmatter_name: string;
@@ -780,7 +782,7 @@ export namespace main {
 	        this.enable_platform = source["enable_platform"];
 	        this.enabled_in_claude = source["enabled_in_claude"];
 	        this.enabled_in_codex = source["enabled_in_codex"];
-	        this.enabled_in_gemini = source["enabled_in_gemini"];
+	        this.enabled_in_antigravity = source["enabled_in_antigravity"];
 	        this.enabled_in_opencode = source["enabled_in_opencode"];
 	        this.enabled_in_grok = source["enabled_in_grok"];
 	        this.frontmatter_name = source["frontmatter_name"];

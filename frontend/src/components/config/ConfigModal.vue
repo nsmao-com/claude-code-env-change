@@ -333,36 +333,36 @@
         </div>
       </div>
 
-      <div v-if="form.provider === 'gemini'" class="space-y-4">
-        <AppInput v-model="form.gemini.baseUrl" label="Base URL" placeholder="https://generativelanguage.googleapis.com" :tooltip="tips.baseUrlGemini">
+      <div v-if="form.provider === 'antigravity'" class="space-y-4">
+        <AppInput v-model="form.antigravity.baseUrl" label="Base URL" placeholder="https://generativelanguage.googleapis.com" :tooltip="tips.baseUrlGemini">
           <template #suffix>
-            <Button type="button" variant="ghost" size="icon-xs" :disabled="latencyTesting" @click="testLatency(form.gemini.baseUrl)">
+            <Button type="button" variant="ghost" size="icon-xs" :disabled="latencyTesting" @click="testLatency(form.antigravity.baseUrl)">
               <Loader2 v-if="latencyTesting" class="animate-spin" />
               <Zap v-else />
             </Button>
           </template>
         </AppInput>
         <AppInput
-          v-model="form.gemini.apiKey"
+          v-model="form.antigravity.apiKey"
           label="API Key"
-          :type="showApiKey.gemini ? 'text' : 'password'"
+          :type="showApiKey.antigravity ? 'text' : 'password'"
           placeholder="API Key"
           :tooltip="tips.apiKeyGemini"
         >
           <template #suffix>
-            <Button type="button" variant="ghost" size="icon-xs" @click="toggleApiKeyVisibility('gemini')">
-              <EyeOff v-if="showApiKey.gemini" />
+            <Button type="button" variant="ghost" size="icon-xs" @click="toggleApiKeyVisibility('antigravity')">
+              <EyeOff v-if="showApiKey.antigravity" />
               <Eye v-else />
             </Button>
           </template>
         </AppInput>
-        <AppInput v-model="form.gemini.model" label="Model" placeholder="gemini-3.1-pro-preview" :tooltip="tips.modelGemini" />
+        <AppInput v-model="form.antigravity.model" label="Model" placeholder="gemini-3.1-pro-preview" :tooltip="tips.modelGemini" />
         <div class="space-y-3 rounded-xl bg-muted/40 p-3">
           <p class="text-xs font-medium tracking-wide text-muted-foreground uppercase">思维链</p>
           <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div class="grid gap-1.5">
               <FieldLabel label="思维等级（Gemini 3+）" :hint="tips.geminiThinkingLevel" />
-              <Select v-model="form.gemini.thinkingLevel">
+              <Select v-model="form.antigravity.thinkingLevel">
                 <SelectTrigger class="w-full">
                   <SelectValue placeholder="thinkingLevel" />
                 </SelectTrigger>
@@ -371,24 +371,24 @@
                 </SelectContent>
               </Select>
             </div>
-            <AppInput v-model="form.gemini.thinkingBudget" label="思考预算（Gemini 2.5）" placeholder="-1 动态 / 0 关闭 / token 数" :tooltip="tips.geminiThinkingBudget" />
+            <AppInput v-model="form.antigravity.thinkingBudget" label="思考预算（Gemini 2.5）" placeholder="-1 动态 / 0 关闭 / token 数" :tooltip="tips.geminiThinkingBudget" />
           </div>
         </div>
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <AppInput v-model="form.gemini.project" label="Google Cloud Project" placeholder="GOOGLE_CLOUD_PROJECT" :tooltip="tips.geminiProject" />
-          <AppInput v-model="form.gemini.location" label="Location" placeholder="GOOGLE_CLOUD_LOCATION" :tooltip="tips.geminiLocation" />
-          <AppInput v-model="form.gemini.useVertex" label="使用 Vertex AI" placeholder="GOOGLE_GENAI_USE_VERTEXAI，true/false" :tooltip="tips.geminiVertex" />
-          <AppInput v-model="form.gemini.sandbox" label="Sandbox" placeholder="GEMINI_SANDBOX" :tooltip="tips.geminiSandbox" />
-          <AppInput v-model="form.gemini.maxSessionTurns" label="会话最大轮次" placeholder="maxSessionTurns" :tooltip="tips.geminiTurns" />
-          <AppInput v-model="form.gemini.compressionThreshold" label="上下文压缩阈值" placeholder="0.7" :tooltip="tips.geminiCompress" />
+          <AppInput v-model="form.antigravity.project" label="Google Cloud Project" placeholder="GOOGLE_CLOUD_PROJECT" :tooltip="tips.geminiProject" />
+          <AppInput v-model="form.antigravity.location" label="Location" placeholder="GOOGLE_CLOUD_LOCATION" :tooltip="tips.geminiLocation" />
+          <AppInput v-model="form.antigravity.useVertex" label="使用 Vertex AI" placeholder="GOOGLE_GENAI_USE_VERTEXAI，true/false" :tooltip="tips.geminiVertex" />
+          <AppInput v-model="form.antigravity.sandbox" label="Sandbox" placeholder="GEMINI_SANDBOX" :tooltip="tips.geminiSandbox" />
+          <AppInput v-model="form.antigravity.maxSessionTurns" label="会话最大轮次" placeholder="maxSessionTurns" :tooltip="tips.geminiTurns" />
+          <AppInput v-model="form.antigravity.compressionThreshold" label="上下文压缩阈值" placeholder="0.7" :tooltip="tips.geminiCompress" />
         </div>
         <div class="grid gap-1.5">
           <FieldLabel label=".env 模板" :hint="tips.geminiEnv" />
-          <CodeEditor v-model="form.gemini.envTemplate" language="env" placeholder="环境变量模板..." class="min-h-24" />
+          <CodeEditor v-model="form.antigravity.envTemplate" language="env" placeholder="环境变量模板..." class="min-h-24" />
         </div>
         <div class="grid gap-1.5">
           <FieldLabel label="settings.json 模板" :hint="tips.geminiSettings" />
-          <CodeEditor v-model="form.gemini.settingsTemplate" language="json" placeholder="JSON 设置模板..." class="min-h-24" />
+          <CodeEditor v-model="form.antigravity.settingsTemplate" language="json" placeholder="JSON 设置模板..." class="min-h-24" />
         </div>
       </div>
 
@@ -592,11 +592,11 @@ const isOpen = computed({
 const isEditing = computed(() => !!props.editConfig)
 const showEmojiPicker = ref(false)
 const showMore = ref(false)
-type ApiKeyProvider = 'claude' | 'codex' | 'gemini' | 'opencode' | 'grok'
+type ApiKeyProvider = 'claude' | 'codex' | 'antigravity' | 'opencode' | 'grok'
 const showApiKey = ref<Record<ApiKeyProvider, boolean>>({
   claude: false,
   codex: false,
-  gemini: false,
+  antigravity: false,
   opencode: false,
   grok: false,
 })
@@ -608,7 +608,7 @@ function toggleApiKeyVisibility(provider: ApiKeyProvider) {
 function resetApiKeyVisibility() {
   showApiKey.value.claude = false
   showApiKey.value.codex = false
-  showApiKey.value.gemini = false
+  showApiKey.value.antigravity = false
   showApiKey.value.opencode = false
   showApiKey.value.grok = false
 }
@@ -620,7 +620,7 @@ function selectIcon(emoji: string) {
 const providers: { value: Provider; label: string }[] = [
   { value: 'claude', label: 'Claude' },
   { value: 'codex', label: 'Codex' },
-  { value: 'gemini', label: 'Gemini' },
+  { value: 'antigravity', label: 'Antigravity' },
   { value: 'opencode', label: 'OpenCode' },
   { value: 'grok', label: 'Grok' },
 ]
@@ -674,19 +674,19 @@ const tips = {
   modelVerbosity: 'GPT-5 文本详细度：low / medium / high。对应 model_verbosity。',
   codexToml: '写入 ~/.codex/config.toml。可用 {{model}}、{{base_url}} 占位符，应用时替换成上面的值。',
   codexAuth: '写入 ~/.codex/auth.json。可用 {{OPENAI_API_KEY}} 占位符。',
-  baseUrlGemini: 'Gemini API 根地址。官方是 https://generativelanguage.googleapis.com。写入 GOOGLE_GEMINI_BASE_URL。',
-  apiKeyGemini: 'Gemini API Key，写入 GEMINI_API_KEY。',
+  baseUrlGemini: 'Gemini API 根地址。官方是 https://generativelanguage.googleapis.com。应用时会作为 GOOGLE_GEMINI_BASE_URL 写入用户环境变量（agy 只认环境变量，不读 .env）。',
+  apiKeyGemini: 'Gemini API Key。应用时写入用户环境变量 GEMINI_API_KEY 并在 settings.json 标记 modelProvider，之后需新开终端运行 agy。留空则移除标记，走 Google 账号登录。',
   modelGemini: '模型 ID，例如 gemini-3.1-pro-preview 或 gemini-2.5-pro。写入 GEMINI_MODEL。',
   geminiThinkingLevel: 'Gemini 3 及以后用思维等级：minimal / low / medium / high。不要和思考预算同时填。写入 settings.json 的 thinkingLevel。',
   geminiThinkingBudget: 'Gemini 2.5 用 token 预算。-1 动态，0 关闭，或填具体数字（如 8192）。3.x 建议改用左侧等级。写入 thinkingBudget。',
   geminiProject: '走 Vertex AI 时需要的 GCP 项目 ID。对应 GOOGLE_CLOUD_PROJECT。',
   geminiLocation: 'Vertex 区域，例如 us-central1。对应 GOOGLE_CLOUD_LOCATION。',
   geminiVertex: '填 true 使用 Vertex AI，false 使用 AI Studio。对应 GOOGLE_GENAI_USE_VERTEXAI。',
-  geminiSandbox: '是否启用沙箱。按 Gemini CLI 文档填。对应 GEMINI_SANDBOX。',
+  geminiSandbox: '是否启用沙箱。按 Antigravity CLI 文档填。对应 GEMINI_SANDBOX。',
   geminiTurns: '单次会话最多轮数，填数字。对应 maxSessionTurns。',
   geminiCompress: '上下文占用到该比例时压缩，填 0–1，例如 0.7。',
   geminiEnv: '写入 ~/.gemini/.env。可用 {{GOOGLE_GEMINI_BASE_URL}}、{{GEMINI_API_KEY}}、{{GEMINI_MODEL}}。',
-  geminiSettings: '写入 ~/.gemini/settings.json 的额外 JSON。留空则只用上面的字段。',
+  geminiSettings: '写入 ~/.gemini/antigravity-cli/settings.json（以及旧版 ~/.gemini/settings.json）的额外 JSON。留空则只用上面的字段。',
   baseUrlOpencode: 'OpenAI 兼容网关地址，例如 https://xxx/v1。填了会作为自定义 provider 写入 opencode.json。',
   apiKeyOpencode: '网关密钥。对应 OPENCODE_API_KEY，模板里可用 {{OPENCODE_API_KEY}}。',
   modelOpencode: '完整模型名，格式 provider/model，例如 anthropic/claude-sonnet-4。',
@@ -715,7 +715,7 @@ const tips = {
 }
 
 function onProvider(value: unknown) {
-  if (value === 'claude' || value === 'codex' || value === 'gemini' || value === 'opencode' || value === 'grok') {
+  if (value === 'claude' || value === 'codex' || value === 'antigravity' || value === 'opencode' || value === 'grok') {
     form.value.provider = value
     form.value.upstreamFormat = ''
   }
@@ -811,7 +811,7 @@ function unsetOr(value: string, fallback = 'unset') {
 
 function providerFromFilter(): Provider {
   const filter = configStore.currentFilter
-  if (filter === 'codex' || filter === 'gemini' || filter === 'opencode' || filter === 'grok') return filter
+  if (filter === 'codex' || filter === 'antigravity' || filter === 'opencode' || filter === 'grok') return filter
   return 'claude'
 }
 
@@ -876,7 +876,7 @@ requires_openai_auth = true`,
   "OPENAI_API_KEY": "{{OPENAI_API_KEY}}"
 }`
   },
-  gemini: {
+  antigravity: {
     baseUrl: '',
     apiKey: '',
     model: '',
@@ -986,20 +986,20 @@ watch(() => props.editConfig, (config) => {
       form.value.codex.sandboxMode = config.variables.sandbox_mode || 'unset'
       form.value.codex.configTemplate = config.templates?.['config.toml'] || form.value.codex.configTemplate
       form.value.codex.authTemplate = config.templates?.['auth.json'] || form.value.codex.authTemplate
-    } else if (config.provider === 'gemini') {
-      form.value.gemini.baseUrl = config.variables.GOOGLE_GEMINI_BASE_URL || ''
-      form.value.gemini.apiKey = config.variables.GEMINI_API_KEY || ''
-      form.value.gemini.model = config.variables.GEMINI_MODEL || ''
-      form.value.gemini.project = config.variables.GOOGLE_CLOUD_PROJECT || ''
-      form.value.gemini.location = config.variables.GOOGLE_CLOUD_LOCATION || ''
-      form.value.gemini.useVertex = config.variables.GOOGLE_GENAI_USE_VERTEXAI || ''
-      form.value.gemini.sandbox = config.variables.GEMINI_SANDBOX || ''
-      form.value.gemini.maxSessionTurns = config.variables.GEMINI_MAX_SESSION_TURNS || ''
-      form.value.gemini.compressionThreshold = config.variables.GEMINI_COMPRESSION_THRESHOLD || ''
-      form.value.gemini.thinkingLevel = unsetOr(config.variables.GEMINI_THINKING_LEVEL)
-      form.value.gemini.thinkingBudget = config.variables.GEMINI_THINKING_BUDGET || ''
-      form.value.gemini.envTemplate = config.templates?.['.env'] || form.value.gemini.envTemplate
-      form.value.gemini.settingsTemplate = config.templates?.['settings.json'] || form.value.gemini.settingsTemplate
+    } else if (config.provider === 'antigravity') {
+      form.value.antigravity.baseUrl = config.variables.GOOGLE_GEMINI_BASE_URL || ''
+      form.value.antigravity.apiKey = config.variables.GEMINI_API_KEY || ''
+      form.value.antigravity.model = config.variables.GEMINI_MODEL || ''
+      form.value.antigravity.project = config.variables.GOOGLE_CLOUD_PROJECT || ''
+      form.value.antigravity.location = config.variables.GOOGLE_CLOUD_LOCATION || ''
+      form.value.antigravity.useVertex = config.variables.GOOGLE_GENAI_USE_VERTEXAI || ''
+      form.value.antigravity.sandbox = config.variables.GEMINI_SANDBOX || ''
+      form.value.antigravity.maxSessionTurns = config.variables.GEMINI_MAX_SESSION_TURNS || ''
+      form.value.antigravity.compressionThreshold = config.variables.GEMINI_COMPRESSION_THRESHOLD || ''
+      form.value.antigravity.thinkingLevel = unsetOr(config.variables.GEMINI_THINKING_LEVEL)
+      form.value.antigravity.thinkingBudget = config.variables.GEMINI_THINKING_BUDGET || ''
+      form.value.antigravity.envTemplate = config.templates?.['.env'] || form.value.antigravity.envTemplate
+      form.value.antigravity.settingsTemplate = config.templates?.['settings.json'] || form.value.antigravity.settingsTemplate
     } else if (config.provider === 'opencode') {
       form.value.opencode.baseUrl = config.variables.OPENCODE_BASE_URL || ''
       form.value.opencode.apiKey = config.variables.OPENCODE_API_KEY || ''
@@ -1078,8 +1078,11 @@ async function handleSubmit() {
     return
   }
 
+  // 名称只需在同一服务商内唯一；不同服务商允许同名
   const exists = configStore.environments.some(
-    c => c.name === form.value.name && c.name !== originalName.value
+    c => c.name === form.value.name
+      && c.provider === form.value.provider
+      && !(isEditing.value && c.name === originalName.value && c.provider === props.editConfig?.provider)
   )
   if (exists) {
     toast.error('配置名称已存在')
@@ -1136,25 +1139,25 @@ async function handleSubmit() {
     if (form.value.codex.authTemplate) {
       templates['auth.json'] = form.value.codex.authTemplate
     }
-  } else if (form.value.provider === 'gemini') {
+  } else if (form.value.provider === 'antigravity') {
     variables = {
-      GOOGLE_GEMINI_BASE_URL: form.value.gemini.baseUrl,
-      GEMINI_API_KEY: form.value.gemini.apiKey,
-      GEMINI_MODEL: form.value.gemini.model,
-      GOOGLE_CLOUD_PROJECT: form.value.gemini.project,
-      GOOGLE_CLOUD_LOCATION: form.value.gemini.location,
-      GOOGLE_GENAI_USE_VERTEXAI: form.value.gemini.useVertex,
-      GEMINI_SANDBOX: form.value.gemini.sandbox,
-      GEMINI_MAX_SESSION_TURNS: form.value.gemini.maxSessionTurns,
-      GEMINI_COMPRESSION_THRESHOLD: form.value.gemini.compressionThreshold,
-      GEMINI_THINKING_LEVEL: selectOrUnset(form.value.gemini.thinkingLevel),
-      GEMINI_THINKING_BUDGET: form.value.gemini.thinkingBudget,
+      GOOGLE_GEMINI_BASE_URL: form.value.antigravity.baseUrl,
+      GEMINI_API_KEY: form.value.antigravity.apiKey,
+      GEMINI_MODEL: form.value.antigravity.model,
+      GOOGLE_CLOUD_PROJECT: form.value.antigravity.project,
+      GOOGLE_CLOUD_LOCATION: form.value.antigravity.location,
+      GOOGLE_GENAI_USE_VERTEXAI: form.value.antigravity.useVertex,
+      GEMINI_SANDBOX: form.value.antigravity.sandbox,
+      GEMINI_MAX_SESSION_TURNS: form.value.antigravity.maxSessionTurns,
+      GEMINI_COMPRESSION_THRESHOLD: form.value.antigravity.compressionThreshold,
+      GEMINI_THINKING_LEVEL: selectOrUnset(form.value.antigravity.thinkingLevel),
+      GEMINI_THINKING_BUDGET: form.value.antigravity.thinkingBudget,
     }
-    if (form.value.gemini.envTemplate) {
-      templates['.env'] = form.value.gemini.envTemplate
+    if (form.value.antigravity.envTemplate) {
+      templates['.env'] = form.value.antigravity.envTemplate
     }
-    if (form.value.gemini.settingsTemplate) {
-      templates['settings.json'] = form.value.gemini.settingsTemplate
+    if (form.value.antigravity.settingsTemplate) {
+      templates['settings.json'] = form.value.antigravity.settingsTemplate
     }
   } else if (form.value.provider === 'opencode') {
     variables = {
@@ -1212,7 +1215,7 @@ async function handleSubmit() {
 
   try {
     if (isEditing.value) {
-      await configStore.updateEnv(originalName.value, configData)
+      await configStore.updateEnv(originalName.value, props.editConfig?.provider || configData.provider, configData)
     } else {
       await configStore.addEnv(configData)
     }

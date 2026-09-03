@@ -129,7 +129,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 
-const AUTO_PROVIDERS: Provider[] = ['claude', 'codex', 'gemini', 'opencode', 'grok']
+const AUTO_PROVIDERS: Provider[] = ['claude', 'codex', 'antigravity', 'opencode', 'grok']
 
 interface Props {
   modelValue: boolean
@@ -157,7 +157,7 @@ const showAdvanced = ref(false)
 const clients: { value: Provider; label: string }[] = [
   { value: 'claude', label: 'Claude Code' },
   { value: 'codex', label: 'Codex' },
-  { value: 'gemini', label: 'Gemini' },
+  { value: 'antigravity', label: 'Antigravity' },
   { value: 'opencode', label: 'OpenCode' },
   { value: 'grok', label: 'Grok' },
 ]
@@ -208,7 +208,7 @@ const presets: Preset[] = [
 
 function clientFromFilter(): Provider {
   const filter = configStore.currentFilter
-  if (filter === 'codex' || filter === 'gemini' || filter === 'opencode' || filter === 'grok') return filter
+  if (filter === 'codex' || filter === 'antigravity' || filter === 'opencode' || filter === 'grok') return filter
   return 'claude'
 }
 
@@ -245,8 +245,8 @@ const upstreamOptions = computed(() => {
       { value: 'chat_completions', label: 'Chat Completions（需开启路由）' },
       { value: 'anthropic_messages', label: 'Anthropic Messages（需开启路由）' },
     ],
-    gemini: [
-      { value: 'native', label: 'Gemini（原生）' },
+    antigravity: [
+      { value: 'native', label: 'Antigravity（原生）' },
       { value: 'chat_completions', label: 'Chat Completions（需开启路由）' },
       { value: 'anthropic_messages', label: 'Anthropic Messages（需开启路由）' },
     ],
@@ -280,7 +280,7 @@ function targetOf(client: Provider, format: string): APIFormat {
   if (format === 'chat_completions') return 'openai'
   if (format === 'responses') return 'responses'
   if (client === 'claude') return 'anthropic'
-  if (client === 'opencode' || client === 'gemini') return 'openai'
+  if (client === 'opencode' || client === 'antigravity') return 'openai'
   return 'responses'
 }
 
@@ -299,7 +299,7 @@ function upstreamFromRoute(route: APIRoute, client: Provider): string {
   if (target === 'anthropic') {
     return source === 'anthropic' ? 'native' : 'anthropic_messages'
   }
-  if (client === 'opencode' || client === 'gemini') return 'native'
+  if (client === 'opencode' || client === 'antigravity') return 'native'
   return 'chat_completions'
 }
 
@@ -374,7 +374,7 @@ function applyPreset(preset: Preset) {
 }
 
 function onClient(value: unknown) {
-  if (value === 'claude' || value === 'codex' || value === 'gemini' || value === 'opencode' || value === 'grok') {
+  if (value === 'claude' || value === 'codex' || value === 'antigravity' || value === 'opencode' || value === 'grok') {
     form.value.client = value
     const allowed = upstreamOptions.value.some(opt => opt.value === form.value.upstream)
     if (!allowed) form.value.upstream = 'native'

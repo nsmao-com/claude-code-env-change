@@ -51,7 +51,7 @@ type RouterConfig struct {
 	Port       int             `json:"port"`
 	AutoStart  bool            `json:"auto_start"`
 	Routes     []APIRoute      `json:"routes"`
-	AppRouting map[string]bool `json:"app_routing,omitempty"` // 按模型商开关：claude/codex/gemini/opencode/grok
+	AppRouting map[string]bool `json:"app_routing,omitempty"` // 按模型商开关：claude/codex/antigravity/opencode/grok
 }
 
 // RouteStats 路由运行统计
@@ -122,7 +122,7 @@ type RouterService struct {
 // NewRouterService 创建服务并加载本地配置
 func NewRouterService() *RouterService {
 	rs := &RouterService{
-		stats: map[string]*RouteStats{},
+		stats:  map[string]*RouteStats{},
 		client: &http.Client{
 			// Transport 为空时使用 http.DefaultTransport，以便跟随系统出站代理
 		},
@@ -214,18 +214,21 @@ func normalizeAPIFormat(value string) string {
 
 func defaultAppRouting() map[string]bool {
 	return map[string]bool{
-		"claude":   false,
-		"codex":    false,
-		"gemini":   false,
-		"opencode": false,
-		"grok":     false,
+		"claude":      false,
+		"codex":       false,
+		"antigravity": false,
+		"opencode":    false,
+		"grok":        false,
 	}
 }
 
 func knownProvider(value string) (string, bool) {
 	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "claude", "codex", "gemini", "opencode", "grok":
+	case "claude", "codex", "antigravity", "opencode", "grok":
 		return strings.ToLower(strings.TrimSpace(value)), true
+	case "gemini":
+		// 旧平台名，归一到 antigravity
+		return "antigravity", true
 	}
 	return "", false
 }

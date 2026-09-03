@@ -3,7 +3,7 @@ import type { EnvConfig, Provider } from '@/types'
 const URL_KEYS: Record<string, string[]> = {
   claude: ['ANTHROPIC_BASE_URL', 'API_BASE_URL'],
   codex: ['base_url', 'OPENAI_BASE_URL'],
-  gemini: ['GOOGLE_GEMINI_BASE_URL', 'GEMINI_BASE_URL'],
+  antigravity: ['GOOGLE_GEMINI_BASE_URL', 'GEMINI_BASE_URL'],
   opencode: ['OPENCODE_BASE_URL'],
   grok: ['XAI_BASE_URL'],
 }
@@ -11,7 +11,7 @@ const URL_KEYS: Record<string, string[]> = {
 const URL_DEFAULTS: Record<string, string> = {
   claude: 'https://api.anthropic.com',
   codex: 'https://api.openai.com/v1',
-  gemini: 'https://generativelanguage.googleapis.com',
+  antigravity: 'https://generativelanguage.googleapis.com',
   grok: 'https://api.x.ai/v1',
 }
 

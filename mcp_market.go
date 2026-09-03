@@ -248,7 +248,7 @@ func mcpMarketToServer(item McpMarketItem, platforms []string) (MCPServer, error
 	}
 	plats := normalizePlatforms(platforms)
 	if len(plats) == 0 {
-		plats = []string{platClaudeCode, platCodex, platGemini, platOpencode, platGrok}
+		plats = []string{platClaudeCode, platCodex, platAntigravity, platOpencode, platGrok}
 	}
 	server := MCPServer{
 		Name:           name,

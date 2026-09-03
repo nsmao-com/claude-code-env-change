@@ -20,7 +20,7 @@ export interface Config {
   current_env: string
   current_env_claude: string
   current_env_codex: string
-  current_env_gemini: string
+  current_env_antigravity: string
   current_env_opencode: string
   current_envs_opencode?: string[]
   current_env_grok: string
@@ -41,7 +41,7 @@ export interface MCPServer {
   enable_platform: string[]
   enabled_in_claude: boolean
   enabled_in_codex: boolean
-  enabled_in_gemini: boolean
+  enabled_in_antigravity: boolean
   enabled_in_opencode?: boolean
   enabled_in_grok?: boolean
   missing_placeholders: string[]
@@ -61,7 +61,7 @@ export interface Skill {
   enable_platform: string[]
   enabled_in_claude: boolean
   enabled_in_codex: boolean
-  enabled_in_gemini: boolean
+  enabled_in_antigravity: boolean
   enabled_in_opencode: boolean
   enabled_in_grok: boolean
   frontmatter_name: string
@@ -244,7 +244,7 @@ export interface UptimeSnapshot {
 }
 
 // Provider 类型
-export type Provider = 'claude' | 'codex' | 'gemini' | 'opencode' | 'grok'
+export type Provider = 'claude' | 'codex' | 'antigravity' | 'opencode' | 'grok'
 
 export type AppPage = 'home' | 'env' | 'mcp' | 'skills' | 'router' | 'uptime' | 'cloud' | 'prompts' | 'stats' | 'settings'
 
@@ -273,6 +273,7 @@ export interface CliToolStatus {
   config_exists: boolean
   platform: string
   upgradable: boolean
+  can_install: boolean
   error: string
   extra_paths: string[]
   npm_package: string

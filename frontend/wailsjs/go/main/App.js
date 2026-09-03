@@ -18,16 +18,16 @@ export function ClearAllEnv() {
   return window['go']['main']['App']['ClearAllEnv']();
 }
 
+export function ClearAntigravitySettings() {
+  return window['go']['main']['App']['ClearAntigravitySettings']();
+}
+
 export function ClearClaudeSettings() {
   return window['go']['main']['App']['ClearClaudeSettings']();
 }
 
 export function ClearCodexSettings() {
   return window['go']['main']['App']['ClearCodexSettings']();
-}
-
-export function ClearGeminiSettings() {
-  return window['go']['main']['App']['ClearGeminiSettings']();
 }
 
 export function ClearGrokSettings() {
@@ -38,8 +38,8 @@ export function ClearOpencodeSettings() {
   return window['go']['main']['App']['ClearOpencodeSettings']();
 }
 
-export function DeleteEnv(arg1) {
-  return window['go']['main']['App']['DeleteEnv'](arg1);
+export function DeleteEnv(arg1, arg2) {
+  return window['go']['main']['App']['DeleteEnv'](arg1, arg2);
 }
 
 export function DeletePromptFile(arg1) {
@@ -52,6 +52,10 @@ export function DownloadAndApplyUpdate() {
 
 export function ExportConfig(arg1) {
   return window['go']['main']['App']['ExportConfig'](arg1);
+}
+
+export function GetAntigravitySettings() {
+  return window['go']['main']['App']['GetAntigravitySettings']();
 }
 
 export function GetAppVersion() {
@@ -72,10 +76,6 @@ export function GetConfig() {
 
 export function GetEnvVar(arg1) {
   return window['go']['main']['App']['GetEnvVar'](arg1);
-}
-
-export function GetGeminiSettings() {
-  return window['go']['main']['App']['GetGeminiSettings']();
 }
 
 export function GetGrokSettings() {
@@ -138,6 +138,10 @@ export function OpenConfigFile(arg1) {
   return window['go']['main']['App']['OpenConfigFile'](arg1);
 }
 
+export function OpenProviderTerminal(arg1) {
+  return window['go']['main']['App']['OpenProviderTerminal'](arg1);
+}
+
 export function OpenReleasePage() {
   return window['go']['main']['App']['OpenReleasePage']();
 }
@@ -174,8 +178,8 @@ export function SetProviderRouting(arg1, arg2) {
   return window['go']['main']['App']['SetProviderRouting'](arg1, arg2);
 }
 
-export function SwitchToEnv(arg1) {
-  return window['go']['main']['App']['SwitchToEnv'](arg1);
+export function SwitchToEnv(arg1, arg2) {
+  return window['go']['main']['App']['SwitchToEnv'](arg1, arg2);
 }
 
 export function TestLatency(arg1) {
@@ -190,8 +194,8 @@ export function UnapplyEnv(arg1) {
   return window['go']['main']['App']['UnapplyEnv'](arg1);
 }
 
-export function UpdateEnv(arg1, arg2) {
-  return window['go']['main']['App']['UpdateEnv'](arg1, arg2);
+export function UpdateEnv(arg1, arg2, arg3) {
+  return window['go']['main']['App']['UpdateEnv'](arg1, arg2, arg3);
 }
 
 export function UpgradeAllCliTools() {

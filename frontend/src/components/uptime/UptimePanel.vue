@@ -236,7 +236,7 @@ async function runNow() {
 }
 
 function providerLabel(p: string): string {
-  const labels: Record<string, string> = { claude: 'Claude', codex: 'Codex', gemini: 'Gemini', opencode: 'OpenCode', grok: 'Grok' }
+  const labels: Record<string, string> = { claude: 'Claude', codex: 'Codex', antigravity: 'Antigravity', opencode: 'OpenCode', grok: 'Grok' }
   return labels[p] || p
 }
 

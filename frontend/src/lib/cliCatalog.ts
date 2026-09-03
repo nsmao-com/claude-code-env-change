@@ -1,11 +1,11 @@
 import type { CliToolStatus, ConfigDirFile, ConfigDirInfo } from '@/types'
 
 export const CLI_TOOL_DEFAULTS: CliToolStatus[] = [
-  { id: 'claude', name: 'Claude Code', command: 'claude', installed: false, runnable: false, current_version: '', latest_version: '', install_path: '', install_method: '', config_dir: '~/.claude', config_exists: false, platform: 'Win', upgradable: false, error: '', extra_paths: [], npm_package: '@anthropic-ai/claude-code' },
-  { id: 'codex', name: 'Codex', command: 'codex', installed: false, runnable: false, current_version: '', latest_version: '', install_path: '', install_method: '', config_dir: '~/.codex', config_exists: false, platform: 'Win', upgradable: false, error: '', extra_paths: [], npm_package: '@openai/codex' },
-  { id: 'gemini', name: 'Gemini CLI', command: 'gemini', installed: false, runnable: false, current_version: '', latest_version: '', install_path: '', install_method: '', config_dir: '~/.gemini', config_exists: false, platform: 'Win', upgradable: false, error: '', extra_paths: [], npm_package: '@google/gemini-cli' },
-  { id: 'opencode', name: 'OpenCode', command: 'opencode', installed: false, runnable: false, current_version: '', latest_version: '', install_path: '', install_method: '', config_dir: '~/.config/opencode', config_exists: false, platform: 'Win', upgradable: false, error: '', extra_paths: [], npm_package: 'opencode-ai' },
-  { id: 'grok', name: 'Grok', command: 'grok', installed: false, runnable: false, current_version: '', latest_version: '', install_path: '', install_method: '', config_dir: '~/.grok', config_exists: false, platform: 'Win', upgradable: false, error: '', extra_paths: [], npm_package: '@xai-official/grok' },
+  { id: 'claude', name: 'Claude Code', command: 'claude', installed: false, runnable: false, current_version: '', latest_version: '', install_path: '', install_method: '', config_dir: '~/.claude', config_exists: false, platform: 'Win', upgradable: false, can_install: false, error: '', extra_paths: [], npm_package: '@anthropic-ai/claude-code' },
+  { id: 'codex', name: 'Codex', command: 'codex', installed: false, runnable: false, current_version: '', latest_version: '', install_path: '', install_method: '', config_dir: '~/.codex', config_exists: false, platform: 'Win', upgradable: false, can_install: false, error: '', extra_paths: [], npm_package: '@openai/codex' },
+  { id: 'antigravity', name: 'Antigravity CLI', command: 'agy', installed: false, runnable: false, current_version: '', latest_version: '', install_path: '', install_method: '', config_dir: '~/.gemini/antigravity-cli', config_exists: false, platform: 'Win', upgradable: false, can_install: true, error: '', extra_paths: [], npm_package: '' },
+  { id: 'opencode', name: 'OpenCode', command: 'opencode', installed: false, runnable: false, current_version: '', latest_version: '', install_path: '', install_method: '', config_dir: '~/.config/opencode', config_exists: false, platform: 'Win', upgradable: false, can_install: false, error: '', extra_paths: [], npm_package: 'opencode-ai' },
+  { id: 'grok', name: 'Grok', command: 'grok', installed: false, runnable: false, current_version: '', latest_version: '', install_path: '', install_method: '', config_dir: '~/.grok', config_exists: false, platform: 'Win', upgradable: false, can_install: false, error: '', extra_paths: [], npm_package: '@xai-official/grok' },
 ]
 
 function files(dir: string, names: string[]): ConfigDirFile[] {
@@ -37,6 +37,7 @@ export function normalizeCliTools(raw: unknown): CliToolStatus[] {
       config_exists: Boolean(pick(row, 'config_exists', 'ConfigExists')),
       platform: String(pick(row, 'platform', 'Platform') || ''),
       upgradable: Boolean(pick(row, 'upgradable', 'Upgradable')),
+      can_install: Boolean(pick(row, 'can_install', 'CanInstall')),
       error: String(pick(row, 'error', 'Error') || ''),
       extra_paths: Array.isArray(pick(row, 'extra_paths', 'ExtraPaths'))
         ? (pick<unknown[]>(row, 'extra_paths', 'ExtraPaths') || []).map(item => String(item))
@@ -71,7 +72,7 @@ export function normalizeConfigDirs(raw: unknown): ConfigDirInfo[] {
 export const CONFIG_DIR_DEFAULTS: ConfigDirInfo[] = [
   { id: 'claude', name: 'Claude Code', dir: '~/.claude', exists: false, files: files('~/.claude', ['settings.json']) },
   { id: 'codex', name: 'Codex', dir: '~/.codex', exists: false, files: files('~/.codex', ['config.toml', 'auth.json']) },
-  { id: 'gemini', name: 'Gemini CLI', dir: '~/.gemini', exists: false, files: files('~/.gemini', ['.env', 'settings.json']) },
+  { id: 'antigravity', name: 'Antigravity CLI', dir: '~/.gemini/antigravity-cli', exists: false, files: files('~/.gemini/antigravity-cli', ['settings.json']) },
   { id: 'opencode', name: 'OpenCode', dir: '~/.config/opencode', exists: false, files: files('~/.config/opencode', ['opencode.json']) },
   { id: 'grok', name: 'Grok', dir: '~/.grok', exists: false, files: files('~/.grok', ['config.toml']) },
 ]

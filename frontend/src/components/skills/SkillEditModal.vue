@@ -31,9 +31,9 @@
               <BrandIcon provider="codex" class="size-3.5" />
               Codex
             </ToggleGroupItem>
-            <ToggleGroupItem value="gemini">
-              <BrandIcon provider="gemini" class="size-3.5" />
-              Gemini
+            <ToggleGroupItem value="antigravity">
+              <BrandIcon provider="antigravity" class="size-3.5" />
+              Antigravity
             </ToggleGroupItem>
             <ToggleGroupItem value="opencode">
               <BrandIcon provider="opencode" class="size-3.5" />
@@ -211,7 +211,7 @@ async function handleSubmit() {
     enable_platform: [...form.value.enable_platform],
     enabled_in_claude: false,
     enabled_in_codex: false,
-    enabled_in_gemini: false,
+    enabled_in_antigravity: false,
     enabled_in_opencode: false,
     enabled_in_grok: false,
     frontmatter_name: '',

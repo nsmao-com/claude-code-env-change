@@ -7,9 +7,9 @@ declare global {
         App: {
           GetConfig(): Promise<Config>
           AddEnv(config: EnvConfig): Promise<void>
-          UpdateEnv(oldName: string, config: EnvConfig): Promise<void>
-          DeleteEnv(name: string): Promise<void>
-          SwitchToEnv(name: string): Promise<void>
+          UpdateEnv(oldName: string, oldProvider: string, config: EnvConfig): Promise<void>
+          DeleteEnv(name: string, provider: string): Promise<void>
+          SwitchToEnv(name: string, provider: string): Promise<void>
           ApplyCurrentEnv(): Promise<string>
           ReorderEnvs(names: string[]): Promise<void>
           RefreshConfig(): Promise<void>
@@ -17,10 +17,11 @@ declare global {
           ClearAllEnv(): Promise<void>
           ClearClaudeSettings(): Promise<void>
           ClearCodexSettings(): Promise<void>
-          ClearGeminiSettings(): Promise<void>
+          ClearAntigravitySettings(): Promise<void>
           GetClaudeSettings(): Promise<Record<string, string>>
           GetCodexSettings(): Promise<Record<string, string>>
-          GetGeminiSettings(): Promise<Record<string, string>>
+          GetAntigravitySettings(): Promise<Record<string, string>>
+          OpenProviderTerminal(provider: string): Promise<void>
           GetProviderRouting(): Promise<Record<string, boolean>>
           SetProviderRouting(provider: string, enabled: boolean): Promise<void>
           RefreshRoutedProviders(): Promise<void>

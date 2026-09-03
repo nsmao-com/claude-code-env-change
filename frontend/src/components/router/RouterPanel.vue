@@ -201,7 +201,7 @@ const recentLogs = computed(() => (routerStore.status?.logs ?? []).slice(-10).re
 const appProviders: { id: Provider; label: string }[] = [
   { id: 'claude', label: 'Claude' },
   { id: 'codex', label: 'Codex' },
-  { id: 'gemini', label: 'Gemini' },
+  { id: 'antigravity', label: 'Antigravity' },
   { id: 'opencode', label: 'OpenCode' },
   { id: 'grok', label: 'Grok' },
 ]

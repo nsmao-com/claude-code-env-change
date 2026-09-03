@@ -787,7 +787,7 @@ watch(isOpen, (open) => {
   }}, { immediate: true })
 
 watch(() => configStore.currentFilter, (tool) => {
-  const next: StatsPlatform = tool === 'claude' || tool === 'codex' || tool === 'gemini' ? tool : 'all'
+  const next: StatsPlatform = tool === 'claude' || tool === 'codex' || tool === 'antigravity' ? tool : 'all'
   if (platform.value === next) return
   platform.value = next
   if (isOpen.value) loadData()

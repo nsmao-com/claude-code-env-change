@@ -116,9 +116,14 @@ func normalizeActivationStore(store *activationStore) {
 			next = next[len(next)-keepMax:]
 		}
 
-		store.Providers[p] = next
 		if p != provider {
+			// 迁移旧平台名（gemini → antigravity）时合并历史记录
+			merged := append(store.Providers[p], next...)
+			sort.SliceStable(merged, func(i, j int) bool { return merged[i].At < merged[j].At })
+			store.Providers[p] = merged
 			delete(store.Providers, provider)
+		} else {
+			store.Providers[p] = next
 		}
 	}
 }
@@ -148,11 +153,14 @@ func normalizeProvider(provider string) string {
 		return "claude"
 	}
 	switch p {
-	case "claude", "codex", "gemini", "opencode", "grok":
+	case "claude", "codex", "antigravity", "opencode", "grok":
 		return p
 	case "openclaw":
 		// 旧值归一到 opencode
 		return "opencode"
+	case "gemini":
+		// 旧平台名，归一到 antigravity
+		return "antigravity"
 	default:
 		return ""
 	}

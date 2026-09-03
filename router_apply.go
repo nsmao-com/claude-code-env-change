@@ -80,7 +80,7 @@ func defaultUpstreamURL(provider string) string {
 		return "https://api.anthropic.com"
 	case "codex":
 		return "https://api.openai.com/v1"
-	case "gemini":
+	case "antigravity":
 		return "https://generativelanguage.googleapis.com"
 	case "grok":
 		return "https://api.x.ai/v1"
@@ -102,7 +102,7 @@ func upstreamVarsForEnv(env *EnvConfig) (baseURL, apiKey, model string) {
 		baseURL = env.Variables["base_url"]
 		apiKey = env.Variables["OPENAI_API_KEY"]
 		model = env.Variables["model"]
-	case "gemini":
+	case "antigravity":
 		baseURL = env.Variables["GOOGLE_GEMINI_BASE_URL"]
 		apiKey = env.Variables["GEMINI_API_KEY"]
 		if apiKey == "" {
@@ -139,7 +139,7 @@ func needsConversion(env *EnvConfig) bool {
 		return format == UpstreamChatCompletions || format == UpstreamAnthropicMessages
 	case "opencode":
 		return format == UpstreamAnthropicMessages || format == UpstreamResponses
-	case "gemini":
+	case "antigravity":
 		return format == UpstreamChatCompletions || format == UpstreamAnthropicMessages || format == UpstreamResponses
 	}
 	return false
@@ -178,7 +178,7 @@ func targetFormatForEnv(env *EnvConfig) string {
 		return "anthropic"
 	case "opencode":
 		return "openai"
-	case "gemini":
+	case "antigravity":
 		return "openai"
 	default:
 		return "responses"
@@ -243,7 +243,7 @@ func rewriteLiveBaseURL(env *EnvConfig, localBase string) {
 		env.Variables["ANTHROPIC_BASE_URL"] = base
 	case "codex":
 		env.Variables["base_url"] = base + "/v1"
-	case "gemini":
+	case "antigravity":
 		env.Variables["GOOGLE_GEMINI_BASE_URL"] = base
 	case "opencode":
 		orig := env.Variables["OPENCODE_BASE_URL"]
@@ -395,8 +395,8 @@ func (a *App) currentEnvNameForProvider(provider string) string {
 	switch provider {
 	case "codex":
 		return a.config.CurrentEnvCodex
-	case "gemini":
-		return a.config.CurrentEnvGemini
+	case "antigravity":
+		return a.config.CurrentEnvAntigravity
 	case "opencode":
 		return a.config.CurrentEnvOpencode
 	case "grok":
@@ -460,11 +460,11 @@ func (a *App) SetProviderRouting(provider string, enabled bool) error {
 
 func (a *App) RefreshRoutedProviders() error {
 	var errs []string
-	for _, provider := range []string{"claude", "codex", "gemini", "opencode", "grok"} {
+	for _, provider := range []string{"claude", "codex", "antigravity", "opencode", "grok"} {
 		if !isAppRoutingOn(provider) {
 			continue
 		}
-		env := a.findEnv(a.currentEnvNameForProvider(provider))
+		env := a.findEnvIn(provider, a.currentEnvNameForProvider(provider))
 		if env == nil {
 			continue
 		}

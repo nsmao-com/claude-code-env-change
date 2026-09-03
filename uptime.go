@@ -183,7 +183,7 @@ func (us *UptimeService) RunOnce() (UptimeSnapshot, error) {
 		if strings.TrimSpace(url) == "" {
 			continue
 		}
-		urls[env.Name] = url
+		urls[uptimeEnvKey(env.Provider, env.Name)] = url
 	}
 
 	if store.History == nil {
@@ -191,9 +191,9 @@ func (us *UptimeService) RunOnce() (UptimeSnapshot, error) {
 	}
 
 	// 逐个检查（避免并发导致 UI 卡顿/过多连接）
-	for name, url := range urls {
+	for key, url := range urls {
 		check := runUptimeCheck(client, url)
-		store.History[name] = appendAndTrim(store.History[name], check, store.Settings.KeepLast)
+		store.History[key] = appendAndTrim(store.History[key], check, store.Settings.KeepLast)
 	}
 
 	// 轮换：按组评估当前激活环境的连续失败次数
@@ -215,19 +215,19 @@ func (us *UptimeService) RunOnce() (UptimeSnapshot, error) {
 			continue
 		}
 
-		history := store.History[activeName]
+		history := store.History[uptimeEnvKey(group.Provider, activeName)]
 		failCount := consecutiveFailures(history)
 		if failCount < group.FailureThreshold {
 			continue
 		}
 
-		nextName := pickNextHealthy(group.EnvNames, currentIndex, store.History)
+		nextName := pickNextHealthy(group.EnvNames, currentIndex, store.History, group.Provider)
 		if nextName == "" || nextName == activeName {
 			continue
 		}
 
 		// 切换并应用（沿用现有逻辑：SwitchToEnv + ApplyCurrentEnv）
-		_ = us.app.SwitchToEnv(nextName)
+		_ = us.app.SwitchToEnv(nextName, group.Provider)
 		_, _ = us.app.ApplyCurrentEnv()
 
 		// 更新本地 config 快照，避免多个组使用旧值
@@ -249,7 +249,7 @@ func (us *UptimeService) buildSnapshot(store uptimeStore) UptimeSnapshot {
 		if strings.TrimSpace(url) == "" {
 			continue
 		}
-		urls[env.Name] = url
+		urls[uptimeEnvKey(env.Provider, env.Name)] = url
 	}
 
 	if store.History == nil {
@@ -369,6 +369,10 @@ func normalizeRotationGroup(group RotationGroup) RotationGroup {
 		// 旧值归一到 opencode，避免轮换时误读 Claude 的当前环境
 		group.Provider = "opencode"
 	}
+	if group.Provider == "gemini" {
+		// 旧平台名，归一到 antigravity
+		group.Provider = "antigravity"
+	}
 	group.EnvNames = normalizeStringList(group.EnvNames)
 	if group.FailureThreshold <= 0 {
 		group.FailureThreshold = 3
@@ -399,8 +403,8 @@ func (us *UptimeService) validateRotationGroup(group RotationGroup) error {
 	if group.Name == "" {
 		return fmt.Errorf("轮换组名称不能为空")
 	}
-	if group.Provider != "claude" && group.Provider != "codex" && group.Provider != "gemini" && group.Provider != "opencode" && group.Provider != "grok" {
-		return fmt.Errorf("轮换组 provider 必须是 claude/codex/gemini/opencode/grok")
+	if group.Provider != "claude" && group.Provider != "codex" && group.Provider != "antigravity" && group.Provider != "opencode" && group.Provider != "grok" {
+		return fmt.Errorf("轮换组 provider 必须是 claude/codex/antigravity/opencode/grok")
 	}
 	if len(group.EnvNames) == 0 {
 		return fmt.Errorf("轮换组必须至少包含 1 个配置")
@@ -410,25 +414,27 @@ func (us *UptimeService) validateRotationGroup(group RotationGroup) error {
 	}
 
 	config := us.app.GetConfig()
-	envProvider := map[string]string{}
+	known := map[string]bool{}
 	for _, env := range config.Environments {
-		envProvider[env.Name] = strings.ToLower(strings.TrimSpace(env.Provider))
-	}
-
-	for _, name := range group.EnvNames {
-		p, ok := envProvider[name]
-		if !ok {
-			return fmt.Errorf("轮换组包含不存在的配置：%s", name)
-		}
+		p := strings.ToLower(strings.TrimSpace(env.Provider))
 		if p == "" {
 			p = "claude"
 		}
-		if p != group.Provider {
-			return fmt.Errorf("轮换组配置 provider 不一致：%s 不是 %s", name, group.Provider)
+		known[p+"\x00"+env.Name] = true
+	}
+
+	for _, name := range group.EnvNames {
+		if !known[group.Provider+"\x00"+name] {
+			return fmt.Errorf("轮换组包含不存在的配置：%s", name)
 		}
 	}
 
 	return nil
+}
+
+// uptimeEnvKey 检测历史的复合键：配置名可能跨服务商重复
+func uptimeEnvKey(provider, name string) string {
+	return strings.ToLower(strings.TrimSpace(provider)) + "/" + name
 }
 
 func deriveEnvURL(env EnvConfig) string {
@@ -448,7 +454,7 @@ func deriveEnvURL(env EnvConfig) string {
 		return ""
 	case "codex":
 		return strings.TrimSpace(vars["base_url"])
-	case "gemini":
+	case "antigravity":
 		return strings.TrimSpace(vars["GOOGLE_GEMINI_BASE_URL"])
 	case "opencode":
 		return strings.TrimSpace(vars["OPENCODE_BASE_URL"])
@@ -519,8 +525,8 @@ func currentEnvNameByProvider(config Config, provider string) string {
 	switch strings.ToLower(strings.TrimSpace(provider)) {
 	case "codex":
 		return config.CurrentEnvCodex
-	case "gemini":
-		return config.CurrentEnvGemini
+	case "antigravity":
+		return config.CurrentEnvAntigravity
 	case "opencode":
 		return config.CurrentEnvOpencode
 	case "grok":
@@ -540,7 +546,7 @@ func indexOfString(values []string, target string) int {
 	return -1
 }
 
-func pickNextHealthy(values []string, currentIndex int, history map[string][]UptimeCheck) string {
+func pickNextHealthy(values []string, currentIndex int, history map[string][]UptimeCheck, provider string) string {
 	if len(values) == 0 {
 		return ""
 	}
@@ -552,7 +558,7 @@ func pickNextHealthy(values []string, currentIndex int, history map[string][]Upt
 	for offset := 1; offset <= len(values); offset++ {
 		idx := (currentIndex + offset) % len(values)
 		name := values[idx]
-		h := history[name]
+		h := history[uptimeEnvKey(provider, name)]
 		if len(h) == 0 {
 			return name
 		}

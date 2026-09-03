@@ -27,14 +27,14 @@ func NewSkillService() *SkillService {
 
 // Skill 前端展示/编辑结构
 type Skill struct {
-	Name              string   `json:"name"`
-	Content           string   `json:"content"`
-	EnablePlatform    []string `json:"enable_platform"`
-	EnabledInClaude   bool     `json:"enabled_in_claude"`
-	EnabledInCodex    bool     `json:"enabled_in_codex"`
-	EnabledInGemini   bool     `json:"enabled_in_gemini"`
-	EnabledInOpencode bool     `json:"enabled_in_opencode"`
-	EnabledInGrok     bool     `json:"enabled_in_grok"`
+	Name                 string   `json:"name"`
+	Content              string   `json:"content"`
+	EnablePlatform       []string `json:"enable_platform"`
+	EnabledInClaude      bool     `json:"enabled_in_claude"`
+	EnabledInCodex       bool     `json:"enabled_in_codex"`
+	EnabledInAntigravity bool     `json:"enabled_in_antigravity"`
+	EnabledInOpencode    bool     `json:"enabled_in_opencode"`
+	EnabledInGrok        bool     `json:"enabled_in_grok"`
 
 	// 仅用于展示（从 Content 解析）
 	FrontmatterName  string `json:"frontmatter_name"`
@@ -84,14 +84,14 @@ func (ss *SkillService) ListSkills() ([]Skill, error) {
 		meta := parseSkillFrontmatter(content)
 
 		skills = append(skills, Skill{
-			Name:              name,
-			Content:           content,
-			EnablePlatform:    entry.EnablePlatform,
-			EnabledInClaude:   fileExists(filepath.Join(home, ".claude", "skills", name, "SKILL.md")),
-			EnabledInCodex:    fileExists(filepath.Join(home, ".codex", "skills", name, "SKILL.md")),
-			EnabledInGemini:   fileExists(filepath.Join(home, ".gemini", "skills", name, "SKILL.md")),
-			EnabledInOpencode: opencodeRoot != "" && fileExists(filepath.Join(opencodeRoot, name, "SKILL.md")),
-			EnabledInGrok:     grokRoot != "" && fileExists(filepath.Join(grokRoot, name, "SKILL.md")),
+			Name:                 name,
+			Content:              content,
+			EnablePlatform:       entry.EnablePlatform,
+			EnabledInClaude:      fileExists(filepath.Join(home, ".claude", "skills", name, "SKILL.md")),
+			EnabledInCodex:       fileExists(filepath.Join(home, ".codex", "skills", name, "SKILL.md")),
+			EnabledInAntigravity: antigravitySkillExists(home, name),
+			EnabledInOpencode:    opencodeRoot != "" && fileExists(filepath.Join(opencodeRoot, name, "SKILL.md")),
+			EnabledInGrok:        grokRoot != "" && fileExists(filepath.Join(grokRoot, name, "SKILL.md")),
 
 			FrontmatterName:  meta.Name,
 			Description:      meta.Description,
@@ -300,7 +300,7 @@ func (ss *SkillService) loadConfigWithImport() (map[string]rawSkill, bool, error
 	}{
 		{platform: platClaudeCode, root: filepath.Join(home, ".claude", "skills")},
 		{platform: platCodex, root: filepath.Join(home, ".codex", "skills")},
-		{platform: platGemini, root: filepath.Join(home, ".gemini", "skills")},
+		{platform: platAntigravity, root: antigravitySkillsScanRoot(home)},
 	}
 	if opencodeRoot := opencodeSkillsRoot(); opencodeRoot != "" {
 		imports = append(imports, struct {
@@ -423,7 +423,7 @@ func (ss *SkillService) syncSkill(name string, entry rawSkill) error {
 	}{
 		{platform: platClaudeCode, root: filepath.Join(home, ".claude", "skills")},
 		{platform: platCodex, root: filepath.Join(home, ".codex", "skills")},
-		{platform: platGemini, root: filepath.Join(home, ".gemini", "skills")},
+		{platform: platAntigravity, root: antigravitySkillsScanRoot(home)},
 	}
 	if opencodeRoot := opencodeSkillsRoot(); opencodeRoot != "" {
 		roots = append(roots, struct {
@@ -449,11 +449,6 @@ func (ss *SkillService) syncSkill(name string, entry rawSkill) error {
 			if err := os.WriteFile(file, []byte(entry.Content), 0o644); err != nil {
 				return err
 			}
-			if item.platform == platGemini {
-				if err := ensureGeminiSkillsEnabled(); err != nil {
-					return err
-				}
-			}
 			continue
 		}
 
@@ -476,6 +471,7 @@ func (ss *SkillService) removeSkillFromAllPlatforms(name string) error {
 	roots := []string{
 		filepath.Join(home, ".claude", "skills"),
 		filepath.Join(home, ".codex", "skills"),
+		filepath.Join(home, ".gemini", "antigravity-cli", "skills"),
 		filepath.Join(home, ".gemini", "skills"),
 	}
 	if opencodeRoot := opencodeSkillsRoot(); opencodeRoot != "" {
@@ -510,31 +506,24 @@ func removeDirIfEmpty(dir string) error {
 	return os.Remove(dir)
 }
 
-func ensureGeminiSkillsEnabled() error {
-	path, err := geminiConfigPath()
-	if err != nil {
-		return err
-	}
+// antigravitySkillsRoot Antigravity CLI 的全局技能目录（~/.gemini/antigravity-cli/skills）
+func antigravitySkillsRoot(home string) string {
+	return filepath.Join(home, ".gemini", "antigravity-cli", "skills")
+}
 
-	payload := map[string]any{}
-	if data, err := os.ReadFile(path); err == nil && len(data) > 0 {
-		if err := json.Unmarshal(data, &payload); err != nil {
-			payload = map[string]any{}
-		}
+// antigravitySkillsScanRoot 扫描/写入技能时使用的根目录：
+// agy 读取 antigravity-cli/skills；若用户尚未迁移、只有旧 ~/.gemini/skills，则回退旧目录
+func antigravitySkillsScanRoot(home string) string {
+	if dirExists(antigravitySkillsRoot(home)) {
+		return antigravitySkillsRoot(home)
 	}
+	return filepath.Join(home, ".gemini", "skills")
+}
 
-	experimental, ok := payload["experimental"].(map[string]any)
-	if !ok || experimental == nil {
-		experimental = map[string]any{}
-	}
-	experimental["skills"] = true
-	payload["experimental"] = experimental
-
-	data, err := json.MarshalIndent(payload, "", "  ")
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(path, data, 0o644)
+// antigravitySkillExists 技能是否在 Antigravity 平台启用（新旧目录任一存在即视为启用）
+func antigravitySkillExists(home, name string) bool {
+	return fileExists(filepath.Join(home, ".gemini", "antigravity-cli", "skills", name, "SKILL.md")) ||
+		fileExists(filepath.Join(home, ".gemini", "skills", name, "SKILL.md"))
 }
 
 func fileExists(path string) bool {

@@ -133,7 +133,7 @@ function onTestLatency() {
 }
 
 const providerLabel = computed(() => {
-  const labels: Record<string, string> = { claude: 'Claude', codex: 'Codex', gemini: 'Gemini', opencode: 'OpenCode', grok: 'Grok' }
+  const labels: Record<string, string> = { claude: 'Claude', codex: 'Codex', antigravity: 'Antigravity', opencode: 'OpenCode', grok: 'Grok' }
   return labels[(props.config.provider || 'claude').toLowerCase()] || props.config.provider
 })
 
@@ -146,7 +146,7 @@ const modelValue = computed(() => {
   const vars = props.config.variables || {}
   if (provider === 'claude') return vars.ANTHROPIC_MODEL || ''
   if (provider === 'codex') return vars.model || ''
-  if (provider === 'gemini') return vars.GEMINI_MODEL || ''
+  if (provider === 'antigravity') return vars.GEMINI_MODEL || ''
   if (provider === 'opencode') return vars.OPENCODE_MODEL || ''
   if (provider === 'grok') return vars.XAI_MODEL || ''
   return ''
@@ -157,7 +157,7 @@ const baseUrlValue = computed(() => {
   const vars = props.config.variables || {}
   if (provider === 'claude') return vars.ANTHROPIC_BASE_URL || vars.API_BASE_URL || ''
   if (provider === 'codex') return vars.base_url || ''
-  if (provider === 'gemini') return vars.GOOGLE_GEMINI_BASE_URL || ''
+  if (provider === 'antigravity') return vars.GOOGLE_GEMINI_BASE_URL || ''
   if (provider === 'opencode') return vars.OPENCODE_BASE_URL || ''
   if (provider === 'grok') return vars.XAI_BASE_URL || ''
   return ''

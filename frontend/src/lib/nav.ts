@@ -29,7 +29,7 @@ export const APP_PAGES: AppPageMeta[] = [
   { id: 'router', label: '路由', title: '路由', subtitle: '本地协议转换网关，跨工具复用 API。', icon: Route },
   { id: 'uptime', label: '监控', title: '监控', subtitle: '检测可达性，并按轮换组自动切换配置。', icon: Activity },
   { id: 'cloud', label: '云同步', title: '云同步', subtitle: '把配置备份到对象存储，换电脑后拉取。', icon: Cloud },
-  { id: 'prompts', label: '提示词', title: '提示词', subtitle: '编辑 Claude / Codex / Gemini 的自定义提示词。', icon: MessageSquareText },
+  { id: 'prompts', label: '提示词', title: '提示词', subtitle: '编辑 Claude / Codex / Antigravity 的自定义提示词。', icon: MessageSquareText },
   { id: 'stats', label: '统计', title: '统计', subtitle: '查看各平台请求量、Token 消耗与花费估算。', icon: ChartColumn },
   { id: 'settings', label: '设置', title: '系统设置', subtitle: '语言、外观与其它偏好。', icon: Settings },
 ]

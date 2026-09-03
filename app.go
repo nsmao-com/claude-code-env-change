@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -25,7 +26,7 @@ type EnvConfig struct {
 	Name        string            `json:"name"`
 	Description string            `json:"description"`
 	Variables   map[string]string `json:"variables"`
-	Provider    string            `json:"provider"`            // "claude", "codex", "gemini", "opencode", "grok"
+	Provider    string            `json:"provider"`            // "claude", "codex", "antigravity", "opencode", "grok"
 	Templates   map[string]string `json:"templates,omitempty"` // 自定义模板内容，key为文件名
 	Icon        string            `json:"icon,omitempty"`      // emoji 图标
 	// 上游 API 格式："" 原生直连；chat_completions / anthropic_messages / responses 需本地路由转换
@@ -37,14 +38,14 @@ type EnvConfig struct {
 
 // Config 主配置
 type Config struct {
-	CurrentEnv         string      `json:"current_env"` // Deprecated: 兼容旧版本
-	CurrentEnvClaude   string      `json:"current_env_claude"`
-	CurrentEnvCodex    string      `json:"current_env_codex"`
-	CurrentEnvGemini   string      `json:"current_env_gemini"`
-	CurrentEnvOpencode  string      `json:"current_env_opencode"`
-	CurrentEnvsOpencode []string    `json:"current_envs_opencode"`
-	CurrentEnvGrok      string      `json:"current_env_grok"`
-	Environments        []EnvConfig `json:"environments"`
+	CurrentEnv            string      `json:"current_env"` // Deprecated: 兼容旧版本
+	CurrentEnvClaude      string      `json:"current_env_claude"`
+	CurrentEnvCodex       string      `json:"current_env_codex"`
+	CurrentEnvAntigravity string      `json:"current_env_antigravity"` // 旧版本为 gemini，加载时自动迁移
+	CurrentEnvOpencode    string      `json:"current_env_opencode"`
+	CurrentEnvsOpencode   []string    `json:"current_envs_opencode"`
+	CurrentEnvGrok        string      `json:"current_env_grok"`
+	Environments          []EnvConfig `json:"environments"`
 }
 
 // App struct
@@ -70,7 +71,7 @@ func (a *App) OnStartup(ctx context.Context) {
 	_ = a.saveConfig()
 	_ = RecordEnvActivation("claude", a.config.CurrentEnvClaude, time.Now())
 	_ = RecordEnvActivation("codex", a.config.CurrentEnvCodex, time.Now())
-	_ = RecordEnvActivation("gemini", a.config.CurrentEnvGemini, time.Now())
+	_ = RecordEnvActivation("antigravity", a.config.CurrentEnvAntigravity, time.Now())
 	_ = RecordEnvActivation("opencode", a.config.CurrentEnvOpencode, time.Now())
 	_ = RecordEnvActivation("grok", a.config.CurrentEnvGrok, time.Now())
 }
@@ -114,27 +115,26 @@ func (a *App) SetEnvVar(key, value string) error {
 }
 
 // SwitchToEnv 切换环境
-func (a *App) SwitchToEnv(name string) error {
-	// 查找环境配置以确定 Provider
-	var provider string
+func (a *App) SwitchToEnv(name string, provider string) error {
+	// 名称只在同一服务商内唯一，必须由调用方指明服务商
+	found := false
 	for _, env := range a.config.Environments {
-		if env.Name == name {
+		if env.Name == name && sameProvider(env.Provider, provider) {
 			provider = env.Provider
+			found = true
 			break
 		}
 	}
-
-	// 默认为 claude
-	if provider == "" {
-		provider = "claude"
+	if !found {
+		return fmt.Errorf("environment '%s' (%s) not found", name, provider)
 	}
 
 	// 根据 Provider 更新对应的 CurrentEnv
 	switch provider {
 	case "codex":
 		a.config.CurrentEnvCodex = name
-	case "gemini":
-		a.config.CurrentEnvGemini = name
+	case "antigravity":
+		a.config.CurrentEnvAntigravity = name
 	case "opencode":
 		a.addOpencodeCurrent(name)
 	case "grok":
@@ -151,7 +151,7 @@ func (a *App) SwitchToEnv(name string) error {
 
 // UnapplyEnv 停用一条已应用的配置。OpenCode 可同时挂多套，停用只拿掉这一套，其它继续留在 opencode.json。
 func (a *App) UnapplyEnv(name string) error {
-	env := a.findEnv(name)
+	env := a.findEnvIn("opencode", name)
 	if env == nil {
 		return fmt.Errorf("environment '%s' not found", name)
 	}
@@ -169,7 +169,7 @@ func (a *App) UnapplyEnv(name string) error {
 		return err
 	}
 	if last := a.config.CurrentEnvOpencode; last != "" {
-		if remaining := a.findEnv(last); remaining != nil {
+		if remaining := a.findEnvIn("opencode", last); remaining != nil {
 			if _, err := a.applyOpencodeEnv(remaining); err != nil {
 				return fmt.Errorf("已停用 %s，但刷新默认模型失败: %v", name, err)
 			}
@@ -179,10 +179,11 @@ func (a *App) UnapplyEnv(name string) error {
 }
 
 // AddEnv adds a new environment configuration
+// 名称只需在同一服务商内唯一；同名但不同服务商的配置各自独立存在
 func (a *App) AddEnv(env EnvConfig) error {
-	// Check if environment already exists
+	// Check if environment already exists (same provider)
 	for i, existing := range a.config.Environments {
-		if existing.Name == env.Name {
+		if existing.Name == env.Name && sameProvider(existing.Provider, env.Provider) {
 			// Update existing environment
 			a.config.Environments[i] = env
 			return a.saveConfig()
@@ -195,55 +196,129 @@ func (a *App) AddEnv(env EnvConfig) error {
 }
 
 // UpdateEnv updates an existing environment configuration by old name
-func (a *App) UpdateEnv(oldName string, newEnv EnvConfig) error {
+func (a *App) UpdateEnv(oldName string, oldProvider string, newEnv EnvConfig) error {
+	idx := -1
 	for i, existing := range a.config.Environments {
-		if existing.Name == oldName {
-			// Update in place to maintain order
-			a.config.Environments[i] = newEnv
-
-			// Update current env references if name changed
-			if oldName != newEnv.Name {
-				if a.config.CurrentEnv == oldName {
-					a.config.CurrentEnv = newEnv.Name
-				}
-				if a.config.CurrentEnvClaude == oldName {
-					a.config.CurrentEnvClaude = newEnv.Name
-				}
-				if a.config.CurrentEnvCodex == oldName {
-					a.config.CurrentEnvCodex = newEnv.Name
-				}
-				if a.config.CurrentEnvGemini == oldName {
-					a.config.CurrentEnvGemini = newEnv.Name
-				}
-				if a.config.CurrentEnvOpencode == oldName {
-					a.config.CurrentEnvOpencode = newEnv.Name
-				}
-				a.renameOpencodeCurrent(oldName, newEnv.Name)
-				if a.config.CurrentEnvGrok == oldName {
-					a.config.CurrentEnvGrok = newEnv.Name
-				}
-			}
-
-			if err := a.saveConfig(); err != nil {
-				return err
-			}
-			if a.isCurrentEnvName(newEnv.Name) {
-				if _, err := a.applyEnvByProvider(&newEnv); err != nil {
-					return fmt.Errorf("配置已保存，但写回本机失败: %v", err)
-				}
-			}
-			return nil
+		if existing.Name == oldName && sameProvider(existing.Provider, oldProvider) {
+			idx = i
+			break
 		}
 	}
-	return fmt.Errorf("environment '%s' not found", oldName)
+	if idx < 0 {
+		return fmt.Errorf("environment '%s' (%s) not found", oldName, oldProvider)
+	}
+
+	// 目标 (name, provider) 不能与其他配置冲突（同服务商内唯一）
+	for i, existing := range a.config.Environments {
+		if i != idx && existing.Name == newEnv.Name && sameProvider(existing.Provider, newEnv.Provider) {
+			return fmt.Errorf("配置名称 %q 在 %s 下已存在", newEnv.Name, newEnv.Provider)
+		}
+	}
+
+	// Update in place to maintain order
+	a.config.Environments[idx] = newEnv
+
+	providerChanged := !sameProvider(oldProvider, newEnv.Provider)
+	renamed := oldName != newEnv.Name
+	if providerChanged {
+		// 换了服务商：旧服务商的当前环境引用随之清空
+		a.clearCurrentEnvRef(oldProvider, oldName)
+	} else if renamed {
+		// 只迁移该服务商自己的当前环境引用，避免误改其他服务商的同名配置
+		if a.config.CurrentEnv == oldName {
+			a.config.CurrentEnv = newEnv.Name
+		}
+		a.renameProviderCurrentRef(newEnv.Provider, oldName, newEnv.Name)
+	}
+
+	if err := a.saveConfig(); err != nil {
+		return err
+	}
+	if !providerChanged && a.isCurrentEnvFor(newEnv.Provider, newEnv.Name) {
+		if _, err := a.applyEnvByProvider(&newEnv); err != nil {
+			return fmt.Errorf("配置已保存，但写回本机失败: %v", err)
+		}
+	}
+	return nil
 }
 
-func (a *App) isCurrentEnvName(name string) bool {
-	return a.config.CurrentEnvClaude == name ||
-		a.config.CurrentEnvCodex == name ||
-		a.config.CurrentEnvGemini == name ||
-		a.isOpencodeCurrent(name) ||
-		a.config.CurrentEnvGrok == name
+// sameProvider 服务商比较（大小写不敏感，空值归一为 claude）
+func sameProvider(a, b string) bool {
+	norm := func(p string) string {
+		p = strings.ToLower(strings.TrimSpace(p))
+		if p == "" {
+			return "claude"
+		}
+		return p
+	}
+	return norm(a) == norm(b)
+}
+
+// isCurrentEnvFor 某条配置是否是其服务商当前激活的环境
+func (a *App) isCurrentEnvFor(provider, name string) bool {
+	switch strings.ToLower(strings.TrimSpace(provider)) {
+	case "codex":
+		return a.config.CurrentEnvCodex == name
+	case "antigravity":
+		return a.config.CurrentEnvAntigravity == name
+	case "opencode":
+		return a.isOpencodeCurrent(name)
+	case "grok":
+		return a.config.CurrentEnvGrok == name
+	default:
+		return a.config.CurrentEnvClaude == name
+	}
+}
+
+// clearCurrentEnvRef 清掉某服务商下指向该名称的当前环境引用
+func (a *App) clearCurrentEnvRef(provider, name string) {
+	switch strings.ToLower(strings.TrimSpace(provider)) {
+	case "codex":
+		if a.config.CurrentEnvCodex == name {
+			a.config.CurrentEnvCodex = ""
+		}
+	case "antigravity":
+		if a.config.CurrentEnvAntigravity == name {
+			a.config.CurrentEnvAntigravity = ""
+		}
+	case "opencode":
+		a.removeOpencodeCurrent(name)
+	case "grok":
+		if a.config.CurrentEnvGrok == name {
+			a.config.CurrentEnvGrok = ""
+		}
+	default:
+		if a.config.CurrentEnvClaude == name {
+			a.config.CurrentEnvClaude = ""
+		}
+	}
+	if a.config.CurrentEnv == name {
+		a.config.CurrentEnv = ""
+	}
+}
+
+// renameProviderCurrentRef 服务商内改名时迁移当前环境引用
+func (a *App) renameProviderCurrentRef(provider, oldName, newName string) {
+	switch strings.ToLower(strings.TrimSpace(provider)) {
+	case "codex":
+		if a.config.CurrentEnvCodex == oldName {
+			a.config.CurrentEnvCodex = newName
+		}
+	case "antigravity":
+		if a.config.CurrentEnvAntigravity == oldName {
+			a.config.CurrentEnvAntigravity = newName
+		}
+	case "opencode":
+		a.renameOpencodeCurrent(oldName, newName)
+	case "grok":
+		if a.config.CurrentEnvGrok == oldName {
+			a.config.CurrentEnvGrok = newName
+		}
+	default:
+		if a.config.CurrentEnvClaude == oldName {
+			a.config.CurrentEnvClaude = newName
+		}
+	}
 }
 
 func (a *App) applyEnvByProvider(env *EnvConfig) (string, error) {
@@ -254,8 +329,8 @@ func (a *App) applyEnvByProvider(env *EnvConfig) (string, error) {
 	switch live.Provider {
 	case "codex":
 		return a.applyCodexEnv(live)
-	case "gemini":
-		return a.applyGeminiEnv(live)
+	case "antigravity":
+		return a.applyAntigravityEnv(live)
 	case "opencode":
 		return a.applyOpencodeEnv(live)
 	case "grok":
@@ -266,40 +341,22 @@ func (a *App) applyEnvByProvider(env *EnvConfig) (string, error) {
 }
 
 // DeleteEnv deletes an environment configuration by name
-func (a *App) DeleteEnv(name string) error {
+func (a *App) DeleteEnv(name string, provider string) error {
 	for i, env := range a.config.Environments {
-		if env.Name == name {
+		if env.Name == name && sameProvider(env.Provider, provider) {
 			if env.Provider == "opencode" && a.isOpencodeCurrent(name) {
 				_ = a.stripOpencodeProvider(&env)
 			}
 			// Remove environment from slice
 			a.config.Environments = append(a.config.Environments[:i], a.config.Environments[i+1:]...)
 
-			// Clear current env references
-			if a.config.CurrentEnv == name {
-				a.config.CurrentEnv = ""
-			}
-			if a.config.CurrentEnvClaude == name {
-				a.config.CurrentEnvClaude = ""
-			}
-			if a.config.CurrentEnvCodex == name {
-				a.config.CurrentEnvCodex = ""
-			}
-			if a.config.CurrentEnvGemini == name {
-				a.config.CurrentEnvGemini = ""
-			}
-			if a.config.CurrentEnvOpencode == name {
-				a.config.CurrentEnvOpencode = ""
-			}
-			a.removeOpencodeCurrent(name)
-			if a.config.CurrentEnvGrok == name {
-				a.config.CurrentEnvGrok = ""
-			}
+			// Clear current env references（仅该服务商自己的引用）
+			a.clearCurrentEnvRef(env.Provider, name)
 
 			return a.saveConfig()
 		}
 	}
-	return fmt.Errorf("environment '%s' not found", name)
+	return fmt.Errorf("environment '%s' (%s) not found", name, provider)
 }
 
 // ReorderEnvs reorders the environments based on the provided list of names
@@ -308,21 +365,22 @@ func (a *App) ReorderEnvs(names []string) error {
 		return fmt.Errorf("environment count mismatch")
 	}
 
+	// 名称可能跨服务商重复：按请求顺序贪心匹配尚未使用的同名配置
+	used := make([]bool, len(a.config.Environments))
 	newEnvs := make([]EnvConfig, 0, len(names))
-	envMap := make(map[string]EnvConfig)
-
-	// Create a map for quick lookup
-	for _, env := range a.config.Environments {
-		envMap[env.Name] = env
-	}
-
-	// Reconstruct the slice in the new order
 	for _, name := range names {
-		if env, ok := envMap[name]; ok {
-			newEnvs = append(newEnvs, env)
-		} else {
-			return fmt.Errorf("environment '%s' not found in current config", name)
+		found := -1
+		for i, env := range a.config.Environments {
+			if !used[i] && env.Name == name {
+				found = i
+				break
+			}
 		}
+		if found < 0 {
+			return fmt.Errorf("environment '%s' not found", name)
+		}
+		used[found] = true
+		newEnvs = append(newEnvs, a.config.Environments[found])
 	}
 
 	a.config.Environments = newEnvs
@@ -386,11 +444,11 @@ func (a *App) ApplyCurrentEnv() (string, error) {
 	var msgs []string
 	var errs []string
 
-	apply := func(label, envName string, applyFn func(*EnvConfig) (string, error)) {
+	apply := func(label, provider, envName string, applyFn func(*EnvConfig) (string, error)) {
 		if envName == "" {
 			return
 		}
-		env := a.findEnv(envName)
+		env := a.findEnvIn(provider, envName)
 		if env == nil {
 			errs = append(errs, fmt.Sprintf("%s: 找不到环境配置 %q", label, envName))
 			return
@@ -403,13 +461,13 @@ func (a *App) ApplyCurrentEnv() (string, error) {
 		msgs = append(msgs, label+": "+msg)
 	}
 
-	apply("Claude", a.config.CurrentEnvClaude, a.applyEnvByProvider)
-	apply("Codex", a.config.CurrentEnvCodex, a.applyEnvByProvider)
-	apply("Gemini", a.config.CurrentEnvGemini, a.applyEnvByProvider)
+	apply("Claude", "claude", a.config.CurrentEnvClaude, a.applyEnvByProvider)
+	apply("Codex", "codex", a.config.CurrentEnvCodex, a.applyEnvByProvider)
+	apply("Antigravity", "antigravity", a.config.CurrentEnvAntigravity, a.applyEnvByProvider)
 	for _, name := range a.opencodeCurrentNames() {
-		apply("OpenCode", name, a.applyEnvByProvider)
+		apply("OpenCode", "opencode", name, a.applyEnvByProvider)
 	}
-	apply("Grok", a.config.CurrentEnvGrok, a.applyEnvByProvider)
+	apply("Grok", "grok", a.config.CurrentEnvGrok, a.applyEnvByProvider)
 
 	a.syncOpencodeAppliedFromDisk()
 	if err := a.saveConfig(); err != nil && len(errs) == 0 {
@@ -423,7 +481,7 @@ func (a *App) ApplyCurrentEnv() (string, error) {
 	now := time.Now()
 	_ = RecordEnvActivation("claude", a.config.CurrentEnvClaude, now)
 	_ = RecordEnvActivation("codex", a.config.CurrentEnvCodex, now)
-	_ = RecordEnvActivation("gemini", a.config.CurrentEnvGemini, now)
+	_ = RecordEnvActivation("antigravity", a.config.CurrentEnvAntigravity, now)
 	_ = RecordEnvActivation("opencode", a.config.CurrentEnvOpencode, now)
 	_ = RecordEnvActivation("grok", a.config.CurrentEnvGrok, now)
 
@@ -441,6 +499,16 @@ func (a *App) ApplyCurrentEnv() (string, error) {
 func (a *App) findEnv(name string) *EnvConfig {
 	for _, env := range a.config.Environments {
 		if env.Name == name {
+			return &env
+		}
+	}
+	return nil
+}
+
+// findEnvIn 按服务商 + 名称定位（配置名只在同一服务商内唯一）
+func (a *App) findEnvIn(provider, name string) *EnvConfig {
+	for _, env := range a.config.Environments {
+		if env.Name == name && sameProvider(env.Provider, provider) {
 			return &env
 		}
 	}
@@ -577,8 +645,8 @@ func (a *App) GetCodexSettings() map[string]string {
 	return result
 }
 
-// GetGeminiSettings 读取 Gemini 配置
-func (a *App) GetGeminiSettings() map[string]string {
+// GetAntigravitySettings 读取 Antigravity（原 Gemini CLI）配置
+func (a *App) GetAntigravitySettings() map[string]string {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return nil
@@ -602,7 +670,35 @@ func (a *App) GetGeminiSettings() map[string]string {
 		}
 	}
 
+	// 覆盖为用户级环境变量里的实际值（agy 只认进程环境变量，这才是它真正读到的配置）
+	for key, value := range readAntigravityUserEnv() {
+		result[key] = value
+	}
+
 	return result
+}
+
+// OpenProviderTerminal 打开一个已注入该服务商当前生效环境变量的终端，
+// 方便直接运行对应 CLI（尤其 agy 只认环境变量，这样不必等新终端继承用户环境）。
+func (a *App) OpenProviderTerminal(provider string) error {
+	provider = strings.ToLower(strings.TrimSpace(provider))
+	name := a.currentEnvNameForProvider(provider)
+	if name == "" {
+		return fmt.Errorf("该平台还没有已应用的配置")
+	}
+	env := a.findEnvIn(provider, name)
+	if env == nil {
+		return fmt.Errorf("找不到环境配置 %q", name)
+	}
+	vars := env.Variables
+	// 路由开启时使用实际写入本机的 live 变量（例如指向本地网关的 base URL）
+	if live, err := prepareLiveEnv(env); err == nil && live != nil {
+		vars = live.Variables
+	}
+	if len(vars) == 0 {
+		return fmt.Errorf("该配置没有可注入的环境变量")
+	}
+	return openTerminalWithEnv(vars)
 }
 
 // applyClaudeEnv 应用 Claude 配置到 ~/.claude/settings.json
@@ -759,8 +855,8 @@ func readCodexMcpServers(configFile string) map[string]map[string]any {
 	return payload.Servers
 }
 
-// applyGeminiEnv 应用 Gemini CLI 配置
-func (a *App) applyGeminiEnv(env *EnvConfig) (string, error) {
+// applyAntigravityEnv 应用 Antigravity CLI（原 Gemini CLI，命令 agy）配置
+func (a *App) applyAntigravityEnv(env *EnvConfig) (string, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("获取用户目录失败: %v", err)
@@ -771,7 +867,7 @@ func (a *App) applyGeminiEnv(env *EnvConfig) (string, error) {
 		return "", fmt.Errorf("创建 .gemini 目录失败: %v", err)
 	}
 
-	// 1. 处理 .env 文件
+	// 1. 处理 .env 文件（旧 Gemini CLI 兼容；本工具也通过它记录当前生效值）
 	var envContent string
 	if tmpl, ok := env.Templates[".env"]; ok && tmpl != "" {
 		envContent = tmpl
@@ -801,7 +897,6 @@ GEMINI_MODEL=%s
 		return "", fmt.Errorf("写入 .env 失败: %v", err)
 	}
 
-	settingsFile := filepath.Join(geminiDir, "settings.json")
 	desiredSettings := map[string]any{}
 	if tmpl, ok := env.Templates["settings.json"]; ok && strings.TrimSpace(tmpl) != "" {
 		if err := json.Unmarshal([]byte(tmpl), &desiredSettings); err != nil {
@@ -820,28 +915,105 @@ GEMINI_MODEL=%s
 		}
 	}
 
-	// 保留现有 settings.json 中的其他设置（如 mcpServers / experimental.skills 等）
+	// 2. 旧位置 ~/.gemini/settings.json（兼容仍装有 gemini 命令的旧环境）
+	if err := writeGeminiStyleSettings(filepath.Join(geminiDir, "settings.json"), desiredSettings, env.Variables); err != nil {
+		return "", err
+	}
+
+	// 3. 新位置 ~/.gemini/antigravity-cli/settings.json（agy 实际读取的配置）。
+	//    官方规则：modelProvider 为 "gemini" 时必须有 GEMINI_API_KEY 环境变量，否则 agy 拒绝启动；
+	//    没配 API Key 就不写 modelProvider，让 agy 走默认的 Google 账号登录。
+	antigravityDir := filepath.Join(geminiDir, "antigravity-cli")
+	if err := os.MkdirAll(antigravityDir, 0755); err != nil {
+		return "", fmt.Errorf("创建 antigravity-cli 目录失败: %v", err)
+	}
+	apiKey := strings.TrimSpace(env.Variables["GEMINI_API_KEY"])
+	antigravityDesired := maps.Clone(desiredSettings)
+	if antigravityDesired == nil {
+		antigravityDesired = map[string]any{}
+	}
+	if apiKey != "" {
+		if _, ok := antigravityDesired["modelProvider"]; !ok {
+			antigravityDesired["modelProvider"] = "gemini"
+		}
+	} else {
+		delete(antigravityDesired, "modelProvider")
+	}
+	if err := writeGeminiStyleSettings(filepath.Join(antigravityDir, "settings.json"), antigravityDesired, env.Variables); err != nil {
+		return "", err
+	}
+	// writeGeminiStyleSettings 是合并写入，key 为空时需要显式移除 modelProvider
+	if apiKey == "" {
+		removeJSONFileKeys(filepath.Join(antigravityDir, "settings.json"), "modelProvider")
+	}
+
+	// 4. agy 只从进程环境变量读取凭据和端点（官方明确不加载 .env，settings.json 也不存 key），
+	//    把 GEMINI_API_KEY / GOOGLE_GEMINI_BASE_URL 持久化到用户级环境变量；
+	//    声明式同步：未配置的键会被清掉，避免上一套配置的残留值串台。
+	persistVars := map[string]string{}
+	if apiKey != "" {
+		persistVars["GEMINI_API_KEY"] = apiKey
+	}
+	if baseURL := strings.TrimSpace(env.Variables["GOOGLE_GEMINI_BASE_URL"]); baseURL != "" {
+		persistVars["GOOGLE_GEMINI_BASE_URL"] = baseURL
+	}
+	if err := syncAntigravityUserEnv(persistVars); err != nil {
+		return "", fmt.Errorf("配置已写入，但更新用户环境变量失败: %v", err)
+	}
+
+	if apiKey != "" {
+		return "Antigravity CLI 配置已应用；密钥已写入用户环境变量，请新开终端后运行 agy", nil
+	}
+	return "Antigravity CLI 配置已应用", nil
+}
+
+// removeJSONFileKeys 从 JSON 文件顶层移除指定键（文件不存在则忽略）
+func removeJSONFileKeys(path string, keys ...string) {
+	data, err := os.ReadFile(path)
+	if err != nil || len(data) == 0 {
+		return
+	}
+	payload := map[string]any{}
+	if json.Unmarshal(data, &payload) != nil {
+		return
+	}
+	changed := false
+	for _, key := range keys {
+		if _, ok := payload[key]; ok {
+			delete(payload, key)
+			changed = true
+		}
+	}
+	if !changed {
+		return
+	}
+	if out, err := json.MarshalIndent(payload, "", "  "); err == nil {
+		_ = os.WriteFile(path, out, 0644)
+	}
+}
+
+// writeGeminiStyleSettings 将期望配置合并进现有 settings.json 并写回，保留用户已有的其他设置
+func writeGeminiStyleSettings(settingsFile string, desiredSettings map[string]any, vars map[string]string) error {
 	existingSettings := map[string]any{}
 	if data, err := os.ReadFile(settingsFile); err == nil && len(data) > 0 {
 		if err := json.Unmarshal(data, &existingSettings); err != nil {
 			existingSettings = map[string]any{}
 		}
 	} else if err != nil && !os.IsNotExist(err) {
-		return "", fmt.Errorf("读取 settings.json 失败: %v", err)
+		return fmt.Errorf("读取 %s 失败: %v", settingsFile, err)
 	}
 
 	deepMergeMap(existingSettings, desiredSettings)
-	injectGeminiSettingsExtras(existingSettings, env.Variables)
+	injectGeminiSettingsExtras(existingSettings, vars)
 	settingsContent, err := json.MarshalIndent(existingSettings, "", "  ")
 	if err != nil {
-		return "", fmt.Errorf("序列化 settings.json 失败: %v", err)
+		return fmt.Errorf("序列化 %s 失败: %v", settingsFile, err)
 	}
 
 	if err := os.WriteFile(settingsFile, settingsContent, 0644); err != nil {
-		return "", fmt.Errorf("写入 settings.json 失败: %v", err)
+		return fmt.Errorf("写入 %s 失败: %v", settingsFile, err)
 	}
-
-	return "Gemini CLI 配置已应用", nil
+	return nil
 }
 
 func deepMergeMap(dst, src map[string]any) {
@@ -963,8 +1135,8 @@ func (a *App) ClearCodexSettings() error {
 	return nil
 }
 
-// ClearGeminiSettings 清除 Gemini 配置文件
-func (a *App) ClearGeminiSettings() error {
+// ClearAntigravitySettings 清除 Antigravity（原 Gemini CLI）配置文件
+func (a *App) ClearAntigravitySettings() error {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return fmt.Errorf("获取用户目录失败: %v", err)
@@ -975,10 +1147,39 @@ func (a *App) ClearGeminiSettings() error {
 	// 删除配置文件
 	os.Remove(filepath.Join(geminiDir, ".env"))
 
+	// 移除持久化到用户环境的 agy 变量
+	if err := syncAntigravityUserEnv(nil); err != nil {
+		return fmt.Errorf("清理用户环境变量失败: %v", err)
+	}
+
+	// 清除 agy 配置里的认证信息（保留用户的其他偏好设置）
+	antigravitySettings := filepath.Join(geminiDir, "antigravity-cli", "settings.json")
+	if data, err := os.ReadFile(antigravitySettings); err == nil && len(data) > 0 {
+		payload := map[string]any{}
+		if json.Unmarshal(data, &payload) == nil {
+			changed := false
+			if _, ok := payload["modelProvider"]; ok {
+				delete(payload, "modelProvider")
+				changed = true
+			}
+			if security, ok := payload["security"].(map[string]any); ok {
+				if _, ok := security["auth"]; ok {
+					delete(security, "auth")
+					changed = true
+				}
+			}
+			if changed {
+				if out, err := json.MarshalIndent(payload, "", "  "); err == nil {
+					_ = os.WriteFile(antigravitySettings, out, 0644)
+				}
+			}
+		}
+	}
+
 	return nil
 }
 
-// ClearAllEnv 清除所有配置 (Claude/Codex/Gemini/OpenCode/Grok)
+// ClearAllEnv 清除所有配置 (Claude/Codex/Antigravity/OpenCode/Grok)
 func (a *App) ClearAllEnv() error {
 	var errors []string
 
@@ -990,8 +1191,8 @@ func (a *App) ClearAllEnv() error {
 		errors = append(errors, fmt.Sprintf("Codex: %v", err))
 	}
 
-	if err := a.ClearGeminiSettings(); err != nil {
-		errors = append(errors, fmt.Sprintf("Gemini: %v", err))
+	if err := a.ClearAntigravitySettings(); err != nil {
+		errors = append(errors, fmt.Sprintf("Antigravity: %v", err))
 	}
 
 	if err := a.ClearOpencodeSettings(); err != nil {
@@ -1177,10 +1378,23 @@ func (a *App) loadConfig() error {
 		return fmt.Errorf("解析配置文件失败 (%s): %v", a.configPath, err)
 	}
 
-	// 兼容旧配置：未设置 provider 时默认归到 claude
+	// 兼容旧配置：未设置 provider 时默认归到 claude；
+	// gemini 平台已更名为 antigravity（Gemini CLI 于 2026-06 停服，由 Antigravity CLI 接替）
 	for i := range a.config.Environments {
-		if strings.TrimSpace(a.config.Environments[i].Provider) == "" {
+		provider := strings.TrimSpace(a.config.Environments[i].Provider)
+		if provider == "" {
 			a.config.Environments[i].Provider = "claude"
+		} else if strings.EqualFold(provider, "gemini") {
+			a.config.Environments[i].Provider = "antigravity"
+		}
+	}
+	// 旧字段 current_env_gemini 迁移到 current_env_antigravity
+	if a.config.CurrentEnvAntigravity == "" {
+		var legacy struct {
+			CurrentEnvGemini string `json:"current_env_gemini"`
+		}
+		if json.Unmarshal(data, &legacy) == nil && legacy.CurrentEnvGemini != "" {
+			a.config.CurrentEnvAntigravity = legacy.CurrentEnvGemini
 		}
 	}
 	// 移除已废弃的 openclaw 配置（provider 已替换为 opencode，旧变量无法直接迁移）
@@ -1223,7 +1437,7 @@ func (a *App) saveConfig() error {
 
 // PromptFile 提示词文件信息
 type PromptFile struct {
-	Provider string `json:"provider"` // claude, codex, gemini, opencode, grok
+	Provider string `json:"provider"` // claude, codex, antigravity, opencode, grok
 	Path     string `json:"path"`     // 文件路径
 	Content  string `json:"content"`  // 文件内容
 	Exists   bool   `json:"exists"`   // 文件是否存在
@@ -1239,7 +1453,7 @@ func (a *App) GetPromptFiles() ([]PromptFile, error) {
 	files := []PromptFile{
 		{Provider: "claude", Path: filepath.Join(homeDir, ".claude", "CLAUDE.md")},
 		{Provider: "codex", Path: filepath.Join(homeDir, ".codex", "AGENTS.md")},
-		{Provider: "gemini", Path: filepath.Join(homeDir, ".gemini", "GEMINI.md")},
+		{Provider: "antigravity", Path: filepath.Join(homeDir, ".gemini", "GEMINI.md")},
 		{Provider: "opencode", Path: filepath.Join(resolveOpencodeConfigDir(nil), "AGENTS.md")},
 		{Provider: "grok", Path: filepath.Join(resolveGrokHome(nil), "GROK.md")},
 	}
@@ -1270,7 +1484,7 @@ func (a *App) GetPromptFile(provider string) (PromptFile, error) {
 		filePath = filepath.Join(homeDir, ".claude", "CLAUDE.md")
 	case "codex":
 		filePath = filepath.Join(homeDir, ".codex", "AGENTS.md")
-	case "gemini":
+	case "antigravity":
 		filePath = filepath.Join(homeDir, ".gemini", "GEMINI.md")
 	case "opencode":
 		filePath = filepath.Join(resolveOpencodeConfigDir(nil), "AGENTS.md")
@@ -1305,7 +1519,7 @@ func (a *App) SavePromptFile(provider, content string) error {
 	case "codex":
 		dirPath = filepath.Join(homeDir, ".codex")
 		filePath = filepath.Join(dirPath, "AGENTS.md")
-	case "gemini":
+	case "antigravity":
 		dirPath = filepath.Join(homeDir, ".gemini")
 		filePath = filepath.Join(dirPath, "GEMINI.md")
 	case "opencode":
@@ -1344,7 +1558,7 @@ func (a *App) DeletePromptFile(provider string) error {
 		filePath = filepath.Join(homeDir, ".claude", "CLAUDE.md")
 	case "codex":
 		filePath = filepath.Join(homeDir, ".codex", "AGENTS.md")
-	case "gemini":
+	case "antigravity":
 		filePath = filepath.Join(homeDir, ".gemini", "GEMINI.md")
 	case "opencode":
 		filePath = filepath.Join(resolveOpencodeConfigDir(nil), "AGENTS.md")

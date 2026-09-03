@@ -149,9 +149,9 @@
             <BrandIcon provider="codex" class="size-3.5" />
             {{ t('titlebar.clearCodex') }}
           </DropdownMenuItem>
-          <DropdownMenuItem @click="$emit('clearGemini')">
-            <BrandIcon provider="gemini" class="size-3.5" />
-            {{ t('titlebar.clearGemini') }}
+          <DropdownMenuItem @click="$emit('clearAntigravity')">
+            <BrandIcon provider="antigravity" class="size-3.5" />
+            {{ t('titlebar.clearAntigravity') }}
           </DropdownMenuItem>
           <DropdownMenuItem @click="$emit('clearOpencode')">
             <BrandIcon provider="opencode" class="size-3.5" />
@@ -266,7 +266,7 @@ const emit = defineEmits<{
   import: []
   clearClaude: []
   clearCodex: []
-  clearGemini: []
+  clearAntigravity: []
   clearOpencode: []
   clearGrok: []
   clearAll: []
@@ -294,7 +294,7 @@ const hoveredTool = ref<string | null>(null)
 const ICON_COLORS: Record<string, string> = {
   claude: 'text-[#D97757]',
   codex: 'text-[#1A1D21] dark:text-white/80',
-  gemini: 'text-[#4F6BED]',
+  antigravity: 'text-[#4F6BED]',
   opencode: 'text-[#131010] dark:text-white/80',
   grok: 'text-[#6B7280]',
 }

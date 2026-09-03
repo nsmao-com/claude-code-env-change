@@ -5,7 +5,7 @@
 <h1 align="center">AI ENV</h1>
 
 <p align="center">
-  面向 Claude Code、Codex、Gemini CLI、OpenCode、Grok 的本地桌面工作台。<br />
+  面向 Claude Code、Codex、Antigravity CLI（agy）、OpenCode、Grok 的本地桌面工作台。<br />
   一处管理环境配置、MCP、Skills、本地 API 路由、监控轮换、云端备份和本机 CLI。
 </p>
 
@@ -38,7 +38,7 @@
 | 模块 | 说明 |
 | --- | --- |
 | 环境 | 多配置、按平台筛选、拖拽排序、一键写入对应 CLI、延迟测速、JSON 拖拽导入 |
-| MCP | 管理 stdio / HTTP 服务器，同步到 Claude / Codex / Gemini / OpenCode / Grok |
+| MCP | 管理 stdio / HTTP 服务器，同步到 Claude / Codex / Antigravity / OpenCode / Grok |
 | Skills | 编辑 `SKILL.md`，从在线市场 / 内置库导入，按平台启用 |
 | API 路由 | 本机网关端口与按厂商开关；上游格式在配置里选择（Anthropic Messages、Chat Completions、Responses） |
 | 监控 | 定时探测 Base URL，按轮换组自动切配置 |
@@ -46,7 +46,7 @@
 | 提示词 | 编辑各平台自定义系统提示词 |
 | 统计 | 请求量、Token、花费估算、模型分布、活动热力图 |
 | 设置 | 语言、主题、强调色、出站代理 |
-| CLI | 检测本机 Claude / Codex / Gemini / OpenCode / Grok，按 pnpm / npm / 原生方式升级 |
+| CLI | 检测本机 Claude / Codex / Antigravity / OpenCode / Grok，按 pnpm / npm / 官方安装器 / 原生方式安装升级 |
 | 配置目录 | 打开各家 CLI 的本机配置目录和关键文件 |
 | 更新 | 检测 GitHub Release，Windows 可在应用内下载并替换 |
 
@@ -104,7 +104,7 @@ wails build
 | --- | --- |
 | Claude Code | `~/.claude/settings.json` |
 | Codex | `~/.codex/config.toml`、`~/.codex/auth.json` |
-| Gemini CLI | `~/.gemini/.env`、`~/.gemini/settings.json` |
+| Antigravity CLI | `~/.gemini/antigravity-cli/settings.json`、`~/.gemini/config/mcp_config.json`；密钥/端点写入用户环境变量（agy 只认环境变量） |
 | OpenCode | `~/.config/opencode/opencode.json`（可用 `OPENCODE_CONFIG_DIR` / `OPENCODE_CONFIG` 覆盖） |
 | Grok | `~/.grok/config.toml`（可用 `GROK_HOME` 覆盖） |
 

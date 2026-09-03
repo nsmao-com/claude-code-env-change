@@ -3,7 +3,7 @@
     <template #header>
       <div>
         <h1 class="text-[2.5rem] leading-none font-semibold tracking-tight">提示词</h1>
-        <p class="mt-2 text-sm text-muted-foreground">编辑 Claude / Codex / Gemini / OpenCode / Grok 的自定义提示词</p>
+        <p class="mt-2 text-sm text-muted-foreground">编辑 Claude / Codex / Antigravity / OpenCode / Grok 的自定义提示词</p>
       </div>
     </template>
 
@@ -128,7 +128,7 @@ const isOpen = computed({
 const tabs = [
   { value: 'claude', label: 'CLAUDE' },
   { value: 'codex', label: 'CODEX' },
-  { value: 'gemini', label: 'GEMINI' },
+  { value: 'antigravity', label: 'GEMINI' },
   { value: 'opencode', label: 'OPENCODE' },
   { value: 'grok', label: 'GROK' },
 ]
@@ -166,7 +166,7 @@ function getPlaceholder(provider?: string): string {
 - 优先使用函数式编程模式
 - 注释使用中文
 - 代码风格遵循项目规范`,
-    gemini: `# GEMINI.md 示例
+    antigravity: `# GEMINI.md 示例
 
 ## Gemini 指令
 - 回复使用中文
@@ -251,7 +251,7 @@ watch(() => props.visible, (newVal) => {
 }, { immediate: true })
 
 watch(() => configStore.currentFilter, (tool) => {
-  if (tool === 'claude' || tool === 'codex' || tool === 'gemini' || tool === 'opencode' || tool === 'grok') {
+  if (tool === 'claude' || tool === 'codex' || tool === 'antigravity' || tool === 'opencode' || tool === 'grok') {
     activeTab.value = tool
   }
 }, { immediate: true })

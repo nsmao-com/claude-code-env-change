@@ -2,7 +2,7 @@
   <AppModal v-model="isOpen" title="导入 MCP 服务器" size="lg">
     <div class="space-y-4">
       <p class="text-sm text-muted-foreground">
-        拖拽 JSON 文件，或粘贴 MCP 配置。支持 Claude / Codex / Gemini 格式。
+        拖拽 JSON 文件，或粘贴 MCP 配置。支持 Claude / Codex / Antigravity 格式。
       </p>
 
       <FileDropZone
@@ -40,10 +40,10 @@
             Codex
             <Check v-if="selectedPlatforms.codex" />
           </ToggleGroupItem>
-          <ToggleGroupItem value="gemini" class="flex-1">
-            <BrandIcon provider="gemini" />
-            Gemini
-            <Check v-if="selectedPlatforms.gemini" />
+          <ToggleGroupItem value="antigravity" class="flex-1">
+            <BrandIcon provider="antigravity" />
+            Antigravity
+            <Check v-if="selectedPlatforms.antigravity" />
           </ToggleGroupItem>
           <ToggleGroupItem value="opencode" class="flex-1">
             <BrandIcon provider="opencode" />
@@ -120,7 +120,7 @@ function platformsFromFilter() {
   return {
     claude: tool === 'all' || tool === 'claude',
     codex: tool === 'codex',
-    gemini: tool === 'gemini',
+    antigravity: tool === 'antigravity',
     opencode: tool === 'opencode',
     grok: tool === 'grok',
   }
@@ -136,14 +136,14 @@ const isImporting = ref(false)
 const selectedPlatforms = ref(platformsFromFilter())
 
 const hasSelectedPlatform = computed(() => {
-  return selectedPlatforms.value.claude || selectedPlatforms.value.codex || selectedPlatforms.value.gemini || selectedPlatforms.value.opencode || selectedPlatforms.value.grok
+  return selectedPlatforms.value.claude || selectedPlatforms.value.codex || selectedPlatforms.value.antigravity || selectedPlatforms.value.opencode || selectedPlatforms.value.grok
 })
 
 const selectedPlatformKeys = computed(() => {
   const keys: string[] = []
   if (selectedPlatforms.value.claude) keys.push('claude')
   if (selectedPlatforms.value.codex) keys.push('codex')
-  if (selectedPlatforms.value.gemini) keys.push('gemini')
+  if (selectedPlatforms.value.antigravity) keys.push('antigravity')
   if (selectedPlatforms.value.opencode) keys.push('opencode')
   if (selectedPlatforms.value.grok) keys.push('grok')
   return keys
@@ -162,7 +162,7 @@ function onPlatforms(value: unknown) {
   selectedPlatforms.value = {
     claude: keys.includes('claude'),
     codex: keys.includes('codex'),
-    gemini: keys.includes('gemini'),
+    antigravity: keys.includes('antigravity'),
     opencode: keys.includes('opencode'),
     grok: keys.includes('grok'),
   }
@@ -199,7 +199,7 @@ async function handleImport() {
     const platforms: string[] = []
     if (selectedPlatforms.value.claude) platforms.push('claude-code')
     if (selectedPlatforms.value.codex) platforms.push('codex')
-    if (selectedPlatforms.value.gemini) platforms.push('gemini')
+    if (selectedPlatforms.value.antigravity) platforms.push('antigravity')
     if (selectedPlatforms.value.opencode) platforms.push('opencode')
     if (selectedPlatforms.value.grok) platforms.push('grok')
 

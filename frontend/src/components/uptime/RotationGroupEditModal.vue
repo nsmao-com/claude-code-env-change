@@ -152,14 +152,14 @@ const isSaving = ref(false)
 const providers = [
   { value: 'claude' as Provider, label: 'Claude' },
   { value: 'codex' as Provider, label: 'Codex' },
-  { value: 'gemini' as Provider, label: 'Gemini' },
+  { value: 'antigravity' as Provider, label: 'Antigravity' },
   { value: 'opencode' as Provider, label: 'OpenCode' },
   { value: 'grok' as Provider, label: 'Grok' },
 ]
 
 function providerFromFilter(): Provider {
   const filter = configStore.currentFilter
-  if (filter === 'codex' || filter === 'gemini' || filter === 'opencode' || filter === 'grok') return filter
+  if (filter === 'codex' || filter === 'antigravity' || filter === 'opencode' || filter === 'grok') return filter
   return 'claude'
 }
 
@@ -216,7 +216,7 @@ function onEnabledChange(value: boolean) {
 }
 
 function onProvider(value: unknown) {
-  if (value === 'claude' || value === 'codex' || value === 'gemini' || value === 'opencode' || value === 'grok') {
+  if (value === 'claude' || value === 'codex' || value === 'antigravity' || value === 'opencode' || value === 'grok') {
     switchProvider(value)
   }
 }

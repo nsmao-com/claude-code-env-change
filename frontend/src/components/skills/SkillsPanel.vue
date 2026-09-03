@@ -2,7 +2,7 @@
   <AppModal v-model="isOpen" size="xl" :plain="embedded" :tool-filter="embedded" :close-on-overlay="false">
     <template #header>
       <h1 class="text-[2.5rem] leading-none font-semibold tracking-tight">Skills</h1>
-      <p class="mt-2 text-sm text-muted-foreground">刷新会检查 Claude / Codex / Gemini / OpenCode / Grok 目录里是否已有这些 Skill</p>
+      <p class="mt-2 text-sm text-muted-foreground">刷新会检查 Claude / Codex / Antigravity / OpenCode / Grok 目录里是否已有这些 Skill</p>
     </template>
 
     <div class="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
@@ -151,7 +151,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/
 import { useConfigStore } from '@/stores/configStore'
 import { toolToPlatform } from '@/lib/workspace'
 
-type PlatformFilter = 'all' | 'claude-code' | 'codex' | 'gemini' | 'opencode' | 'grok'
+type PlatformFilter = 'all' | 'claude-code' | 'codex' | 'antigravity' | 'opencode' | 'grok'
 
 interface Props {
   modelValue: boolean
@@ -292,7 +292,7 @@ async function importMarketItem(item: SkillMarketItem) {
 }
 
 function importPlatforms(): string[] {
-  if (currentPlatform.value === 'all') return ['claude-code', 'codex', 'gemini', 'opencode', 'grok']
+  if (currentPlatform.value === 'all') return ['claude-code', 'codex', 'antigravity', 'opencode', 'grok']
   return [currentPlatform.value]
 }
 
@@ -355,7 +355,7 @@ async function togglePlatform(skill: Skill, platform: string) {
 function platformLabel(platform: string) {
   if (platform === 'claude-code') return 'Claude'
   if (platform === 'codex') return 'Codex'
-  if (platform === 'gemini') return 'Gemini'
+  if (platform === 'antigravity') return 'Antigravity'
   if (platform === 'opencode') return 'OpenCode'
   if (platform === 'grok') return 'Grok'
   return platform

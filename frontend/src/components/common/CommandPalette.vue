@@ -78,8 +78,8 @@ const emit = defineEmits<{
   'update:modelValue': [value: boolean]
   navigate: [page: AppPage]
   add: []
-  edit: [name: string]
-  apply: [name: string]
+  edit: [name: string, provider: string]
+  apply: [name: string, provider: string]
   importLocal: []
   importJson: []
 }>()
@@ -110,22 +110,22 @@ const allItems = computed<PaletteItem[]>(() => {
     const keywords = `${env.name} ${env.description || ''} ${env.provider}`
     return [
       {
-        id: `apply-${env.name}`,
+        id: `apply-${env.provider}-${env.name}`,
         group: t('palette.configs'),
         label: env.name,
         hint: t('palette.apply'),
         keywords,
         brand: env.provider,
-        run: () => emit('apply', env.name),
+        run: () => emit('apply', env.name, env.provider),
       },
       {
-        id: `edit-${env.name}`,
+        id: `edit-${env.provider}-${env.name}`,
         group: t('palette.configs'),
         label: env.name,
         hint: t('palette.edit'),
         keywords,
         brand: env.provider,
-        run: () => emit('edit', env.name),
+        run: () => emit('edit', env.name, env.provider),
       },
     ]
   })

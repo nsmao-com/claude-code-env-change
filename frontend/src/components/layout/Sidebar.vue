@@ -137,8 +137,8 @@ async function testAllLatency() {
     if (s?.['base_url']) configs.push({ provider: 'codex', name: 'Codex', url: s['base_url'] })
   } catch { /* ignore */ }
   try {
-    const s = await configService.getGeminiSettings()
-    if (s?.['GOOGLE_GEMINI_BASE_URL']) configs.push({ provider: 'gemini', name: 'Gemini', url: s['GOOGLE_GEMINI_BASE_URL'] })
+    const s = await configService.getAntigravitySettings()
+    if (s?.['GOOGLE_GEMINI_BASE_URL']) configs.push({ provider: 'antigravity', name: 'Antigravity', url: s['GOOGLE_GEMINI_BASE_URL'] })
   } catch { /* ignore */ }
   try {
     const s = await configService.getOpencodeSettings()

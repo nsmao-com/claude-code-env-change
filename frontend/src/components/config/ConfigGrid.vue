@@ -2,10 +2,10 @@
   <section class="pt-0">
     <Card class="gap-0 overflow-hidden py-0">
       <CurrentAppliedBar
-        @edit="emitByName('edit', $event)"
-        @apply="emitByName('apply', $event)"
-        @duplicate="emitByName('duplicate', $event)"
-        @delete="emitByName('delete', $event)"
+        @edit="onBarEdit"
+        @apply="onBarApply"
+        @duplicate="onBarDuplicate"
+        @delete="onBarDelete"
       />
       <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
         <div class="flex items-center gap-3">
@@ -52,7 +52,7 @@
         <Empty class="min-h-0 items-start border-0 p-0 text-left">
           <EmptyHeader class="items-start text-left">
             <EmptyTitle>还没有环境</EmptyTitle>
-            <EmptyDescription>为 Claude、Codex、Gemini、OpenCode 或 Grok 建一条配置，点应用后会写入对应 CLI。也可以把导出的 JSON 拖进窗口。</EmptyDescription>
+            <EmptyDescription>为 Claude、Codex、Antigravity、OpenCode 或 Grok 建一条配置，点应用后会写入对应 CLI。也可以把导出的 JSON 拖进窗口。</EmptyDescription>
           </EmptyHeader>
           <EmptyContent class="flex-row items-start">
             <Button @click="$emit('add')">新建配置</Button>
@@ -91,30 +91,30 @@
         <template v-if="displayMode === 'cards'">
           <ConfigCard
             v-for="(config, index) in filteredConfigs"
-            :key="config.name"
+            :key="`${config.name}-${config.provider}`"
             :config="config"
             :index="index"
             :is-active="isEnvActive(config.name, config.provider)"
-            @click="$emit('edit', getOriginalIndex(config.name))"
-            @apply="$emit('apply', getOriginalIndex(config.name))"
-            @duplicate="$emit('duplicate', getOriginalIndex(config.name))"
-            @edit="$emit('edit', getOriginalIndex(config.name))"
-            @delete="$emit('delete', getOriginalIndex(config.name))"
+            @click="$emit('edit', getOriginalIndex(config.name, config.provider))"
+            @apply="$emit('apply', getOriginalIndex(config.name, config.provider))"
+            @duplicate="$emit('duplicate', getOriginalIndex(config.name, config.provider))"
+            @edit="$emit('edit', getOriginalIndex(config.name, config.provider))"
+            @delete="$emit('delete', getOriginalIndex(config.name, config.provider))"
           />
         </template>
         <template v-else>
           <ConfigListItem
             v-for="(config, index) in filteredConfigs"
-            :key="config.name"
+            :key="`${config.name}-${config.provider}`"
             :config="config"
             :index="index"
             nested
             :is-active="isEnvActive(config.name, config.provider)"
-            @click="$emit('edit', getOriginalIndex(config.name))"
-            @apply="$emit('apply', getOriginalIndex(config.name))"
-            @duplicate="$emit('duplicate', getOriginalIndex(config.name))"
-            @edit="$emit('edit', getOriginalIndex(config.name))"
-            @delete="$emit('delete', getOriginalIndex(config.name))"
+            @click="$emit('edit', getOriginalIndex(config.name, config.provider))"
+            @apply="$emit('apply', getOriginalIndex(config.name, config.provider))"
+            @duplicate="$emit('duplicate', getOriginalIndex(config.name, config.provider))"
+            @edit="$emit('edit', getOriginalIndex(config.name, config.provider))"
+            @delete="$emit('delete', getOriginalIndex(config.name, config.provider))"
           />
         </template>
       </div>
@@ -172,7 +172,7 @@ const filterLabel = computed(() => {
   if (currentFilter.value === 'all') return '全部'
   if (currentFilter.value === 'claude') return 'Claude'
   if (currentFilter.value === 'codex') return 'Codex'
-  if (currentFilter.value === 'gemini') return 'Gemini'
+  if (currentFilter.value === 'antigravity') return 'Antigravity'
   if (currentFilter.value === 'opencode') return 'OpenCode'
   if (currentFilter.value === 'grok') return 'Grok'
   return '全部'
@@ -203,12 +203,18 @@ function onView(value: string) {
   nextTick(() => initSortable())
 }
 
-function getOriginalIndex(name: string): number {
-  return props.configs.findIndex(c => c.name === name)
+function getOriginalIndex(name: string, provider?: string): number {
+  return props.configs.findIndex(c => c.name === name && (provider === undefined || c.provider === provider))
 }
 
-function emitByName(type: 'edit' | 'apply' | 'duplicate' | 'delete', name: string) {
-  const index = getOriginalIndex(name)
+// CurrentAppliedBar 事件带 (name, provider) 两个参数，模板内联写法拿不到第二个参数，这里转发
+function onBarEdit(name: string, provider?: string) { emitByName('edit', name, provider) }
+function onBarApply(name: string, provider?: string) { emitByName('apply', name, provider) }
+function onBarDuplicate(name: string, provider?: string) { emitByName('duplicate', name, provider) }
+function onBarDelete(name: string, provider?: string) { emitByName('delete', name, provider) }
+
+function emitByName(type: 'edit' | 'apply' | 'duplicate' | 'delete', name: string, provider?: string) {
+  const index = getOriginalIndex(name, provider)
   if (index < 0) return
   if (type === 'edit') emit('edit', index)
   else if (type === 'apply') emit('apply', index)

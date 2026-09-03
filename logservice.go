@@ -27,16 +27,16 @@ func (ls *LogService) GetLogDirectory() string {
 
 // UsageRecord 单条使用记录
 type UsageRecord struct {
-	Timestamp       string  `json:"timestamp"`
-	Model           string  `json:"model"`
-	InputTokens     int     `json:"input_tokens"`
-	OutputTokens    int     `json:"output_tokens"`
-	CacheReadTokens int     `json:"cache_read_tokens"`
-	CacheWriteTokens int    `json:"cache_write_tokens"`
-	TotalCost       float64 `json:"total_cost"`
-	SessionID       string  `json:"session_id"`
-	ProjectPath     string  `json:"project_path"`
-	Provider        string  `json:"provider,omitempty"`
+	Timestamp        string  `json:"timestamp"`
+	Model            string  `json:"model"`
+	InputTokens      int     `json:"input_tokens"`
+	OutputTokens     int     `json:"output_tokens"`
+	CacheReadTokens  int     `json:"cache_read_tokens"`
+	CacheWriteTokens int     `json:"cache_write_tokens"`
+	TotalCost        float64 `json:"total_cost"`
+	SessionID        string  `json:"session_id"`
+	ProjectPath      string  `json:"project_path"`
+	Provider         string  `json:"provider,omitempty"`
 }
 
 // ModelStats 模型统计
@@ -77,20 +77,20 @@ type HeatmapData struct {
 
 // EnvUsageSummary 单个配置的用量汇总（按“配置切换时间线”近似归因）
 type EnvUsageSummary struct {
-	Provider        string  `json:"provider"`
-	Requests        int     `json:"requests"`
-	InputTokens     int64   `json:"input_tokens"`
-	OutputTokens    int64   `json:"output_tokens"`
-	CacheReadTokens int64   `json:"cache_read_tokens"`
-	CacheWriteTokens int64  `json:"cache_write_tokens"`
-	TotalCost       float64 `json:"total_cost"`
-	LastTimestamp   string  `json:"last_timestamp,omitempty"`
+	Provider         string  `json:"provider"`
+	Requests         int     `json:"requests"`
+	InputTokens      int64   `json:"input_tokens"`
+	OutputTokens     int64   `json:"output_tokens"`
+	CacheReadTokens  int64   `json:"cache_read_tokens"`
+	CacheWriteTokens int64   `json:"cache_write_tokens"`
+	TotalCost        float64 `json:"total_cost"`
+	LastTimestamp    string  `json:"last_timestamp,omitempty"`
 }
 
 // Claude Code 日志条目结构
 type claudeLogEntry struct {
-	Type      string        `json:"type"`
-	Timestamp string        `json:"timestamp"`
+	Type      string         `json:"type"`
+	Timestamp string         `json:"timestamp"`
 	Message   *claudeMessage `json:"message"`
 }
 
@@ -116,44 +116,44 @@ var modelPricing = map[string]struct {
 	CacheRead   float64
 }{
 	// Claude Opus 4.5 ($5/$25)
-	"claude-opus-4-5-20251101":     {Input: 5.0, Output: 25.0, CacheCreate: 6.25, CacheRead: 0.50},
+	"claude-opus-4-5-20251101": {Input: 5.0, Output: 25.0, CacheCreate: 6.25, CacheRead: 0.50},
 	// Claude Opus 4 / 4.1 ($15/$75)
-	"claude-opus-4-20250514":       {Input: 15.0, Output: 75.0, CacheCreate: 18.75, CacheRead: 1.50},
-	"claude-opus-4-1-20250805":     {Input: 15.0, Output: 75.0, CacheCreate: 18.75, CacheRead: 1.50},
+	"claude-opus-4-20250514":   {Input: 15.0, Output: 75.0, CacheCreate: 18.75, CacheRead: 1.50},
+	"claude-opus-4-1-20250805": {Input: 15.0, Output: 75.0, CacheCreate: 18.75, CacheRead: 1.50},
 	// Claude 3 Opus ($15/$75)
-	"claude-3-opus-20240229":       {Input: 15.0, Output: 75.0, CacheCreate: 18.75, CacheRead: 1.50},
+	"claude-3-opus-20240229": {Input: 15.0, Output: 75.0, CacheCreate: 18.75, CacheRead: 1.50},
 	// Claude Sonnet 4 / 4.5 / 3.7 / 3.5 ($3/$15)
-	"claude-sonnet-4-20250514":     {Input: 3.0, Output: 15.0, CacheCreate: 3.75, CacheRead: 0.30},
-	"claude-sonnet-4-5-20250929":   {Input: 3.0, Output: 15.0, CacheCreate: 3.75, CacheRead: 0.30},
-	"claude-3-7-sonnet-20250219":   {Input: 3.0, Output: 15.0, CacheCreate: 3.75, CacheRead: 0.30},
-	"claude-3-5-sonnet-20241022":   {Input: 3.0, Output: 15.0, CacheCreate: 3.75, CacheRead: 0.30},
-	"claude-3-5-sonnet-20240620":   {Input: 3.0, Output: 15.0, CacheCreate: 3.75, CacheRead: 0.30},
+	"claude-sonnet-4-20250514":   {Input: 3.0, Output: 15.0, CacheCreate: 3.75, CacheRead: 0.30},
+	"claude-sonnet-4-5-20250929": {Input: 3.0, Output: 15.0, CacheCreate: 3.75, CacheRead: 0.30},
+	"claude-3-7-sonnet-20250219": {Input: 3.0, Output: 15.0, CacheCreate: 3.75, CacheRead: 0.30},
+	"claude-3-5-sonnet-20241022": {Input: 3.0, Output: 15.0, CacheCreate: 3.75, CacheRead: 0.30},
+	"claude-3-5-sonnet-20240620": {Input: 3.0, Output: 15.0, CacheCreate: 3.75, CacheRead: 0.30},
 	// Claude 3.5 Haiku ($0.80/$4)
-	"claude-3-5-haiku-20241022":    {Input: 0.80, Output: 4.0, CacheCreate: 1.0, CacheRead: 0.08},
+	"claude-3-5-haiku-20241022": {Input: 0.80, Output: 4.0, CacheCreate: 1.0, CacheRead: 0.08},
 	// Claude 3 Haiku ($0.25/$1.25)
-	"claude-3-haiku-20240307":      {Input: 0.25, Output: 1.25, CacheCreate: 0.3125, CacheRead: 0.025},
+	"claude-3-haiku-20240307": {Input: 0.25, Output: 1.25, CacheCreate: 0.3125, CacheRead: 0.025},
 	// GPT-4 series
-	"gpt-4":                        {Input: 30.0, Output: 60.0, CacheCreate: 0, CacheRead: 0},
-	"gpt-4-turbo":                  {Input: 10.0, Output: 30.0, CacheCreate: 0, CacheRead: 0},
-	"gpt-4o":                       {Input: 2.5, Output: 10.0, CacheCreate: 0, CacheRead: 0},
-	"gpt-4o-mini":                  {Input: 0.15, Output: 0.6, CacheCreate: 0, CacheRead: 0},
+	"gpt-4":       {Input: 30.0, Output: 60.0, CacheCreate: 0, CacheRead: 0},
+	"gpt-4-turbo": {Input: 10.0, Output: 30.0, CacheCreate: 0, CacheRead: 0},
+	"gpt-4o":      {Input: 2.5, Output: 10.0, CacheCreate: 0, CacheRead: 0},
+	"gpt-4o-mini": {Input: 0.15, Output: 0.6, CacheCreate: 0, CacheRead: 0},
 	// Gemini series (https://ai.google.dev/gemini-api/docs/pricing)
-	"gemini-2.5-pro":               {Input: 1.25, Output: 10.0, CacheCreate: 0.3125, CacheRead: 0},
-	"gemini-2.5-flash":             {Input: 0.15, Output: 0.60, CacheCreate: 0.0375, CacheRead: 0},
-	"gemini-2.0-flash":             {Input: 0.10, Output: 0.40, CacheCreate: 0.025, CacheRead: 0},
-	"gemini-1.5-pro":               {Input: 1.25, Output: 5.0, CacheCreate: 0.3125, CacheRead: 0},
-	"gemini-1.5-flash":             {Input: 0.075, Output: 0.3, CacheCreate: 0.01875, CacheRead: 0},
-	"gemini-3-pro":                 {Input: 2.5, Output: 15.0, CacheCreate: 0.625, CacheRead: 0},
+	"gemini-2.5-pro":   {Input: 1.25, Output: 10.0, CacheCreate: 0.3125, CacheRead: 0},
+	"gemini-2.5-flash": {Input: 0.15, Output: 0.60, CacheCreate: 0.0375, CacheRead: 0},
+	"gemini-2.0-flash": {Input: 0.10, Output: 0.40, CacheCreate: 0.025, CacheRead: 0},
+	"gemini-1.5-pro":   {Input: 1.25, Output: 5.0, CacheCreate: 0.3125, CacheRead: 0},
+	"gemini-1.5-flash": {Input: 0.075, Output: 0.3, CacheCreate: 0.01875, CacheRead: 0},
+	"gemini-3-pro":     {Input: 2.5, Output: 15.0, CacheCreate: 0.625, CacheRead: 0},
 	// OpenAI Codex series (https://developers.openai.com/codex/pricing/)
-	"gpt-5.2-codex":                {Input: 1.75, Output: 14.0, CacheCreate: 0, CacheRead: 0.175},
-	"gpt-5.2":                      {Input: 1.75, Output: 14.0, CacheCreate: 0, CacheRead: 0.175},
-	"gpt-5.1-codex-mini":           {Input: 0.30, Output: 1.20, CacheCreate: 0, CacheRead: 0.03},
-	"gpt-5.1-codex-max":            {Input: 1.50, Output: 12.0, CacheCreate: 0, CacheRead: 0.15},
-	"gpt-5.1-codex":                {Input: 1.50, Output: 12.0, CacheCreate: 0, CacheRead: 0.15},
-	"gpt-5.1":                      {Input: 1.50, Output: 12.0, CacheCreate: 0, CacheRead: 0.15},
-	"gpt-5-codex":                  {Input: 1.25, Output: 10.0, CacheCreate: 0, CacheRead: 0.125},
-	"gpt-5":                        {Input: 1.25, Output: 10.0, CacheCreate: 0, CacheRead: 0.125},
-	"codex-1":                      {Input: 1.25, Output: 10.0, CacheCreate: 0, CacheRead: 0.125},
+	"gpt-5.2-codex":      {Input: 1.75, Output: 14.0, CacheCreate: 0, CacheRead: 0.175},
+	"gpt-5.2":            {Input: 1.75, Output: 14.0, CacheCreate: 0, CacheRead: 0.175},
+	"gpt-5.1-codex-mini": {Input: 0.30, Output: 1.20, CacheCreate: 0, CacheRead: 0.03},
+	"gpt-5.1-codex-max":  {Input: 1.50, Output: 12.0, CacheCreate: 0, CacheRead: 0.15},
+	"gpt-5.1-codex":      {Input: 1.50, Output: 12.0, CacheCreate: 0, CacheRead: 0.15},
+	"gpt-5.1":            {Input: 1.50, Output: 12.0, CacheCreate: 0, CacheRead: 0.15},
+	"gpt-5-codex":        {Input: 1.25, Output: 10.0, CacheCreate: 0, CacheRead: 0.125},
+	"gpt-5":              {Input: 1.25, Output: 10.0, CacheCreate: 0, CacheRead: 0.125},
+	"codex-1":            {Input: 1.25, Output: 10.0, CacheCreate: 0, CacheRead: 0.125},
 }
 
 // GetUsageStats 获取使用统计 (最近N天, 按平台筛选, days=0 表示全部时间)
@@ -178,10 +178,10 @@ func (ls *LogService) GetHeatmapData(days int, platform string) ([]HeatmapData, 
 
 // StatsOverview 统计页一次性数据：日志只解析一遍，同时产出统计与热力图
 type StatsOverview struct {
-	Stats        UsageStats                     `json:"stats"`
-	Heatmap      []HeatmapData                  `json:"heatmap"`
-	LogDirectory string                         `json:"log_directory"`
-	EnvSummary   map[string]EnvUsageSummary     `json:"env_summary"`
+	Stats        UsageStats                 `json:"stats"`
+	Heatmap      []HeatmapData              `json:"heatmap"`
+	LogDirectory string                     `json:"log_directory"`
+	EnvSummary   map[string]EnvUsageSummary `json:"env_summary"`
 }
 
 type cachedLogFile struct {
@@ -242,9 +242,9 @@ func (ls *LogService) loadRecordsForPlatform(days int, platform string) []UsageR
 	}
 
 	readers := map[string][]func() []UsageRecord{
-		"claude": {readClaude},
-		"gemini": {readGemini},
-		"codex":  {readCodex},
+		"claude":      {readClaude},
+		"antigravity": {readGemini},
+		"codex":       {readCodex},
 	}[platform]
 	if readers == nil {
 		readers = []func() []UsageRecord{readClaude, readGemini, readCodex}
@@ -413,7 +413,7 @@ func (ls *LogService) aggregateEnvUsage(records []UsageRecord, days int) map[str
 	cutoffUnix := cutoff.Unix()
 	cutoffStr := cutoff.Local().Format(recordTimeLayout)
 
-	providers := []string{"claude", "codex", "gemini"}
+	providers := []string{"claude", "codex", "antigravity"}
 	prepared := map[string][]EnvActivationEvent{}
 	for _, p := range providers {
 		events := activations[p]
@@ -620,19 +620,19 @@ func activeEnvAt(events []EnvActivationEvent, atUnix int64) string {
 
 // Gemini 会话文件结构
 type geminiSession struct {
-	SessionID   string           `json:"sessionId"`
-	ProjectHash string           `json:"projectHash"`
-	StartTime   string           `json:"startTime"`
-	LastUpdated string           `json:"lastUpdated"`
-	Messages    []geminiMessage  `json:"messages"`
+	SessionID   string          `json:"sessionId"`
+	ProjectHash string          `json:"projectHash"`
+	StartTime   string          `json:"startTime"`
+	LastUpdated string          `json:"lastUpdated"`
+	Messages    []geminiMessage `json:"messages"`
 }
 
 type geminiMessage struct {
-	ID        string       `json:"id"`
-	Timestamp string       `json:"timestamp"`
-	Type      string       `json:"type"` // "user" or "gemini"
-	Content   string       `json:"content"`
-	Model     string       `json:"model"`
+	ID        string        `json:"id"`
+	Timestamp string        `json:"timestamp"`
+	Type      string        `json:"type"` // "user" or "gemini"
+	Content   string        `json:"content"`
+	Model     string        `json:"model"`
 	Tokens    *geminiTokens `json:"tokens"`
 }
 
@@ -757,7 +757,7 @@ func (ls *LogService) parseGeminiSession(path string, projectHash string, cutoff
 			TotalCost:        cost,
 			SessionID:        session.SessionID,
 			ProjectPath:      projectHash,
-			Provider:         "gemini",
+			Provider:         "antigravity",
 		}
 
 		records = append(records, record)

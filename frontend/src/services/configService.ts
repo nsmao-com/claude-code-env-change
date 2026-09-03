@@ -14,12 +14,13 @@ import {
   ClearAllEnv,
   ClearClaudeSettings,
   ClearCodexSettings,
-  ClearGeminiSettings,
+  ClearAntigravitySettings,
   ClearOpencodeSettings,
   ClearGrokSettings,
   GetClaudeSettings,
   GetCodexSettings,
-  GetGeminiSettings,
+  GetAntigravitySettings,
+  OpenProviderTerminal,
   GetOpencodeSettings,
   GetGrokSettings,
   ExportConfig,
@@ -59,16 +60,16 @@ export const configService = {
     return AddEnv(config)
   },
 
-  async updateEnv(oldName: string, config: EnvConfig): Promise<void> {
-    return UpdateEnv(oldName, config)
+  async updateEnv(oldName: string, oldProvider: string, config: EnvConfig): Promise<void> {
+    return UpdateEnv(oldName, oldProvider, config)
   },
 
-  async deleteEnv(name: string): Promise<void> {
-    return DeleteEnv(name)
+  async deleteEnv(name: string, provider: string): Promise<void> {
+    return DeleteEnv(name, provider)
   },
 
-  async switchToEnv(name: string): Promise<void> {
-    return SwitchToEnv(name)
+  async switchToEnv(name: string, provider: string): Promise<void> {
+    return SwitchToEnv(name, provider)
   },
 
   async unapplyEnv(name: string): Promise<void> {
@@ -103,8 +104,8 @@ export const configService = {
     return ClearCodexSettings()
   },
 
-  async clearGeminiSettings(): Promise<void> {
-    return ClearGeminiSettings()
+  async clearAntigravitySettings(): Promise<void> {
+    return ClearAntigravitySettings()
   },
 
   async clearOpencodeSettings(): Promise<void> {
@@ -123,8 +124,12 @@ export const configService = {
     return GetCodexSettings()
   },
 
-  async getGeminiSettings(): Promise<Record<string, string>> {
-    return GetGeminiSettings()
+  async openProviderTerminal(provider: string): Promise<void> {
+    return OpenProviderTerminal(provider)
+  },
+
+  async getAntigravitySettings(): Promise<Record<string, string>> {
+    return GetAntigravitySettings()
   },
 
   async getOpencodeSettings(): Promise<Record<string, string>> {
@@ -191,8 +196,8 @@ function normalizeProvider(provider: string | undefined): Provider {
       return 'claude'
     case 'codex':
       return 'codex'
-    case 'gemini':
-      return 'gemini'
+    case 'antigravity':
+      return 'antigravity'
     case 'opencode':
       return 'opencode'
     case 'grok':

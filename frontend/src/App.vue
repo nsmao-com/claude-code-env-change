@@ -11,7 +11,7 @@
         @import="importConfig"
         @clear-claude="clearClaude"
         @clear-codex="clearCodex"
-        @clear-gemini="clearGemini"
+        @clear-antigravity="clearAntigravity"
         @clear-opencode="clearOpencode"
         @clear-grok="clearGrok"
         @clear-all="clearAll"
@@ -223,12 +223,12 @@ async function openEditConfig(index: number) {
 
 async function applyConfig(index: number) {
   const config = configStore.filteredEnvironments[index]
-  if (config) await applyByName(config.name)
+  if (config) await applyByName(config.name, config.provider)
 }
 
-async function applyByName(name: string) {
+async function applyByName(name: string, provider?: string) {
   try {
-    const message = await configStore.applyEnv(name)
+    const message = await configStore.applyEnv(name, provider || configStore.getEnvByName(name)?.provider || 'claude')
     if (message === 'unapplied') toast.success(t('toast.unapplied', { name }))
     else if (message && message.includes('⚠')) toast.error(message)
     else toast.success(t('toast.applied', { name }))
@@ -237,8 +237,8 @@ async function applyByName(name: string) {
   }
 }
 
-async function openEditByName(name: string) {
-  const config = configStore.getEnvByName(name)
+async function openEditByName(name: string, provider?: string) {
+  const config = configStore.getEnvByName(name, provider)
   if (!config) return
   editingConfig.value = null
   await nextTick()
@@ -269,7 +269,7 @@ async function duplicateConfig(index: number) {
   }
   let newName = config.name + ' - 副本'
   let suffix = 1
-  while (configStore.environments.some(c => c.name === newName)) {
+  while (configStore.environments.some(c => c.name === newName && c.provider === config.provider)) {
     newName = config.name + ' - 副本 ' + suffix
     suffix++
   }
@@ -289,7 +289,7 @@ async function deleteConfig(index: number) {
   }
   if (!(await confirm.show(t('confirm.deleteConfig'), t('confirm.deleteConfigMsg'), 'danger'))) return
   try {
-    await configStore.deleteEnv(config.name)
+    await configStore.deleteEnv(config.name, config.provider)
     toast.success(t('toast.deleted'))
   } catch (e: any) {
     toast.error(t('toast.deleteFailed', { error: e.message }))
@@ -415,11 +415,11 @@ async function clearCodex() {
   }
 }
 
-async function clearGemini() {
-  if (!(await confirm.show(t('confirm.clearGemini'), t('confirm.clearGeminiMsg'), 'warning'))) return
+async function clearAntigravity() {
+  if (!(await confirm.show(t('confirm.clearAntigravity'), t('confirm.clearAntigravityMsg'), 'warning'))) return
   try {
-    await configStore.clearGeminiSettings()
-    toast.success(t('toast.clearedGemini'))
+    await configStore.clearAntigravitySettings()
+    toast.success(t('toast.clearedAntigravity'))
   } catch (e: any) {
     toast.error(t('toast.opFailed', { error: e.message }))
   }

@@ -225,6 +225,14 @@
               <p class="truncate text-[12.5px] font-medium text-white">{{ row.label }}</p>
               <p class="text-[10px] text-white/40">{{ row.count }} 个配置 · {{ row.applied ? '已写入 CLI' : '未写入' }}</p>
             </div>
+            <AppTooltip content="打开终端（已注入该平台当前环境变量）">
+              <span
+                class="shrink-0 rounded-lg p-1.5 text-white/45 transition-colors hover:bg-white/10 hover:text-white"
+                @click.stop="openTerminal(row.id)"
+              >
+                <SquareTerminal class="size-4" />
+              </span>
+            </AppTooltip>
             <SparkLine :values="row.spark" :width="44" :height="18" class="shrink-0 opacity-90" />
             <span class="shrink-0 text-[11px] font-semibold tabular-nums" :class="row.applied ? 'text-emerald-400' : 'text-white/30'">{{ row.count }}</span>
           </button>
@@ -325,10 +333,12 @@ import {
   Minus,
   MousePointer2,
   Plus,
+  SquareTerminal,
   TrendingUp,
 } from '@lucide/vue'
 import type { AppPage, Provider } from '@/types'
 import { useConfigStore } from '@/stores/configStore'
+import { configService } from '@/services/configService'
 import { useRouterStore } from '@/stores/routerStore'
 import SparkLine from '@/components/common/SparkLine.vue'
 import AppTooltip from '@/components/common/AppTooltip.vue'
@@ -348,7 +358,7 @@ const configuredCount = computed(() => {
   return [
     configStore.currentEnvClaude,
     configStore.currentEnvCodex,
-    configStore.currentEnvGemini,
+    configStore.currentEnvAntigravity,
     configStore.currentEnvOpencode,
     configStore.currentEnvGrok,
   ].filter(Boolean).length
@@ -360,7 +370,7 @@ const platformCols = computed(() => {
   return [
     { id: 'claude' as Provider, label: 'Claude', count: configStore.claudeEnvs.length, applied: !!configStore.currentEnvClaude },
     { id: 'codex' as Provider, label: 'Codex', count: configStore.codexEnvs.length, applied: !!configStore.currentEnvCodex },
-    { id: 'gemini' as Provider, label: 'Gemini', count: configStore.geminiEnvs.length, applied: !!configStore.currentEnvGemini },
+    { id: 'antigravity' as Provider, label: 'Antigravity', count: configStore.antigravityEnvs.length, applied: !!configStore.currentEnvAntigravity },
     { id: 'opencode' as Provider, label: 'OpenCode', count: configStore.opencodeEnvs.length, applied: configStore.currentEnvsOpencode.length > 0 || !!configStore.currentEnvOpencode },
     { id: 'grok' as Provider, label: 'Grok', count: configStore.grokEnvs.length, applied: !!configStore.currentEnvGrok },
   ]
@@ -579,6 +589,20 @@ onMounted(() => {
   routerStore.refreshStatus().catch(() => {})
   routerStore.loadConfig().catch(() => {})
 })
+
+const terminalBusy = ref<Provider | null>(null)
+
+async function openTerminal(id: Provider) {
+  if (terminalBusy.value) return
+  terminalBusy.value = id
+  try {
+    await configService.openProviderTerminal(id)
+  } catch (e: any) {
+    console.warn('打开终端失败', e?.message || e)
+  } finally {
+    terminalBusy.value = null
+  }
+}
 
 function selectPlatform(id: Provider) {
   configStore.setFilter(configStore.currentFilter === id ? 'all' : id)

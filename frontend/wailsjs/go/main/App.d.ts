@@ -11,23 +11,25 @@ export function CheckForUpdate():Promise<main.UpdateInfo>;
 
 export function ClearAllEnv():Promise<void>;
 
+export function ClearAntigravitySettings():Promise<void>;
+
 export function ClearClaudeSettings():Promise<void>;
 
 export function ClearCodexSettings():Promise<void>;
-
-export function ClearGeminiSettings():Promise<void>;
 
 export function ClearGrokSettings():Promise<void>;
 
 export function ClearOpencodeSettings():Promise<void>;
 
-export function DeleteEnv(arg1:string):Promise<void>;
+export function DeleteEnv(arg1:string,arg2:string):Promise<void>;
 
 export function DeletePromptFile(arg1:string):Promise<void>;
 
 export function DownloadAndApplyUpdate():Promise<void>;
 
 export function ExportConfig(arg1:string):Promise<string>;
+
+export function GetAntigravitySettings():Promise<Record<string, string>>;
 
 export function GetAppVersion():Promise<string>;
 
@@ -38,8 +40,6 @@ export function GetCodexSettings():Promise<Record<string, string>>;
 export function GetConfig():Promise<main.Config>;
 
 export function GetEnvVar(arg1:string):Promise<string>;
-
-export function GetGeminiSettings():Promise<Record<string, string>>;
 
 export function GetGrokSettings():Promise<Record<string, string>>;
 
@@ -71,6 +71,8 @@ export function OpenConfigDir(arg1:string):Promise<void>;
 
 export function OpenConfigFile(arg1:string):Promise<void>;
 
+export function OpenProviderTerminal(arg1:string):Promise<void>;
+
 export function OpenReleasePage():Promise<void>;
 
 export function ReadDroppedFile(arg1:string):Promise<string>;
@@ -89,7 +91,7 @@ export function SetOutboundProxy(arg1:main.OutboundProxySettings):Promise<void>;
 
 export function SetProviderRouting(arg1:string,arg2:boolean):Promise<void>;
 
-export function SwitchToEnv(arg1:string):Promise<void>;
+export function SwitchToEnv(arg1:string,arg2:string):Promise<void>;
 
 export function TestLatency(arg1:string):Promise<number>;
 
@@ -97,7 +99,7 @@ export function TestOutboundProxy(arg1:main.OutboundProxySettings):Promise<main.
 
 export function UnapplyEnv(arg1:string):Promise<void>;
 
-export function UpdateEnv(arg1:string,arg2:main.EnvConfig):Promise<void>;
+export function UpdateEnv(arg1:string,arg2:string,arg3:main.EnvConfig):Promise<void>;
 
 export function UpgradeAllCliTools():Promise<Array<main.CliUpgradeResult>>;
 

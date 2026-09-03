@@ -42,6 +42,7 @@ type CliToolStatus struct {
 	ConfigExists   bool     `json:"config_exists"`
 	Platform       string   `json:"platform"`
 	Upgradable     bool     `json:"upgradable"`
+	CanInstall     bool     `json:"can_install"` // 未安装时可用官方安装器在线安装（如 agy）
 	Error          string   `json:"error"`
 	ExtraPaths     []string `json:"extra_paths"`
 	NpmPackage     string   `json:"npm_package"`
@@ -55,11 +56,11 @@ type CliUpgradeResult struct {
 }
 
 type ConfigDirInfo struct {
-	ID      string          `json:"id"`
-	Name    string          `json:"name"`
-	Dir     string          `json:"dir"`
-	Exists  bool            `json:"exists"`
-	Files   []ConfigDirFile `json:"files"`
+	ID     string          `json:"id"`
+	Name   string          `json:"name"`
+	Dir    string          `json:"dir"`
+	Exists bool            `json:"exists"`
+	Files  []ConfigDirFile `json:"files"`
 }
 
 type ConfigDirFile struct {
@@ -74,10 +75,24 @@ func cliCatalog() []cliSpec {
 	return []cliSpec{
 		{ID: "claude", Name: "Claude Code", Command: "claude", NpmPackage: "@anthropic-ai/claude-code", UpdateArgs: []string{"update"}},
 		{ID: "codex", Name: "Codex", Command: "codex", NpmPackage: "@openai/codex", UpdateArgs: []string{"update"}},
-		{ID: "gemini", Name: "Gemini CLI", Command: "gemini", NpmPackage: "@google/gemini-cli"},
+		// Gemini CLI 已于 2026-06-18 停服，由 Antigravity CLI（命令 agy，原生安装）接替
+		{ID: "antigravity", Name: "Antigravity CLI", Command: "agy", NpmPackage: "", UpdateArgs: []string{"update"}},
 		{ID: "opencode", Name: "OpenCode", Command: "opencode", NpmPackage: "opencode-ai"},
 		{ID: "grok", Name: "Grok", Command: "grok", NpmPackage: "@xai-official/grok", UpdateArgs: []string{"update"}},
 	}
+}
+
+// cliInstallCmd 返回 CLI 的官方原生安装命令（目前仅 Antigravity CLI 提供）；
+// 返回 nil 表示该 CLI 没有可用的在线安装方式
+func cliInstallCmd(spec cliSpec) []string {
+	if spec.ID != "antigravity" {
+		return nil
+	}
+	if runtime.GOOS == "windows" {
+		return []string{"powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command",
+			"irm https://antigravity.google/cli/install.ps1 | iex"}
+	}
+	return []string{"bash", "-c", "curl -fsSL https://antigravity.google/cli/install.sh | bash"}
 }
 
 func platformLabel() string {
@@ -120,10 +135,11 @@ func (a *App) ListConfigDirs() []ConfigDirInfo {
 			filepath.Join(home, ".codex"),
 			filepath.Join(appData, ".codex"),
 		), []string{"config.toml", "auth.json"}),
-		configDirInfo("gemini", "Gemini CLI", firstExistingDir(
+		configDirInfo("antigravity", "Antigravity CLI", firstExistingDir(
+			filepath.Join(home, ".gemini", "antigravity-cli"),
 			filepath.Join(home, ".gemini"),
 			filepath.Join(appData, ".gemini"),
-		), []string{".env", "settings.json"}),
+		), []string{"settings.json"}),
 		configDirInfo("opencode", "OpenCode", firstExistingDir(
 			resolveOpencodeConfigDir(nil),
 			filepath.Join(home, ".config", "opencode"),
@@ -203,15 +219,16 @@ func (a *App) UpgradeAllCliTools() []CliUpgradeResult {
 
 func (a *App) inspectCliTool(spec cliSpec) CliToolStatus {
 	status := CliToolStatus{
-		ID:          spec.ID,
-		Name:        spec.Name,
-		Command:     spec.Command,
-		Platform:    platformLabel(),
-		NpmPackage:  spec.NpmPackage,
-		ConfigDir:   configDirForCli(spec.ID),
-		ExtraPaths:  []string{},
+		ID:         spec.ID,
+		Name:       spec.Name,
+		Command:    spec.Command,
+		Platform:   platformLabel(),
+		NpmPackage: spec.NpmPackage,
+		ConfigDir:  configDirForCli(spec.ID),
+		ExtraPaths: []string{},
 	}
 	status.ConfigExists = dirExists(status.ConfigDir)
+	status.CanInstall = len(cliInstallCmd(spec)) > 0
 
 	copies := distinctBins(append(listCommandCopies(spec.Command), lookPathAll(spec.Command)...))
 	if bin := pickBin(copies); bin != "" {
@@ -254,6 +271,10 @@ func (a *App) upgradeOne(spec cliSpec) CliUpgradeResult {
 	status := a.inspectCliTool(spec)
 	installer := chooseInstaller(status, spec)
 	if installer == "" {
+		// 未安装且没有包管理器源：尝试官方原生安装器（如 agy）
+		if installCmd := cliInstallCmd(spec); len(installCmd) > 0 && !status.Installed {
+			return a.installCliTool(spec, installCmd)
+		}
 		return CliUpgradeResult{ID: spec.ID, Success: false, Message: spec.Name + " 未安装，且没有可用的在线安装源"}
 	}
 	latest := status.LatestVersion
@@ -325,6 +346,22 @@ func (a *App) upgradeOne(spec cliSpec) CliUpgradeResult {
 	}
 	msg += "（" + installer + "）"
 	return CliUpgradeResult{ID: spec.ID, Success: true, Message: msg, Log: out}
+}
+
+// installCliTool 通过官方安装器在线安装 CLI
+func (a *App) installCliTool(spec cliSpec, installCmd []string) CliUpgradeResult {
+	a.emitCliProgress(spec.ID, "start", spec.Name+" 使用官方安装器安装中")
+	out, runErr := runTool(5*time.Minute, installCmd[0], installCmd[1:]...)
+	after := a.inspectCliTool(spec)
+	msg := spec.Name + " 安装完成"
+	if runErr != nil || !after.Installed {
+		msg = spec.Name + " 安装未完成，请查看日志"
+	}
+	if after.CurrentVersion != "" {
+		msg += "（" + after.CurrentVersion + "）"
+	}
+	a.emitCliProgress(spec.ID, "done", msg)
+	return CliUpgradeResult{ID: spec.ID, Success: after.Installed, Message: msg, Log: out}
 }
 
 func upgradeNpmPackage(spec cliSpec, status CliToolStatus, latest string) (string, error) {
@@ -572,8 +609,8 @@ func configDirForCli(id string) string {
 		return firstExistingDir(filepath.Join(home, ".claude"), filepath.Join(appData, ".claude"), filepath.Join(localApp, ".claude"))
 	case "codex":
 		return firstExistingDir(filepath.Join(home, ".codex"), filepath.Join(appData, ".codex"))
-	case "gemini":
-		return firstExistingDir(filepath.Join(home, ".gemini"), filepath.Join(appData, ".gemini"))
+	case "antigravity":
+		return firstExistingDir(filepath.Join(home, ".gemini", "antigravity-cli"), filepath.Join(home, ".gemini"), filepath.Join(appData, ".gemini"))
 	case "opencode":
 		return firstExistingDir(resolveOpencodeConfigDir(nil), filepath.Join(home, ".config", "opencode"))
 	case "grok":
@@ -591,7 +628,8 @@ func detectInstallMethod(path string) string {
 	case strings.Contains(p, "node_modules"), strings.Contains(p, "/npm/"), strings.Contains(p, "/nvm/"),
 		strings.Contains(p, "fnm"), strings.Contains(p, "volta"):
 		return "npm"
-	case strings.Contains(p, "/.grok/bin"), strings.Contains(p, "/.local/bin"), strings.Contains(p, "program files"),
+	case strings.Contains(p, "/.grok/bin"), strings.Contains(p, "/.local/bin"), strings.Contains(p, "/agy/bin"),
+		strings.Contains(p, "program files"),
 		strings.Contains(p, "windowsapps"):
 		return "native"
 	default:

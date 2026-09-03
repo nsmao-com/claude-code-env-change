@@ -23,7 +23,7 @@ func (a *App) ImportLocalEnv(provider string) ([]EnvConfig, error) {
 
 	targets := []string{p}
 	if p == "all" {
-		targets = []string{"claude", "codex", "gemini", "opencode", "grok"}
+		targets = []string{"claude", "codex", "antigravity", "opencode", "grok"}
 	}
 
 	added := make([]EnvConfig, 0, len(targets))
@@ -78,8 +78,8 @@ func (a *App) buildLocalEnvs(provider string) ([]EnvConfig, error) {
 			return nil, err
 		}
 		return []EnvConfig{*env}, nil
-	case "gemini":
-		env, err := a.buildLocalGeminiEnv()
+	case "antigravity":
+		env, err := a.buildLocalAntigravityEnv()
 		if err != nil || env == nil {
 			return nil, err
 		}
@@ -184,13 +184,13 @@ func (a *App) buildLocalCodexEnv() (*EnvConfig, error) {
 	}, nil
 }
 
-func (a *App) buildLocalGeminiEnv() (*EnvConfig, error) {
+func (a *App) buildLocalAntigravityEnv() (*EnvConfig, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return nil, err
 	}
 	geminiDir := filepath.Join(home, ".gemini")
-	settings := a.GetGeminiSettings()
+	settings := a.GetAntigravitySettings()
 	if v := settings["GOOGLE_GEMINI_BASE_URL"]; v != "" {
 		settings["GOOGLE_GEMINI_BASE_URL"] = resolveImportedBaseURL(v)
 	}
@@ -211,7 +211,12 @@ func (a *App) buildLocalGeminiEnv() (*EnvConfig, error) {
 		}
 		templates[".env"] = tmpl
 	}
-	if data, err := os.ReadFile(filepath.Join(geminiDir, "settings.json")); err == nil && len(data) > 0 {
+	// 优先读取 agy 的新位置 settings.json，回退到旧位置
+	settingsFile := filepath.Join(geminiDir, "settings.json")
+	if _, err := os.Stat(filepath.Join(geminiDir, "antigravity-cli", "settings.json")); err == nil {
+		settingsFile = filepath.Join(geminiDir, "antigravity-cli", "settings.json")
+	}
+	if data, err := os.ReadFile(settingsFile); err == nil && len(data) > 0 {
 		templates["settings.json"] = string(data)
 		var payload map[string]any
 		if json.Unmarshal(data, &payload) == nil {
@@ -230,9 +235,9 @@ func (a *App) buildLocalGeminiEnv() (*EnvConfig, error) {
 		return nil, nil
 	}
 	return &EnvConfig{
-		Name:        a.uniqueEnvName("本机 Gemini"),
-		Description: "从本机 ~/.gemini 导入",
-		Provider:    "gemini",
+		Name:        a.uniqueEnvName("本机 Antigravity"),
+		Description: "从本机 ~/.gemini (Antigravity CLI) 导入",
+		Provider:    "antigravity",
 		Variables:   variables,
 		Templates:   templates,
 		Icon:        "💻",
