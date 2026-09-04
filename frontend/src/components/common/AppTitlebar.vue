@@ -278,7 +278,7 @@ const routerStore = useRouterStore()
 const { isDark, setDark } = useTheme()
 const { t } = useI18n()
 const toast = useToast()
-const appVersion = ref('2.5.2')
+const appVersion = ref('2.5.3')
 
 const providerIcons = WORKSPACE_TOOLS.filter(item => item.id !== 'all') as { id: Provider; label: string }[]
 const navItems = computed(() => [

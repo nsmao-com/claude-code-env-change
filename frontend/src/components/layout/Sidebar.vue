@@ -90,7 +90,7 @@ const pages: { id: AppPage; label: string; icon: Component }[] = [
   { id: 'stats', label: '使用统计', icon: ChartLine },
 ]
 
-const appVersion = ref('2.5.2')
+const appVersion = ref('2.5.3')
 onMounted(async () => {
   try {
     appVersion.value = await updateService.version()

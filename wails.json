@@ -8,15 +8,15 @@
   "frontend:dev:watcher": "pnpm run dev",
   "frontend:dev:serverUrl": "http://localhost:5173",
   "author": {
-    "name": "",
+    "name": "nsmao-com",
     "email": ""
   },
   "info": {
-    "companyName": "",
+    "companyName": "nsmao-com",
     "productName": "AI ENV",
-    "productVersion": "2.5.2",
-    "copyright": "",
-    "comments": "Claude Code环境变量管理工具 - Vue 3 重构版本"
+    "productVersion": "2.5.3",
+    "copyright": "Copyright (c) 2026 nsmao-com",
+    "comments": "AI CLI 环境与配置管理工具"
   },
   "nsisType": "multiple",
   "obfuscated": false,

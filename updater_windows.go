@@ -42,6 +42,74 @@ func applyUpdateAndRestart(a *App, newExe, currentExe string) error {
 	return nil
 }
 
+func startInstallerAfterExit(a *App, installerPath, currentExe string) error {
+	if a == nil || a.ctx == nil {
+		return fmt.Errorf("应用未就绪")
+	}
+	scriptPath := filepath.Join(os.TempDir(), fmt.Sprintf("claude-env-installer-%d.ps1", os.Getpid()))
+	script := buildInstallerScript(os.Getpid(), installerPath, currentExe)
+	if err := os.WriteFile(scriptPath, []byte(script), 0644); err != nil {
+		return fmt.Errorf("写入安装脚本失败: %v", err)
+	}
+
+	cmd := exec.Command(
+		"powershell.exe",
+		"-NoProfile",
+		"-ExecutionPolicy", "Bypass",
+		"-WindowStyle", "Hidden",
+		"-File", scriptPath,
+	)
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		HideWindow:    true,
+		CreationFlags: 0x00000008 | 0x00000200 | 0x08000000, // DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW
+	}
+	if err := cmd.Start(); err != nil {
+		_ = os.Remove(scriptPath)
+		return fmt.Errorf("启动安装程序失败: %v", err)
+	}
+	time.Sleep(250 * time.Millisecond)
+	return nil
+}
+
+func buildInstallerScript(pid int, installerPath, currentExe string) string {
+	var b strings.Builder
+	b.WriteString("\ufeff") // UTF-8 BOM，兼容 Windows PowerShell 5.1
+	b.WriteString("$ErrorActionPreference = 'Stop'\n")
+	b.WriteString(fmt.Sprintf("$targetPid = %d\n", pid))
+	b.WriteString(fmt.Sprintf("$installer = %s\n", psQuote(installerPath)))
+	b.WriteString(fmt.Sprintf("$currentExe = %s\n", psQuote(currentExe)))
+	b.WriteString(fmt.Sprintf("$log = %s\n", psQuote(updateResultLogPath())))
+	b.WriteString("$script = $MyInvocation.MyCommand.Path\n")
+	b.WriteString("$installerDir = Split-Path -Parent $installer\n")
+	b.WriteString("New-Item -ItemType Directory -Force -Path (Split-Path -Parent $log) | Out-Null\n")
+	b.WriteString("for ($i = 0; $i -lt 80; $i++) {\n")
+	b.WriteString("  if (-not (Get-Process -Id $targetPid -ErrorAction SilentlyContinue)) { break }\n")
+	b.WriteString("  Start-Sleep -Milliseconds 250\n")
+	b.WriteString("}\n")
+	b.WriteString("if (Get-Process -Id $targetPid -ErrorAction SilentlyContinue) {\n")
+	b.WriteString("  Set-Content -LiteralPath $log -Value 'ERROR: 等待旧程序退出超时，安装程序未启动' -Encoding UTF8\n")
+	b.WriteString("  Remove-Item -LiteralPath $installerDir -Recurse -Force -ErrorAction SilentlyContinue\n")
+	b.WriteString("  Remove-Item -LiteralPath $script -Force -ErrorAction SilentlyContinue\n")
+	b.WriteString("  exit 1\n")
+	b.WriteString("}\n")
+	b.WriteString("$failed = $false\n")
+	b.WriteString("try {\n")
+	b.WriteString("  $proc = Start-Process -FilePath $installer -Verb RunAs -PassThru\n")
+	b.WriteString("  $proc.WaitForExit()\n")
+	b.WriteString("  if ($proc.ExitCode -ne 0) { throw ('安装程序退出码：' + $proc.ExitCode) }\n")
+	b.WriteString("  Set-Content -LiteralPath $log -Value 'OK' -Encoding UTF8\n")
+	b.WriteString("} catch {\n")
+	b.WriteString("  $failed = $true\n")
+	b.WriteString("  Set-Content -LiteralPath $log -Value ('ERROR: ' + $_.Exception.Message) -Encoding UTF8\n")
+	b.WriteString("}\n")
+	b.WriteString("if ($failed -and (Test-Path -LiteralPath $currentExe)) {\n")
+	b.WriteString("  Start-Process -FilePath $currentExe -WorkingDirectory (Split-Path -Parent $currentExe)\n")
+	b.WriteString("}\n")
+	b.WriteString("Remove-Item -LiteralPath $installerDir -Recurse -Force -ErrorAction SilentlyContinue\n")
+	b.WriteString("Remove-Item -LiteralPath $script -Force -ErrorAction SilentlyContinue\n")
+	return b.String()
+}
+
 func buildReplaceScript(pid int, src, dst string) string {
 	var b strings.Builder
 	b.WriteString("\ufeff") // UTF-8 BOM，兼容 Windows PowerShell 5.1

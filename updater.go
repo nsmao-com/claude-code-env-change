@@ -21,7 +21,7 @@ import (
 )
 
 // 与 wails.json info.productVersion 保持一致
-const appVersion = "2.5.2"
+const appVersion = "2.5.3"
 
 const (
 	githubOwner = "nsmao-com"
@@ -151,7 +151,7 @@ func (a *App) CheckForUpdate() (UpdateInfo, error) {
 	return info, nil
 }
 
-// DownloadAndApplyUpdate 下载 GitHub 安装包并替换当前程序（Windows）
+// DownloadAndApplyUpdate 下载 GitHub 更新并启动 Windows 安装器或更新便携版。
 func (a *App) DownloadAndApplyUpdate() error {
 	if !updateMu.TryLock() {
 		return fmt.Errorf("已有更新任务在进行")
@@ -175,6 +175,7 @@ func (a *App) DownloadAndApplyUpdate() error {
 	if info.DownloadURL == "" {
 		return fmt.Errorf("没有匹配当前系统的安装包")
 	}
+	installerAsset := isWindowsInstallerAsset(info.AssetName)
 
 	exePath, err := os.Executable()
 	if err != nil {
@@ -185,12 +186,13 @@ func (a *App) DownloadAndApplyUpdate() error {
 		return fmt.Errorf("无法解析程序路径: %v", err)
 	}
 
-	// 提前检查安装目录写权限：装在 Program Files 等受保护目录时，
-	// 替换脚本没有管理员权限必然失败，这里直接告知而不是退出后静默丢失
-	if err := checkExeDirWritable(exePath); err != nil {
-		msg := "安装目录没有写入权限，无法自动覆盖更新；请到 GitHub 下载安装包手动更新"
-		a.emitUpdateProgress(UpdateProgress{Phase: "error", Message: msg})
-		return fmt.Errorf("%s", msg)
+	// 便携版仍需原目录可写；NSIS 安装器会自行请求管理员权限。
+	if !installerAsset {
+		if err := checkExeDirWritable(exePath); err != nil {
+			msg := "安装目录没有写入权限，无法自动覆盖更新；请到 GitHub 下载安装包手动更新"
+			a.emitUpdateProgress(UpdateProgress{Phase: "error", Message: msg})
+			return fmt.Errorf("%s", msg)
+		}
 	}
 
 	tmpDir, err := os.MkdirTemp("", "claude-env-update-*")
@@ -211,6 +213,17 @@ func (a *App) DownloadAndApplyUpdate() error {
 		os.RemoveAll(tmpDir)
 		a.emitUpdateProgress(UpdateProgress{Phase: "error", Message: err.Error()})
 		return err
+	}
+
+	if installerAsset {
+		a.emitUpdateProgress(UpdateProgress{Phase: "apply", Percent: 100, Message: "即将退出并启动安装向导…"})
+		if err := startInstallerAfterExit(a, archivePath, exePath); err != nil {
+			os.RemoveAll(tmpDir)
+			a.emitUpdateProgress(UpdateProgress{Phase: "error", Message: err.Error()})
+			return err
+		}
+		runtime.Quit(a.ctx)
+		return nil
 	}
 
 	a.emitUpdateProgress(UpdateProgress{Phase: "extract", Percent: 100, Message: "正在解压安装包…"})
@@ -375,8 +388,12 @@ func downloadOne(a *App, url, dest string, expectedSize int64) error {
 			})
 		},
 	}
-	if _, err := io.Copy(out, reader); err != nil {
+	written, err := io.Copy(out, reader)
+	if err != nil {
 		return fmt.Errorf("下载中断: %v", err)
+	}
+	if expectedSize > 0 && written != expectedSize {
+		return fmt.Errorf("下载文件大小不完整：期望 %d 字节，实际 %d 字节", expectedSize, written)
 	}
 	return nil
 }
@@ -530,15 +547,22 @@ func scoreAsset(name string) int {
 		}
 	}
 	switch {
+	case isWindowsInstallerAsset(n):
+		score += 4
 	case strings.HasSuffix(n, ".zip"):
 		score += 3
 	case strings.HasSuffix(n, ".exe"):
 		score += 2
 	}
-	if strings.Contains(n, "installer") || strings.Contains(n, "setup") || strings.Contains(n, "nsis") {
-		score--
-	}
 	return score
+}
+
+func isWindowsInstallerAsset(name string) bool {
+	n := strings.ToLower(strings.TrimSpace(name))
+	if !strings.HasSuffix(n, ".exe") {
+		return false
+	}
+	return strings.Contains(n, "installer") || strings.Contains(n, "setup") || strings.Contains(n, "nsis")
 }
 
 // checkExeDirWritable 探测程序所在目录是否可写
@@ -564,7 +588,7 @@ func (a *App) CheckLastUpdateResult() string {
 		return ""
 	}
 	_ = os.Remove(updateResultLogPath())
-	msg := strings.TrimSpace(string(data))
+	msg := strings.TrimSpace(strings.TrimPrefix(string(data), "\ufeff"))
 	if after, ok := strings.CutPrefix(msg, "ERROR: "); ok {
 		return after
 	}

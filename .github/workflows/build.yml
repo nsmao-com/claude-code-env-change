@@ -2,21 +2,38 @@ name: Build and Release
 
 on:
   push:
-    branches: [main]
     tags:
       - 'v*'
-  pull_request:
-    branches: [main]
-  workflow_dispatch:
-    inputs:
-      release:
-        description: '发布到 Release'
-        required: false
-        default: false
-        type: boolean
 
 jobs:
+  verify-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify tag and application versions
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Release tag must use vMAJOR.MINOR.PATCH, got: $GITHUB_REF_NAME"
+            exit 1
+          fi
+
+          wails_version="$(sed -nE 's/^[[:space:]]*"productVersion":[[:space:]]*"([^"]+)".*/\1/p' wails.json)"
+          frontend_version="$(sed -nE 's/^[[:space:]]*"version":[[:space:]]*"([^"]+)".*/\1/p' frontend/package.json | head -1)"
+          app_version="$(sed -nE 's/^const appVersion = "([^"]+)"/\1/p' updater.go)"
+
+          for value in "$wails_version" "$frontend_version" "$app_version"; do
+            if [ "$value" != "$version" ]; then
+              echo "::error::Tag $GITHUB_REF_NAME does not match project versions: wails=$wails_version frontend=$frontend_version app=$app_version"
+              exit 1
+            fi
+          done
+
   build-macos:
+    needs: verify-release
     runs-on: macos-latest
     steps:
       - name: Checkout
@@ -25,7 +42,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version-file: go.mod
           cache: false
 
       - name: Setup Node.js
@@ -76,7 +93,7 @@ jobs:
           p12-password: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_PASSWORD }}
 
       - name: Install Wails
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0
 
       - name: Build for macOS (amd64)
         run: wails build -platform darwin/amd64
@@ -162,6 +179,7 @@ jobs:
           if-no-files-found: error
 
   build-windows:
+    needs: verify-release
     runs-on: windows-latest
     steps:
       - name: Checkout
@@ -170,7 +188,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version-file: go.mod
           cache: false
 
       - name: Setup Node.js
@@ -184,34 +202,44 @@ jobs:
           version: 10
 
       - name: Install Wails
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0
 
-      - name: Build for Windows (amd64)
-        run: wails build -platform windows/amd64
+      - name: Install NSIS
+        shell: pwsh
+        run: |
+          choco install nsis --no-progress --yes
+          "${env:ProgramFiles(x86)}\NSIS" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Build Windows installer (amd64)
+        run: wails build -clean -platform windows/amd64 -nsis -webview2 download
 
       - name: List build output
         run: dir build\bin\
 
-      - name: Prepare Windows artifact
+      - name: Prepare Windows installer artifact
         shell: pwsh
         run: |
-          cd build/bin
-          $exeName = Get-ChildItem -Filter "*.exe" | Select-Object -First 1 -ExpandProperty Name
-          Write-Host "Found exe: $exeName"
-          Compress-Archive -Path $exeName -DestinationPath "claude-env-switcher-windows-amd64.zip"
+          $installer = Get-ChildItem -Path "build/bin" -Filter "*-amd64-installer.exe" | Select-Object -First 1
+          if (-not $installer) {
+            throw "Wails did not generate the amd64 NSIS installer"
+          }
+
+          $artifact = Join-Path $installer.DirectoryName "claude-env-switcher-windows-amd64-installer.exe"
+          if ($installer.FullName -ne $artifact) {
+            Move-Item -LiteralPath $installer.FullName -Destination $artifact -Force
+          }
+          Get-FileHash -Algorithm SHA256 -LiteralPath $artifact
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
           name: windows-builds
-          path: build/bin/claude-env-switcher-windows-amd64.zip
+          path: build/bin/claude-env-switcher-windows-amd64-installer.exe
           if-no-files-found: error
 
   release:
     needs: [build-macos, build-windows]
     runs-on: ubuntu-latest
-    # 只在推送 tag 时发布正式版本
-    if: startsWith(github.ref, 'refs/tags/v')
     permissions:
       contents: write
     steps:
@@ -231,7 +259,7 @@ jobs:
           files: |
             artifacts/macos-builds/claude-env-switcher-macos-amd64.zip
             artifacts/macos-builds/claude-env-switcher-macos-arm64.zip
-            artifacts/windows-builds/claude-env-switcher-windows-amd64.zip
+            artifacts/windows-builds/claude-env-switcher-windows-amd64-installer.exe
           generate_release_notes: true
           draft: false
           prerelease: false

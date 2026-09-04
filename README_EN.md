@@ -31,7 +31,7 @@
 
 One native window for five CLI toolchains: environment variables, MCP servers, Skills, prompt files, usage stats, and local installs. Everything stays on disk unless you opt into S3-compatible backup. No third-party account is required to run the app.
 
-Current release: **v2.4.0**. Release notes and binaries live on [GitHub Releases](https://github.com/nsmao-com/claude-code-env-change/releases).
+The current version is the latest version listed in [GitHub Releases](https://github.com/nsmao-com/claude-code-env-change/releases).
 
 ## Features
 
@@ -52,13 +52,13 @@ Current release: **v2.4.0**. Release notes and binaries live on [GitHub Releases
 
 ## Install
 
-Download the Windows build from [Releases](https://github.com/nsmao-com/claude-code-env-change/releases) and unzip:
+Download and run the Windows installer from [Releases](https://github.com/nsmao-com/claude-code-env-change/releases):
 
 ```
-claude-env-switcher-windows-amd64.zip
+claude-env-switcher-windows-amd64-installer.exe
 ```
 
-[WebView2](https://developer.microsoft.com/microsoft-edge/webview2/) is required. Windows 11 already ships it.
+The installer uses the application icon, creates Start menu and desktop shortcuts, and installs the [WebView2](https://developer.microsoft.com/microsoft-edge/webview2/) runtime when it is missing.
 
 macOS and Linux can be built from source.
 
@@ -78,10 +78,10 @@ cd frontend && pnpm install && cd ..
 wails dev
 ```
 
-Production build:
+Production build (NSIS is required for the Windows installer):
 
 ```bash
-wails build
+wails build -platform windows/amd64 -nsis -webview2 download
 ```
 
 Output lands in `build/bin/`.

@@ -31,7 +31,7 @@
 
 把五套 CLI 的环境变量、MCP 服务器、Skills、提示词、用量统计和本机安装收进同一个原生窗口。配置写在本机，不经过第三方账号；换电脑时可以用 S3 兼容对象存储加密备份。
 
-当前版本 **v2.4.0**。版本说明和安装包见 [GitHub Releases](https://github.com/nsmao-com/claude-code-env-change/releases)。
+当前版本以 [GitHub Releases](https://github.com/nsmao-com/claude-code-env-change/releases) 的最新版本为准。
 
 ## 功能
 
@@ -52,13 +52,13 @@
 
 ## 安装
 
-从 [Releases](https://github.com/nsmao-com/claude-code-env-change/releases) 下载 Windows 构建包后解压运行。
+从 [Releases](https://github.com/nsmao-com/claude-code-env-change/releases) 下载 Windows 安装包并双击安装：
 
 ```
-claude-env-switcher-windows-amd64.zip
+claude-env-switcher-windows-amd64-installer.exe
 ```
 
-系统需要 [WebView2](https://developer.microsoft.com/microsoft-edge/webview2/)。Windows 11 一般已自带。
+安装器带有应用图标，会创建开始菜单和桌面快捷方式，并在系统缺少 [WebView2](https://developer.microsoft.com/microsoft-edge/webview2/) 时自动安装运行环境。
 
 macOS / Linux 可从源码构建，见下方。
 
@@ -78,10 +78,10 @@ cd frontend && pnpm install && cd ..
 wails dev
 ```
 
-生产构建：
+生产构建（Windows 安装包需要 NSIS）：
 
 ```bash
-wails build
+wails build -platform windows/amd64 -nsis -webview2 download
 ```
 
 产物在 `build/bin/`。

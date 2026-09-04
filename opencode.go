@@ -108,7 +108,7 @@ func defaultOpencodeConfig(env *EnvConfig) string {
 		npmPkg = "@ai-sdk/openai-compatible"
 	}
 
-	if baseURL != "" || apiKey != "" || model != "" {
+	if baseURL != "" || apiKey != "" {
 		modelID := model
 		if idx := strings.LastIndex(modelID, "/"); idx >= 0 && modelID[:idx] == providerID {
 			modelID = modelID[idx+1:]
@@ -142,9 +142,9 @@ func defaultOpencodeConfig(env *EnvConfig) string {
 			models[id] = map[string]any{"name": id}
 		}
 		entry := map[string]any{
-			"npm":     npmPkg,
-			"name":    providerName,
-			"models":  models,
+			"npm":    npmPkg,
+			"name":   providerName,
+			"models": models,
 		}
 		if len(options) > 0 {
 			entry["options"] = options
@@ -224,7 +224,10 @@ func opencodeProviderID(env *EnvConfig) string {
 	}
 	name := ""
 	if env != nil {
-		name = env.Name
+		name = strings.TrimSpace(env.Name)
+	}
+	if name == "" {
+		return "custom"
 	}
 	return slugOpencodeProviderID(name)
 }
