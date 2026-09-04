@@ -185,6 +185,15 @@ onMounted(async () => {
   } catch {
     toast.error(t('toast.loadFailed'))
   }
+  // 上次在线更新若覆盖失败（如安装目录无写权限），启动时提示原因
+  try {
+    const lastError = await updateService.lastUpdateError()
+    if (lastError) {
+      toast.error(`上次在线更新失败：${lastError}。请到 GitHub 下载安装包手动更新`)
+    }
+  } catch {
+    /* 忽略 */
+  }
   try {
     await uptimeStore.loadSnapshot()
     if (uptimeStore.settings.enabled) {

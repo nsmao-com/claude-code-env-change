@@ -21,7 +21,7 @@ import (
 )
 
 // 与 wails.json info.productVersion 保持一致
-const appVersion = "2.5.0"
+const appVersion = "2.5.1"
 
 const (
 	githubOwner = "nsmao-com"
@@ -183,6 +183,14 @@ func (a *App) DownloadAndApplyUpdate() error {
 	exePath, err = filepath.EvalSymlinks(exePath)
 	if err != nil {
 		return fmt.Errorf("无法解析程序路径: %v", err)
+	}
+
+	// 提前检查安装目录写权限：装在 Program Files 等受保护目录时，
+	// 替换脚本没有管理员权限必然失败，这里直接告知而不是退出后静默丢失
+	if err := checkExeDirWritable(exePath); err != nil {
+		msg := "安装目录没有写入权限，无法自动覆盖更新；请到 GitHub 下载安装包手动更新"
+		a.emitUpdateProgress(UpdateProgress{Phase: "error", Message: msg})
+		return fmt.Errorf("%s", msg)
 	}
 
 	tmpDir, err := os.MkdirTemp("", "claude-env-update-*")
@@ -531,6 +539,36 @@ func scoreAsset(name string) int {
 		score--
 	}
 	return score
+}
+
+// checkExeDirWritable 探测程序所在目录是否可写
+func checkExeDirWritable(exePath string) error {
+	probe := filepath.Join(filepath.Dir(exePath), ".update-write-probe")
+	if err := os.WriteFile(probe, []byte("ok"), 0o644); err != nil {
+		return err
+	}
+	_ = os.Remove(probe)
+	return nil
+}
+
+// updateResultLogPath 在线更新结果日志：替换脚本写入，应用下次启动时读取并提示
+func updateResultLogPath() string {
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, mcpStoreDir, "update-result.log")
+}
+
+// CheckLastUpdateResult 返回上一次在线更新的失败原因（读取一次后清除；无失败返回空）
+func (a *App) CheckLastUpdateResult() string {
+	data, err := os.ReadFile(updateResultLogPath())
+	if err != nil || len(data) == 0 {
+		return ""
+	}
+	_ = os.Remove(updateResultLogPath())
+	msg := strings.TrimSpace(string(data))
+	if after, ok := strings.CutPrefix(msg, "ERROR: "); ok {
+		return after
+	}
+	return ""
 }
 
 func isDevBuild() bool {

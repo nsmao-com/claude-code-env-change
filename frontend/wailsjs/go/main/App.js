@@ -14,6 +14,10 @@ export function CheckForUpdate() {
   return window['go']['main']['App']['CheckForUpdate']();
 }
 
+export function CheckLastUpdateResult() {
+  return window['go']['main']['App']['CheckLastUpdateResult']();
+}
+
 export function ClearAllEnv() {
   return window['go']['main']['App']['ClearAllEnv']();
 }

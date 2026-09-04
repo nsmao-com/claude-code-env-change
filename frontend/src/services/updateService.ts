@@ -1,6 +1,7 @@
 import type { UpdateInfo, UpdateProgress } from '@/types'
 import {
   CheckForUpdate,
+  CheckLastUpdateResult,
   DownloadAndApplyUpdate,
   GetAppVersion,
   OpenReleasePage,
@@ -22,6 +23,9 @@ export const updateService = {
   },
   version(): Promise<string> {
     return GetAppVersion()
+  },
+  lastUpdateError(): Promise<string> {
+    return CheckLastUpdateResult()
   },
   openReleasePage(): Promise<void> {
     return OpenReleasePage()

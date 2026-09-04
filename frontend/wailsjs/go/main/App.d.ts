@@ -9,6 +9,8 @@ export function ApplyCurrentEnv():Promise<string>;
 
 export function CheckForUpdate():Promise<main.UpdateInfo>;
 
+export function CheckLastUpdateResult():Promise<string>;
+
 export function ClearAllEnv():Promise<void>;
 
 export function ClearAntigravitySettings():Promise<void>;
