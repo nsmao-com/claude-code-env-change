@@ -42,7 +42,8 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          # Go 1.24+ emits LC_UUID, required by dyld on macOS 26 runners.
+          go-version: '1.24.x'
           cache: false
 
       - name: Setup Node.js
