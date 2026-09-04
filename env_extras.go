@@ -40,6 +40,44 @@ func injectCodexExtras(payload map[string]any, vars map[string]string) {
 	setInt("project_doc_max_bytes", "project_doc_max_bytes")
 }
 
+// sanitizeCodexConfigPayload removes legacy keys that Codex no longer reads
+// and normalizes MCP entries to the current config.toml schema.
+func sanitizeCodexConfigPayload(payload map[string]any) {
+	if payload == nil {
+		return
+	}
+	delete(payload, "network_access")
+	delete(payload, "disable_response_storage")
+
+	sanitizeEntry := func(entry map[string]any) {
+		if entry == nil {
+			return
+		}
+		delete(entry, "type")
+		if _, ok := entry["http_headers"]; !ok {
+			if headers, ok := entry["headers"]; ok {
+				entry["http_headers"] = headers
+			}
+		}
+		delete(entry, "headers")
+	}
+
+	switch servers := payload["mcp_servers"].(type) {
+	case map[string]any:
+		for name, raw := range servers {
+			if entry, ok := raw.(map[string]any); ok {
+				sanitizeEntry(entry)
+				servers[name] = entry
+			}
+		}
+	case map[string]map[string]any:
+		for name, entry := range servers {
+			sanitizeEntry(entry)
+			servers[name] = entry
+		}
+	}
+}
+
 func appendMissingEnvLines(content string, vars map[string]string, keys []string) string {
 	out := content
 	for _, key := range keys {

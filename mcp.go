@@ -474,6 +474,7 @@ func (ms *MCPService) syncCodexServers(servers []MCPServer) error {
 		return err
 	}
 
+	sanitizeCodexConfigPayload(payload)
 	// 直接使用 desired，不保留任何现有服务器
 	payload["mcp_servers"] = desired
 	data, err := toml.Marshal(payload)
@@ -634,11 +635,17 @@ func (ms *MCPService) importFromCodex(existing map[string]rawMCPServer) (map[str
 			}
 		}
 
+		// Codex uses http_headers; accept the old headers key when importing.
 		headers := make(map[string]string)
-		if headerRaw, ok := entry["headers"].(map[string]interface{}); ok {
-			for k, v := range headerRaw {
-				if s, ok := v.(string); ok {
-					headers[k] = s
+		for _, headerKey := range []string{"http_headers", "headers"} {
+			if headerRaw, ok := entry[headerKey].(map[string]interface{}); ok {
+				for k, v := range headerRaw {
+					if s, ok := v.(string); ok {
+						headers[k] = s
+					}
+				}
+				if len(headers) > 0 {
+					break
 				}
 			}
 		}
@@ -1327,13 +1334,15 @@ func buildClaudeDesktopEntry(server MCPServer) claudeDesktopServer {
 	return entry
 }
 
-func buildCodexEntry(server MCPServer) map[string]any {
+func buildMCPEntry(server MCPServer, headerKey string, includeType bool) map[string]any {
 	entry := make(map[string]any)
-	entry["type"] = server.Type
+	if includeType {
+		entry["type"] = server.Type
+	}
 	if server.Type == "http" || server.Type == "sse" {
 		entry["url"] = server.URL
 		if len(server.Headers) > 0 {
-			entry["headers"] = server.Headers
+			entry[headerKey] = server.Headers
 		}
 	} else {
 		entry["command"] = server.Command
@@ -1345,6 +1354,10 @@ func buildCodexEntry(server MCPServer) map[string]any {
 		}
 	}
 	return entry
+}
+
+func buildCodexEntry(server MCPServer) map[string]any {
+	return buildMCPEntry(server, "http_headers", false)
 }
 
 func claudeConfigPath() (string, error) {
@@ -1476,7 +1489,7 @@ func (ms *MCPService) getCurrentGrokServers() map[string]struct{} {
 }
 
 func buildGrokMcpEntry(server MCPServer) map[string]any {
-	entry := buildCodexEntry(server)
+	entry := buildMCPEntry(server, "headers", true)
 	entry["enabled"] = true
 	return entry
 }

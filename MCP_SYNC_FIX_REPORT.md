@@ -1,5 +1,10 @@
 # MCP 配置管理问题解决报告
 
+> 历史说明：本文记录 2026-02 的一次同步问题。Codex 0.152.0 及以后版本不再识别
+> MCP 条目中的 `type` 字段，当前实现已按官方配置参考改为通过 `command`/`url`
+> 推断类型，并使用 `http_headers` 配置 HTTP 请求头。下文早期示例中的 `type` 仅代表
+> 当时的旧格式，不应继续写入 Codex 配置。
+
 ## 问题描述
 
 用户反馈：在环境管理器中删除某个 MCP 的 Codex 启用后，Codex 配置文件（`~/.codex/config.toml`）没有更新。
@@ -8,38 +13,15 @@
 
 经过深入分析，发现了以下问题：
 
-### 1. Codex 配置文件格式错误
+### 1. 历史同步问题
 
-**问题**：`~/.codex/config.toml` 中的 `mysql_nice_order_1` 配置缺少 `type = 'stdio'` 字段
+2026-02 的旧同步逻辑曾把 MCP 条目中的 `type` 当作必填字段，并据此处理
+Codex 配置。该结论不适用于 Codex 0.152.0 及以后版本：官方配置参考要求
+stdio 服务器提供 `command`，HTTP 服务器提供 `url`，传输类型由字段推断。
 
-```toml
-# 错误的配置（缺少 type 字段）
-[mcp_servers.mysql_nice_order_1]
-args = ['--directory', 'D:/PhpWebStudy-Data/env/python/Scripts/', 'run', 'mysql_mcp_server']
-command = 'uv'
-
-[mcp_servers.mysql_nice_order_1.env]
-MYSQL_DATABASE = 'nice_knowledge'
-...
-```
-
-**影响**：
-- TOML 解析失败
-- 环境管理器无法正确读取现有 MCP 配置
-- 同步逻辑失效，删除操作无法生效
-
-**修复**：
-```toml
-# 正确的配置（添加了 type 字段）
-[mcp_servers.mysql_nice_order_1]
-args = ['--directory', 'D:/PhpWebStudy-Data/env/python/Scripts/', 'run', 'mysql_mcp_server']
-command = 'uv'
-type = 'stdio'  # ← 添加此行
-
-[mcp_servers.mysql_nice_order_1.env]
-MYSQL_DATABASE = 'nice_knowledge'
-...
-```
+当前实现会在写入 Codex 配置时移除旧的 `type`、顶层
+`network_access`/`disable_response_storage`，并将 HTTP 头规范化为
+`http_headers`，从而避免启动时的未知字段警告。
 
 ### 2. 跨平台编译问题
 
@@ -201,14 +183,13 @@ grep -E '^\[mcp_servers\.[^.]+\]$' config.toml
 
 ## 技术细节
 
-### TOML 格式要求
+### 当前 Codex MCP 格式
 
-每个 MCP 服务器配置必须包含以下字段：
+Codex 根据服务器配置中的字段推断传输类型，不需要 `type` 字段：
 
 **Stdio 类型**：
 ```toml
 [mcp_servers.server_name]
-type = "stdio"      # 必需
 command = "npx"     # 必需
 args = ["..."]      # 可选
 env = {...}         # 可选
@@ -217,8 +198,8 @@ env = {...}         # 可选
 **HTTP 类型**：
 ```toml
 [mcp_servers.server_name]
-type = "http"       # 必需
 url = "http://..."  # 必需
+http_headers = { Authorization = "Bearer ..." } # 可选
 ```
 
 ### 同步时机

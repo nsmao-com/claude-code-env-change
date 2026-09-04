@@ -1,15 +1,17 @@
 # MCP 配置同步使用指南
 
-## 问题已解决 ✅
+## Codex 配置兼容性
 
-你遇到的"删除 Codex MCP 后配置文件没有更新"的问题已经完全解决。
+环境管理器会在保存 MCP、添加服务器和应用 Codex 环境时同步
+`~/.codex/config.toml`。
 
-### 根本原因
+Codex 0.152.0 及以后版本不识别同步配置中的旧字段。当前同步逻辑会自动移除：
 
-Codex 配置文件 `~/.codex/config.toml` 中的 `mysql_nice_order_1` 配置缺少 `type = 'stdio'` 字段，导致：
-- TOML 解析失败
-- 环境管理器无法正确读取配置
-- 同步逻辑失效
+- 顶层 `network_access` 和 `disable_response_storage`
+- `[mcp_servers.*]` 下的 `type`
+
+远程 MCP 使用 Codex 支持的 `http_headers` 字段，stdio/HTTP 类型分别由
+`command`/`url` 推断，不需要额外的 `type` 字段。
 
 ### 已完成的修复
 
@@ -110,7 +112,6 @@ notepad ~/.codex/config.toml
 # [mcp_servers.mysql_nice_order_1]
 # args = [...]
 # command = 'uv'
-# type = 'stdio'
 #
 # [mcp_servers.mysql_nice_order_1.env]
 # MYSQL_DATABASE = 'nice_knowledge'
@@ -144,14 +145,13 @@ notepad ~/.codex/config.toml
 
 ## 技术细节
 
-### TOML 格式要求
+### Codex MCP 格式
 
-每个 MCP 服务器配置必须包含 `type` 字段：
+Codex 根据服务器配置中的字段推断传输类型，不需要 `type` 字段：
 
 **Stdio 类型**：
 ```toml
 [mcp_servers.server_name]
-type = "stdio"      # ← 必需
 command = "npx"
 args = ["..."]
 ```
@@ -159,8 +159,8 @@ args = ["..."]
 **HTTP 类型**：
 ```toml
 [mcp_servers.server_name]
-type = "http"       # ← 必需
 url = "http://..."
+http_headers = { Authorization = "Bearer ..." } # 可选
 ```
 
 ### 同步逻辑

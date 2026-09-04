@@ -779,8 +779,6 @@ func (a *App) applyCodexEnv(env *EnvConfig) (string, error) {
 		configContent = fmt.Sprintf(`model_provider = "duckcoding"
 model = "%s"
 model_reasoning_effort = "high"
-network_access = "enabled"
-disable_response_storage = true
 
 [model_providers.duckcoding]
 name = "duckcoding"
@@ -828,6 +826,7 @@ func buildCodexConfigData(configContent, configFile string, vars map[string]stri
 				payload["mcp_servers"] = existingMcpServers
 			}
 		}
+		sanitizeCodexConfigPayload(payload)
 		return toml.Marshal(payload)
 	}
 

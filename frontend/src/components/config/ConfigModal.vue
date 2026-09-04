@@ -864,8 +864,6 @@ const defaultForm = () => ({
     configTemplate: `model_provider = "duckcoding"
 model = "{{model}}"
 model_reasoning_effort = "high"
-network_access = "enabled"
-disable_response_storage = true
 
 [model_providers.duckcoding]
 name = "duckcoding"
