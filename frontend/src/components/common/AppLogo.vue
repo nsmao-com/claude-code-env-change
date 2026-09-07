@@ -16,7 +16,7 @@
     <rect x="0.6" y="0.6" width="34.8" height="34.8" rx="9.4" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="1.2" />
     <path
       fill="#FAFAFA"
-      d="M9.1 7.4h4.05L22.7 22.2V7.4h4.2v21.2h-4.05L13.3 13.6v15H9.1V7.4z"
+      d="M8.5 8h4.2l10.8 14.5V8h4v20h-4.1L12.5 13.8V28h-4V8z"
     />
   </svg>
 </template>

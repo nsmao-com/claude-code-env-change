@@ -33,6 +33,13 @@
         </template>
       </SegmentedPills>
 
+      <div class="flex flex-wrap items-center gap-2 rounded-xl bg-muted/40 px-3 py-2">
+        <span class="text-xs text-muted-foreground">快捷填入：</span>
+        <Button v-for="preset in providerPresets" :key="preset.label" type="button" size="sm" variant="outline" @click="applyPreset(preset)">
+          {{ preset.label }}
+        </Button>
+      </div>
+
       <div class="grid gap-1.5">
         <FieldLabel label="上游格式" :hint="tips.upstreamAdvanced" />
         <Select v-model="upstreamSelect">
@@ -624,6 +631,24 @@ const providers: { value: Provider; label: string }[] = [
   { value: 'opencode', label: 'OpenCode' },
   { value: 'grok', label: 'Grok' },
 ]
+const providerPresets = computed(() => {
+  const common = [{ label: '官方', url: officialUrl(form.value.provider) }, { label: 'AIHubo', url: 'https://www.aihubo.com/api/v1' }]
+  return common
+})
+function officialUrl(provider: Provider) {
+  if (provider === 'claude') return 'https://api.anthropic.com'
+  if (provider === 'codex' || provider === 'opencode') return 'https://api.openai.com/v1'
+  if (provider === 'antigravity') return 'https://generativelanguage.googleapis.com'
+  return 'https://api.x.ai/v1'
+}
+function applyPreset(preset: { url: string }) {
+  const target = form.value.provider
+  if (target === 'claude') form.value.claude.baseUrl = preset.url
+  else if (target === 'codex') form.value.codex.baseUrl = preset.url
+  else if (target === 'antigravity') form.value.antigravity.baseUrl = preset.url
+  else if (target === 'opencode') form.value.opencode.baseUrl = preset.url
+  else form.value.grok.baseUrl = preset.url
+}
 const grokBackends = [
   { value: 'responses', label: 'Responses' },
   { value: 'chat_completions', label: 'Chat' },

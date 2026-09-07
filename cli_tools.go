@@ -294,7 +294,7 @@ func (a *App) upgradeOne(spec cliSpec) CliUpgradeResult {
 		out, runErr := runTool(4*time.Minute, bin, spec.UpdateArgs...)
 		log.WriteString(out)
 		err = runErr
-	case "pnpm", "npm":
+	case "pnpm", "npm", "yarn":
 		out, runErr := upgradeNpmPackage(spec, status, latest)
 		log.WriteString(out)
 		err = runErr
@@ -411,6 +411,17 @@ func upgradeNpmPackage(spec cliSpec, status CliToolStatus, latest string) (strin
 			lastErr = err
 		} else {
 			ok = true
+		}
+	}
+	if yarn := findYarn(); yarn != "" {
+		out, err := runTool(4*time.Minute, yarn, "global", "add", pkg)
+		if strings.TrimSpace(out) != "" {
+			log.WriteString(out)
+		}
+		if err == nil {
+			ok = true
+		} else {
+			lastErr = err
 		}
 	}
 	if !ok {
@@ -571,6 +582,9 @@ func chooseInstaller(status CliToolStatus, spec cliSpec) string {
 	if method == "npm" {
 		return "npm"
 	}
+	if findYarn() != "" {
+		return "yarn"
+	}
 	if findPnpmNear(status.InstallPath) != "" {
 		return "pnpm"
 	}
@@ -656,6 +670,8 @@ func findPnpm() string {
 func findNpm() string {
 	return findPkgBin("npm")
 }
+
+func findYarn() string { return findPkgBin("yarn") }
 
 func findPkgBin(name string) string {
 	if runtime.GOOS == "windows" {

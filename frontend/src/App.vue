@@ -105,7 +105,6 @@ import { useTheme } from '@/composables/useTheme'
 import { useSettings } from '@/composables/useSettings'
 import { useI18n } from '@/composables/useI18n'
 import { updateService } from '@/services/updateService'
-import { APP_PAGES } from '@/lib/nav'
 import { MotionConfig, motion } from 'motion-v'
 import { pageEnter } from '@/lib/motion'
 import { TooltipProvider } from '@/components/ui/tooltip'
@@ -137,7 +136,7 @@ const routerStore = useRouterStore()
 const confirm = useConfirm()
 const toast = useToast()
 useTheme()
-const { settings, saveLastPage, readLastPage } = useSettings()
+const { settings, saveLastPage } = useSettings()
 const { t } = useI18n()
 
 const page = ref<AppPage>('home')
@@ -165,8 +164,8 @@ function onSettingsShortcut(e: KeyboardEvent) {
 }
 
 onMounted(async () => {
-  const last = readLastPage()
-  if (last && APP_PAGES.some(item => item.id === last)) page.value = last as AppPage
+  // 每次启动先进入首页，避免停留在上次打开的配置/设置页造成迷失。
+  page.value = 'home'
   window.addEventListener('keydown', onSettingsShortcut)
   window.addEventListener('dragenter', onWinDragEnter)
   window.addEventListener('dragover', onWinDragOver)
