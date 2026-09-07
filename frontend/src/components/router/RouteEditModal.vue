@@ -239,16 +239,19 @@ const upstreamOptions = computed(() => {
     claude: [
       { value: 'native', label: 'Anthropic Messages（原生）' },
       { value: 'chat_completions', label: 'Chat Completions（需开启路由）' },
+      { value: 'responses', label: 'Responses（需开启路由）' },
     ],
     codex: [
       { value: 'native', label: 'Responses（原生）' },
       { value: 'chat_completions', label: 'Chat Completions（需开启路由）' },
       { value: 'anthropic_messages', label: 'Anthropic Messages（需开启路由）' },
+      { value: 'responses', label: 'Responses（需开启路由）' },
     ],
     antigravity: [
       { value: 'native', label: 'Antigravity（原生）' },
       { value: 'chat_completions', label: 'Chat Completions（需开启路由）' },
       { value: 'anthropic_messages', label: 'Anthropic Messages（需开启路由）' },
+      { value: 'responses', label: 'Responses（需开启路由）' },
     ],
     opencode: [
       { value: 'native', label: 'Chat Completions（原生）' },
@@ -259,6 +262,7 @@ const upstreamOptions = computed(() => {
       { value: 'native', label: 'Responses（原生）' },
       { value: 'chat_completions', label: 'Chat Completions（需开启路由）' },
       { value: 'anthropic_messages', label: 'Anthropic Messages（需开启路由）' },
+      { value: 'responses', label: 'Responses（需开启路由）' },
     ],
   }
   return extra[form.value.client] || extra.claude

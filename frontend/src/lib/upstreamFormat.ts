@@ -29,37 +29,14 @@ export function upstreamFormatOptions(provider: string): { value: string; label:
   const chat = { value: 'chat_completions', label: 'Chat Completions（需开路由，OpenAI 兼容）' }
   const anthropic = { value: 'anthropic_messages', label: 'Anthropic Messages（需开路由，如 Claude）' }
   const responses = { value: 'responses', label: 'Responses（需开路由，如 Codex）' }
-  switch (provider) {
-    case 'claude':
-      return [native, chat, responses]
-    case 'codex':
-    case 'grok':
-      return [native, chat, anthropic]
-    case 'antigravity':
-      return [native, chat, anthropic, responses]
-    case 'opencode':
-      return [native, anthropic, responses]
-    default:
-      return [native, chat, anthropic, responses]
-  }
+  // 五家 CLI 最终都通过网关归一到三种公开协议，可互相转换。
+  return [native, chat, anthropic, responses]
 }
 
-export function needsUpstreamRouting(provider: string, format?: string): boolean {
+export function needsUpstreamRouting(_provider: string, format?: string): boolean {
   const value = (format || '').trim()
   if (!value || value === 'native') return false
-  switch (provider) {
-    case 'claude':
-      return value === 'chat_completions' || value === 'responses'
-    case 'codex':
-    case 'grok':
-      return value === 'chat_completions' || value === 'anthropic_messages'
-    case 'opencode':
-      return value === 'anthropic_messages' || value === 'responses'
-    case 'antigravity':
-      return value === 'chat_completions' || value === 'anthropic_messages' || value === 'responses'
-    default:
-      return true
-  }
+  return value === 'chat_completions' || value === 'anthropic_messages' || value === 'responses'
 }
 
 export function upstreamFormatShortLabel(format?: string): string {
