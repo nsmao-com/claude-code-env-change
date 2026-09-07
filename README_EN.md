@@ -14,6 +14,8 @@
   <a href="./README_EN.md"><strong>English</strong></a>
 </p>
 
+<p align="center"><a href="https://www.nsmao.com">Official website: www.nsmao.com</a></p>
+
 <p align="center">
   <a href="https://github.com/nsmao-com/claude-code-env-change/releases"><img alt="Release" src="https://img.shields.io/github/v/release/nsmao-com/claude-code-env-change?style=flat-square" /></a>
   <a href="./LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" /></a>
@@ -40,13 +42,13 @@ The current version is the latest version listed in [GitHub Releases](https://gi
 | Environments | Multiple profiles, per-tool filter, drag reorder, one-click apply, latency probe, drag-and-drop JSON import |
 | MCP | stdio / HTTP servers, sync into Claude / Codex / Antigravity / OpenCode / Grok |
 | Skills | Edit `SKILL.md`, import from online marketplaces or the bundled library, enable per platform |
-| API router | Local gateway port and per-vendor switches; pick upstream format in the config (Anthropic Messages, Chat Completions, Responses) |
+| API router | Local gateway port and per-vendor switches; all five CLIs can convert between Anthropic Messages, Chat Completions, and Responses |
 | Uptime | Periodic Base URL checks and rotation groups |
 | Cloud sync | S3 / Aliyun OSS / compatible endpoints, AES-GCM encrypted objects |
 | Prompts | Custom system prompts per CLI |
 | Stats | Requests, tokens, cost estimate, model mix, activity heatmap |
 | Settings | Language, theme, accent, outbound proxy |
-| CLI | Detect local Claude / Codex / Antigravity / OpenCode / Grok; install/upgrade via pnpm, npm, official installer, or native update |
+| CLI | Detect local Claude / Codex / Antigravity / OpenCode / Grok; install/upgrade via pnpm, yarn, npm, official installer, or native update |
 | Config folders | Open each CLI’s config directory and key files |
 | Updates | GitHub Release check; Windows can download and replace in-app |
 
@@ -58,7 +60,7 @@ Download and run the Windows installer from [Releases](https://github.com/nsmao-
 claude-env-switcher-windows-amd64-installer.exe
 ```
 
-The installer uses the application icon, creates Start menu and desktop shortcuts, and installs the [WebView2](https://developer.microsoft.com/microsoft-edge/webview2/) runtime when it is missing.
+The installer uses the application icon and lets you choose Start menu and desktop shortcuts separately. Upgrades and reinstalls reuse the previous installation directory, and the installer adds the [WebView2](https://developer.microsoft.com/microsoft-edge/webview2/) runtime when it is missing.
 
 macOS and Linux can be built from source.
 
@@ -123,7 +125,7 @@ A writable `config.json` next to the executable, left over from older builds, is
 └─────────────────────────────────────────────┘
 ```
 
-The local gateway translates Anthropic Messages, OpenAI Chat Completions, and Codex Responses so one upstream key can feed multiple CLIs. Keys never leave the machine unless you enable cloud sync.
+The local gateway translates Anthropic Messages, OpenAI Chat Completions, and OpenAI Responses. All five CLIs can select a target upstream format, so one upstream key can feed multiple CLIs. Keys never leave the machine unless you enable cloud sync.
 
 ## Stack
 

@@ -14,6 +14,8 @@
   <a href="./README_EN.md">English</a>
 </p>
 
+<p align="center"><a href="https://www.nsmao.com">官网：www.nsmao.com</a></p>
+
 <p align="center">
   <a href="https://github.com/nsmao-com/claude-code-env-change/releases"><img alt="Release" src="https://img.shields.io/github/v/release/nsmao-com/claude-code-env-change?style=flat-square" /></a>
   <a href="./LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" /></a>
@@ -40,13 +42,13 @@
 | 环境 | 多配置、按平台筛选、拖拽排序、一键写入对应 CLI、延迟测速、JSON 拖拽导入 |
 | MCP | 管理 stdio / HTTP 服务器，同步到 Claude / Codex / Antigravity / OpenCode / Grok |
 | Skills | 编辑 `SKILL.md`，从在线市场 / 内置库导入，按平台启用 |
-| API 路由 | 本机网关端口与按厂商开关；上游格式在配置里选择（Anthropic Messages、Chat Completions、Responses） |
+| API 路由 | 本机网关端口与按厂商开关；五家 CLI 可在 Anthropic Messages、Chat Completions、Responses 之间互相转换 |
 | 监控 | 定时探测 Base URL，按轮换组自动切配置 |
 | 云同步 | S3 / 阿里云 OSS / 兼容端点，AES-GCM 加密后上传 |
 | 提示词 | 编辑各平台自定义系统提示词 |
 | 统计 | 请求量、Token、花费估算、模型分布、活动热力图 |
 | 设置 | 语言、主题、强调色、出站代理 |
-| CLI | 检测本机 Claude / Codex / Antigravity / OpenCode / Grok，按 pnpm / npm / 官方安装器 / 原生方式安装升级 |
+| CLI | 检测本机 Claude / Codex / Antigravity / OpenCode / Grok，按 pnpm、yarn、npm、官方安装器或原生方式安装升级 |
 | 配置目录 | 打开各家 CLI 的本机配置目录和关键文件 |
 | 更新 | 检测 GitHub Release，Windows 可在应用内下载并替换 |
 
@@ -58,7 +60,7 @@
 claude-env-switcher-windows-amd64-installer.exe
 ```
 
-安装器带有应用图标，会创建开始菜单和桌面快捷方式，并在系统缺少 [WebView2](https://developer.microsoft.com/microsoft-edge/webview2/) 时自动安装运行环境。
+安装器带有应用图标，可分别选择是否创建开始菜单和桌面快捷方式；升级或重装时会自动沿用上次的安装目录，并在系统缺少 [WebView2](https://developer.microsoft.com/microsoft-edge/webview2/) 时自动安装运行环境。
 
 macOS / Linux 可从源码构建，见下方。
 
@@ -125,7 +127,7 @@ wails build -platform windows/amd64 -nsis -webview2 download
 └─────────────────────────────────────────────┘
 ```
 
-本地路由网关把 Anthropic Messages、OpenAI Chat Completions 与 Codex Responses 互相转换，让同一份上游 Key 给多套 CLI 用。密钥只存在本机配置里。
+本地路由网关把 Anthropic Messages、OpenAI Chat Completions 与 OpenAI Responses 互相转换，五家 CLI 均可选择目标上游格式，让同一份上游 Key 给多套 CLI 用。密钥只存在本机配置里。
 
 ## 技术栈
 
