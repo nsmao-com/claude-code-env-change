@@ -7,11 +7,19 @@ import (
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+	"github.com/wailsapp/wails/v2/pkg/options/linux"
+	"github.com/wailsapp/wails/v2/pkg/options/mac"
 	"github.com/wailsapp/wails/v2/pkg/options/windows"
 )
 
 //go:embed all:frontend/dist
 var assets embed.FS
+
+// Embed the same monochrome mark into native Linux/macOS window metadata.
+// Windows uses build/appicon.png during Wails resource generation.
+//
+//go:embed build/appicon.png
+var appIcon []byte
 
 func main() {
 	// Create an instance of the app structure
@@ -31,9 +39,9 @@ func main() {
 
 	// Create application with options
 	err := wails.Run(&options.App{
-		Title:  "AI ENV",
-		Width:  1200,
-		Height: 800,
+		Title:     "AI ENV",
+		Width:     1200,
+		Height:    800,
 		MinWidth:  940,
 		MinHeight: 640,
 		AssetServer: &assetserver.Options{
@@ -57,6 +65,8 @@ func main() {
 			DisableFramelessWindowDecorations: false,
 			Theme:                             windows.SystemDefault,
 		},
+		Mac:   &mac.Options{About: &mac.AboutInfo{Title: "AI ENV", Message: "AI CLI 环境与配置管理工具", Icon: appIcon}},
+		Linux: &linux.Options{Icon: appIcon, ProgramName: "AI ENV"},
 		Bind: []interface{}{
 			app,
 			mcpService,

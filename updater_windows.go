@@ -96,7 +96,7 @@ func buildInstallerScript(pid int, installerPath, currentExe string) string {
 	b.WriteString("$installDir = Split-Path -Parent $currentExe\n")
 	b.WriteString("try {\n")
 	b.WriteString("  # NSIS /D must be the final argument and must not be quoted.\n")
-	b.WriteString("  $proc = Start-Process -FilePath $installer -ArgumentList @('/D=' + $installDir) -Verb RunAs -PassThru\n")
+	b.WriteString("  $proc = Start-Process -FilePath $installer -ArgumentList ('/D=' + $installDir) -WorkingDirectory $installDir -Verb RunAs -PassThru\n")
 	b.WriteString("  $proc.WaitForExit()\n")
 	b.WriteString("  if ($proc.ExitCode -ne 0) { throw ('安装程序退出码：' + $proc.ExitCode) }\n")
 	b.WriteString("  if (-not (Test-Path -LiteralPath $currentExe)) { throw '安装完成后未找到目标程序' }\n")
