@@ -18,6 +18,18 @@ ManifestDPIAware true
 
 !define MUI_ICON "..\icon.ico"
 !define MUI_UNICON "..\icon.ico"
+!define MUI_HEADERIMAGE
+!define MUI_HEADERIMAGE_RIGHT
+!define MUI_HEADERIMAGE_BITMAP "resources\header.bmp"
+!define MUI_WELCOMEPAGE_BITMAP "resources\welcome.bmp"
+!define MUI_BGCOLOR "#F7F7F8"
+!define MUI_TEXTCOLOR "#171719"
+!define MUI_INSTALLCOLORS "FFFFFF 171719"
+!define MUI_COMPONENTSPAGE_SMALLDESC
+!define MUI_FINISHPAGE_RUN "$INSTDIR\${PRODUCT_EXECUTABLE}"
+!define MUI_FINISHPAGE_RUN_TEXT "立即打开 AI ENV"
+!define MUI_WELCOMEPAGE_TITLE "欢迎使用 AI ENV"
+!define MUI_WELCOMEPAGE_TEXT "统一管理 Claude Code、Claude Desktop、Codex、Antigravity、OpenCode 和 Grok。\r\n\r\n安装程序会保留你的现有配置，并支持自定义安装目录。"
 !define MUI_FINISHPAGE_NOAUTOCLOSE
 !define MUI_ABORTWARNING
 
