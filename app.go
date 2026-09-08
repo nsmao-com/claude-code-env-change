@@ -40,6 +40,7 @@ type EnvConfig struct {
 type Config struct {
 	CurrentEnv            string      `json:"current_env"` // Deprecated: 兼容旧版本
 	CurrentEnvClaude      string      `json:"current_env_claude"`
+	CurrentEnvClaudeDesktop string    `json:"current_env_claude_desktop"`
 	CurrentEnvCodex       string      `json:"current_env_codex"`
 	CurrentEnvAntigravity string      `json:"current_env_antigravity"` // 旧版本为 gemini，加载时自动迁移
 	CurrentEnvOpencode    string      `json:"current_env_opencode"`
@@ -133,6 +134,8 @@ func (a *App) SwitchToEnv(name string, provider string) error {
 	switch provider {
 	case "codex":
 		a.config.CurrentEnvCodex = name
+	case "claude_desktop":
+		a.config.CurrentEnvClaudeDesktop = name
 	case "antigravity":
 		a.config.CurrentEnvAntigravity = name
 	case "opencode":
@@ -259,6 +262,8 @@ func (a *App) isCurrentEnvFor(provider, name string) bool {
 	switch strings.ToLower(strings.TrimSpace(provider)) {
 	case "codex":
 		return a.config.CurrentEnvCodex == name
+	case "claude_desktop":
+		return a.config.CurrentEnvClaudeDesktop == name
 	case "antigravity":
 		return a.config.CurrentEnvAntigravity == name
 	case "opencode":
@@ -327,6 +332,8 @@ func (a *App) applyEnvByProvider(env *EnvConfig) (string, error) {
 		return "", err
 	}
 	switch live.Provider {
+	case "claude_desktop":
+		return a.applyClaudeEnv(live)
 	case "codex":
 		return a.applyCodexEnv(live)
 	case "antigravity":
@@ -462,6 +469,7 @@ func (a *App) ApplyCurrentEnv() (string, error) {
 	}
 
 	apply("Claude", "claude", a.config.CurrentEnvClaude, a.applyEnvByProvider)
+	apply("Claude Desktop", "claude_desktop", a.config.CurrentEnvClaudeDesktop, a.applyEnvByProvider)
 	apply("Codex", "codex", a.config.CurrentEnvCodex, a.applyEnvByProvider)
 	apply("Antigravity", "antigravity", a.config.CurrentEnvAntigravity, a.applyEnvByProvider)
 	for _, name := range a.opencodeCurrentNames() {
@@ -552,6 +560,32 @@ func (a *App) GetClaudeSettings() map[string]string {
 	}
 
 	return nil
+}
+
+// GetConfigDrift 返回当前激活环境与本机配置不一致的平台，启动时只用于询问用户是否同步。
+func (a *App) GetConfigDrift() []string {
+	var drift []string
+	for _, item := range []struct{ provider, name, label string }{
+		{"claude", a.config.CurrentEnvClaude, "Claude Code"},
+		{"claude_desktop", a.config.CurrentEnvClaudeDesktop, "Claude Desktop"},
+		{"codex", a.config.CurrentEnvCodex, "Codex"},
+		{"antigravity", a.config.CurrentEnvAntigravity, "Antigravity"},
+		{"opencode", a.config.CurrentEnvOpencode, "OpenCode"},
+		{"grok", a.config.CurrentEnvGrok, "Grok"},
+	} {
+		if item.name == "" { continue }
+		env := a.findEnvIn(item.provider, item.name)
+		if env == nil { continue }
+		var current map[string]string
+		switch item.provider {
+		case "claude", "claude_desktop": current = a.GetClaudeSettings()
+		default: continue
+		}
+		for key, expected := range env.Variables {
+			if strings.TrimSpace(expected) != strings.TrimSpace(current[key]) { drift = append(drift, item.label); break }
+		}
+	}
+	return drift
 }
 
 // GetCodexSettings 读取 Codex 配置

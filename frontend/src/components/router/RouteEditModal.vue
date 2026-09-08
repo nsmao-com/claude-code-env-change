@@ -236,6 +236,11 @@ const clientLabel = computed(() => clients.find(item => item.value === form.valu
 
 const upstreamOptions = computed(() => {
   const extra: Record<Provider, { value: string; label: string }[]> = {
+    claude_desktop: [
+      { value: 'native', label: 'Anthropic Messages（原生）' },
+      { value: 'chat_completions', label: 'Chat Completions（需开启路由）' },
+      { value: 'responses', label: 'Responses（需开启路由）' },
+    ],
     claude: [
       { value: 'native', label: 'Anthropic Messages（原生）' },
       { value: 'chat_completions', label: 'Chat Completions（需开启路由）' },

@@ -2,6 +2,7 @@ import type { Provider, UpstreamFormat } from '@/types'
 
 const PROVIDER_SHORT: Record<string, string> = {
   claude: 'Claude',
+  claude_desktop: 'Claude Desktop',
   codex: 'Codex',
   antigravity: 'Antigravity',
   opencode: 'OpenCode',
@@ -11,6 +12,7 @@ const PROVIDER_SHORT: Record<string, string> = {
 export function nativeProtocolLabel(provider: string): string {
   switch (provider) {
     case 'claude':
+    case 'claude_desktop':
       return 'Anthropic Messages'
     case 'codex':
     case 'grok':

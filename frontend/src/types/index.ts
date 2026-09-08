@@ -19,6 +19,7 @@ export interface EnvConfig {
 export interface Config {
   current_env: string
   current_env_claude: string
+  current_env_claude_desktop: string
   current_env_codex: string
   current_env_antigravity: string
   current_env_opencode: string
@@ -244,7 +245,7 @@ export interface UptimeSnapshot {
 }
 
 // Provider 类型
-export type Provider = 'claude' | 'codex' | 'antigravity' | 'opencode' | 'grok'
+export type Provider = 'claude' | 'claude_desktop' | 'codex' | 'antigravity' | 'opencode' | 'grok'
 
 export type AppPage = 'home' | 'env' | 'mcp' | 'skills' | 'router' | 'uptime' | 'cloud' | 'prompts' | 'stats' | 'settings'
 

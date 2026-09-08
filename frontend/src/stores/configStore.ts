@@ -7,6 +7,7 @@ export const useConfigStore = defineStore('config', () => {
   // State
   const environments = ref<EnvConfig[]>([])
   const currentEnvClaude = ref('')
+  const currentEnvClaudeDesktop = ref('')
   const currentEnvCodex = ref('')
   const currentEnvAntigravity = ref('')
   const currentEnvOpencode = ref('')
@@ -26,6 +27,7 @@ export const useConfigStore = defineStore('config', () => {
 
   const activeEnvs = computed(() => ({
     claude: currentEnvClaude.value,
+    claude_desktop: currentEnvClaudeDesktop.value,
     codex: currentEnvCodex.value,
     antigravity: currentEnvAntigravity.value,
     opencode: currentEnvOpencode.value,
@@ -59,6 +61,7 @@ export const useConfigStore = defineStore('config', () => {
       const config = await configService.getConfig()
       environments.value = config.environments || []
       currentEnvClaude.value = config.current_env_claude || ''
+      currentEnvClaudeDesktop.value = config.current_env_claude_desktop || ''
       currentEnvCodex.value = config.current_env_codex || ''
       currentEnvAntigravity.value = config.current_env_antigravity || ''
       currentEnvOpencode.value = config.current_env_opencode || ''

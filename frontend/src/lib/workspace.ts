@@ -5,6 +5,7 @@ export type WorkspaceTool = Provider | 'all'
 export const WORKSPACE_TOOLS: { id: WorkspaceTool; label: string }[] = [
   { id: 'all', label: '全部' },
   { id: 'claude', label: 'Claude' },
+  { id: 'claude_desktop', label: 'Claude Desktop' },
   { id: 'codex', label: 'Codex' },
   { id: 'antigravity', label: 'Antigravity' },
   { id: 'opencode', label: 'OpenCode' },

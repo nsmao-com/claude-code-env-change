@@ -129,6 +129,7 @@ import CommandPalette from '@/components/common/CommandPalette.vue'
 import { OnFileDrop, OnFileDropOff } from '../wailsjs/runtime/runtime'
 import { Upload } from '@lucide/vue'
 import { classifyImportPayload } from '@/lib/configImport'
+import { callApp } from '@/services/appBridge'
 
 const configStore = useConfigStore()
 const uptimeStore = useUptimeStore()
@@ -181,6 +182,14 @@ onMounted(async () => {
 
   try {
     await configStore.loadConfig()
+    const drift = await callApp<string[]>('GetConfigDrift')
+    if (Array.isArray(drift) && drift.length > 0) {
+      const sync = await confirm.show('发现本机配置差异', `${drift.join('、')} 的当前配置与软件中激活的配置不同，是否立即同步？选择取消将保留本机配置。`, 'info')
+      if (sync) {
+        await callApp('ApplyCurrentEnv')
+        toast.success('已同步当前配置')
+      }
+    }
   } catch {
     toast.error(t('toast.loadFailed'))
   }

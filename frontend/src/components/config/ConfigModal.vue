@@ -55,7 +55,7 @@
         <p class="text-xs leading-relaxed text-muted-foreground">{{ upstreamHint }}</p>
       </div>
 
-      <div v-if="form.provider === 'claude'" class="space-y-4">
+      <div v-if="form.provider === 'claude' || form.provider === 'claude_desktop'" class="space-y-4">
         <AppInput v-model="form.claude.baseUrl" label="Base URL" placeholder="https://api.anthropic.com" :tooltip="tips.baseUrlClaude">
           <template #suffix>
             <Button type="button" variant="ghost" size="icon-xs" :disabled="latencyTesting" @click="testLatency(form.claude.baseUrl)">
@@ -626,6 +626,7 @@ function selectIcon(emoji: string) {
 
 const providers: { value: Provider; label: string }[] = [
   { value: 'claude', label: 'Claude' },
+  { value: 'claude_desktop', label: 'Claude Desktop' },
   { value: 'codex', label: 'Codex' },
   { value: 'antigravity', label: 'Antigravity' },
   { value: 'opencode', label: 'OpenCode' },
@@ -636,14 +637,14 @@ const providerPresets = computed(() => {
   return common
 })
 function officialUrl(provider: Provider) {
-  if (provider === 'claude') return 'https://api.anthropic.com'
+  if (provider === 'claude' || provider === 'claude_desktop') return 'https://api.anthropic.com'
   if (provider === 'codex' || provider === 'opencode') return 'https://api.openai.com/v1'
   if (provider === 'antigravity') return 'https://generativelanguage.googleapis.com'
   return 'https://api.x.ai/v1'
 }
 function applyPreset(preset: { url: string }) {
   const target = form.value.provider
-  if (target === 'claude') form.value.claude.baseUrl = preset.url
+  if (target === 'claude' || target === 'claude_desktop') form.value.claude.baseUrl = preset.url
   else if (target === 'codex') form.value.codex.baseUrl = preset.url
   else if (target === 'antigravity') form.value.antigravity.baseUrl = preset.url
   else if (target === 'opencode') form.value.opencode.baseUrl = preset.url
@@ -740,7 +741,7 @@ const tips = {
 }
 
 function onProvider(value: unknown) {
-  if (value === 'claude' || value === 'codex' || value === 'antigravity' || value === 'opencode' || value === 'grok') {
+  if (value === 'claude' || value === 'claude_desktop' || value === 'codex' || value === 'antigravity' || value === 'opencode' || value === 'grok') {
     form.value.provider = value
     form.value.upstreamFormat = ''
   }
@@ -968,7 +969,7 @@ watch(() => props.editConfig, (config) => {
     form.value.provider = config.provider
     form.value.upstreamFormat = (config.upstream_format || '') as UpstreamFormat
 
-    if (config.provider === 'claude') {
+    if (config.provider === 'claude' || config.provider === 'claude_desktop') {
       form.value.claude.baseUrl = config.variables.ANTHROPIC_BASE_URL || ''
       form.value.claude.authToken = config.variables.ANTHROPIC_AUTH_TOKEN || ''
       form.value.claude.model = config.variables.ANTHROPIC_MODEL || ''
@@ -1115,7 +1116,7 @@ async function handleSubmit() {
   let variables: Record<string, string> = {}
   let templates: Record<string, string> = {}
 
-  if (form.value.provider === 'claude') {
+  if (form.value.provider === 'claude' || form.value.provider === 'claude_desktop') {
     variables = {
       ANTHROPIC_BASE_URL: form.value.claude.baseUrl,
       ANTHROPIC_AUTH_TOKEN: form.value.claude.authToken,
@@ -1232,8 +1233,8 @@ async function handleSubmit() {
     templates,
     icon: form.value.icon,
     upstream_format: form.value.upstreamFormat,
-    attribution_header: form.value.provider === 'claude' ? form.value.claude.attributionHeader : '',
-    disable_nonessential_traffic: form.value.provider === 'claude' ? form.value.claude.disableNonessentialTraffic : ''
+    attribution_header: form.value.provider === 'claude' || form.value.provider === 'claude_desktop' ? form.value.claude.attributionHeader : '',
+    disable_nonessential_traffic: form.value.provider === 'claude' || form.value.provider === 'claude_desktop' ? form.value.claude.disableNonessentialTraffic : ''
   }
 
   try {

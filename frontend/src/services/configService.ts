@@ -49,6 +49,7 @@ export const configService = {
 
     return {
       ...raw,
+      current_env_claude_desktop: (raw as unknown as { current_env_claude_desktop?: string }).current_env_claude_desktop || '',
       environments,
       current_env_opencode: raw.current_env_opencode || '',
       current_envs_opencode: collectOpencodeApplied(raw),
@@ -194,6 +195,8 @@ function normalizeProvider(provider: string | undefined): Provider {
   switch ((provider || '').toLowerCase()) {
     case 'claude':
       return 'claude'
+    case 'claude_desktop':
+      return 'claude_desktop'
     case 'codex':
       return 'codex'
     case 'antigravity':
