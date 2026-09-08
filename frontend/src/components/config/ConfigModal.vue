@@ -837,7 +837,7 @@ function unsetOr(value: string, fallback = 'unset') {
 
 function providerFromFilter(): Provider {
   const filter = configStore.currentFilter
-  if (filter === 'codex' || filter === 'antigravity' || filter === 'opencode' || filter === 'grok') return filter
+  if (filter === 'claude_desktop' || filter === 'codex' || filter === 'antigravity' || filter === 'opencode' || filter === 'grok') return filter
   return 'claude'
 }
 
