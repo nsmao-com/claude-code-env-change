@@ -1,4 +1,4 @@
-Unicode true
+﻿Unicode true
 
 !include "wails_tools.nsh"
 
