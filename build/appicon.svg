@@ -1,5 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
   <defs><linearGradient id="surface" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2b2b2d"/><stop offset="0.48" stop-color="#111113"/><stop offset="1" stop-color="#050506"/></linearGradient><linearGradient id="shine" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".24"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/></linearGradient></defs>
   <rect x="40" y="40" width="944" height="944" rx="238" fill="url(#surface)"/><rect x="40" y="40" width="944" height="944" rx="238" fill="none" stroke="#fff" stroke-opacity=".16" stroke-width="8"/><path d="M40 278C40 146 146 40 278 40h468c132 0 238 106 238 238v48H40z" fill="url(#shine)"/>
-  <path d="M278 738V286h112l244 310V286h112v452H634L390 428v310z" fill="#fff"/><path d="M278 738h112V562h244v-96H390v-84h356V286H278z" fill="#bdbdc2" fill-opacity=".42"/>
+  <circle cx="512" cy="512" r="238" fill="none" stroke="#fff" stroke-opacity=".2" stroke-width="10"/>
+  <path d="M512 250c24 143 107 226 250 250-143 24-226 107-250 250-24-143-107-226-250-250 143-24 226-107 250-250Z" fill="#fff"/>
+  <circle cx="512" cy="512" r="52" fill="#111113"/><circle cx="512" cy="512" r="20" fill="#fff"/>
 </svg>
