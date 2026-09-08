@@ -38,15 +38,15 @@ type EnvConfig struct {
 
 // Config 主配置
 type Config struct {
-	CurrentEnv            string      `json:"current_env"` // Deprecated: 兼容旧版本
-	CurrentEnvClaude      string      `json:"current_env_claude"`
-	CurrentEnvClaudeDesktop string    `json:"current_env_claude_desktop"`
-	CurrentEnvCodex       string      `json:"current_env_codex"`
-	CurrentEnvAntigravity string      `json:"current_env_antigravity"` // 旧版本为 gemini，加载时自动迁移
-	CurrentEnvOpencode    string      `json:"current_env_opencode"`
-	CurrentEnvsOpencode   []string    `json:"current_envs_opencode"`
-	CurrentEnvGrok        string      `json:"current_env_grok"`
-	Environments          []EnvConfig `json:"environments"`
+	CurrentEnv              string      `json:"current_env"` // Deprecated: 兼容旧版本
+	CurrentEnvClaude        string      `json:"current_env_claude"`
+	CurrentEnvClaudeDesktop string      `json:"current_env_claude_desktop"`
+	CurrentEnvCodex         string      `json:"current_env_codex"`
+	CurrentEnvAntigravity   string      `json:"current_env_antigravity"` // 旧版本为 gemini，加载时自动迁移
+	CurrentEnvOpencode      string      `json:"current_env_opencode"`
+	CurrentEnvsOpencode     []string    `json:"current_envs_opencode"`
+	CurrentEnvGrok          string      `json:"current_env_grok"`
+	Environments            []EnvConfig `json:"environments"`
 }
 
 // App struct
@@ -573,16 +573,25 @@ func (a *App) GetConfigDrift() []string {
 		{"opencode", a.config.CurrentEnvOpencode, "OpenCode"},
 		{"grok", a.config.CurrentEnvGrok, "Grok"},
 	} {
-		if item.name == "" { continue }
+		if item.name == "" {
+			continue
+		}
 		env := a.findEnvIn(item.provider, item.name)
-		if env == nil { continue }
+		if env == nil {
+			continue
+		}
 		var current map[string]string
 		switch item.provider {
-		case "claude", "claude_desktop": current = a.GetClaudeSettings()
-		default: continue
+		case "claude", "claude_desktop":
+			current = a.GetClaudeSettings()
+		default:
+			continue
 		}
 		for key, expected := range env.Variables {
-			if strings.TrimSpace(expected) != strings.TrimSpace(current[key]) { drift = append(drift, item.label); break }
+			if strings.TrimSpace(expected) != strings.TrimSpace(current[key]) {
+				drift = append(drift, item.label)
+				break
+			}
 		}
 	}
 	return drift
