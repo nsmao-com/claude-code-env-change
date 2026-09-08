@@ -244,6 +244,29 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Checkout source for release notes
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Prepare release notes
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          {
+            echo "## AI ENV v${version}"
+            echo
+            echo "### 更新内容"
+            git log -8 --pretty=format:'- %s'
+            echo
+            echo
+            echo "### 验证"
+            echo "- GitHub Actions 已完成版本校验。"
+            echo "- Go 与前端检查按本次提交执行。"
+            echo
+            echo "官网：https://www.nsmao.com"
+          } > release-body.md
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
@@ -262,5 +285,6 @@ jobs:
             artifacts/macos-builds/claude-env-switcher-macos-arm64.zip
             artifacts/windows-builds/claude-env-switcher-windows-amd64-installer.exe
           generate_release_notes: true
+          body_path: release-body.md
           draft: false
           prerelease: false
