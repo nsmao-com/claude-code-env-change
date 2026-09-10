@@ -129,7 +129,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 
-const AUTO_PROVIDERS: Provider[] = ['claude', 'codex', 'antigravity', 'opencode', 'grok']
+const AUTO_PROVIDERS: Provider[] = ['claude', 'claude_desktop', 'codex', 'antigravity', 'opencode', 'grok']
 
 interface Props {
   modelValue: boolean
@@ -156,6 +156,7 @@ const showAdvanced = ref(false)
 
 const clients: { value: Provider; label: string }[] = [
   { value: 'claude', label: 'Claude Code' },
+  { value: 'claude_desktop', label: 'Claude Desktop' },
   { value: 'codex', label: 'Codex' },
   { value: 'antigravity', label: 'Antigravity' },
   { value: 'opencode', label: 'OpenCode' },
@@ -164,7 +165,7 @@ const clients: { value: Provider; label: string }[] = [
 
 const tips = {
   name: '会出现在本机网关路径里，例如 http://127.0.0.1:端口/名称。应用路由自动生成的条目名称就是模型商 id。',
-  client: '谁来连本机网关。Claude Code 说 Anthropic；Codex / OpenCode / Grok 说 OpenAI 系。',
+  client: '谁来连本机网关。Claude Code 和 Claude Desktop 说 Anthropic；其它客户端按自身协议接入。',
   upstream: '上游实际返回的协议。和配置里高级选项的「上游格式」同一套：原生可透传，其它格式由网关转换。',
   baseUrl: '真实上游地址，一般填到域名或 /v1 之前。',
   apiKey: '转发给上游时使用的密钥。CLI 里可以随便填占位。',
@@ -281,14 +282,14 @@ const upstreamSelect = computed({
 })
 
 function sourceOf(client: Provider): APIFormat {
-  return client === 'claude' ? 'anthropic' : 'openai'
+  return client === 'claude' || client === 'claude_desktop' ? 'anthropic' : 'openai'
 }
 
 function targetOf(client: Provider, format: string): APIFormat {
   if (format === 'anthropic_messages') return 'anthropic'
   if (format === 'chat_completions') return 'openai'
   if (format === 'responses') return 'responses'
-  if (client === 'claude') return 'anthropic'
+  if (client === 'claude' || client === 'claude_desktop') return 'anthropic'
   if (client === 'opencode' || client === 'antigravity') return 'openai'
   return 'responses'
 }
@@ -315,7 +316,7 @@ function upstreamFromRoute(route: APIRoute, client: Provider): string {
 const routeUrl = computed(() => `http://127.0.0.1:${routerStore.config.port || 8790}/${form.value.name.trim()}`)
 const accessUrl = computed(() => {
   const base = routeUrl.value
-  return form.value.client === 'claude' ? base : `${base}/v1`
+  return form.value.client === 'claude' || form.value.client === 'claude_desktop' ? base : `${base}/v1`
 })
 
 function addMappingRow() {
@@ -383,7 +384,7 @@ function applyPreset(preset: Preset) {
 }
 
 function onClient(value: unknown) {
-  if (value === 'claude' || value === 'codex' || value === 'antigravity' || value === 'opencode' || value === 'grok') {
+  if (value === 'claude' || value === 'claude_desktop' || value === 'codex' || value === 'antigravity' || value === 'opencode' || value === 'grok') {
     form.value.client = value
     const allowed = upstreamOptions.value.some(opt => opt.value === form.value.upstream)
     if (!allowed) form.value.upstream = 'native'

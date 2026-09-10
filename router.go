@@ -214,17 +214,18 @@ func normalizeAPIFormat(value string) string {
 
 func defaultAppRouting() map[string]bool {
 	return map[string]bool{
-		"claude":      false,
-		"codex":       false,
-		"antigravity": false,
-		"opencode":    false,
-		"grok":        false,
+		"claude":         false,
+		"claude_desktop": false,
+		"codex":          false,
+		"antigravity":    false,
+		"opencode":       false,
+		"grok":           false,
 	}
 }
 
 func knownProvider(value string) (string, bool) {
 	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "claude", "codex", "antigravity", "opencode", "grok":
+	case "claude", "claude_desktop", "codex", "antigravity", "opencode", "grok":
 		return strings.ToLower(strings.TrimSpace(value)), true
 	case "gemini":
 		// 旧平台名，归一到 antigravity

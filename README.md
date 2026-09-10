@@ -5,7 +5,7 @@
 <h1 align="center">AI ENV</h1>
 
 <p align="center">
-  面向 Claude Code、Codex、Antigravity CLI（agy）、OpenCode、Grok 的本地桌面工作台。<br />
+  面向 Claude Code、Claude Desktop、Codex、Antigravity CLI（agy）、OpenCode、Grok 的本地桌面工作台。<br />
   一处管理环境配置、MCP、Skills、本地 API 路由、监控轮换、云端备份和本机 CLI。
 </p>
 
@@ -31,7 +31,7 @@
 
 ## 这是什么
 
-把五套 CLI 的环境变量、MCP 服务器、Skills、提示词、用量统计和本机安装收进同一个原生窗口。配置写在本机，不经过第三方账号；换电脑时可以用 S3 兼容对象存储加密备份。
+把 Claude Code、Claude Desktop、Codex、Antigravity CLI、OpenCode、Grok 的环境变量、MCP 服务器、Skills、提示词、用量统计和本机安装收进同一个原生窗口。配置写在本机，不经过第三方账号；换电脑时可以用 S3 兼容对象存储加密备份。
 
 当前版本以 [GitHub Releases](https://github.com/nsmao-com/claude-code-env-change/releases) 的最新版本为准。
 
@@ -40,15 +40,15 @@
 | 模块 | 说明 |
 | --- | --- |
 | 环境 | 多配置、按平台筛选、拖拽排序、一键写入对应 CLI、延迟测速、JSON 拖拽导入 |
-| MCP | 管理 stdio / HTTP 服务器，同步到 Claude / Codex / Antigravity / OpenCode / Grok |
+| MCP | 管理 stdio / HTTP 服务器，同步到 Claude Code / Claude Desktop / Codex / Antigravity / OpenCode / Grok |
 | Skills | 编辑 `SKILL.md`，从在线市场 / 内置库导入，按平台启用 |
-| API 路由 | 本机网关端口与按厂商开关；五家 CLI 可在 Anthropic Messages、Chat Completions、Responses 之间互相转换 |
+| API 路由 | 本机网关端口与按厂商开关；各平台可在 Anthropic Messages、Chat Completions、Responses 之间转换 |
 | 监控 | 定时探测 Base URL，按轮换组自动切配置 |
 | 云同步 | S3 / 阿里云 OSS / 兼容端点，AES-GCM 加密后上传 |
 | 提示词 | 编辑各平台自定义系统提示词 |
 | 统计 | 请求量、Token、花费估算、模型分布、活动热力图 |
 | 设置 | 语言、主题、强调色、出站代理 |
-| CLI | 检测本机 Claude / Codex / Antigravity / OpenCode / Grok，按 pnpm、yarn、npm、官方安装器或原生方式安装升级 |
+| CLI | 检测本机 Claude Code / Codex / Antigravity / OpenCode / Grok，按 pnpm、yarn、npm、官方安装器或原生方式安装升级 |
 | 配置目录 | 打开各家 CLI 的本机配置目录和关键文件 |
 | 更新 | 检测 GitHub Release，Windows 可在应用内下载并替换 |
 
@@ -105,6 +105,7 @@ wails build -platform windows/amd64 -nsis -webview2 download
 | 平台 | 路径 |
 | --- | --- |
 | Claude Code | `~/.claude/settings.json` |
+| Claude Desktop | 新版 3P：Windows `%LOCALAPPDATA%\\Claude-3p\\configLibrary\\<id>.json`（当前配置见同目录 `_meta.json`）；旧版 MCP：`%APPDATA%\\Claude\\claude_desktop_config.json`；macOS 旧版：`~/Library/Application Support/Claude/claude_desktop_config.json` |
 | Codex | `~/.codex/config.toml`、`~/.codex/auth.json` |
 | Antigravity CLI | `~/.gemini/antigravity-cli/settings.json`、`~/.gemini/config/mcp_config.json`；密钥/端点写入用户环境变量（agy 只认环境变量） |
 | OpenCode | `~/.config/opencode/opencode.json`（可用 `OPENCODE_CONFIG_DIR` / `OPENCODE_CONFIG` 覆盖） |

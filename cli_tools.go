@@ -125,12 +125,28 @@ func (a *App) ListConfigDirs() []ConfigDirInfo {
 	home, _ := os.UserHomeDir()
 	appData := os.Getenv("APPDATA")
 	localApp := os.Getenv("LOCALAPPDATA")
+	desktopConfig := mustClaudeDesktopConfigPath()
+	desktopDir := ""
+	if strings.TrimSpace(desktopConfig) != "" {
+		desktopDir = filepath.Dir(desktopConfig)
+	}
+	desktopFiles := []string{}
+	if desktopDir != "." && desktopDir != "" {
+		desktopFiles = append(desktopFiles, "_meta.json")
+	}
+	if name := filepath.Base(desktopConfig); name != "" && name != "." && name != "_meta.json" {
+		desktopFiles = append(desktopFiles, name)
+	}
 	items := []ConfigDirInfo{
 		configDirInfo("claude", "Claude Code", firstExistingDir(
 			filepath.Join(home, ".claude"),
 			filepath.Join(appData, ".claude"),
 			filepath.Join(localApp, ".claude"),
 		), []string{"settings.json"}),
+		configDirInfo("claude_desktop", "Claude Desktop", firstExistingDir(
+			desktopDir,
+			filepath.Join(appData, "Claude"),
+		), desktopFiles),
 		configDirInfo("codex", "Codex", firstExistingDir(
 			filepath.Join(home, ".codex"),
 			filepath.Join(appData, ".codex"),

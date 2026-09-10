@@ -14,7 +14,7 @@ import (
 )
 
 // ImportLocalEnv 从本机 CLI 配置文件读取当前设置，并为指定平台新增一条环境配置。
-// provider 为 claude/codex/gemini/opencode/grok；空或 all 则尝试全部平台。
+// provider 为 claude/claude_desktop/codex/antigravity/opencode/grok；空或 all 则尝试全部平台。
 func (a *App) ImportLocalEnv(provider string) ([]EnvConfig, error) {
 	p := strings.ToLower(strings.TrimSpace(provider))
 	if p == "" {
@@ -23,7 +23,7 @@ func (a *App) ImportLocalEnv(provider string) ([]EnvConfig, error) {
 
 	targets := []string{p}
 	if p == "all" {
-		targets = []string{"claude", "codex", "antigravity", "opencode", "grok"}
+		targets = []string{"claude", "claude_desktop", "codex", "antigravity", "opencode", "grok"}
 	}
 
 	added := make([]EnvConfig, 0, len(targets))
@@ -72,6 +72,12 @@ func (a *App) buildLocalEnvs(provider string) ([]EnvConfig, error) {
 			return nil, err
 		}
 		return []EnvConfig{*env}, nil
+	case "claude_desktop":
+		env, err := a.buildLocalClaudeDesktopEnv()
+		if err != nil || env == nil {
+			return nil, err
+		}
+		return []EnvConfig{*env}, nil
 	case "codex":
 		env, err := a.buildLocalCodexEnv()
 		if err != nil || env == nil {
@@ -95,6 +101,76 @@ func (a *App) buildLocalEnvs(provider string) ([]EnvConfig, error) {
 	default:
 		return nil, fmt.Errorf("未知平台 %s", provider)
 	}
+}
+
+func (a *App) buildLocalClaudeDesktopEnv() (*EnvConfig, error) {
+	path, err := claudeDesktopConfigPath()
+	if err != nil {
+		return nil, err
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	if len(data) == 0 {
+		return nil, nil
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(data, &payload); err != nil || payload == nil {
+		return nil, fmt.Errorf("Claude Desktop 配置 JSON 无效: %v", err)
+	}
+	vars := readClaudeDesktopEnv(data)
+	if v := vars["ANTHROPIC_BASE_URL"]; v != "" {
+		vars["ANTHROPIC_BASE_URL"] = resolveImportedBaseURL(v)
+	}
+	// Claude Desktop 的配置通常只有 mcpServers；仍然导入整个模板，保存时可以原样保留 MCP。
+	if len(vars) == 0 && payload["mcpServers"] == nil && payload["inferenceGatewayBaseUrl"] == nil && payload["inferenceModels"] == nil {
+		return nil, nil
+	}
+	return &EnvConfig{
+		Name:        a.uniqueEnvName("本机 Claude Desktop"),
+		Description: "从本机 Claude Desktop 配置导入",
+		Provider:    "claude_desktop",
+		Variables:   vars,
+		Templates:   map[string]string{"claude_desktop_config.json": string(data)},
+		Icon:        "💻",
+	}, nil
+}
+
+func readClaudeDesktopEnv(data []byte) map[string]string {
+	result := map[string]string{}
+	var payload map[string]any
+	if json.Unmarshal(data, &payload) != nil {
+		return result
+	}
+	if env, ok := payload["env"].(map[string]any); ok {
+		for key, value := range env {
+			if text, ok := value.(string); ok && strings.TrimSpace(text) != "" {
+				result[key] = text
+			}
+		}
+	}
+	// Claude Desktop 3P 的本地配置使用 inference* 字段，不使用 Claude Code 的 env。
+	if value := strings.TrimSpace(asString(payload["inferenceGatewayBaseUrl"])); value != "" {
+		result["ANTHROPIC_BASE_URL"] = value
+	}
+	if value := strings.TrimSpace(asString(payload["inferenceGatewayApiKey"])); value != "" {
+		result["ANTHROPIC_API_KEY"] = value
+	}
+	if models, ok := payload["inferenceModels"].([]any); ok && len(models) > 0 {
+		switch first := models[0].(type) {
+		case string:
+			result["ANTHROPIC_MODEL"] = strings.TrimSpace(first)
+		case map[string]any:
+			result["ANTHROPIC_MODEL"] = strings.TrimSpace(firstNonEmpty(asString(first["name"]), asString(first["id"])))
+		}
+	} else if model := strings.TrimSpace(asString(payload["model"])); model != "" {
+		result["ANTHROPIC_MODEL"] = model
+	}
+	return result
 }
 
 func (a *App) uniqueEnvName(base string) string {

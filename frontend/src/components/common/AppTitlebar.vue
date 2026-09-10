@@ -145,6 +145,10 @@
             <BrandIcon provider="claude" class="size-3.5" />
             {{ t('titlebar.clearClaude') }}
           </DropdownMenuItem>
+          <DropdownMenuItem @click="$emit('clearClaudeDesktop')">
+            <BrandIcon provider="claude_desktop" class="size-3.5" />
+            清除 Claude Desktop
+          </DropdownMenuItem>
           <DropdownMenuItem @click="$emit('clearCodex')">
             <BrandIcon provider="codex" class="size-3.5" />
             {{ t('titlebar.clearCodex') }}
@@ -265,6 +269,7 @@ const emit = defineEmits<{
   export: []
   import: []
   clearClaude: []
+  clearClaudeDesktop: []
   clearCodex: []
   clearAntigravity: []
   clearOpencode: []
@@ -297,6 +302,7 @@ const ICON_COLORS: Record<string, string> = {
   antigravity: 'text-[#4F6BED]',
   opencode: 'text-[#131010] dark:text-white/80',
   grok: 'text-[#6B7280]',
+  claude_desktop: 'text-[#D97757]',
 }
 
 function iconColor(id: string) {

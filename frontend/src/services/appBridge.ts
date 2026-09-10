@@ -56,10 +56,16 @@ export function pickNum(raw: unknown, ...keys: string[]): number {
 
 export function onAppEvent(name: string, handler: (data: unknown) => void): () => void {
   const runtime = (window as unknown as {
-    runtime?: { EventsOn?: (event: string, cb: (...args: unknown[]) => void) => () => void }
+    runtime?: {
+      EventsOn?: (event: string, cb: (...args: unknown[]) => void) => () => void
+      EventsOnMultiple?: (event: string, cb: (...args: unknown[]) => void, maxCallbacks: number) => () => void
+    }
   }).runtime
-  if (!runtime?.EventsOn) return () => {}
-  return runtime.EventsOn(name, (...args: unknown[]) => {
+  const subscribe = runtime?.EventsOn || (runtime?.EventsOnMultiple
+    ? (event: string, callback: (...args: unknown[]) => void) => runtime.EventsOnMultiple!(event, callback, -1)
+    : undefined)
+  if (!subscribe) return () => {}
+  return subscribe(name, (...args: unknown[]) => {
     handler(args.length === 1 ? args[0] : args)
   })
 }

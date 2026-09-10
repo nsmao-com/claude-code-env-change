@@ -108,8 +108,8 @@ export const useConfigStore = defineStore('config', () => {
       return 'unapplied'
     }
     const kept = env?.provider === 'opencode' ? [...currentEnvsOpencode.value] : []
-    await configService.switchToEnv(name, env?.provider || 'claude')
-    const message = await configService.applyCurrentEnv()
+    const targetProvider = env?.provider || 'claude'
+    const message = await configService.applyEnv(name, targetProvider)
     await loadConfig()
     if (env?.provider === 'opencode') {
       const seen = new Set<string>()
@@ -196,6 +196,8 @@ export const useConfigStore = defineStore('config', () => {
     switch (provider) {
       case 'claude':
         return configService.getClaudeSettings()
+      case 'claude_desktop':
+        return configService.getClaudeDesktopSettings()
       case 'codex':
         return configService.getCodexSettings()
       case 'antigravity':
@@ -229,6 +231,8 @@ export const useConfigStore = defineStore('config', () => {
     switch (provider) {
       case 'claude':
         return currentEnvClaude.value === name
+      case 'claude_desktop':
+        return currentEnvClaudeDesktop.value === name
       case 'codex':
         return currentEnvCodex.value === name
       case 'antigravity':
@@ -246,6 +250,7 @@ export const useConfigStore = defineStore('config', () => {
     // State
     environments,
     currentEnvClaude,
+    currentEnvClaudeDesktop,
     currentEnvCodex,
     currentEnvAntigravity,
     currentEnvOpencode,

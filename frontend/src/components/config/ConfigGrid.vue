@@ -170,7 +170,8 @@ const currentFilter = computed(() => configStore.currentFilter)
 const totalCount = computed(() => configStore.environments.length)
 const filterLabel = computed(() => {
   if (currentFilter.value === 'all') return '全部'
-  if (currentFilter.value === 'claude') return 'Claude'
+  if (currentFilter.value === 'claude') return 'Claude Code'
+  if (currentFilter.value === 'claude_desktop') return 'Claude Desktop'
   if (currentFilter.value === 'codex') return 'Codex'
   if (currentFilter.value === 'antigravity') return 'Antigravity'
   if (currentFilter.value === 'opencode') return 'OpenCode'

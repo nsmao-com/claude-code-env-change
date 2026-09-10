@@ -3,13 +3,13 @@
     <template #header>
       <div>
         <h1 class="text-[2.5rem] leading-none font-semibold tracking-tight">提示词</h1>
-        <p class="mt-2 text-sm text-muted-foreground">编辑 Claude / Codex / Antigravity / OpenCode / Grok 的自定义提示词</p>
+        <p class="mt-2 text-sm text-muted-foreground">编辑五个平台的自定义提示词，保存会直接覆盖对应本机文件；Claude Desktop 使用独立配置文件</p>
       </div>
     </template>
 
     <Tabs v-model="activeTab">
       <SegmentedPills
-        v-if="configStore.currentFilter === 'all'"
+        v-if="configStore.currentFilter === 'all' || configStore.currentFilter === 'claude_desktop'"
         class="mb-4"
         :model-value="activeTab"
         layout-id="prompt-tab-pill"
@@ -27,36 +27,41 @@
       </div>
 
       <template v-else>
-        <TabsContent v-for="tab in tabs" :key="tab.value" :value="tab.value" class="flex flex-col gap-3">
-          <div class="flex items-center justify-between gap-3">
-            <div class="flex min-w-0 items-center gap-3">
-              <AppTooltip :content="fileOf(tab.value)?.path" wrap :disabled="!fileOf(tab.value)?.path" class="min-w-0 max-w-md">
-                <span class="block truncate font-mono text-xs text-muted-foreground">
-                  {{ fileOf(tab.value)?.path || '-' }}
-                </span>
-              </AppTooltip>
-              <Badge v-if="fileOf(tab.value)?.exists">已存在</Badge>
-              <Badge v-else variant="outline">未创建</Badge>
+        <div v-if="configStore.currentFilter === 'claude_desktop'" class="rounded-xl border border-border/70 bg-muted/30 p-4 text-sm text-muted-foreground">
+          Claude Desktop 没有独立的全局提示词文件。请在环境配置中编辑它的 configLibrary JSON；这里显示的是 Claude Code、Codex、Antigravity、OpenCode 和 Grok 的提示词文件。
+        </div>
+        <template v-for="tab in tabs" :key="tab.value">
+          <TabsContent v-if="!isDesktopFilter" :value="tab.value" class="flex flex-col gap-3">
+            <div class="flex items-center justify-between gap-3">
+              <div class="flex min-w-0 items-center gap-3">
+                <AppTooltip :content="fileOf(tab.value)?.path" wrap :disabled="!fileOf(tab.value)?.path" class="min-w-0 max-w-md">
+                  <span class="block truncate font-mono text-xs text-muted-foreground">
+                    {{ fileOf(tab.value)?.path || '-' }}
+                  </span>
+                </AppTooltip>
+                <Badge v-if="fileOf(tab.value)?.exists">已存在</Badge>
+                <Badge v-else variant="outline">未创建</Badge>
+              </div>
+              <Button
+                v-if="fileOf(tab.value)?.exists"
+                variant="destructive"
+                size="sm"
+                @click="deleteFile(tab.value)"
+              >
+                <Trash2 />
+                删除
+              </Button>
             </div>
-            <Button
-              v-if="fileOf(tab.value)?.exists"
-              variant="destructive"
-              size="sm"
-              @click="deleteFile"
-            >
-              <Trash2 />
-              删除
-            </Button>
-          </div>
 
-          <Textarea
-            :model-value="fileOf(tab.value)?.content || ''"
-            class="min-h-64 resize-y font-mono text-sm"
-            :placeholder="getPlaceholder(tab.value)"
-            spellcheck="false"
-            @update:model-value="(v) => setFileContent(tab.value, v)"
-          />
-        </TabsContent>
+            <Textarea
+              :model-value="fileOf(tab.value)?.content || ''"
+              class="min-h-64 resize-y font-mono text-sm"
+              :placeholder="getPlaceholder(tab.value)"
+              spellcheck="false"
+              @update:model-value="(v) => setFileContent(tab.value, v)"
+            />
+          </TabsContent>
+        </template>
       </template>
     </Tabs>
 
@@ -68,7 +73,7 @@
         </p>
         <div class="flex items-center gap-3">
           <Button v-if="!embedded" variant="secondary" @click="close">取消</Button>
-          <Button :disabled="isSaving" @click="save">
+          <Button :disabled="isSaving || !editableFile || isDesktopFilter" @click="save">
             <Loader2 v-if="isSaving" class="animate-spin" />
             <Save v-else />
             保存
@@ -126,7 +131,7 @@ const isOpen = computed({
 })
 
 const tabs = [
-  { value: 'claude', label: 'CLAUDE' },
+  { value: 'claude', label: 'CLAUDE CODE' },
   { value: 'codex', label: 'CODEX' },
   { value: 'antigravity', label: 'GEMINI' },
   { value: 'opencode', label: 'OPENCODE' },
@@ -137,6 +142,8 @@ const activeTab = ref('claude')
 const isLoading = ref(false)
 const isSaving = ref(false)
 const files = ref<PromptFile[]>([])
+const editableFile = computed(() => fileOf(activeTab.value))
+const isDesktopFilter = computed(() => configStore.currentFilter === 'claude_desktop')
 
 function fileOf(provider: string) {
   return files.value.find(f => f.provider === provider)
@@ -200,15 +207,20 @@ async function loadFiles() {
 }
 
 async function save() {
+  const provider = activeTab.value
+  const file = fileOf(provider)
+  if (!file) {
+    toast.error('提示词文件尚未加载完成，请稍后再试')
+    return
+  }
+  const content = file.content
   isSaving.value = true
   try {
-    const file = fileOf(activeTab.value)
-    await SavePromptFile(activeTab.value, file?.content || '')
-
-    if (file) {
-      file.exists = true
-    }
-
+    await SavePromptFile(provider, content)
+    const refreshed = await GetPromptFiles()
+    const saved = refreshed.find(item => item.provider === provider)
+    if (!saved || saved.content !== content) throw new Error('保存后读取到的内容与编辑内容不一致')
+    files.value = files.value.map(item => item.provider === provider ? saved : item)
     emit('saved')
   } catch (e: any) {
     toast.error('保存失败: ' + (e?.message || String(e)))
@@ -217,18 +229,18 @@ async function save() {
   }
 }
 
-async function deleteFile() {
+async function deleteFile(provider = activeTab.value) {
   const ok = await confirm.show(
     '删除提示词',
-    `确定要删除 ${activeTab.value.toUpperCase()} 的提示词文件吗？`,
+    `确定要删除 ${provider.toUpperCase()} 的提示词文件吗？`,
     'danger'
   )
   if (!ok) return
 
   try {
-    await DeletePromptFile(activeTab.value)
+    await DeletePromptFile(provider)
 
-    const file = fileOf(activeTab.value)
+    const file = fileOf(provider)
     if (file) {
       file.content = ''
       file.exists = false

@@ -271,7 +271,7 @@
         <div class="flex items-start justify-between">
           <div>
             <p class="text-[15px] font-semibold text-foreground">写入追踪</p>
-            <p class="mt-0.5 text-[11px] text-muted-foreground">Coverage · 目标 5 个平台全部写入</p>
+            <p class="mt-0.5 text-[11px] text-muted-foreground">Coverage · 目标 6 个平台全部写入</p>
           </div>
           <span class="inline-flex items-center gap-0.5 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
             <TrendingUp class="size-3" />
@@ -280,7 +280,7 @@
         </div>
 
         <div class="mt-3 flex items-baseline gap-2">
-          <span class="text-[34px] leading-none font-bold tracking-tight tabular-nums">{{ configuredCount }}<span class="text-muted-foreground/50">/5</span></span>
+          <span class="text-[34px] leading-none font-bold tracking-tight tabular-nums">{{ configuredCount }}<span class="text-muted-foreground/50">/6</span></span>
           <span class="text-xs text-muted-foreground">平台已写入</span>
         </div>
 
@@ -357,6 +357,7 @@ const weekdayCN = ['周日', '周一', '周二', '周三', '周四', '周五', '
 const configuredCount = computed(() => {
   return [
     configStore.currentEnvClaude,
+    configStore.currentEnvClaudeDesktop,
     configStore.currentEnvCodex,
     configStore.currentEnvAntigravity,
     configStore.currentEnvOpencode,
@@ -364,11 +365,14 @@ const configuredCount = computed(() => {
   ].filter(Boolean).length
 })
 
-const appliedRate = computed(() => Math.round((configuredCount.value / 5) * 100))
+const claudeDesktopEnvs = computed(() => configStore.environments.filter(env => env.provider === 'claude_desktop'))
+
+const appliedRate = computed(() => Math.round((configuredCount.value / 6) * 100))
 
 const platformCols = computed(() => {
   return [
-    { id: 'claude' as Provider, label: 'Claude', count: configStore.claudeEnvs.length, applied: !!configStore.currentEnvClaude },
+    { id: 'claude' as Provider, label: 'Claude Code', count: configStore.claudeEnvs.length, applied: !!configStore.currentEnvClaude },
+    { id: 'claude_desktop' as Provider, label: 'Claude Desktop', count: claudeDesktopEnvs.value.length, applied: !!configStore.currentEnvClaudeDesktop },
     { id: 'codex' as Provider, label: 'Codex', count: configStore.codexEnvs.length, applied: !!configStore.currentEnvCodex },
     { id: 'antigravity' as Provider, label: 'Antigravity', count: configStore.antigravityEnvs.length, applied: !!configStore.currentEnvAntigravity },
     { id: 'opencode' as Provider, label: 'OpenCode', count: configStore.opencodeEnvs.length, applied: configStore.currentEnvsOpencode.length > 0 || !!configStore.currentEnvOpencode },
@@ -409,7 +413,7 @@ const kpis = computed(() => {
     {
       label: '已写入平台',
       value: configuredCount.value,
-      unit: '/ 5',
+      unit: '/ 6',
       icon: CircleCheck as Component,
       iconClass: 'bg-emerald-500/10 text-emerald-600',
       spark: appliedSpark.value,
@@ -421,7 +425,7 @@ const kpis = computed(() => {
     },
     {
       label: '待写入',
-      value: 5 - configuredCount.value,
+      value: 6 - configuredCount.value,
       unit: '个平台',
       icon: Layers as Component,
       iconClass: 'bg-violet-500/10 text-violet-600',

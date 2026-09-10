@@ -18,6 +18,7 @@ import {
   ClearOpencodeSettings,
   ClearGrokSettings,
   GetClaudeSettings,
+  GetClaudeDesktopSettings,
   GetCodexSettings,
   GetAntigravitySettings,
   OpenProviderTerminal,
@@ -81,6 +82,10 @@ export const configService = {
     return ApplyCurrentEnv()
   },
 
+  async applyEnv(name: string, provider: string): Promise<string> {
+    return callApp<string>('ApplyEnv', name, provider)
+  },
+
   async reorderEnvs(names: string[]): Promise<void> {
     return ReorderEnvs(names)
   },
@@ -119,6 +124,10 @@ export const configService = {
 
   async getClaudeSettings(): Promise<Record<string, string>> {
     return GetClaudeSettings()
+  },
+
+  async getClaudeDesktopSettings(): Promise<Record<string, string>> {
+    return GetClaudeDesktopSettings()
   },
 
   async getCodexSettings(): Promise<Record<string, string>> {

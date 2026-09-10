@@ -413,7 +413,7 @@ func (ls *LogService) aggregateEnvUsage(records []UsageRecord, days int) map[str
 	cutoffUnix := cutoff.Unix()
 	cutoffStr := cutoff.Local().Format(recordTimeLayout)
 
-	providers := []string{"claude", "codex", "antigravity"}
+	providers := []string{"claude", "claude_desktop", "codex", "antigravity", "opencode", "grok"}
 	prepared := map[string][]EnvActivationEvent{}
 	for _, p := range providers {
 		events := activations[p]

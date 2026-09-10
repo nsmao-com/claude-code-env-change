@@ -81,7 +81,7 @@
           </template>
         </AppInput>
 
-        <div class="space-y-3 border-t pt-3">
+        <div v-if="form.provider === 'claude'" class="space-y-3 border-t pt-3">
           <p class="text-xs font-medium tracking-wide text-muted-foreground uppercase">Claude Code 环境变量</p>
           <div class="flex items-center justify-between gap-3">
             <div>
@@ -164,10 +164,21 @@
             />
           </div>
         </div>
-        <Button type="button" variant="ghost" size="sm" @click="showMore = !showMore">
+        <div v-if="form.provider === 'claude_desktop'" class="space-y-3 rounded-xl border border-border/70 bg-muted/30 p-3">
+          <p class="text-sm font-medium">Claude Desktop 配置</p>
+          <p class="text-xs leading-relaxed text-muted-foreground">
+            Claude Desktop 使用独立的 configLibrary 配置文件。保存时会保留导入文件里的 MCP 和其它字段，只更新网关、密钥与模型。
+          </p>
+          <div class="grid gap-1.5">
+            <FieldLabel label="配置模板（可选）" hint="编辑已导入的 JSON 时会保留完整结构；留空则直接合并到本机当前文件。" />
+            <CodeEditor v-if="form.provider === 'claude_desktop'" v-model="form.claude.desktopTemplate" language="json" placeholder="Claude Desktop JSON 模板..." class="min-h-32" />
+          </div>
+        </div>
+
+        <Button v-if="form.provider === 'claude'" type="button" variant="ghost" size="sm" @click="showMore = !showMore">
           {{ showMore ? '收起更多配置' : '更多配置' }}
         </Button>
-        <div v-if="showMore" class="space-y-3 border-t pt-3">
+        <div v-if="form.provider === 'claude' && showMore" class="space-y-3 border-t pt-3">
           <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <AppInput v-model="form.claude.httpProxy" label="HTTP_PROXY" placeholder="http://127.0.0.1:7890" :tooltip="tips.httpProxy" />
             <AppInput v-model="form.claude.httpsProxy" label="HTTPS_PROXY" placeholder="http://127.0.0.1:7890" :tooltip="tips.httpsProxy" />
@@ -625,7 +636,7 @@ function selectIcon(emoji: string) {
 }
 
 const providers: { value: Provider; label: string }[] = [
-  { value: 'claude', label: 'Claude' },
+  { value: 'claude', label: 'Claude Code' },
   { value: 'claude_desktop', label: 'Claude Desktop' },
   { value: 'codex', label: 'Codex' },
   { value: 'antigravity', label: 'Antigravity' },
@@ -854,6 +865,7 @@ const defaultForm = () => ({
     apiKey: '',
     attributionHeader: '',
     disableNonessentialTraffic: '',
+    desktopTemplate: '',
     smallFastModel: '',
     defaultHaiku: '',
     defaultSonnet: '',
@@ -996,6 +1008,7 @@ watch(() => props.editConfig, (config) => {
       form.value.claude.httpsProxy = config.variables.HTTPS_PROXY || ''
       form.value.claude.maxMcpOutputTokens = config.variables.MAX_MCP_OUTPUT_TOKENS || ''
       form.value.claude.mcpTimeout = config.variables.MCP_TIMEOUT || ''
+      form.value.claude.desktopTemplate = config.templates?.['claude_desktop_config.json'] || ''
     } else if (config.provider === 'codex') {
       form.value.codex.baseUrl = config.variables.base_url || ''
       form.value.codex.apiKey = config.variables.OPENAI_API_KEY || ''
@@ -1116,7 +1129,7 @@ async function handleSubmit() {
   let variables: Record<string, string> = {}
   let templates: Record<string, string> = {}
 
-  if (form.value.provider === 'claude' || form.value.provider === 'claude_desktop') {
+  if (form.value.provider === 'claude') {
     variables = {
       ANTHROPIC_BASE_URL: form.value.claude.baseUrl,
       ANTHROPIC_AUTH_TOKEN: form.value.claude.authToken,
@@ -1142,6 +1155,16 @@ async function handleSubmit() {
       HTTPS_PROXY: form.value.claude.httpsProxy,
       MAX_MCP_OUTPUT_TOKENS: form.value.claude.maxMcpOutputTokens,
       MCP_TIMEOUT: form.value.claude.mcpTimeout,
+    }
+  } else if (form.value.provider === 'claude_desktop') {
+    variables = {
+      ANTHROPIC_BASE_URL: form.value.claude.baseUrl,
+      ANTHROPIC_AUTH_TOKEN: form.value.claude.authToken,
+      ANTHROPIC_MODEL: form.value.claude.model,
+      ANTHROPIC_API_KEY: form.value.claude.apiKey,
+    }
+    if (form.value.provider === 'claude_desktop' && form.value.claude.desktopTemplate.trim()) {
+      templates['claude_desktop_config.json'] = form.value.claude.desktopTemplate
     }
   } else if (form.value.provider === 'codex') {
     variables = {
@@ -1233,8 +1256,8 @@ async function handleSubmit() {
     templates,
     icon: form.value.icon,
     upstream_format: form.value.upstreamFormat,
-    attribution_header: form.value.provider === 'claude' || form.value.provider === 'claude_desktop' ? form.value.claude.attributionHeader : '',
-    disable_nonessential_traffic: form.value.provider === 'claude' || form.value.provider === 'claude_desktop' ? form.value.claude.disableNonessentialTraffic : ''
+    attribution_header: form.value.provider === 'claude' ? form.value.claude.attributionHeader : '',
+    disable_nonessential_traffic: form.value.provider === 'claude' ? form.value.claude.disableNonessentialTraffic : ''
   }
 
   try {

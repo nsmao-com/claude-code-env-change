@@ -6,7 +6,8 @@ import {
   GetAppVersion,
   OpenReleasePage,
 } from '../../wailsjs/go/main/App'
-import { BrowserOpenURL, EventsOn } from '../../wailsjs/runtime/runtime'
+import { BrowserOpenURL } from '../../wailsjs/runtime/runtime'
+import { onAppEvent } from '@/services/appBridge'
 
 function asProgress(data: unknown): UpdateProgress | null {
   const raw = Array.isArray(data) ? data[0] : data
@@ -34,8 +35,8 @@ export const updateService = {
     BrowserOpenURL(url)
   },
   onProgress(handler: (progress: UpdateProgress) => void): () => void {
-    return EventsOn('update:progress', (...args: any[]) => {
-      const progress = asProgress(args.length === 1 ? args[0] : args)
+		return onAppEvent('update:progress', (data) => {
+			const progress = asProgress(data)
       if (progress) handler(progress)
     })
   },

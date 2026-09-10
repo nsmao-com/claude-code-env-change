@@ -137,7 +137,7 @@ func mergeWriteGrokConfig(configFile, incoming string, vars map[string]string) e
 
 func (a *App) GetGrokSettings() map[string]string {
 	vars := map[string]string{}
-	if env := a.findEnv(a.config.CurrentEnvGrok); env != nil {
+	if env := a.findEnvIn("grok", a.config.CurrentEnvGrok); env != nil {
 		vars = env.Variables
 	}
 	configFile := grokConfigFile(vars)
@@ -151,7 +151,7 @@ func (a *App) GetGrokSettings() map[string]string {
 
 	data, err := os.ReadFile(configFile)
 	if err != nil {
-		if env := a.findEnv(a.config.CurrentEnvGrok); env != nil {
+			if env := a.findEnvIn("grok", a.config.CurrentEnvGrok); env != nil {
 			for _, key := range []string{"XAI_BASE_URL", "XAI_MODEL", "XAI_API_KEY", "XAI_API_BACKEND"} {
 				if v := strings.TrimSpace(env.Variables[key]); v != "" {
 					result[key] = v
@@ -196,7 +196,7 @@ func (a *App) GetGrokSettings() map[string]string {
 
 func (a *App) ClearGrokSettings() error {
 	vars := map[string]string{}
-	if env := a.findEnv(a.config.CurrentEnvGrok); env != nil {
+	if env := a.findEnvIn("grok", a.config.CurrentEnvGrok); env != nil {
 		vars = env.Variables
 	}
 	configFile := grokConfigFile(vars)

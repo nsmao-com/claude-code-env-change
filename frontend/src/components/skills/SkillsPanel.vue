@@ -353,7 +353,7 @@ async function togglePlatform(skill: Skill, platform: string) {
 }
 
 function platformLabel(platform: string) {
-  if (platform === 'claude-code') return 'Claude'
+  if (platform === 'claude-code') return 'Claude Code'
   if (platform === 'codex') return 'Codex'
   if (platform === 'antigravity') return 'Antigravity'
   if (platform === 'opencode') return 'OpenCode'

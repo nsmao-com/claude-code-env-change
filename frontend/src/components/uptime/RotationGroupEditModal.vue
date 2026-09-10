@@ -150,7 +150,8 @@ const isEditing = computed(() => !!props.editGroup)
 const isSaving = ref(false)
 
 const providers = [
-  { value: 'claude' as Provider, label: 'Claude' },
+  { value: 'claude' as Provider, label: 'Claude Code' },
+  { value: 'claude_desktop' as Provider, label: 'Claude Desktop' },
   { value: 'codex' as Provider, label: 'Codex' },
   { value: 'antigravity' as Provider, label: 'Antigravity' },
   { value: 'opencode' as Provider, label: 'OpenCode' },
@@ -159,7 +160,7 @@ const providers = [
 
 function providerFromFilter(): Provider {
   const filter = configStore.currentFilter
-  if (filter === 'codex' || filter === 'antigravity' || filter === 'opencode' || filter === 'grok') return filter
+  if (filter === 'claude_desktop' || filter === 'codex' || filter === 'antigravity' || filter === 'opencode' || filter === 'grok') return filter
   return 'claude'
 }
 

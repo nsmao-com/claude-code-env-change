@@ -26,7 +26,7 @@ type EnvConfig struct {
 	Name        string            `json:"name"`
 	Description string            `json:"description"`
 	Variables   map[string]string `json:"variables"`
-	Provider    string            `json:"provider"`            // "claude", "codex", "antigravity", "opencode", "grok"
+	Provider    string            `json:"provider"`            // "claude", "claude_desktop", "codex", "antigravity", "opencode", "grok"
 	Templates   map[string]string `json:"templates,omitempty"` // 自定义模板内容，key为文件名
 	Icon        string            `json:"icon,omitempty"`      // emoji 图标
 	// 上游 API 格式："" 原生直连；chat_completions / anthropic_messages / responses 需本地路由转换
@@ -71,6 +71,7 @@ func (a *App) OnStartup(ctx context.Context) {
 	a.syncOpencodeAppliedFromDisk()
 	_ = a.saveConfig()
 	_ = RecordEnvActivation("claude", a.config.CurrentEnvClaude, time.Now())
+	_ = RecordEnvActivation("claude_desktop", a.config.CurrentEnvClaudeDesktop, time.Now())
 	_ = RecordEnvActivation("codex", a.config.CurrentEnvCodex, time.Now())
 	_ = RecordEnvActivation("antigravity", a.config.CurrentEnvAntigravity, time.Now())
 	_ = RecordEnvActivation("opencode", a.config.CurrentEnvOpencode, time.Now())
@@ -150,6 +151,26 @@ func (a *App) SwitchToEnv(name string, provider string) error {
 	a.config.CurrentEnv = name
 
 	return a.saveConfig()
+}
+
+// ApplyEnv 仅应用指定服务商的一条配置，避免点击单个平台时重写其它平台的本机配置。
+func (a *App) ApplyEnv(name, provider string) (string, error) {
+	env := a.findEnvIn(provider, name)
+	if env == nil {
+		return "", fmt.Errorf("找不到环境配置 %q (%s)", name, provider)
+	}
+	if err := a.SwitchToEnv(name, provider); err != nil {
+		return "", err
+	}
+	message, err := a.applyEnvByProvider(env)
+	if err != nil {
+		return "", err
+	}
+	if err := a.saveConfig(); err != nil {
+		return "", err
+	}
+	_ = RecordEnvActivation(env.Provider, name, time.Now())
+	return message, nil
 }
 
 // UnapplyEnv 停用一条已应用的配置。OpenCode 可同时挂多套，停用只拿掉这一套，其它继续留在 opencode.json。
@@ -278,6 +299,10 @@ func (a *App) isCurrentEnvFor(provider, name string) bool {
 // clearCurrentEnvRef 清掉某服务商下指向该名称的当前环境引用
 func (a *App) clearCurrentEnvRef(provider, name string) {
 	switch strings.ToLower(strings.TrimSpace(provider)) {
+	case "claude_desktop":
+		if a.config.CurrentEnvClaudeDesktop == name {
+			a.config.CurrentEnvClaudeDesktop = ""
+		}
 	case "codex":
 		if a.config.CurrentEnvCodex == name {
 			a.config.CurrentEnvCodex = ""
@@ -319,6 +344,10 @@ func (a *App) renameProviderCurrentRef(provider, oldName, newName string) {
 		if a.config.CurrentEnvGrok == oldName {
 			a.config.CurrentEnvGrok = newName
 		}
+	case "claude_desktop":
+		if a.config.CurrentEnvClaudeDesktop == oldName {
+			a.config.CurrentEnvClaudeDesktop = newName
+		}
 	default:
 		if a.config.CurrentEnvClaude == oldName {
 			a.config.CurrentEnvClaude = newName
@@ -333,7 +362,7 @@ func (a *App) applyEnvByProvider(env *EnvConfig) (string, error) {
 	}
 	switch live.Provider {
 	case "claude_desktop":
-		return a.applyClaudeEnv(live)
+		return a.applyClaudeDesktopEnv(live)
 	case "codex":
 		return a.applyCodexEnv(live)
 	case "antigravity":
@@ -488,6 +517,7 @@ func (a *App) ApplyCurrentEnv() (string, error) {
 
 	now := time.Now()
 	_ = RecordEnvActivation("claude", a.config.CurrentEnvClaude, now)
+	_ = RecordEnvActivation("claude_desktop", a.config.CurrentEnvClaudeDesktop, now)
 	_ = RecordEnvActivation("codex", a.config.CurrentEnvCodex, now)
 	_ = RecordEnvActivation("antigravity", a.config.CurrentEnvAntigravity, now)
 	_ = RecordEnvActivation("opencode", a.config.CurrentEnvOpencode, now)
@@ -562,6 +592,20 @@ func (a *App) GetClaudeSettings() map[string]string {
 	return nil
 }
 
+// GetClaudeDesktopSettings 读取 Claude Desktop 本地配置并归一化为 Anthropic 字段。
+// Claude Desktop 与 Claude Code 的文件格式不同，不能读取 ~/.claude/settings.json。
+func (a *App) GetClaudeDesktopSettings() map[string]string {
+	path, err := claudeDesktopConfigPath()
+	if err != nil {
+		return nil
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+	return readClaudeDesktopEnv(data)
+}
+
 // GetConfigDrift 返回当前激活环境与本机配置不一致的平台，启动时只用于询问用户是否同步。
 func (a *App) GetConfigDrift() []string {
 	var drift []string
@@ -582,19 +626,56 @@ func (a *App) GetConfigDrift() []string {
 		}
 		var current map[string]string
 		switch item.provider {
-		case "claude", "claude_desktop":
+		case "claude":
 			current = a.GetClaudeSettings()
+		case "claude_desktop":
+			current = a.GetClaudeDesktopSettings()
+		case "codex":
+			current = a.GetCodexSettings()
+		case "antigravity":
+			current = a.GetAntigravitySettings()
+		case "opencode":
+			current = a.GetOpencodeSettings()
+		case "grok":
+			current = a.GetGrokSettings()
 		default:
 			continue
 		}
-		for key, expected := range env.Variables {
-			if strings.TrimSpace(expected) != strings.TrimSpace(current[key]) {
+		expectedVariables := comparableEnvVariables(item.provider, env.Variables)
+		if isAppRoutingOn(item.provider) {
+			delete(expectedVariables, providerBaseVariable(item.provider))
+		}
+		for key, expected := range expectedVariables {
+			actual := current[key]
+			if item.provider == "claude_desktop" && (key == "ANTHROPIC_AUTH_TOKEN" || key == "ANTHROPIC_API_KEY") {
+				// Desktop 3P 配置只有一个 gateway key；它在软件配置里可以
+				// 表示为 Auth Token 或 API Key，两种写法都应视为同一个值。
+				actual = firstNonEmpty(current["ANTHROPIC_AUTH_TOKEN"], current["ANTHROPIC_API_KEY"])
+			}
+			if strings.TrimSpace(expected) != strings.TrimSpace(actual) {
 				drift = append(drift, item.label)
 				break
 			}
 		}
 	}
 	return drift
+}
+
+func providerBaseVariable(provider string) string {
+	switch strings.ToLower(strings.TrimSpace(provider)) {
+	case "claude", "claude_desktop":
+		return "ANTHROPIC_BASE_URL"
+	case "codex":
+		return "base_url"
+	case "antigravity":
+		return "GOOGLE_GEMINI_BASE_URL"
+	case "opencode":
+		return "OPENCODE_BASE_URL"
+	case "grok":
+		return "XAI_BASE_URL"
+	default:
+		return ""
+	}
 }
 
 // GetCodexSettings 读取 Codex 配置
@@ -794,6 +875,252 @@ func (a *App) applyClaudeEnv(env *EnvConfig) (string, error) {
 	}
 
 	return "Claude 配置已应用到 ~/.claude/settings.json", nil
+}
+
+// applyClaudeDesktopEnv 写入 Claude Desktop 官方配置文件。
+// 保留 mcpServers 等用户字段，仅声明式更新顶层 env；若配置模板存在则先使用模板作为基底。
+func (a *App) applyClaudeDesktopEnv(env *EnvConfig) (string, error) {
+	settingsFile, err := claudeDesktopConfigPath()
+	if err != nil {
+		return "", fmt.Errorf("获取 Claude Desktop 配置路径失败: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(settingsFile), 0o755); err != nil {
+		return "", fmt.Errorf("创建 Claude Desktop 配置目录失败: %v", err)
+	}
+
+	settings := map[string]any{}
+	if tmpl := strings.TrimSpace(env.Templates["claude_desktop_config.json"]); tmpl != "" {
+		if err := json.Unmarshal([]byte(tmpl), &settings); err != nil {
+			return "", fmt.Errorf("解析 Claude Desktop 配置模板失败: %v", err)
+		}
+		if settings == nil {
+			return "", fmt.Errorf("Claude Desktop 配置模板必须是 JSON 对象")
+		}
+	} else if data, readErr := os.ReadFile(settingsFile); readErr == nil && len(data) > 0 {
+		if err := json.Unmarshal(data, &settings); err != nil {
+			return "", fmt.Errorf("解析 %s 失败，为保护原文件已中止写入: %v", settingsFile, err)
+		}
+		if settings == nil {
+			return "", fmt.Errorf("解析 %s 失败：配置必须是 JSON 对象", settingsFile)
+		}
+	} else if readErr != nil && !os.IsNotExist(readErr) {
+		return "", fmt.Errorf("读取 %s 失败: %v", settingsFile, readErr)
+	}
+
+	// Claude Desktop 3P 的 configLibrary 使用 inference* 字段；旧版文件仍接受顶层 env。
+	isThirdParty := strings.EqualFold(filepath.Base(filepath.Dir(settingsFile)), "configLibrary") ||
+		settings["inferenceGatewayBaseUrl"] != nil || settings["inferenceGatewayApiKey"] != nil || settings["inferenceModels"] != nil
+	if isThirdParty {
+		baseURL := strings.TrimRight(strings.TrimSpace(env.Variables["ANTHROPIC_BASE_URL"]), "/")
+		apiKey := strings.TrimSpace(env.Variables["ANTHROPIC_AUTH_TOKEN"])
+		if apiKey == "" {
+			apiKey = strings.TrimSpace(env.Variables["ANTHROPIC_API_KEY"])
+		}
+		model := strings.TrimSpace(env.Variables["ANTHROPIC_MODEL"])
+		if baseURL != "" {
+			settings["inferenceProvider"] = "gateway"
+			settings["inferenceGatewayBaseUrl"] = baseURL
+		} else {
+			delete(settings, "inferenceGatewayBaseUrl")
+		}
+		if apiKey != "" {
+			settings["inferenceGatewayApiKey"] = apiKey
+			settings["inferenceGatewayAuthScheme"] = "bearer"
+		} else {
+			delete(settings, "inferenceGatewayApiKey")
+			delete(settings, "inferenceGatewayAuthScheme")
+		}
+		if model != "" {
+			settings["inferenceModels"] = updateClaudeDesktopModels(settings["inferenceModels"], model)
+		} else {
+			delete(settings, "inferenceModels")
+		}
+		if baseURL == "" && apiKey == "" {
+			delete(settings, "inferenceProvider")
+		}
+	}
+
+	envMap := map[string]string{}
+	for key, value := range env.Variables {
+		if strings.TrimSpace(value) != "" {
+			envMap[key] = value
+		}
+	}
+	if env.AttributionHeader != "" {
+		envMap["CLAUDE_CODE_ATTRIBUTION_HEADER"] = env.AttributionHeader
+	}
+	if env.DisableNonessentialTraffic != "" {
+		envMap["CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"] = env.DisableNonessentialTraffic
+	}
+	if len(envMap) > 0 && !isThirdParty {
+		settings["env"] = envMap
+	} else if !isThirdParty {
+		delete(settings, "env")
+	}
+
+	content, err := json.MarshalIndent(settings, "", "  ")
+	if err != nil {
+		return "", fmt.Errorf("序列化 Claude Desktop 配置失败: %v", err)
+	}
+	if err := os.WriteFile(settingsFile, content, 0o600); err != nil {
+		return "", fmt.Errorf("写入 Claude Desktop 配置失败: %v", err)
+	}
+	if isThirdParty {
+		if err := writeClaudeDesktopMeta(settingsFile); err != nil {
+			return "", err
+		}
+	}
+	return "Claude Desktop 配置已应用到 " + settingsFile, nil
+}
+
+// comparableEnvVariables 只比较某个平台实际写入的字段，避免 Claude Desktop
+// 因为 Claude Code 专属环境变量而被启动时误报为“配置有差异”。
+func comparableEnvVariables(provider string, variables map[string]string) map[string]string {
+	if variables == nil {
+		return nil
+	}
+	if strings.EqualFold(strings.TrimSpace(provider), "claude_desktop") {
+		out := make(map[string]string, 3)
+		for _, key := range []string{"ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_API_KEY", "ANTHROPIC_MODEL"} {
+			if value := strings.TrimSpace(variables[key]); value != "" {
+				out[key] = value
+			}
+		}
+		return out
+	}
+	out := make(map[string]string, len(variables))
+	for key, value := range variables {
+		if strings.TrimSpace(value) != "" {
+			out[key] = value
+		}
+	}
+	return out
+}
+
+func writeClaudeDesktopMeta(configFile string) error {
+	dir := filepath.Dir(configFile)
+	if !strings.EqualFold(filepath.Base(dir), "configLibrary") {
+		return nil
+	}
+	id := strings.TrimSuffix(filepath.Base(configFile), filepath.Ext(configFile))
+	if !isClaudeDesktopConfigID(id) {
+		return fmt.Errorf("Claude Desktop 配置文件名无效")
+	}
+	metaPath := filepath.Join(dir, "_meta.json")
+	meta := map[string]any{"appliedId": id, "entries": []any{}}
+	if data, err := os.ReadFile(metaPath); err == nil && len(data) > 0 {
+		var existing map[string]any
+		if err := json.Unmarshal(data, &existing); err != nil {
+			return fmt.Errorf("解析 Claude Desktop 索引失败，为保护原索引已中止写入: %v", err)
+		}
+		for key, value := range existing {
+			meta[key] = value
+		}
+	} else if err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("读取 Claude Desktop 索引失败: %v", err)
+	}
+	meta["appliedId"] = id
+	entries, _ := meta["entries"].([]any)
+	found := false
+	for i, raw := range entries {
+		entry, ok := raw.(map[string]any)
+		if !ok || strings.TrimSpace(asString(entry["id"])) != id {
+			continue
+		}
+		if strings.TrimSpace(asString(entry["name"])) == "" {
+			entry["name"] = "AI ENV"
+		}
+		entries[i] = entry
+		found = true
+	}
+	if !found {
+		entries = append(entries, map[string]any{"id": id, "name": "AI ENV"})
+	}
+	meta["entries"] = entries
+	data, err := json.MarshalIndent(meta, "", "  ")
+	if err != nil {
+		return fmt.Errorf("序列化 Claude Desktop 索引失败: %v", err)
+	}
+	if err := os.WriteFile(metaPath, data, 0o600); err != nil {
+		return fmt.Errorf("写入 Claude Desktop 索引失败: %v", err)
+	}
+	return nil
+}
+
+func removeClaudeDesktopMetaEntry(dir, id string) error {
+	if !isClaudeDesktopConfigID(id) {
+		return nil
+	}
+	metaPath := filepath.Join(dir, "_meta.json")
+	data, err := os.ReadFile(metaPath)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	var meta map[string]any
+	if err := json.Unmarshal(data, &meta); err != nil {
+		return fmt.Errorf("解析 Claude Desktop 索引失败: %v", err)
+	}
+	entries, _ := meta["entries"].([]any)
+	kept := make([]any, 0, len(entries))
+	for _, raw := range entries {
+		entry, ok := raw.(map[string]any)
+		if ok && strings.TrimSpace(asString(entry["id"])) == id {
+			continue
+		}
+		kept = append(kept, raw)
+	}
+	meta["entries"] = kept
+	if strings.TrimSpace(asString(meta["appliedId"])) == id {
+		if len(kept) > 0 {
+			if first, ok := kept[0].(map[string]any); ok {
+				meta["appliedId"] = strings.TrimSpace(asString(first["id"]))
+			}
+		} else {
+			delete(meta, "appliedId")
+		}
+	}
+	updated, err := json.MarshalIndent(meta, "", "  ")
+	if err != nil {
+		return fmt.Errorf("序列化 Claude Desktop 索引失败: %v", err)
+	}
+	if len(kept) == 0 && len(meta) == 0 {
+		return os.Remove(metaPath)
+	}
+	return os.WriteFile(metaPath, updated, 0o600)
+}
+
+func updateClaudeDesktopModels(raw any, model string) []map[string]string {
+	model = strings.TrimSpace(model)
+	if model == "" {
+		return nil
+	}
+	result := make([]map[string]string, 0, 1)
+	if list, ok := raw.([]any); ok {
+		for _, item := range list {
+			m, ok := item.(map[string]any)
+			if !ok {
+				continue
+			}
+			entry := map[string]string{}
+			for _, key := range []string{"name", "labelOverride", "id"} {
+				if value := strings.TrimSpace(asString(m[key])); value != "" {
+					entry[key] = value
+				}
+			}
+			if entry["name"] == "" && entry["id"] == "" {
+				continue
+			}
+			result = append(result, entry)
+		}
+	}
+	if len(result) == 0 {
+		return []map[string]string{{"name": model}}
+	}
+	result[0]["name"] = model
+	return result
 }
 
 // applyCodexEnv 应用 Codex 配置
@@ -1161,6 +1488,40 @@ func (a *App) ClearClaudeSettings() error {
 	return nil
 }
 
+// ClearClaudeDesktopSettings 清除 Claude Desktop 当前用户配置。
+func (a *App) ClearClaudeDesktopSettings() error {
+	path, err := claudeDesktopConfigPath()
+	if err != nil {
+		return err
+	}
+	if strings.EqualFold(filepath.Base(filepath.Dir(path)), "configLibrary") {
+		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+			return err
+		}
+		if err := removeClaudeDesktopMetaEntry(filepath.Dir(path), strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))); err != nil {
+			return err
+		}
+		oldName := a.config.CurrentEnvClaudeDesktop
+		a.config.CurrentEnvClaudeDesktop = ""
+		if a.config.CurrentEnv == oldName {
+			a.config.CurrentEnv = ""
+		}
+		return a.saveConfig()
+	}
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	oldName := a.config.CurrentEnvClaudeDesktop
+	a.config.CurrentEnvClaudeDesktop = ""
+	if a.config.CurrentEnv == oldName {
+		a.config.CurrentEnv = ""
+	}
+	if err := a.saveConfig(); err != nil {
+		return err
+	}
+	return nil
+}
+
 // ClearCodexSettings 清除 Codex 配置文件
 func (a *App) ClearCodexSettings() error {
 	homeDir, err := os.UserHomeDir()
@@ -1227,6 +1588,9 @@ func (a *App) ClearAllEnv() error {
 
 	if err := a.ClearClaudeSettings(); err != nil {
 		errors = append(errors, fmt.Sprintf("Claude: %v", err))
+	}
+	if err := a.ClearClaudeDesktopSettings(); err != nil {
+		errors = append(errors, fmt.Sprintf("Claude Desktop: %v", err))
 	}
 
 	if err := a.ClearCodexSettings(); err != nil {
@@ -1487,26 +1851,26 @@ type PromptFile struct {
 
 // GetPromptFiles 获取所有提示词文件
 func (a *App) GetPromptFiles() ([]PromptFile, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return nil, fmt.Errorf("获取用户目录失败: %v", err)
-	}
-
-	files := []PromptFile{
-		{Provider: "claude", Path: filepath.Join(homeDir, ".claude", "CLAUDE.md")},
-		{Provider: "codex", Path: filepath.Join(homeDir, ".codex", "AGENTS.md")},
-		{Provider: "antigravity", Path: filepath.Join(homeDir, ".gemini", "GEMINI.md")},
-		{Provider: "opencode", Path: filepath.Join(resolveOpencodeConfigDir(nil), "AGENTS.md")},
-		{Provider: "grok", Path: filepath.Join(resolveGrokHome(nil), "GROK.md")},
+	// Claude Desktop 没有 Claude Code 那样的全局提示词文件；它的行为由
+	// configLibrary / MCP 配置管理，因此不放进这个提示词文件列表。
+	files := make([]PromptFile, 0, 5)
+	for _, provider := range []string{"claude", "codex", "antigravity", "opencode", "grok"} {
+		path, err := promptFilePath(provider)
+		if err != nil {
+			return nil, err
+		}
+		files = append(files, PromptFile{Provider: provider, Path: path})
 	}
 
 	for i := range files {
 		if data, err := os.ReadFile(files[i].Path); err == nil {
 			files[i].Content = string(data)
 			files[i].Exists = true
-		} else {
+		} else if os.IsNotExist(err) {
 			files[i].Content = ""
 			files[i].Exists = false
+		} else {
+			return nil, fmt.Errorf("读取 %s 失败: %v", files[i].Path, err)
 		}
 	}
 
@@ -1515,31 +1879,17 @@ func (a *App) GetPromptFiles() ([]PromptFile, error) {
 
 // GetPromptFile 获取单个提示词文件
 func (a *App) GetPromptFile(provider string) (PromptFile, error) {
-	homeDir, err := os.UserHomeDir()
+	filePath, err := promptFilePath(provider)
 	if err != nil {
-		return PromptFile{}, fmt.Errorf("获取用户目录失败: %v", err)
-	}
-
-	var filePath string
-	switch provider {
-	case "claude":
-		filePath = filepath.Join(homeDir, ".claude", "CLAUDE.md")
-	case "codex":
-		filePath = filepath.Join(homeDir, ".codex", "AGENTS.md")
-	case "antigravity":
-		filePath = filepath.Join(homeDir, ".gemini", "GEMINI.md")
-	case "opencode":
-		filePath = filepath.Join(resolveOpencodeConfigDir(nil), "AGENTS.md")
-	case "grok":
-		filePath = filepath.Join(resolveGrokHome(nil), "GROK.md")
-	default:
-		return PromptFile{}, fmt.Errorf("未知的 Provider: %s", provider)
+		return PromptFile{}, err
 	}
 
 	file := PromptFile{Provider: provider, Path: filePath}
 	if data, err := os.ReadFile(filePath); err == nil {
 		file.Content = string(data)
 		file.Exists = true
+	} else if !os.IsNotExist(err) {
+		return PromptFile{}, fmt.Errorf("读取 %s 失败: %v", filePath, err)
 	}
 
 	return file, nil
@@ -1547,32 +1897,11 @@ func (a *App) GetPromptFile(provider string) (PromptFile, error) {
 
 // SavePromptFile 保存提示词文件
 func (a *App) SavePromptFile(provider, content string) error {
-	homeDir, err := os.UserHomeDir()
+	filePath, err := promptFilePath(provider)
 	if err != nil {
-		return fmt.Errorf("获取用户目录失败: %v", err)
+		return err
 	}
-
-	var filePath string
-	var dirPath string
-	switch provider {
-	case "claude":
-		dirPath = filepath.Join(homeDir, ".claude")
-		filePath = filepath.Join(dirPath, "CLAUDE.md")
-	case "codex":
-		dirPath = filepath.Join(homeDir, ".codex")
-		filePath = filepath.Join(dirPath, "AGENTS.md")
-	case "antigravity":
-		dirPath = filepath.Join(homeDir, ".gemini")
-		filePath = filepath.Join(dirPath, "GEMINI.md")
-	case "opencode":
-		dirPath = resolveOpencodeConfigDir(nil)
-		filePath = filepath.Join(dirPath, "AGENTS.md")
-	case "grok":
-		dirPath = resolveGrokHome(nil)
-		filePath = filepath.Join(dirPath, "GROK.md")
-	default:
-		return fmt.Errorf("未知的 Provider: %s", provider)
-	}
+	dirPath := filepath.Dir(filePath)
 
 	// 确保目录存在
 	if err := os.MkdirAll(dirPath, 0755); err != nil {
@@ -1583,31 +1912,23 @@ func (a *App) SavePromptFile(provider, content string) error {
 	if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
 		return fmt.Errorf("写入文件失败: %v", err)
 	}
+	// 读回校验，避免权限、同步软件或文件映射导致界面显示已保存但磁盘内容未覆盖。
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return fmt.Errorf("保存后读取文件失败: %v", err)
+	}
+	if string(data) != content {
+		return fmt.Errorf("保存后校验失败，文件内容未完整覆盖")
+	}
 
 	return nil
 }
 
 // DeletePromptFile 删除提示词文件
 func (a *App) DeletePromptFile(provider string) error {
-	homeDir, err := os.UserHomeDir()
+	filePath, err := promptFilePath(provider)
 	if err != nil {
-		return fmt.Errorf("获取用户目录失败: %v", err)
-	}
-
-	var filePath string
-	switch provider {
-	case "claude":
-		filePath = filepath.Join(homeDir, ".claude", "CLAUDE.md")
-	case "codex":
-		filePath = filepath.Join(homeDir, ".codex", "AGENTS.md")
-	case "antigravity":
-		filePath = filepath.Join(homeDir, ".gemini", "GEMINI.md")
-	case "opencode":
-		filePath = filepath.Join(resolveOpencodeConfigDir(nil), "AGENTS.md")
-	case "grok":
-		filePath = filepath.Join(resolveGrokHome(nil), "GROK.md")
-	default:
-		return fmt.Errorf("未知的 Provider: %s", provider)
+		return err
 	}
 
 	// 删除文件（如果不存在则忽略）
@@ -1616,4 +1937,31 @@ func (a *App) DeletePromptFile(provider string) error {
 	}
 
 	return nil
+}
+
+func promptFilePath(provider string) (string, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("获取用户目录失败: %v", err)
+	}
+	switch strings.ToLower(strings.TrimSpace(provider)) {
+	case "claude":
+		return filepath.Join(homeDir, ".claude", "CLAUDE.md"), nil
+	case "codex":
+		codexHome := strings.TrimSpace(os.Getenv("CODEX_HOME"))
+		if codexHome == "" {
+			codexHome = filepath.Join(homeDir, ".codex")
+		} else {
+			codexHome = expandAndNormalizePath(codexHome, homeDir, filepath.Join(homeDir, ".codex"))
+		}
+		return filepath.Join(codexHome, "AGENTS.md"), nil
+	case "antigravity":
+		return filepath.Join(homeDir, ".gemini", "GEMINI.md"), nil
+	case "opencode":
+		return filepath.Join(resolveOpencodeConfigDir(nil), "AGENTS.md"), nil
+	case "grok":
+		return filepath.Join(resolveGrokHome(nil), "GROK.md"), nil
+	default:
+		return "", fmt.Errorf("未知的 Provider: %s", provider)
+	}
 }

@@ -7,6 +7,8 @@ export function AddEnv(arg1:main.EnvConfig):Promise<void>;
 
 export function ApplyCurrentEnv():Promise<string>;
 
+export function ApplyEnv(arg1:string,arg2:string):Promise<string>;
+
 export function CheckForUpdate():Promise<main.UpdateInfo>;
 
 export function CheckLastUpdateResult():Promise<string>;
@@ -16,6 +18,8 @@ export function ClearAllEnv():Promise<void>;
 export function ClearAntigravitySettings():Promise<void>;
 
 export function ClearClaudeSettings():Promise<void>;
+
+export function ClearClaudeDesktopSettings():Promise<void>;
 
 export function ClearCodexSettings():Promise<void>;
 
@@ -36,6 +40,8 @@ export function GetAntigravitySettings():Promise<Record<string, string>>;
 export function GetAppVersion():Promise<string>;
 
 export function GetClaudeSettings():Promise<Record<string, string>>;
+
+export function GetClaudeDesktopSettings():Promise<Record<string, string>>;
 
 export function GetCodexSettings():Promise<Record<string, string>>;
 

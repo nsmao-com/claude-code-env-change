@@ -11,14 +11,17 @@ declare global {
           DeleteEnv(name: string, provider: string): Promise<void>
           SwitchToEnv(name: string, provider: string): Promise<void>
           ApplyCurrentEnv(): Promise<string>
+          ApplyEnv(name: string, provider: string): Promise<string>
           ReorderEnvs(names: string[]): Promise<void>
           RefreshConfig(): Promise<void>
           TestLatency(url: string): Promise<number>
           ClearAllEnv(): Promise<void>
           ClearClaudeSettings(): Promise<void>
+          ClearClaudeDesktopSettings(): Promise<void>
           ClearCodexSettings(): Promise<void>
           ClearAntigravitySettings(): Promise<void>
           GetClaudeSettings(): Promise<Record<string, string>>
+          GetClaudeDesktopSettings(): Promise<Record<string, string>>
           GetCodexSettings(): Promise<Record<string, string>>
           GetAntigravitySettings(): Promise<Record<string, string>>
           OpenProviderTerminal(provider: string): Promise<void>

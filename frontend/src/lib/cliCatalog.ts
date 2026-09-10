@@ -71,6 +71,7 @@ export function normalizeConfigDirs(raw: unknown): ConfigDirInfo[] {
 
 export const CONFIG_DIR_DEFAULTS: ConfigDirInfo[] = [
   { id: 'claude', name: 'Claude Code', dir: '~/.claude', exists: false, files: files('~/.claude', ['settings.json']) },
+  { id: 'claude_desktop', name: 'Claude Desktop', dir: '%LOCALAPPDATA%/Claude-3p/configLibrary', exists: false, files: files('%LOCALAPPDATA%/Claude-3p/configLibrary', ['_meta.json']) },
   { id: 'codex', name: 'Codex', dir: '~/.codex', exists: false, files: files('~/.codex', ['config.toml', 'auth.json']) },
   { id: 'antigravity', name: 'Antigravity CLI', dir: '~/.gemini/antigravity-cli', exists: false, files: files('~/.gemini/antigravity-cli', ['settings.json']) },
   { id: 'opencode', name: 'OpenCode', dir: '~/.config/opencode', exists: false, files: files('~/.config/opencode', ['opencode.json']) },

@@ -492,7 +492,7 @@ func (a *App) stripOpencodeProvider(env *EnvConfig) error {
 
 func (a *App) GetOpencodeSettings() map[string]string {
 	vars := map[string]string{}
-	if env := a.findEnv(a.config.CurrentEnvOpencode); env != nil {
+	if env := a.findEnvIn("opencode", a.config.CurrentEnvOpencode); env != nil {
 		vars = env.Variables
 	}
 	configFile := opencodeConfigFile(vars)
@@ -576,7 +576,7 @@ func (a *App) GetOpencodeSettings() map[string]string {
 // ClearOpencodeSettings 仅清除本应用写入的 model / provider.custom 字段，保留其他配置
 func (a *App) ClearOpencodeSettings() error {
 	vars := map[string]string{}
-	if env := a.findEnv(a.config.CurrentEnvOpencode); env != nil {
+	if env := a.findEnvIn("opencode", a.config.CurrentEnvOpencode); env != nil {
 		vars = env.Variables
 	}
 	configFile := opencodeConfigFile(vars)

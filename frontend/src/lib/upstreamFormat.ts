@@ -31,7 +31,7 @@ export function upstreamFormatOptions(provider: string): { value: string; label:
   const chat = { value: 'chat_completions', label: 'Chat Completions（需开路由，OpenAI 兼容）' }
   const anthropic = { value: 'anthropic_messages', label: 'Anthropic Messages（需开路由，如 Claude）' }
   const responses = { value: 'responses', label: 'Responses（需开路由，如 Codex）' }
-  // 五家 CLI 最终都通过网关归一到三种公开协议，可互相转换。
+	// 六个平台最终都通过网关归一到三种公开协议，可互相转换。
   return [native, chat, anthropic, responses]
 }
 

@@ -11,7 +11,8 @@ export interface ImportPreview {
 }
 
 const PROVIDER_LABEL: Record<string, string> = {
-  claude: 'Claude',
+  claude: 'Claude Code',
+  claude_desktop: 'Claude Desktop',
   codex: 'Codex',
   antigravity: 'Antigravity',
   opencode: 'OpenCode',

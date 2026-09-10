@@ -76,7 +76,7 @@ func sanitizeAutoRouteName(name string) string {
 
 func defaultUpstreamURL(provider string) string {
 	switch provider {
-	case "claude":
+	case "claude", "claude_desktop":
 		return "https://api.anthropic.com"
 	case "codex":
 		return "https://api.openai.com/v1"
@@ -91,7 +91,7 @@ func defaultUpstreamURL(provider string) string {
 
 func upstreamVarsForEnv(env *EnvConfig) (baseURL, apiKey, model string) {
 	switch env.Provider {
-	case "claude":
+	case "claude", "claude_desktop":
 		baseURL = env.Variables["ANTHROPIC_BASE_URL"]
 		apiKey = env.Variables["ANTHROPIC_AUTH_TOKEN"]
 		if apiKey == "" {
@@ -133,7 +133,7 @@ func needsConversion(env *EnvConfig) bool {
 		return false
 	}
 	switch env.Provider {
-	case "claude":
+	case "claude", "claude_desktop":
 		return format == UpstreamChatCompletions || format == UpstreamResponses
 	case "codex", "grok":
 		return format == UpstreamChatCompletions || format == UpstreamAnthropicMessages
@@ -151,7 +151,7 @@ func needsRouting(env *EnvConfig) bool {
 
 func sourceFormatForEnv(env *EnvConfig) string {
 	switch env.Provider {
-	case "claude":
+	case "claude", "claude_desktop":
 		return "anthropic"
 	case "grok":
 		if strings.EqualFold(strings.TrimSpace(env.Variables["XAI_API_BACKEND"]), "messages") {
@@ -174,7 +174,7 @@ func targetFormatForEnv(env *EnvConfig) string {
 		return "responses"
 	}
 	switch env.Provider {
-	case "claude":
+	case "claude", "claude_desktop":
 		return "anthropic"
 	case "opencode":
 		return "openai"
@@ -239,7 +239,7 @@ func originalURLHasV1(original string) bool {
 func rewriteLiveBaseURL(env *EnvConfig, localBase string) {
 	base := strings.TrimRight(localBase, "/")
 	switch env.Provider {
-	case "claude":
+	case "claude", "claude_desktop":
 		env.Variables["ANTHROPIC_BASE_URL"] = base
 	case "codex":
 		env.Variables["base_url"] = base + "/v1"
@@ -393,6 +393,8 @@ func (rs *RouterService) SetAppRouting(provider string, enabled bool) error {
 
 func (a *App) currentEnvNameForProvider(provider string) string {
 	switch provider {
+	case "claude_desktop":
+		return a.config.CurrentEnvClaudeDesktop
 	case "codex":
 		return a.config.CurrentEnvCodex
 	case "antigravity":
@@ -444,7 +446,7 @@ func (a *App) SetProviderRouting(provider string, enabled bool) error {
 			}
 		}
 	}
-	env := a.findEnv(a.currentEnvNameForProvider(p))
+	env := a.findEnvIn(p, a.currentEnvNameForProvider(p))
 	if env == nil {
 		if !enabled {
 			_ = removeAutoRouteByName(p)
@@ -455,12 +457,15 @@ func (a *App) SetProviderRouting(provider string, enabled bool) error {
 		_ = rs.SetAppRouting(p, !enabled)
 		return err
 	}
+	if err := a.saveConfig(); err != nil {
+		return err
+	}
 	return nil
 }
 
 func (a *App) RefreshRoutedProviders() error {
 	var errs []string
-	for _, provider := range []string{"claude", "codex", "antigravity", "opencode", "grok"} {
+	for _, provider := range []string{"claude", "claude_desktop", "codex", "antigravity", "opencode", "grok"} {
 		if !isAppRoutingOn(provider) {
 			continue
 		}

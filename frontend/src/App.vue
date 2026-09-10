@@ -10,6 +10,7 @@
         @export="exportConfig"
         @import="importConfig"
         @clear-claude="clearClaude"
+        @clear-claude-desktop="clearClaudeDesktop"
         @clear-codex="clearCodex"
         @clear-antigravity="clearAntigravity"
         @clear-opencode="clearOpencode"
@@ -186,8 +187,9 @@ onMounted(async () => {
     if (Array.isArray(drift) && drift.length > 0) {
       const sync = await confirm.show('发现本机配置差异', `${drift.join('、')} 的当前配置与软件中激活的配置不同，是否立即同步？选择取消将保留本机配置。`, 'info')
       if (sync) {
-        await callApp('ApplyCurrentEnv')
-        toast.success('已同步当前配置')
+        const result = await callApp<string>('ApplyCurrentEnv')
+        if (result.includes('⚠')) toast.error(result)
+        else toast.success('已同步当前配置')
       }
     }
   } catch {
@@ -419,6 +421,17 @@ async function clearClaude() {
     toast.success(t('toast.clearedClaude'))
   } catch (e: any) {
     toast.error(t('toast.opFailed', { error: e.message }))
+  }
+}
+
+async function clearClaudeDesktop() {
+  if (!(await confirm.show('清除 Claude Desktop 配置', '将删除当前生效的 Claude Desktop 网关配置，并保留其它配置条目与 MCP 设置。是否继续？', 'warning'))) return
+  try {
+    await callApp('ClearClaudeDesktopSettings')
+    await configStore.loadConfig()
+    toast.success('Claude Desktop 配置已清除')
+  } catch (e: any) {
+    toast.error('清除 Claude Desktop 失败: ' + (e?.message || String(e)))
   }
 }
 

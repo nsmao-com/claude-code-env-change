@@ -203,6 +203,7 @@ export namespace main {
 	export class Config {
 	    current_env: string;
 	    current_env_claude: string;
+	    current_env_claude_desktop: string;
 	    current_env_codex: string;
 	    current_env_antigravity: string;
 	    current_env_opencode: string;
@@ -218,6 +219,7 @@ export namespace main {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.current_env = source["current_env"];
 	        this.current_env_claude = source["current_env_claude"];
+	        this.current_env_claude_desktop = source["current_env_claude_desktop"];
 	        this.current_env_codex = source["current_env_codex"];
 	        this.current_env_antigravity = source["current_env_antigravity"];
 	        this.current_env_opencode = source["current_env_opencode"];
@@ -1059,4 +1061,3 @@ export namespace main {
 	}
 
 }
-

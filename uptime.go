@@ -403,8 +403,8 @@ func (us *UptimeService) validateRotationGroup(group RotationGroup) error {
 	if group.Name == "" {
 		return fmt.Errorf("轮换组名称不能为空")
 	}
-	if group.Provider != "claude" && group.Provider != "codex" && group.Provider != "antigravity" && group.Provider != "opencode" && group.Provider != "grok" {
-		return fmt.Errorf("轮换组 provider 必须是 claude/codex/antigravity/opencode/grok")
+	if group.Provider != "claude" && group.Provider != "claude_desktop" && group.Provider != "codex" && group.Provider != "antigravity" && group.Provider != "opencode" && group.Provider != "grok" {
+		return fmt.Errorf("轮换组 provider 必须是 claude/claude_desktop/codex/antigravity/opencode/grok")
 	}
 	if len(group.EnvNames) == 0 {
 		return fmt.Errorf("轮换组必须至少包含 1 个配置")
@@ -444,7 +444,7 @@ func deriveEnvURL(env EnvConfig) string {
 		provider = "claude"
 	}
 	switch provider {
-	case "claude":
+	case "claude", "claude_desktop":
 		if v := strings.TrimSpace(vars["ANTHROPIC_BASE_URL"]); v != "" {
 			return v
 		}

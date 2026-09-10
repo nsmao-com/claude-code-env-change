@@ -10,6 +10,10 @@ export function ApplyCurrentEnv() {
   return window['go']['main']['App']['ApplyCurrentEnv']();
 }
 
+export function ApplyEnv(arg1, arg2) {
+  return window['go']['main']['App']['ApplyEnv'](arg1, arg2);
+}
+
 export function CheckForUpdate() {
   return window['go']['main']['App']['CheckForUpdate']();
 }
@@ -28,6 +32,10 @@ export function ClearAntigravitySettings() {
 
 export function ClearClaudeSettings() {
   return window['go']['main']['App']['ClearClaudeSettings']();
+}
+
+export function ClearClaudeDesktopSettings() {
+  return window['go']['main']['App']['ClearClaudeDesktopSettings']();
 }
 
 export function ClearCodexSettings() {
@@ -68,6 +76,10 @@ export function GetAppVersion() {
 
 export function GetClaudeSettings() {
   return window['go']['main']['App']['GetClaudeSettings']();
+}
+
+export function GetClaudeDesktopSettings() {
+  return window['go']['main']['App']['GetClaudeDesktopSettings']();
 }
 
 export function GetCodexSettings() {

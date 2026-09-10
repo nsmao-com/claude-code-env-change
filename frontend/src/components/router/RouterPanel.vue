@@ -199,7 +199,8 @@ onUnmounted(() => {
 const recentLogs = computed(() => (routerStore.status?.logs ?? []).slice(-10).reverse())
 
 const appProviders: { id: Provider; label: string }[] = [
-  { id: 'claude', label: 'Claude' },
+  { id: 'claude', label: 'Claude Code' },
+  { id: 'claude_desktop', label: 'Claude Desktop' },
   { id: 'codex', label: 'Codex' },
   { id: 'antigravity', label: 'Antigravity' },
   { id: 'opencode', label: 'OpenCode' },
