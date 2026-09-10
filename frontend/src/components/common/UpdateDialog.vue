@@ -93,6 +93,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { CircleAlert, Download, ExternalLink, Loader2 } from '@lucide/vue'
 import type { UpdateInfo } from '@/types'
 import { updateService } from '@/services/updateService'
+import { useSettings } from '@/composables/useSettings'
 import {
   Dialog,
   DialogContent,
@@ -112,6 +113,8 @@ const open = defineModel<boolean>({ default: false })
 const emit = defineEmits<{
   available: []
 }>()
+
+const { settings } = useSettings()
 
 const status = ref<'idle' | 'checking' | 'ready' | 'error'>('idle')
 const info = ref<UpdateInfo | null>(null)
@@ -204,6 +207,8 @@ onMounted(() => {
       error.value = p.message || '更新失败'
     }
   })
+
+  if (!settings.checkUpdateOnLaunch) return
 
   silentTimer = window.setTimeout(async () => {
     try {

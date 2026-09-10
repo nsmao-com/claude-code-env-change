@@ -584,8 +584,7 @@ func (a *App) ClearOpencodeSettings() error {
 	data, err := os.ReadFile(configFile)
 	if err != nil {
 		if os.IsNotExist(err) {
-			a.config.CurrentEnvOpencode = ""
-			a.config.CurrentEnvsOpencode = nil
+			a.clearProviderCurrent("opencode")
 			return a.saveConfig()
 		}
 		return err
@@ -617,18 +616,17 @@ func (a *App) ClearOpencodeSettings() error {
 		}
 		payload["provider"] = providers
 	}
-	a.config.CurrentEnvOpencode = ""
-	a.config.CurrentEnvsOpencode = nil
-	if err := a.saveConfig(); err != nil {
-		return err
+	// 先落盘 opencode.json，再清激活状态：反过来的话文件写失败会留下
+	// "软件说没应用、磁盘上还挂着" 的不一致状态。
+	if changed {
+		out, err := json.MarshalIndent(payload, "", "  ")
+		if err != nil {
+			return err
+		}
+		if err := os.WriteFile(configFile, out, 0644); err != nil {
+			return err
+		}
 	}
-	if !changed {
-		return nil
-	}
-
-	out, err := json.MarshalIndent(payload, "", "  ")
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(configFile, out, 0644)
+	a.clearProviderCurrent("opencode")
+	return a.saveConfig()
 }

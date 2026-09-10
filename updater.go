@@ -424,6 +424,12 @@ func extractPrimaryExe(zipPath, dest string) error {
 	}
 	defer r.Close()
 
+	// 优先挑与当前程序同名的可执行文件；打包产物名称变化时才退回关键字匹配。
+	currentBase := ""
+	if exe, err := os.Executable(); err == nil {
+		currentBase = strings.ToLower(filepath.Base(exe))
+	}
+
 	var chosen *zip.File
 	best := -1
 	for i := range r.File {
@@ -440,12 +446,15 @@ func extractPrimaryExe(zipPath, dest string) error {
 		}
 		base := filepath.Base(name)
 		score := 1
-		if base == "claude-env-switcher.exe" {
+		switch {
+		case currentBase != "" && base == currentBase:
+			score = 30
+		case base == "claude-env-switcher.exe" || base == "claude-model-switcher.exe":
 			score = 20
-		} else if strings.Contains(base, "claude-env-switcher") {
+		case strings.Contains(base, "claude-env-switcher") || strings.Contains(base, "claude-model-switcher"):
 			score = 10
 		}
-		if strings.Contains(base, "uninstall") || strings.Contains(base, "setup") {
+		if strings.Contains(base, "uninstall") || strings.Contains(base, "setup") || strings.Contains(base, "installer") {
 			score = 0
 		}
 		if score > best {
@@ -593,6 +602,31 @@ func (a *App) CheckLastUpdateResult() string {
 		return after
 	}
 	return ""
+}
+
+// cleanupStaleUpdateTemp 清理历史更新残留的临时目录和脚本（一个安装包 7MB+，失败几次就会堆积）。
+func cleanupStaleUpdateTemp() {
+	tmp := os.TempDir()
+	entries, err := os.ReadDir(tmp)
+	if err != nil {
+		return
+	}
+	cutoff := time.Now().Add(-2 * time.Hour)
+	for _, e := range entries {
+		name := e.Name()
+		isUpdateDir := e.IsDir() && strings.HasPrefix(name, "claude-env-update-")
+		isScript := !e.IsDir() &&
+			(strings.HasPrefix(name, "claude-env-update-") || strings.HasPrefix(name, "claude-env-installer-")) &&
+			strings.HasSuffix(name, ".ps1")
+		if !isUpdateDir && !isScript {
+			continue
+		}
+		info, err := e.Info()
+		if err != nil || info.ModTime().After(cutoff) {
+			continue
+		}
+		_ = os.RemoveAll(filepath.Join(tmp, name))
+	}
 }
 
 func isDevBuild() bool {

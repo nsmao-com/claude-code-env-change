@@ -179,6 +179,11 @@ const filterLabel = computed(() => {
   return '全部'
 })
 
+// 后端按 provider::name 定位配置（名称只在服务商内唯一）
+function envKey(env: EnvConfig) {
+  return `${env.provider || 'claude'}::${env.name}`
+}
+
 const filteredConfigs = computed(() => {
   if (!searchQuery.value.trim()) return props.configs
   const query = searchQuery.value.toLowerCase()
@@ -242,31 +247,34 @@ function initSortable() {
     onEnd: async (evt: { oldIndex?: number; newIndex?: number }) => {
       if (evt.oldIndex === undefined || evt.newIndex === undefined || evt.oldIndex === evt.newIndex) return
       const allEnvs = configStore.environments
-      const allNames = allEnvs.map(c => c.name)
-      const displayedNames = filteredConfigs.value.map(c => c.name)
-      const movedName = displayedNames[evt.oldIndex]
-      const targetName = displayedNames[evt.newIndex]
+      // 配置名只在同一服务商内唯一，排序必须按 provider::name 定位，
+      // 否则跨服务商的同名配置会被排到对方的位置上。
+      const allKeys = allEnvs.map(envKey)
+      const displayedKeys = filteredConfigs.value.map(envKey)
+      const movedKey = displayedKeys[evt.oldIndex]
+      const targetKey = displayedKeys[evt.newIndex]
+      if (!movedKey || !targetKey) return
       if (currentFilter.value === 'all') {
-        const fromIndex = allNames.indexOf(movedName)
-        const toIndex = allNames.indexOf(targetName)
-        const newOrder = [...allNames]
+        const fromIndex = allKeys.indexOf(movedKey)
+        const toIndex = allKeys.indexOf(targetKey)
+        if (fromIndex < 0 || toIndex < 0) return
+        const newOrder = [...allKeys]
         newOrder.splice(fromIndex, 1)
-        newOrder.splice(toIndex, 0, movedName)
+        newOrder.splice(toIndex, 0, movedKey)
         await configStore.reorderEnvs(newOrder)
         return
       }
-      const newFilteredOrder = [...displayedNames]
+      const newFilteredOrder = [...displayedKeys]
       newFilteredOrder.splice(evt.oldIndex, 1)
-      newFilteredOrder.splice(evt.newIndex, 0, movedName)
+      newFilteredOrder.splice(evt.newIndex, 0, movedKey)
       const newOrder: string[] = []
       let filteredIdx = 0
-      for (const name of allNames) {
-        const env = allEnvs.find(e => e.name === name)
-        if (env && env.provider === currentFilter.value) {
+      for (const env of allEnvs) {
+        if (env.provider === currentFilter.value) {
           newOrder.push(newFilteredOrder[filteredIdx])
           filteredIdx++
         } else {
-          newOrder.push(name)
+          newOrder.push(envKey(env))
         }
       }
       await configStore.reorderEnvs(newOrder)

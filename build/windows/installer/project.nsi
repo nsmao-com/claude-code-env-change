@@ -55,18 +55,22 @@ ShowInstDetails show
 Function .onInit
     !insertmacro wails.checkArchitecture
 
-    # Prefer the last selected directory. Older releases did not write
-    # InstallLocation, so fall back to the executable recorded as DisplayIcon.
-    SetRegView 64
-    ReadRegStr $0 HKLM "${UNINST_KEY}" "InstallLocation"
-    ${If} $0 == ""
-        ReadRegStr $0 HKLM "${UNINST_KEY}" "DisplayIcon"
-        ${If} $0 != ""
-            ${GetParent} "$0" $0
+    # /D= 会在 .onInit 之前写入 $INSTDIR（应用内更新就是这样传当前安装目录的）。
+    # 只有 $INSTDIR 仍是编译期默认值时才去查注册表，否则会把调用方指定的目录冲掉。
+    ${If} $INSTDIR == "$PROGRAMFILES64\${INFO_COMPANYNAME}\${INFO_PRODUCTNAME}"
+        # Prefer the last selected directory. Older releases did not write
+        # InstallLocation, so fall back to the executable recorded as DisplayIcon.
+        SetRegView 64
+        ReadRegStr $0 HKLM "${UNINST_KEY}" "InstallLocation"
+        ${If} $0 == ""
+            ReadRegStr $0 HKLM "${UNINST_KEY}" "DisplayIcon"
+            ${If} $0 != ""
+                ${GetParent} "$0" $0
+            ${EndIf}
         ${EndIf}
-    ${EndIf}
-    ${If} $0 != ""
-        StrCpy $INSTDIR "$0"
+        ${If} $0 != ""
+            StrCpy $INSTDIR "$0"
+        ${EndIf}
     ${EndIf}
 FunctionEnd
 

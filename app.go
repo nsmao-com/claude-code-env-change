@@ -54,6 +54,9 @@ type App struct {
 	ctx        context.Context
 	configPath string
 	config     Config
+	// configLoadErr 记录配置文件读取/解析失败的原因。
+	// 只要它不为空，saveConfig 就拒绝写盘，避免用一份空配置覆盖用户真实数据。
+	configLoadErr error
 }
 
 // NewApp creates a new App application struct
@@ -67,7 +70,13 @@ func NewApp() *App {
 func (a *App) OnStartup(ctx context.Context) {
 	a.ctx = ctx
 	initOutboundProxy()
-	a.loadConfig()
+	go cleanupStaleUpdateTemp()
+	if err := a.loadConfig(); err != nil {
+		// 配置读不出来时绝对不能继续往下写盘：早期版本会在这里直接 saveConfig，
+		// 把一份空配置盖回用户的 config.json，所有环境配置就此丢失。
+		runtime.LogErrorf(ctx, "配置加载失败，已暂停写入: %v", err)
+		return
+	}
 	a.syncOpencodeAppliedFromDisk()
 	_ = a.saveConfig()
 	_ = RecordEnvActivation("claude", a.config.CurrentEnvClaude, time.Now())
@@ -327,6 +336,37 @@ func (a *App) clearCurrentEnvRef(provider, name string) {
 	}
 }
 
+// clearProviderCurrent 清掉某服务商当前激活的配置引用（不关心具体是哪一条）。
+// 清除本机配置后必须调用，否则界面仍显示"已应用"，且下次启动的配置差异检测
+// 会把刚清掉的配置又同步回去，看起来就像清除没生效。
+func (a *App) clearProviderCurrent(provider string) {
+	var cleared string
+	switch strings.ToLower(strings.TrimSpace(provider)) {
+	case "claude_desktop":
+		cleared = a.config.CurrentEnvClaudeDesktop
+		a.config.CurrentEnvClaudeDesktop = ""
+	case "codex":
+		cleared = a.config.CurrentEnvCodex
+		a.config.CurrentEnvCodex = ""
+	case "antigravity":
+		cleared = a.config.CurrentEnvAntigravity
+		a.config.CurrentEnvAntigravity = ""
+	case "opencode":
+		cleared = a.config.CurrentEnvOpencode
+		a.config.CurrentEnvOpencode = ""
+		a.config.CurrentEnvsOpencode = nil
+	case "grok":
+		cleared = a.config.CurrentEnvGrok
+		a.config.CurrentEnvGrok = ""
+	default:
+		cleared = a.config.CurrentEnvClaude
+		a.config.CurrentEnvClaude = ""
+	}
+	if cleared != "" && a.config.CurrentEnv == cleared {
+		a.config.CurrentEnv = ""
+	}
+}
+
 // renameProviderCurrentRef 服务商内改名时迁移当前环境引用
 func (a *App) renameProviderCurrentRef(provider, oldName, newName string) {
 	switch strings.ToLower(strings.TrimSpace(provider)) {
@@ -395,22 +435,33 @@ func (a *App) DeleteEnv(name string, provider string) error {
 	return fmt.Errorf("environment '%s' (%s) not found", name, provider)
 }
 
-// ReorderEnvs reorders the environments based on the provided list of names
-func (a *App) ReorderEnvs(names []string) error {
-	if len(names) != len(a.config.Environments) {
+// ReorderEnvs 按给定顺序重排配置列表。
+//
+// 每一项形如 "provider::name"。名称只在同一服务商内唯一，只给名称时
+// 跨服务商的同名配置无法区分，拖动排序会把配置排到别的服务商的位置上；
+// 带上服务商前缀才能精确定位。为兼容旧调用，不含 "::" 的项仍按名称贪心匹配。
+func (a *App) ReorderEnvs(keys []string) error {
+	if len(keys) != len(a.config.Environments) {
 		return fmt.Errorf("environment count mismatch")
 	}
 
-	// 名称可能跨服务商重复：按请求顺序贪心匹配尚未使用的同名配置
 	used := make([]bool, len(a.config.Environments))
-	newEnvs := make([]EnvConfig, 0, len(names))
-	for _, name := range names {
+	newEnvs := make([]EnvConfig, 0, len(keys))
+	for _, key := range keys {
+		provider, name, hasProvider := strings.Cut(key, "::")
+		if !hasProvider {
+			name = key
+		}
 		found := -1
 		for i, env := range a.config.Environments {
-			if !used[i] && env.Name == name {
-				found = i
-				break
+			if used[i] || env.Name != name {
+				continue
 			}
+			if hasProvider && !sameProvider(env.Provider, provider) {
+				continue
+			}
+			found = i
+			break
 		}
 		if found < 0 {
 			return fmt.Errorf("environment '%s' not found", name)
@@ -839,13 +890,18 @@ func (a *App) applyClaudeEnv(env *EnvConfig) (string, error) {
 
 	settingsFile := filepath.Join(claudeDir, "settings.json")
 
-	// 读取现有的 settings.json (如果存在)
-	var settings map[string]interface{}
-	if data, err := os.ReadFile(settingsFile); err == nil {
-		json.Unmarshal(data, &settings)
-	}
-	if settings == nil {
-		settings = make(map[string]interface{})
+	// 读取现有的 settings.json (如果存在)。
+	// 解析失败时必须中止：早期版本会忽略解析错误直接当成空对象写回，
+	// 用户的 permissions / hooks / model / statusLine 等设置会被整个抹掉。
+	settings := map[string]interface{}{}
+	if data, err := os.ReadFile(settingsFile); err == nil && len(strings.TrimSpace(string(data))) > 0 {
+		parsed, parseErr := parseJSONLikeObject(data)
+		if parseErr != nil {
+			return "", fmt.Errorf("解析 %s 失败，为保护原文件已中止写入: %v", settingsFile, parseErr)
+		}
+		settings = parsed
+	} else if err != nil && !os.IsNotExist(err) {
+		return "", fmt.Errorf("读取 %s 失败: %v", settingsFile, err)
 	}
 
 	// 更新 env 字段
@@ -1464,12 +1520,18 @@ func (a *App) ClearClaudeSettings() error {
 	settingsFile := filepath.Join(homeDir, ".claude", "settings.json")
 
 	// 读取现有的 settings.json
-	var settings map[string]interface{}
-	if data, err := os.ReadFile(settingsFile); err == nil {
-		json.Unmarshal(data, &settings)
+	data, readErr := os.ReadFile(settingsFile)
+	if readErr != nil || len(strings.TrimSpace(string(data))) == 0 {
+		if readErr != nil && !os.IsNotExist(readErr) {
+			return fmt.Errorf("读取 %s 失败: %v", settingsFile, readErr)
+		}
+		// 文件不存在，本机已经是干净的；激活状态仍要一起清掉
+		a.clearProviderCurrent("claude")
+		return a.saveConfig()
 	}
-	if settings == nil {
-		return nil // 文件不存在，无需清除
+	settings, parseErr := parseJSONLikeObject(data)
+	if parseErr != nil {
+		return fmt.Errorf("解析 %s 失败，为保护原文件已中止写入: %v", settingsFile, parseErr)
 	}
 
 	// 清除 env 字段
@@ -1485,7 +1547,8 @@ func (a *App) ClearClaudeSettings() error {
 		return fmt.Errorf("写入 settings.json 失败: %v", err)
 	}
 
-	return nil
+	a.clearProviderCurrent("claude")
+	return a.saveConfig()
 }
 
 // ClearClaudeDesktopSettings 清除 Claude Desktop 当前用户配置。
@@ -1535,7 +1598,8 @@ func (a *App) ClearCodexSettings() error {
 	os.Remove(filepath.Join(codexDir, "config.toml"))
 	os.Remove(filepath.Join(codexDir, "auth.json"))
 
-	return nil
+	a.clearProviderCurrent("codex")
+	return a.saveConfig()
 }
 
 // ClearAntigravitySettings 清除 Antigravity（原 Gemini CLI）配置文件
@@ -1579,7 +1643,8 @@ func (a *App) ClearAntigravitySettings() error {
 		}
 	}
 
-	return nil
+	a.clearProviderCurrent("antigravity")
+	return a.saveConfig()
 }
 
 // ClearAllEnv 清除所有配置 (Claude/Codex/Antigravity/OpenCode/Grok)
@@ -1708,19 +1773,34 @@ func (a *App) mergeImportedConfigJSON(data []byte) (int, error) {
 		return 0, fmt.Errorf("解析配置文件失败: %v", err)
 	}
 
-	existingNames := make(map[string]bool)
+	// 名称只在同一服务商内唯一，重名判断必须带上 provider，
+	// 否则 codex 下的同名配置会被无谓地改成 xxx_imported_1
+	normProvider := func(p string) string {
+		p = strings.ToLower(strings.TrimSpace(p))
+		if p == "" {
+			return "claude"
+		}
+		if p == "gemini" {
+			return "antigravity"
+		}
+		return p
+	}
+	type envKey struct{ name, provider string }
+	existingKeys := make(map[envKey]bool)
 	for _, env := range a.config.Environments {
-		existingNames[env.Name] = true
+		existingKeys[envKey{env.Name, normProvider(env.Provider)}] = true
 	}
 
 	importCount := 0
 	for _, importedEnv := range importedConfig.Environments {
-		name := importedEnv.Name
-		if existingNames[name] {
+		// 导入的配置可能没有 provider（旧版导出），不归一就会在按平台筛选时看不见
+		importedEnv.Provider = normProvider(importedEnv.Provider)
+		key := envKey{importedEnv.Name, importedEnv.Provider}
+		if existingKeys[key] {
 			suffix := 1
 			for {
-				newName := fmt.Sprintf("%s_imported_%d", name, suffix)
-				if !existingNames[newName] {
+				newName := fmt.Sprintf("%s_imported_%d", importedEnv.Name, suffix)
+				if !existingKeys[envKey{newName, importedEnv.Provider}] {
 					importedEnv.Name = newName
 					break
 				}
@@ -1728,7 +1808,7 @@ func (a *App) mergeImportedConfigJSON(data []byte) (int, error) {
 			}
 		}
 		a.config.Environments = append(a.config.Environments, importedEnv)
-		existingNames[importedEnv.Name] = true
+		existingKeys[envKey{importedEnv.Name, importedEnv.Provider}] = true
 		importCount++
 	}
 
@@ -1742,6 +1822,7 @@ func (a *App) mergeImportedConfigJSON(data []byte) (int, error) {
 }
 
 func (a *App) loadConfig() error {
+	a.configLoadErr = nil
 	// 如果配置文件不存在，创建默认配置
 	if _, err := os.Stat(a.configPath); os.IsNotExist(err) {
 		a.config = Config{
@@ -1776,13 +1857,18 @@ func (a *App) loadConfig() error {
 	// 读取配置文件
 	data, err := os.ReadFile(a.configPath)
 	if err != nil {
-		return fmt.Errorf("读取配置文件失败 (%s): %v", a.configPath, err)
+		a.configLoadErr = fmt.Errorf("读取配置文件失败 (%s): %v", a.configPath, err)
+		return a.configLoadErr
 	}
 
-	err = json.Unmarshal(data, &a.config)
-	if err != nil {
-		return fmt.Errorf("解析配置文件失败 (%s): %v", a.configPath, err)
+	// 先解析到临时变量，解析失败时不能污染已有的 a.config
+	// （json.Unmarshal 出错前可能已经写进去一半字段）。
+	var loaded Config
+	if err := json.Unmarshal(data, &loaded); err != nil {
+		a.configLoadErr = fmt.Errorf("解析配置文件失败 (%s): %v", a.configPath, err)
+		return a.configLoadErr
 	}
+	a.config = loaded
 
 	// 兼容旧配置：未设置 provider 时默认归到 claude；
 	// gemini 平台已更名为 antigravity（Gemini CLI 于 2026-06 停服，由 Antigravity CLI 接替）
@@ -1821,20 +1907,58 @@ func (a *App) loadConfig() error {
 }
 
 func (a *App) saveConfig() error {
+	if a.configLoadErr != nil {
+		return fmt.Errorf("%v；为避免覆盖已有配置已暂停写入，请修复或备份后删除该文件再重启", a.configLoadErr)
+	}
+
 	data, err := json.MarshalIndent(a.config, "", "  ")
 	if err != nil {
 		return fmt.Errorf("序列化配置失败: %v", err)
 	}
 
-	if dir := filepath.Dir(a.configPath); dir != "" && dir != "." {
+	dir := filepath.Dir(a.configPath)
+	if dir != "" && dir != "." {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return fmt.Errorf("创建配置目录失败 (%s): %v", dir, err)
 		}
 	}
 
-	err = os.WriteFile(a.configPath, data, 0644)
+	// 先写临时文件再原子替换：中途崩溃/断电只会留下临时文件，
+	// 不会把 config.json 截断成半截 JSON（那正是下次启动解析失败的根源）。
+	tmp, err := os.CreateTemp(dir, ".config-*.tmp")
 	if err != nil {
 		return fmt.Errorf("保存配置文件失败 (%s): %v", a.configPath, err)
+	}
+	tmpName := tmp.Name()
+	if _, err := tmp.Write(data); err != nil {
+		tmp.Close()
+		os.Remove(tmpName)
+		return fmt.Errorf("保存配置文件失败 (%s): %v", a.configPath, err)
+	}
+	if err := tmp.Sync(); err != nil {
+		tmp.Close()
+		os.Remove(tmpName)
+		return fmt.Errorf("保存配置文件失败 (%s): %v", a.configPath, err)
+	}
+	if err := tmp.Close(); err != nil {
+		os.Remove(tmpName)
+		return fmt.Errorf("保存配置文件失败 (%s): %v", a.configPath, err)
+	}
+	if err := os.Chmod(tmpName, 0o644); err != nil {
+		os.Remove(tmpName)
+		return fmt.Errorf("保存配置文件失败 (%s): %v", a.configPath, err)
+	}
+	renameErr := os.Rename(tmpName, a.configPath)
+	for i := 0; renameErr != nil && i < 4; i++ {
+		// Windows 上配置文件可能被杀软或同步工具短暂占用，重试几次再说
+		time.Sleep(60 * time.Millisecond)
+		renameErr = os.Rename(tmpName, a.configPath)
+	}
+	if renameErr != nil {
+		os.Remove(tmpName)
+		if err := os.WriteFile(a.configPath, data, 0o644); err != nil {
+			return fmt.Errorf("保存配置文件失败 (%s): %v", a.configPath, err)
+		}
 	}
 
 	notifyCloudSync()

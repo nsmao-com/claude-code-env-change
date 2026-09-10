@@ -108,6 +108,7 @@ import { useI18n } from '@/composables/useI18n'
 import { updateService } from '@/services/updateService'
 import { MotionConfig, motion } from 'motion-v'
 import { pageEnter } from '@/lib/motion'
+import { APP_PAGES } from '@/lib/nav'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import AppTitlebar from '@/components/common/AppTitlebar.vue'
@@ -138,7 +139,7 @@ const routerStore = useRouterStore()
 const confirm = useConfirm()
 const toast = useToast()
 useTheme()
-const { settings, saveLastPage } = useSettings()
+const { settings, saveLastPage, readLastPage } = useSettings()
 const { t } = useI18n()
 
 const page = ref<AppPage>('home')
@@ -166,8 +167,9 @@ function onSettingsShortcut(e: KeyboardEvent) {
 }
 
 onMounted(async () => {
-  // 每次启动先进入首页，避免停留在上次打开的配置/设置页造成迷失。
-  page.value = 'home'
+  // 设置里开了"记住上次打开的页面"就恢复，否则回首页。
+  const lastPage = readLastPage()
+  page.value = lastPage && APP_PAGES.some(item => item.id === lastPage) ? lastPage as AppPage : 'home'
   window.addEventListener('keydown', onSettingsShortcut)
   window.addEventListener('dragenter', onWinDragEnter)
   window.addEventListener('dragover', onWinDragOver)
@@ -212,11 +214,8 @@ onMounted(async () => {
   } catch {
     /* ignore */
   }
-  if (settings.checkUpdateOnLaunch) {
-    updateService.check().then((info) => {
-      if (info?.available) updateAvailable.value = true
-    }).catch(() => {})
-  }
+  // 启动检查更新由 UpdateDialog 统一负责（受"启动时检查更新"开关控制），
+  // 这里不再重复请求一次 GitHub API。
 })
 
 onBeforeUnmount(() => {

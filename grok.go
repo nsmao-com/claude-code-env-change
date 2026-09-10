@@ -203,7 +203,8 @@ func (a *App) ClearGrokSettings() error {
 	data, err := os.ReadFile(configFile)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil
+			a.clearProviderCurrent("grok")
+			return a.saveConfig()
 		}
 		return err
 	}
@@ -225,5 +226,9 @@ func (a *App) ClearGrokSettings() error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(configFile, out, 0644)
+	if err := os.WriteFile(configFile, out, 0644); err != nil {
+		return err
+	}
+	a.clearProviderCurrent("grok")
+	return a.saveConfig()
 }
