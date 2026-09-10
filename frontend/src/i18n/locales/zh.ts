@@ -103,7 +103,7 @@ export const zh = {
     checkUpdateOnLaunch: '启动时检查更新',
     checkUpdateOnLaunchHint: '打开软件时在后台查询 GitHub Releases。',
     restoreLastPage: '记住上次打开的页面',
-    restoreLastPageHint: '下次启动进入上次停留的页面。',
+    restoreLastPageHint: '默认每次启动都回到首页；开启后进入上次停留的页面。',
     proxy: '出站代理',
     proxyHint: '给软件自己的联网走 Clash / V2Ray 等本地代理，用于更新、测速、云同步、MCP 检测和路由访问上游。',
     proxyEnable: '启用全局出站代理',

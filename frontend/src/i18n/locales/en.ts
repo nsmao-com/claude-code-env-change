@@ -103,7 +103,7 @@ export const en = {
     checkUpdateOnLaunch: 'Check for updates on launch',
     checkUpdateOnLaunchHint: 'Query GitHub Releases in the background when the app starts.',
     restoreLastPage: 'Remember last page',
-    restoreLastPageHint: 'Reopen the page you were on last time.',
+    restoreLastPageHint: 'Off by default: the app always opens on Home. Turn on to reopen the page you were on last time.',
     proxy: 'Outbound proxy',
     proxyHint: 'Route this app through Clash / V2Ray for updates, latency tests, cloud sync, MCP checks, and router upstreams.',
     proxyEnable: 'Enable global outbound proxy',

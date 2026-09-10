@@ -16,6 +16,9 @@ export interface AppSettings {
 const STORAGE_KEY = 'ai-env-settings'
 const LAST_PAGE_KEY = 'ai-env-last-page'
 const LEGACY_THEME_KEY = 'theme'
+const SETTINGS_VERSION_KEY = 'ai-env-settings-version'
+// 2：启动统一回首页，“记住上次打开的页面”改为默认关闭
+const SETTINGS_VERSION = 2
 
 export const ACCENTS: { id: AccentId; swatch: string }[] = [
   { id: 'orange', swatch: 'oklch(0.666 0.178 45)' },
@@ -32,7 +35,7 @@ const defaults: AppSettings = {
   accent: 'orange',
   reducedMotion: false,
   checkUpdateOnLaunch: true,
-  restoreLastPage: true,
+  restoreLastPage: false,
 }
 
 const state = reactive<AppSettings>({ ...defaults })
@@ -45,6 +48,24 @@ function readStored(): Partial<AppSettings> {
     if (raw) return JSON.parse(raw) as Partial<AppSettings>
   } catch { /* ignore */ }
   return {}
+}
+
+// 旧版本默认开启“记住上次打开的页面”，并把这个默认值写进了 localStorage，
+// 只改默认值对老用户不生效。这里按版本号一次性清掉旧的默认值和残留页面记录，
+// 之后用户自己在设置里打开的选择照常保留。
+function migrateStored(stored: Partial<AppSettings>): boolean {
+  let version = 0
+  try {
+    version = Number(localStorage.getItem(SETTINGS_VERSION_KEY)) || 0
+  } catch { /* ignore */ }
+  if (version >= SETTINGS_VERSION) return false
+
+  delete stored.restoreLastPage
+  try {
+    localStorage.removeItem(LAST_PAGE_KEY)
+    localStorage.setItem(SETTINGS_VERSION_KEY, String(SETTINGS_VERSION))
+  } catch { /* ignore */ }
+  return true
 }
 
 function persist() {
@@ -79,6 +100,7 @@ export function initSettings() {
   initialized = true
 
   const stored = readStored()
+  const migrated = migrateStored(stored)
   if (isLocale(stored.language)) state.language = stored.language
   if (stored.theme === 'system' || stored.theme === 'light' || stored.theme === 'dark') {
     state.theme = stored.theme
@@ -92,6 +114,7 @@ export function initSettings() {
   if (typeof stored.restoreLastPage === 'boolean') state.restoreLastPage = stored.restoreLastPage
 
   applyDocument()
+  if (migrated) persist()
 
   if (typeof window !== 'undefined' && window.matchMedia) {
     media = window.matchMedia('(prefers-color-scheme: dark)')
@@ -128,8 +151,9 @@ export function useSettings() {
     setDark(!isDark.value)
   }
 
+  // 始终记录当前页，只在读取时判断开关；
+  // 否则用户刚打开开关时没有历史记录，下次启动仍然回首页，像是开关没生效。
   function saveLastPage(page: string) {
-    if (!state.restoreLastPage) return
     try {
       localStorage.setItem(LAST_PAGE_KEY, page)
     } catch { /* ignore */ }
