@@ -31,6 +31,9 @@ type EnvConfig struct {
 	Icon        string            `json:"icon,omitempty"`      // emoji 图标
 	// 上游 API 格式："" 原生直连；chat_completions / anthropic_messages / responses 需本地路由转换
 	UpstreamFormat string `json:"upstream_format,omitempty"`
+	// OfficialLogin 官方登录配置：不写任何第三方接入，应用时清掉 base_url / api_key，
+	// 让 CLI 回落到自带的官方账号登录（OAuth）。
+	OfficialLogin bool `json:"official_login,omitempty"`
 	// Claude Code 特有配置 (值为 "0" 或 "1"，空字符串表示不设置)
 	AttributionHeader          string `json:"attribution_header"`
 	DisableNonessentialTraffic string `json:"disable_nonessential_traffic"`
@@ -396,6 +399,10 @@ func (a *App) renameProviderCurrentRef(provider, oldName, newName string) {
 }
 
 func (a *App) applyEnvByProvider(env *EnvConfig) (string, error) {
+	// 官方登录没有上游 Base URL，不能走 prepareLiveEnv 的路由改写，否则直接报错
+	if env != nil && env.OfficialLogin {
+		return a.applyOfficialLogin(env)
+	}
 	live, err := prepareLiveEnv(env)
 	if err != nil {
 		return "", err
@@ -690,6 +697,13 @@ func (a *App) GetConfigDrift() []string {
 		case "grok":
 			current = a.GetGrokSettings()
 		default:
+			continue
+		}
+		if env.OfficialLogin {
+			// 官方登录要求本机读不到任何第三方接入；读到了就是被别处改回去了
+			if key := providerBaseVariable(item.provider); key != "" && strings.TrimSpace(current[key]) != "" {
+				drift = append(drift, item.label)
+			}
 			continue
 		}
 		expectedVariables := comparableEnvVariables(item.provider, env.Variables)

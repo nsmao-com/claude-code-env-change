@@ -33,6 +33,14 @@
         </template>
       </SegmentedPills>
 
+      <div
+        v-if="officialLogin"
+        class="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs leading-relaxed text-emerald-700 dark:text-emerald-400"
+      >
+        这是一条<b>官方登录</b>配置。应用时只会清掉本机的第三方 Base URL 和密钥，让 CLI 回落到自带的账号登录，不会写入任何接入信息。
+        一旦在下面填了 Base URL 或密钥，保存后就变成普通的第三方配置。
+      </div>
+
       <div class="flex flex-wrap items-center gap-2 rounded-xl bg-muted/40 px-3 py-2">
         <span class="text-xs text-muted-foreground">快捷填入：</span>
         <Button v-for="preset in providerPresets" :key="preset.label" type="button" size="sm" variant="outline" @click="applyPreset(preset)">
@@ -971,6 +979,22 @@ GEMINI_MODEL={{GEMINI_MODEL}}`,
 
 const form = ref(defaultForm())
 const originalName = ref('')
+// 官方登录配置本身没有 base_url / api_key。编辑时要把这个标记带回去，
+// 否则保存一次就退化成普通空配置，再应用会把第三方默认模板写进本机。
+const officialLogin = ref(false)
+
+const upstreamValueKeys = [
+  'ANTHROPIC_BASE_URL', 'ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_API_KEY',
+  'base_url', 'OPENAI_API_KEY',
+  'GOOGLE_GEMINI_BASE_URL', 'GEMINI_API_KEY',
+  'OPENCODE_BASE_URL', 'OPENCODE_API_KEY',
+  'XAI_BASE_URL', 'XAI_API_KEY',
+]
+
+// 填了上游地址或密钥，就说明改成第三方接入了，官方登录标记自动摘掉
+function hasUpstreamValue(variables: Record<string, string>) {
+  return upstreamValueKeys.some(key => String(variables[key] || '').trim() !== '')
+}
 
 watch(() => props.editConfig, (config) => {
   if (config) {
@@ -980,6 +1004,7 @@ watch(() => props.editConfig, (config) => {
     form.value.icon = config.icon || '📦'
     form.value.provider = config.provider
     form.value.upstreamFormat = (config.upstream_format || '') as UpstreamFormat
+    officialLogin.value = Boolean(config.official_login)
 
     if (config.provider === 'claude' || config.provider === 'claude_desktop') {
       form.value.claude.baseUrl = config.variables.ANTHROPIC_BASE_URL || ''
@@ -1068,12 +1093,14 @@ watch(() => props.editConfig, (config) => {
   } else {
     form.value = defaultForm()
     originalName.value = ''
+    officialLogin.value = false
   }
 }, { immediate: true })
 
 function resetBlankForm() {
   form.value = defaultForm()
   originalName.value = ''
+  officialLogin.value = false
   showMore.value = false
   resetApiKeyVisibility()
 }
@@ -1256,6 +1283,7 @@ async function handleSubmit() {
     templates,
     icon: form.value.icon,
     upstream_format: form.value.upstreamFormat,
+    official_login: officialLogin.value && !hasUpstreamValue(variables),
     attribution_header: form.value.provider === 'claude' ? form.value.claude.attributionHeader : '',
     disable_nonessential_traffic: form.value.provider === 'claude' ? form.value.claude.disableNonessentialTraffic : ''
   }

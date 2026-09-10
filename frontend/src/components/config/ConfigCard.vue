@@ -33,6 +33,7 @@
           </div>
         </div>
         <div class="flex shrink-0 items-center gap-1.5">
+          <Badge v-if="config.official_login" variant="outline" class="shrink-0 border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">官方登录</Badge>
           <Badge v-if="needsRoute" class="shrink-0">需路由</Badge>
           <Badge v-if="needsRoute && conversionLabel" variant="outline" class="shrink-0 border-brand/30 bg-brand/10 text-brand">{{ conversionLabel }}</Badge>
           <Badge v-if="isActive" class="gap-1">

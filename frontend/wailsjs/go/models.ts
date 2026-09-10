@@ -180,6 +180,7 @@ export namespace main {
 	    templates?: Record<string, string>;
 	    icon?: string;
 	    upstream_format?: string;
+	    official_login?: boolean;
 	    attribution_header: string;
 	    disable_nonessential_traffic: string;
 	
@@ -196,6 +197,7 @@ export namespace main {
 	        this.templates = source["templates"];
 	        this.icon = source["icon"];
 	        this.upstream_format = source["upstream_format"];
+	        this.official_login = source["official_login"];
 	        this.attribution_header = source["attribution_header"];
 	        this.disable_nonessential_traffic = source["disable_nonessential_traffic"];
 	    }

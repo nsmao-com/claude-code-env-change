@@ -130,6 +130,10 @@ export function ImportConfigJSON(arg1) {
   return window['go']['main']['App']['ImportConfigJSON'](arg1);
 }
 
+export function AddOfficialLoginEnvs(arg1) {
+  return window['go']['main']['App']['AddOfficialLoginEnvs'](arg1);
+}
+
 export function ImportLocalEnv(arg1) {
   return window['go']['main']['App']['ImportLocalEnv'](arg1);
 }

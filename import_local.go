@@ -65,6 +65,21 @@ func (a *App) buildLocalEnv(provider string) (*EnvConfig, error) {
 }
 
 func (a *App) buildLocalEnvs(provider string) ([]EnvConfig, error) {
+	envs, err := a.buildLocalProviderEnvs(provider)
+	if err != nil {
+		return nil, err
+	}
+	if len(envs) == 0 {
+		// 读不到任何第三方接入信息，但本机确实装了这个工具：
+		// 说明当前就是官方登录状态，按官方登录导入，而不是报“没找到配置”
+		if env := a.localOfficialLoginEnv(provider); env != nil {
+			return []EnvConfig{*env}, nil
+		}
+	}
+	return envs, nil
+}
+
+func (a *App) buildLocalProviderEnvs(provider string) ([]EnvConfig, error) {
 	switch provider {
 	case "claude":
 		env, err := a.buildLocalClaudeEnv()

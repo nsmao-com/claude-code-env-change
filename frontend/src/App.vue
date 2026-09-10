@@ -36,12 +36,14 @@
                 <ConfigGrid
                   :configs="configStore.filteredEnvironments"
                   :importing="importingLocal"
+                  :adding-official="addingOfficialLogin"
                   @add="openAddConfig"
                   @edit="openEditConfig"
                   @apply="applyConfig"
                   @duplicate="duplicateConfig"
                   @delete="deleteConfig"
                   @import-local="importLocalConfig"
+                  @add-official="addOfficialLogin"
                   @import-json="openImportModal"
                 />
               </div>
@@ -152,6 +154,7 @@ const windowDragging = ref(false)
 const updateAvailable = ref(false)
 const editingConfig = ref<EnvConfig | null>(null)
 const importingLocal = ref(false)
+const addingOfficialLogin = ref(false)
 
 watch(page, (id) => saveLastPage(id))
 
@@ -276,6 +279,23 @@ async function importLocalConfig() {
     toast.error(t('toast.importLocalFailed', { error: e?.message || String(e) }))
   } finally {
     importingLocal.value = false
+  }
+}
+
+// 官方登录：给当前筛选的服务商补一条“清空第三方接入”的配置，
+// 应用后 CLI 回落到自带的账号登录。
+async function addOfficialLogin() {
+  if (addingOfficialLogin.value) return
+  page.value = 'env'
+  addingOfficialLogin.value = true
+  try {
+    const filter = configStore.currentFilter
+    const added = await configStore.addOfficialLoginEnvs(filter === 'all' ? 'all' : filter)
+    toast.success(`已添加 ${added.length} 条官方登录配置`)
+  } catch (e: any) {
+    toast.error(e?.message || String(e) || '添加官方登录配置失败')
+  } finally {
+    addingOfficialLogin.value = false
   }
 }
 

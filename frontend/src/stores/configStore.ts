@@ -192,6 +192,12 @@ export const useConfigStore = defineStore('config', () => {
     return added
   }
 
+  async function addOfficialLoginEnvs(provider: Provider | 'all' = 'all'): Promise<EnvConfig[]> {
+    const added = await configService.addOfficialLoginEnvs(provider)
+    await loadConfig()
+    return added
+  }
+
   async function getCurrentSettings(provider: Provider): Promise<Record<string, string>> {
     switch (provider) {
       case 'claude':
@@ -289,6 +295,7 @@ export const useConfigStore = defineStore('config', () => {
     importConfigJSON,
     readDroppedFile,
     importLocalEnv,
+    addOfficialLoginEnvs,
     getCurrentSettings,
     setFilter,
     setEnvTab,

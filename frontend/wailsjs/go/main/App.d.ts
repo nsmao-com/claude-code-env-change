@@ -67,6 +67,8 @@ export function ImportConfig():Promise<number>;
 
 export function ImportConfigJSON(arg1:string):Promise<number>;
 
+export function AddOfficialLoginEnvs(arg1:string):Promise<Array<main.EnvConfig>>;
+
 export function ImportLocalEnv(arg1:string):Promise<Array<main.EnvConfig>>;
 
 export function ListCliTools():Promise<Array<main.CliToolStatus>>;

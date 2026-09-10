@@ -21,6 +21,10 @@
             <FileJson />
             导入 JSON
           </Button>
+          <Button variant="outline" size="sm" :disabled="addingOfficial" @click="$emit('add-official')">
+            <KeyRound />
+            {{ addingOfficial ? '添加中...' : '官方登录' }}
+          </Button>
         </div>
         <div class="flex items-center gap-2">
           <SegmentedPills
@@ -127,7 +131,7 @@ import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { motion } from 'motion-v'
 import Sortable from 'sortablejs'
 import { fadeEnter } from '@/lib/motion'
-import { FileJson, LayoutGrid, List, Plus, Search, Upload } from '@lucide/vue'
+import { FileJson, KeyRound, LayoutGrid, List, Plus, Search, Upload } from '@lucide/vue'
 import type { EnvConfig, Provider } from '@/types'
 import { useConfigStore } from '@/stores/configStore'
 import ConfigCard from './ConfigCard.vue'
@@ -142,6 +146,7 @@ import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from '
 interface Props {
   configs: EnvConfig[]
   importing?: boolean
+  addingOfficial?: boolean
 }
 
 const props = defineProps<Props>()
@@ -153,6 +158,7 @@ const emit = defineEmits<{
   delete: [index: number]
   reorder: [names: string[]]
   'import-local': []
+  'add-official': []
   'import-json': []
 }>()
 

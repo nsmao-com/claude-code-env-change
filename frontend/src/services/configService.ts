@@ -1,4 +1,5 @@
 import type { EnvConfig, Config, Provider } from '@/types'
+import type { main } from '../../wailsjs/go/models'
 import {
   GetConfig,
   GetOpencodeAppliedNames,
@@ -26,7 +27,8 @@ import {
   GetGrokSettings,
   ExportConfig,
   ImportConfig,
-  ImportLocalEnv
+  ImportLocalEnv,
+  AddOfficialLoginEnvs
 } from '../../wailsjs/go/main/App'
 import { callApp } from '@/services/appBridge'
 
@@ -168,11 +170,21 @@ export const configService = {
 
   async importLocalEnv(provider: Provider | 'all'): Promise<EnvConfig[]> {
     const list = await ImportLocalEnv(provider)
-    return (list || []).map((env): EnvConfig => ({
-      ...env,
-      provider: normalizeProvider(env.provider),
-      upstream_format: env.upstream_format as EnvConfig['upstream_format'],
-    }))
+    return (list || []).map(toEnvConfig)
+  },
+
+  async addOfficialLoginEnvs(provider: Provider | 'all'): Promise<EnvConfig[]> {
+    const list = await AddOfficialLoginEnvs(provider)
+    return (list || []).map(toEnvConfig)
+  }
+}
+
+function toEnvConfig(env: main.EnvConfig): EnvConfig {
+  return {
+    ...env,
+    provider: normalizeProvider(env.provider),
+    upstream_format: env.upstream_format as EnvConfig['upstream_format'],
+    official_login: Boolean(env.official_login),
   }
 }
 

@@ -10,6 +10,8 @@ export interface EnvConfig {
   icon?: string
   /** 上游 API 格式：空 = 原生直连；其余值需开启该模型商路由后才转换 */
   upstream_format?: UpstreamFormat
+  /** 官方登录配置：应用时清掉第三方接入，让 CLI 回落到自带的账号登录 */
+  official_login?: boolean
   // Claude Code 特有配置 (值为 "0" 或 "1"，空字符串表示不设置)
   attribution_header: string
   disable_nonessential_traffic: string
