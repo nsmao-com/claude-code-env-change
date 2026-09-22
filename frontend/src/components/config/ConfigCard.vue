@@ -8,8 +8,12 @@
     :while-hover="hoverLift"
   >
   <Card
-    :class="['cursor-pointer transition-colors hover:bg-muted/70', isActive ? 'border-primary bg-primary/8 ring-2 ring-primary/35' : '']"
+    role="button"
+    tabindex="0"
+    :class="['cursor-pointer transition-colors hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60', isActive ? 'border-primary bg-primary/8 ring-2 ring-primary/35' : '']"
     @click="$emit('click')"
+    @keydown.enter.prevent="$emit('click')"
+    @keydown.space.prevent="$emit('click')"
   >
     <CardHeader class="gap-2">
       <div class="flex min-w-0 items-start justify-between gap-2">
@@ -165,7 +169,7 @@ const baseUrlValue = computed(() => {
 })
 
 const isUptimeEnabled = computed(() => !!uptimeStore.settings.enabled)
-const uptimeHistory = computed<UptimeCheck[]>(() => uptimeStore.getHistory(props.config.name))
+const uptimeHistory = computed<UptimeCheck[]>(() => uptimeStore.getHistory(`${String(props.config.provider || '').toLowerCase()}/${props.config.name}`))
 const latestCheck = computed(() => uptimeHistory.value.at(-1) ?? null)
 const uptimeBadgeText = computed(() => {
   if (!baseUrlValue.value?.trim()) return '无地址'

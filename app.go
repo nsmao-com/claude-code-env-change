@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"strconv"
@@ -57,6 +58,9 @@ type App struct {
 	ctx        context.Context
 	configPath string
 	config     Config
+	// configMu 保护 config/configLoadErr：Wails 的每个绑定方法都在独立 goroutine 执行，
+	// 云同步、监控轮换等后台服务也会改写配置，所有对 config 的读写必须持锁。
+	configMu sync.Mutex
 	// configLoadErr 记录配置文件读取/解析失败的原因。
 	// 只要它不为空，saveConfig 就拒绝写盘，避免用一份空配置覆盖用户真实数据。
 	configLoadErr error
@@ -74,14 +78,17 @@ func (a *App) OnStartup(ctx context.Context) {
 	a.ctx = ctx
 	initOutboundProxy()
 	go cleanupStaleUpdateTemp()
+	a.configMu.Lock()
 	if err := a.loadConfig(); err != nil {
 		// 配置读不出来时绝对不能继续往下写盘：早期版本会在这里直接 saveConfig，
 		// 把一份空配置盖回用户的 config.json，所有环境配置就此丢失。
 		runtime.LogErrorf(ctx, "配置加载失败，已暂停写入: %v", err)
+		a.configMu.Unlock()
 		return
 	}
 	a.syncOpencodeAppliedFromDisk()
 	_ = a.saveConfig()
+	a.configMu.Unlock()
 	_ = RecordEnvActivation("claude", a.config.CurrentEnvClaude, time.Now())
 	_ = RecordEnvActivation("claude_desktop", a.config.CurrentEnvClaudeDesktop, time.Now())
 	_ = RecordEnvActivation("codex", a.config.CurrentEnvCodex, time.Now())
@@ -92,8 +99,15 @@ func (a *App) OnStartup(ctx context.Context) {
 
 // GetConfig 获取配置
 func (a *App) GetConfig() Config {
+	a.configMu.Lock()
+	defer a.configMu.Unlock()
 	a.syncOpencodeAppliedFromDisk()
 	cfg := a.config
+	// 复制一份 environments 底层数组：JS 侧序列化期间，其它 goroutine 的
+	// 增删操作会让共享数组出现元素重复/丢失
+	envs := make([]EnvConfig, len(a.config.Environments))
+	copy(envs, a.config.Environments)
+	cfg.Environments = envs
 	cfg.CurrentEnvsOpencode = append([]string(nil), a.config.CurrentEnvsOpencode...)
 	if cfg.CurrentEnvsOpencode == nil {
 		cfg.CurrentEnvsOpencode = []string{}
@@ -103,6 +117,8 @@ func (a *App) GetConfig() Config {
 
 // GetOpencodeAppliedNames 当前同时挂在 opencode.json 里的 OpenCode 配置名
 func (a *App) GetOpencodeAppliedNames() []string {
+	a.configMu.Lock()
+	defer a.configMu.Unlock()
 	a.syncOpencodeAppliedFromDisk()
 	names := a.opencodeCurrentNames()
 	if names == nil {
@@ -130,6 +146,13 @@ func (a *App) SetEnvVar(key, value string) error {
 
 // SwitchToEnv 切换环境
 func (a *App) SwitchToEnv(name string, provider string) error {
+	a.configMu.Lock()
+	defer a.configMu.Unlock()
+	return a.switchToEnvLocked(name, provider)
+}
+
+// switchToEnvLocked 切换环境（调用方必须持有 a.configMu）
+func (a *App) switchToEnvLocked(name string, provider string) error {
 	// 名称只在同一服务商内唯一，必须由调用方指明服务商
 	found := false
 	for _, env := range a.config.Environments {
@@ -167,11 +190,13 @@ func (a *App) SwitchToEnv(name string, provider string) error {
 
 // ApplyEnv 仅应用指定服务商的一条配置，避免点击单个平台时重写其它平台的本机配置。
 func (a *App) ApplyEnv(name, provider string) (string, error) {
+	a.configMu.Lock()
+	defer a.configMu.Unlock()
 	env := a.findEnvIn(provider, name)
 	if env == nil {
 		return "", fmt.Errorf("找不到环境配置 %q (%s)", name, provider)
 	}
-	if err := a.SwitchToEnv(name, provider); err != nil {
+	if err := a.switchToEnvLocked(name, provider); err != nil {
 		return "", err
 	}
 	message, err := a.applyEnvByProvider(env)
@@ -187,6 +212,8 @@ func (a *App) ApplyEnv(name, provider string) (string, error) {
 
 // UnapplyEnv 停用一条已应用的配置。OpenCode 可同时挂多套，停用只拿掉这一套，其它继续留在 opencode.json。
 func (a *App) UnapplyEnv(name string) error {
+	a.configMu.Lock()
+	defer a.configMu.Unlock()
 	env := a.findEnvIn("opencode", name)
 	if env == nil {
 		return fmt.Errorf("environment '%s' not found", name)
@@ -217,6 +244,13 @@ func (a *App) UnapplyEnv(name string) error {
 // AddEnv adds a new environment configuration
 // 名称只需在同一服务商内唯一；同名但不同服务商的配置各自独立存在
 func (a *App) AddEnv(env EnvConfig) error {
+	a.configMu.Lock()
+	defer a.configMu.Unlock()
+	return a.addEnvLocked(env)
+}
+
+// addEnvLocked 添加/覆盖一条环境配置（调用方必须持有 a.configMu）
+func (a *App) addEnvLocked(env EnvConfig) error {
 	// Check if environment already exists (same provider)
 	for i, existing := range a.config.Environments {
 		if existing.Name == env.Name && sameProvider(existing.Provider, env.Provider) {
@@ -233,6 +267,8 @@ func (a *App) AddEnv(env EnvConfig) error {
 
 // UpdateEnv updates an existing environment configuration by old name
 func (a *App) UpdateEnv(oldName string, oldProvider string, newEnv EnvConfig) error {
+	a.configMu.Lock()
+	defer a.configMu.Unlock()
 	idx := -1
 	for i, existing := range a.config.Environments {
 		if existing.Name == oldName && sameProvider(existing.Provider, oldProvider) {
@@ -425,10 +461,15 @@ func (a *App) applyEnvByProvider(env *EnvConfig) (string, error) {
 
 // DeleteEnv deletes an environment configuration by name
 func (a *App) DeleteEnv(name string, provider string) error {
+	a.configMu.Lock()
+	defer a.configMu.Unlock()
 	for i, env := range a.config.Environments {
 		if env.Name == name && sameProvider(env.Provider, provider) {
 			if env.Provider == "opencode" && a.isOpencodeCurrent(name) {
-				_ = a.stripOpencodeProvider(&env)
+				if err := a.stripOpencodeProvider(&env); err != nil {
+					// 磁盘上的 provider 摘不掉就删配置会让界面与 opencode.json 不一致，先中止
+					return fmt.Errorf("从 opencode.json 摘除该配置失败，已中止删除: %v", err)
+				}
 			}
 			// Remove environment from slice
 			a.config.Environments = append(a.config.Environments[:i], a.config.Environments[i+1:]...)
@@ -448,6 +489,8 @@ func (a *App) DeleteEnv(name string, provider string) error {
 // 跨服务商的同名配置无法区分，拖动排序会把配置排到别的服务商的位置上；
 // 带上服务商前缀才能精确定位。为兼容旧调用，不含 "::" 的项仍按名称贪心匹配。
 func (a *App) ReorderEnvs(keys []string) error {
+	a.configMu.Lock()
+	defer a.configMu.Unlock()
 	if len(keys) != len(a.config.Environments) {
 		return fmt.Errorf("environment count mismatch")
 	}
@@ -535,6 +578,8 @@ func probeURL(client *http.Client, method, urlStr string) (*http.Response, error
 
 // ApplyCurrentEnv 应用当前环境：把每个 Provider 各自激活的环境写入对应 CLI 配置文件
 func (a *App) ApplyCurrentEnv() (string, error) {
+	a.configMu.Lock()
+	defer a.configMu.Unlock()
 	var msgs []string
 	var errs []string
 
@@ -618,6 +663,13 @@ type ClaudeSettings struct {
 
 // GetClaudeSettings 读取 Claude settings.json 配置
 func (a *App) GetClaudeSettings() map[string]string {
+	a.configMu.Lock()
+	defer a.configMu.Unlock()
+	return a.getClaudeSettingsLocked()
+}
+
+// getClaudeSettingsLocked 读取本机配置（调用方必须持有 a.configMu）
+func (a *App) getClaudeSettingsLocked() map[string]string {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return nil
@@ -653,6 +705,13 @@ func (a *App) GetClaudeSettings() map[string]string {
 // GetClaudeDesktopSettings 读取 Claude Desktop 本地配置并归一化为 Anthropic 字段。
 // Claude Desktop 与 Claude Code 的文件格式不同，不能读取 ~/.claude/settings.json。
 func (a *App) GetClaudeDesktopSettings() map[string]string {
+	a.configMu.Lock()
+	defer a.configMu.Unlock()
+	return a.getClaudeDesktopSettingsLocked()
+}
+
+// getClaudeDesktopSettingsLocked 读取本机配置（调用方必须持有 a.configMu）
+func (a *App) getClaudeDesktopSettingsLocked() map[string]string {
 	path, err := claudeDesktopConfigPath()
 	if err != nil {
 		return nil
@@ -666,15 +725,27 @@ func (a *App) GetClaudeDesktopSettings() map[string]string {
 
 // GetConfigDrift 返回当前激活环境与本机配置不一致的平台，启动时只用于询问用户是否同步。
 func (a *App) GetConfigDrift() []string {
+	a.configMu.Lock()
+	defer a.configMu.Unlock()
 	var drift []string
-	for _, item := range []struct{ provider, name, label string }{
+	// OpenCode 支持多套配置同时挂在 opencode.json 上，漂移检测必须覆盖全部激活配置，
+	// 只查单个 CurrentEnvOpencode 会漏掉其余挂载配置被外部改动的情况
+	opencodeNames := a.opencodeCurrentNames()
+	if len(opencodeNames) == 0 && a.config.CurrentEnvOpencode != "" {
+		opencodeNames = []string{a.config.CurrentEnvOpencode}
+	}
+	type driftTarget struct{ provider, name, label string }
+	targets := []driftTarget{
 		{"claude", a.config.CurrentEnvClaude, "Claude Code"},
 		{"claude_desktop", a.config.CurrentEnvClaudeDesktop, "Claude Desktop"},
 		{"codex", a.config.CurrentEnvCodex, "Codex"},
 		{"antigravity", a.config.CurrentEnvAntigravity, "Antigravity"},
-		{"opencode", a.config.CurrentEnvOpencode, "OpenCode"},
-		{"grok", a.config.CurrentEnvGrok, "Grok"},
-	} {
+	}
+	for _, name := range opencodeNames {
+		targets = append(targets, driftTarget{"opencode", name, "OpenCode"})
+	}
+	targets = append(targets, driftTarget{"grok", a.config.CurrentEnvGrok, "Grok"})
+	for _, item := range targets {
 		if item.name == "" {
 			continue
 		}
@@ -685,17 +756,17 @@ func (a *App) GetConfigDrift() []string {
 		var current map[string]string
 		switch item.provider {
 		case "claude":
-			current = a.GetClaudeSettings()
+			current = a.getClaudeSettingsLocked()
 		case "claude_desktop":
-			current = a.GetClaudeDesktopSettings()
+			current = a.getClaudeDesktopSettingsLocked()
 		case "codex":
-			current = a.GetCodexSettings()
+			current = a.getCodexSettingsLocked()
 		case "antigravity":
-			current = a.GetAntigravitySettings()
+			current = a.getAntigravitySettingsLocked()
 		case "opencode":
-			current = a.GetOpencodeSettings()
+			current = a.getOpencodeSettingsLocked()
 		case "grok":
-			current = a.GetGrokSettings()
+			current = a.getGrokSettingsLocked()
 		default:
 			continue
 		}
@@ -745,6 +816,13 @@ func providerBaseVariable(provider string) string {
 
 // GetCodexSettings 读取 Codex 配置
 func (a *App) GetCodexSettings() map[string]string {
+	a.configMu.Lock()
+	defer a.configMu.Unlock()
+	return a.getCodexSettingsLocked()
+}
+
+// getCodexSettingsLocked 读取本机配置（调用方必须持有 a.configMu）
+func (a *App) getCodexSettingsLocked() map[string]string {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return nil
@@ -752,13 +830,16 @@ func (a *App) GetCodexSettings() map[string]string {
 
 	result := make(map[string]string)
 
-	// 读取 auth.json
+	// 读取 auth.json（可能含嵌套的 OAuth tokens 对象，先取原始键再挑出字符串值）
 	authFile := filepath.Join(homeDir, ".codex", "auth.json")
 	if data, err := os.ReadFile(authFile); err == nil {
-		var authData map[string]string
+		var authData map[string]json.RawMessage
 		if json.Unmarshal(data, &authData) == nil {
-			for k, v := range authData {
-				result[k] = v
+			for k, raw := range authData {
+				var sv string
+				if json.Unmarshal(raw, &sv) == nil {
+					result[k] = sv
+				}
 			}
 		}
 	}
@@ -836,6 +917,13 @@ func (a *App) GetCodexSettings() map[string]string {
 
 // GetAntigravitySettings 读取 Antigravity（原 Gemini CLI）配置
 func (a *App) GetAntigravitySettings() map[string]string {
+	a.configMu.Lock()
+	defer a.configMu.Unlock()
+	return a.getAntigravitySettingsLocked()
+}
+
+// getAntigravitySettingsLocked 读取本机配置（调用方必须持有 a.configMu）
+func (a *App) getAntigravitySettingsLocked() map[string]string {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return nil
@@ -870,6 +958,8 @@ func (a *App) GetAntigravitySettings() map[string]string {
 // OpenProviderTerminal 打开一个已注入该服务商当前生效环境变量的终端，
 // 方便直接运行对应 CLI（尤其 agy 只认环境变量，这样不必等新终端继承用户环境）。
 func (a *App) OpenProviderTerminal(provider string) error {
+	a.configMu.Lock()
+	defer a.configMu.Unlock()
 	provider = strings.ToLower(strings.TrimSpace(provider))
 	name := a.currentEnvNameForProvider(provider)
 	if name == "" {
@@ -918,8 +1008,28 @@ func (a *App) applyClaudeEnv(env *EnvConfig) (string, error) {
 		return "", fmt.Errorf("读取 %s 失败: %v", settingsFile, err)
 	}
 
-	// 更新 env 字段
-	envMap := make(map[string]string)
+	// 更新 env 字段：先摘掉本工具托管的键（含上一套配置写入的），再合并新配置；
+	// 用户自己加的 env 变量（如 HTTP_PROXY）保持不动，不再整表抹掉
+	envMap := make(map[string]any)
+	if existing, ok := settings["env"].(map[string]any); ok && existing != nil {
+		for key, value := range existing {
+			envMap[key] = value
+		}
+	}
+	managed := make(map[string]bool, len(claudeThirdPartyEnvKeys)+len(env.Variables)+2)
+	for _, key := range claudeThirdPartyEnvKeys {
+		managed[key] = true
+	}
+	for key := range env.Variables {
+		managed[key] = true
+	}
+	managed["CLAUDE_CODE_ATTRIBUTION_HEADER"] = true
+	managed["CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"] = true
+	for key := range envMap {
+		if managed[key] {
+			delete(envMap, key)
+		}
+	}
 	for key, value := range env.Variables {
 		if value != "" {
 			envMap[key] = value
@@ -932,7 +1042,11 @@ func (a *App) applyClaudeEnv(env *EnvConfig) (string, error) {
 	if env.DisableNonessentialTraffic != "" {
 		envMap["CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"] = env.DisableNonessentialTraffic
 	}
-	settings["env"] = envMap
+	if len(envMap) == 0 {
+		delete(settings, "env")
+	} else {
+		settings["env"] = envMap
+	}
 
 	// 写入 settings.json
 	settingsContent, err := json.MarshalIndent(settings, "", "  ")
@@ -940,7 +1054,7 @@ func (a *App) applyClaudeEnv(env *EnvConfig) (string, error) {
 		return "", fmt.Errorf("序列化配置失败: %v", err)
 	}
 
-	if err := os.WriteFile(settingsFile, settingsContent, 0644); err != nil {
+	if err := writeFileAtomic(settingsFile, settingsContent, 0644); err != nil {
 		return "", fmt.Errorf("写入 settings.json 失败: %v", err)
 	}
 
@@ -1233,7 +1347,8 @@ requires_openai_auth = true
 	if err != nil {
 		return "", fmt.Errorf("序列化 config.toml 失败: %v", err)
 	}
-	if err := os.WriteFile(configFile, configData, 0644); err != nil {
+	backupFile(configFile)
+	if err := writeFileAtomic(configFile, configData, 0644); err != nil {
 		return "", fmt.Errorf("写入 config.toml 失败: %v", err)
 	}
 
@@ -1248,8 +1363,29 @@ requires_openai_auth = true
 }`, env.Variables["OPENAI_API_KEY"])
 	}
 
+	// 合并写入：只更新模板给出的键，保留用户已有的 OAuth tokens 等其余内容
 	authFile := filepath.Join(codexDir, "auth.json")
-	if err := os.WriteFile(authFile, []byte(authContent), 0644); err != nil {
+	incoming := map[string]any{}
+	if err := json.Unmarshal([]byte(authContent), &incoming); err != nil {
+		return "", fmt.Errorf("auth.json 模板不是有效 JSON: %v", err)
+	}
+	authOut := map[string]json.RawMessage{}
+	if data, err := os.ReadFile(authFile); err == nil && len(data) > 0 {
+		_ = json.Unmarshal(data, &authOut) // 解析失败时视为空文件，照样写入新内容
+	}
+	for key, value := range incoming {
+		raw, err := json.Marshal(value)
+		if err != nil {
+			continue
+		}
+		authOut[key] = raw
+	}
+	out, err := json.MarshalIndent(authOut, "", "  ")
+	if err != nil {
+		return "", fmt.Errorf("序列化 auth.json 失败: %v", err)
+	}
+	backupFile(authFile)
+	if err := writeFileAtomic(authFile, out, 0o600); err != nil {
 		return "", fmt.Errorf("写入 auth.json 失败: %v", err)
 	}
 
@@ -1258,25 +1394,35 @@ requires_openai_auth = true
 
 func buildCodexConfigData(configContent, configFile string, vars map[string]string) ([]byte, error) {
 	existingMcpServers := readCodexMcpServers(configFile)
-	var payload map[string]any
-	if err := toml.Unmarshal([]byte(configContent), &payload); err == nil && payload != nil {
-		injectCodexExtras(payload, vars)
-		if len(existingMcpServers) > 0 {
-			if _, ok := payload["mcp_servers"]; !ok {
-				payload["mcp_servers"] = existingMcpServers
-			}
+
+	// 读现有文件，用于保留模板未覆盖的用户自定义段
+	userSections := map[string]any{}
+	if data, err := os.ReadFile(configFile); err == nil && len(data) > 0 {
+		existing := map[string]any{}
+		if err := toml.Unmarshal(data, &existing); err == nil && existing != nil {
+			userSections = existing
 		}
-		sanitizeCodexConfigPayload(payload)
-		return toml.Marshal(payload)
 	}
 
-	data := []byte(configContent)
-	if len(existingMcpServers) > 0 && !strings.Contains(configContent, "mcp_servers") {
-		if mcpData, err := toml.Marshal(map[string]any{"mcp_servers": existingMcpServers}); err == nil {
-			data = []byte(strings.TrimRight(configContent, "\r\n\t ") + "\n\n" + string(mcpData))
+	var payload map[string]any
+	if err := toml.Unmarshal([]byte(configContent), &payload); err != nil || payload == nil {
+		// 模板本身不是合法 TOML：写进去 Codex 就起不来了，必须拒绝
+		return nil, fmt.Errorf("config.toml 模板不是有效 TOML: %v", err)
+	}
+	injectCodexExtras(payload, vars)
+	if len(existingMcpServers) > 0 {
+		if _, ok := payload["mcp_servers"]; !ok {
+			payload["mcp_servers"] = existingMcpServers
 		}
 	}
-	return data, nil
+	// 用户独有段（模板没有声明的顶层键）原样保留
+	for key, value := range userSections {
+		if _, ok := payload[key]; !ok {
+			payload[key] = value
+		}
+	}
+	sanitizeCodexConfigPayload(payload)
+	return toml.Marshal(payload)
 }
 
 func readCodexMcpServers(configFile string) map[string]map[string]any {
@@ -1383,7 +1529,9 @@ GEMINI_MODEL=%s
 	}
 	// writeGeminiStyleSettings 是合并写入，key 为空时需要显式移除 modelProvider
 	if apiKey == "" {
-		removeJSONFileKeys(filepath.Join(antigravityDir, "settings.json"), "modelProvider")
+		if err := removeJSONFileKeys(filepath.Join(antigravityDir, "settings.json"), "modelProvider"); err != nil {
+			return "", err
+		}
 	}
 
 	// 4. agy 只从进程环境变量读取凭据和端点（官方明确不加载 .env，settings.json 也不存 key），
@@ -1406,15 +1554,22 @@ GEMINI_MODEL=%s
 	return "Antigravity CLI 配置已应用", nil
 }
 
-// removeJSONFileKeys 从 JSON 文件顶层移除指定键（文件不存在则忽略）
-func removeJSONFileKeys(path string, keys ...string) {
+// removeJSONFileKeys 从 JSON 文件顶层移除指定键（文件不存在则忽略）。
+// 解析失败时返回错误，调用方不应把"清理未完成"当成成功。
+func removeJSONFileKeys(path string, keys ...string) error {
 	data, err := os.ReadFile(path)
-	if err != nil || len(data) == 0 {
-		return
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("读取 %s 失败: %v", path, err)
+	}
+	if len(data) == 0 {
+		return nil
 	}
 	payload := map[string]any{}
 	if json.Unmarshal(data, &payload) != nil {
-		return
+		return fmt.Errorf("解析 %s 失败，为保护原文件已中止写入", path)
 	}
 	changed := false
 	for _, key := range keys {
@@ -1424,11 +1579,13 @@ func removeJSONFileKeys(path string, keys ...string) {
 		}
 	}
 	if !changed {
-		return
+		return nil
 	}
-	if out, err := json.MarshalIndent(payload, "", "  "); err == nil {
-		_ = os.WriteFile(path, out, 0644)
+	out, err := json.MarshalIndent(payload, "", "  ")
+	if err != nil {
+		return err
 	}
+	return writeFileAtomic(path, out, 0644)
 }
 
 // writeGeminiStyleSettings 将期望配置合并进现有 settings.json 并写回，保留用户已有的其他设置
@@ -1525,7 +1682,7 @@ func expandPercentEnv(value string) string {
 }
 
 // ClearClaudeSettings 清除 Claude settings.json 中的 env 配置
-func (a *App) ClearClaudeSettings() error {
+func (a *App) clearClaudeSettingsLocked() error {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return fmt.Errorf("获取用户目录失败: %v", err)
@@ -1548,8 +1705,17 @@ func (a *App) ClearClaudeSettings() error {
 		return fmt.Errorf("解析 %s 失败，为保护原文件已中止写入: %v", settingsFile, parseErr)
 	}
 
-	// 清除 env 字段
-	delete(settings, "env")
+	// 只摘本工具托管的 env 键，用户自加的其它变量保持不动
+	if envMap, ok := settings["env"].(map[string]any); ok && envMap != nil {
+		for _, key := range claudeThirdPartyEnvKeys {
+			delete(envMap, key)
+		}
+		if len(envMap) == 0 {
+			delete(settings, "env")
+		} else {
+			settings["env"] = envMap
+		}
+	}
 
 	// 写回文件
 	settingsContent, err := json.MarshalIndent(settings, "", "  ")
@@ -1557,7 +1723,7 @@ func (a *App) ClearClaudeSettings() error {
 		return fmt.Errorf("序列化配置失败: %v", err)
 	}
 
-	if err := os.WriteFile(settingsFile, settingsContent, 0644); err != nil {
+	if err := writeFileAtomic(settingsFile, settingsContent, 0644); err != nil {
 		return fmt.Errorf("写入 settings.json 失败: %v", err)
 	}
 
@@ -1566,12 +1732,13 @@ func (a *App) ClearClaudeSettings() error {
 }
 
 // ClearClaudeDesktopSettings 清除 Claude Desktop 当前用户配置。
-func (a *App) ClearClaudeDesktopSettings() error {
+func (a *App) clearClaudeDesktopSettingsLocked() error {
 	path, err := claudeDesktopConfigPath()
 	if err != nil {
 		return err
 	}
 	if strings.EqualFold(filepath.Base(filepath.Dir(path)), "configLibrary") {
+		backupFile(path)
 		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
 			return err
 		}
@@ -1585,6 +1752,7 @@ func (a *App) ClearClaudeDesktopSettings() error {
 		}
 		return a.saveConfig()
 	}
+	backupFile(path)
 	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
 		return err
 	}
@@ -1599,8 +1767,12 @@ func (a *App) ClearClaudeDesktopSettings() error {
 	return nil
 }
 
-// ClearCodexSettings 清除 Codex 配置文件
-func (a *App) ClearCodexSettings() error {
+// codexManagedConfigKeys 本工具写入 config.toml 的顶层键；清除时只摘这些，
+// 用户自己的其它段（features、projects、自定义 model_providers 等）保持不动。
+var codexManagedConfigKeys = []string{"model_provider", "model", "model_reasoning_effort"}
+
+// ClearCodexSettings 清除 Codex 配置：摘除本工具托管的键，保留 OAuth 登录与用户自定义配置
+func (a *App) clearCodexSettingsLocked() error {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return fmt.Errorf("获取用户目录失败: %v", err)
@@ -1608,16 +1780,60 @@ func (a *App) ClearCodexSettings() error {
 
 	codexDir := filepath.Join(homeDir, ".codex")
 
-	// 删除配置文件
-	os.Remove(filepath.Join(codexDir, "config.toml"))
-	os.Remove(filepath.Join(codexDir, "auth.json"))
+	// config.toml：摘除托管的顶层键与内置 provider 段，而不是删除整个文件
+	configFile := filepath.Join(codexDir, "config.toml")
+	if data, err := os.ReadFile(configFile); err == nil && len(data) > 0 {
+		payload := map[string]any{}
+		if err := toml.Unmarshal(data, &payload); err != nil {
+			backupFile(configFile)
+			return fmt.Errorf("解析 %s 失败，为保护原文件已中止清除（已备份 .bak）: %v", configFile, err)
+		}
+		for _, key := range codexManagedConfigKeys {
+			delete(payload, key)
+		}
+		if providers, ok := payload["model_providers"].(map[string]any); ok {
+			delete(providers, "duckcoding")
+			if len(providers) == 0 {
+				delete(payload, "model_providers")
+			}
+		}
+		if len(payload) == 0 {
+			backupFile(configFile)
+			os.Remove(configFile)
+		} else if out, err := toml.Marshal(payload); err == nil {
+			backupFile(configFile)
+			if err := writeFileAtomic(configFile, out, 0644); err != nil {
+				return fmt.Errorf("写回 config.toml 失败: %v", err)
+			}
+		}
+	}
+
+	// auth.json：只摘 OPENAI_API_KEY，保留 OAuth tokens（不把已登录的账号踢掉）
+	authFile := filepath.Join(codexDir, "auth.json")
+	if data, err := os.ReadFile(authFile); err == nil && len(data) > 0 {
+		auth := map[string]json.RawMessage{}
+		if err := json.Unmarshal(data, &auth); err != nil {
+			backupFile(authFile)
+			return fmt.Errorf("解析 %s 失败，为保护原文件已中止清除（已备份 .bak）: %v", authFile, err)
+		}
+		delete(auth, "OPENAI_API_KEY")
+		if len(auth) == 0 {
+			backupFile(authFile)
+			os.Remove(authFile)
+		} else if out, err := json.MarshalIndent(auth, "", "  "); err == nil {
+			backupFile(authFile)
+			if err := writeFileAtomic(authFile, out, 0o600); err != nil {
+				return fmt.Errorf("写回 auth.json 失败: %v", err)
+			}
+		}
+	}
 
 	a.clearProviderCurrent("codex")
 	return a.saveConfig()
 }
 
 // ClearAntigravitySettings 清除 Antigravity（原 Gemini CLI）配置文件
-func (a *App) ClearAntigravitySettings() error {
+func (a *App) clearAntigravitySettingsLocked() error {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return fmt.Errorf("获取用户目录失败: %v", err)
@@ -1625,8 +1841,37 @@ func (a *App) ClearAntigravitySettings() error {
 
 	geminiDir := filepath.Join(homeDir, ".gemini")
 
-	// 删除配置文件
-	os.Remove(filepath.Join(geminiDir, ".env"))
+	// .env 只摘本工具托管的键，用户自己写的变量保持不动
+	managedAntigravity := map[string]bool{
+		"GOOGLE_GEMINI_BASE_URL": true, "GEMINI_API_KEY": true, "GEMINI_MODEL": true,
+		"GOOGLE_API_KEY": true, "GOOGLE_CLOUD_PROJECT": true,
+	}
+	envFile := filepath.Join(geminiDir, ".env")
+	if data, err := os.ReadFile(envFile); err == nil && len(data) > 0 {
+		var kept []string
+		for _, line := range strings.Split(string(data), "\n") {
+			trimmed := strings.TrimSpace(line)
+			if trimmed == "" {
+				continue
+			}
+			key := trimmed
+			if idx := strings.Index(trimmed, "="); idx > 0 {
+				key = strings.TrimSpace(trimmed[:idx])
+			}
+			key = strings.TrimPrefix(key, "export ")
+			if managedAntigravity[strings.TrimSpace(key)] {
+				continue
+			}
+			kept = append(kept, strings.TrimRight(line, "\r"))
+		}
+		if len(kept) == 0 {
+			backupFile(envFile)
+			os.Remove(envFile)
+		} else {
+			backupFile(envFile)
+			_ = writeFileAtomic(envFile, []byte(strings.Join(kept, "\n")+"\n"), 0644)
+		}
+	}
 
 	// 移除持久化到用户环境的 agy 变量
 	if err := syncAntigravityUserEnv(nil); err != nil {
@@ -1651,7 +1896,10 @@ func (a *App) ClearAntigravitySettings() error {
 			}
 			if changed {
 				if out, err := json.MarshalIndent(payload, "", "  "); err == nil {
-					_ = os.WriteFile(antigravitySettings, out, 0644)
+					backupFile(antigravitySettings)
+					if err := writeFileAtomic(antigravitySettings, out, 0644); err != nil {
+						return fmt.Errorf("写回 %s 失败: %v", antigravitySettings, err)
+					}
 				}
 			}
 		}
@@ -1663,28 +1911,30 @@ func (a *App) ClearAntigravitySettings() error {
 
 // ClearAllEnv 清除所有配置 (Claude/Codex/Antigravity/OpenCode/Grok)
 func (a *App) ClearAllEnv() error {
+	a.configMu.Lock()
+	defer a.configMu.Unlock()
 	var errors []string
 
-	if err := a.ClearClaudeSettings(); err != nil {
+	if err := a.clearClaudeSettingsLocked(); err != nil {
 		errors = append(errors, fmt.Sprintf("Claude: %v", err))
 	}
-	if err := a.ClearClaudeDesktopSettings(); err != nil {
+	if err := a.clearClaudeDesktopSettingsLocked(); err != nil {
 		errors = append(errors, fmt.Sprintf("Claude Desktop: %v", err))
 	}
 
-	if err := a.ClearCodexSettings(); err != nil {
+	if err := a.clearCodexSettingsLocked(); err != nil {
 		errors = append(errors, fmt.Sprintf("Codex: %v", err))
 	}
 
-	if err := a.ClearAntigravitySettings(); err != nil {
+	if err := a.clearAntigravitySettingsLocked(); err != nil {
 		errors = append(errors, fmt.Sprintf("Antigravity: %v", err))
 	}
 
-	if err := a.ClearOpencodeSettings(); err != nil {
+	if err := a.clearOpencodeSettingsLocked(); err != nil {
 		errors = append(errors, fmt.Sprintf("OpenCode: %v", err))
 	}
 
-	if err := a.ClearGrokSettings(); err != nil {
+	if err := a.clearGrokSettingsLocked(); err != nil {
 		errors = append(errors, fmt.Sprintf("Grok: %v", err))
 	}
 
@@ -1697,6 +1947,8 @@ func (a *App) ClearAllEnv() error {
 
 // RefreshConfig 刷新配置
 func (a *App) RefreshConfig() error {
+	a.configMu.Lock()
+	defer a.configMu.Unlock()
 	return a.loadConfig()
 }
 
@@ -1717,12 +1969,18 @@ func (a *App) ExportConfig(defaultName string) (string, error) {
 		return "", nil // 用户取消
 	}
 
+	a.configMu.Lock()
+	if a.configLoadErr != nil {
+		a.configMu.Unlock()
+		return "", fmt.Errorf("配置加载失败，导出会是空配置已取消: %v", a.configLoadErr)
+	}
 	data, err := json.MarshalIndent(a.config, "", "  ")
+	a.configMu.Unlock()
 	if err != nil {
 		return "", fmt.Errorf("序列化配置失败: %v", err)
 	}
 
-	err = os.WriteFile(filePath, data, 0644)
+	err = writeFileAtomic(filePath, data, 0644)
 	if err != nil {
 		return "", fmt.Errorf("导出配置文件失败: %v", err)
 	}
@@ -1750,11 +2008,15 @@ func (a *App) ImportConfig() (int, error) {
 	if err != nil {
 		return 0, fmt.Errorf("读取配置文件失败: %v", err)
 	}
+	a.configMu.Lock()
+	defer a.configMu.Unlock()
 	return a.mergeImportedConfigJSON(data)
 }
 
 // ImportConfigJSON 从 JSON 文本导入配置（拖拽/粘贴）
 func (a *App) ImportConfigJSON(payload string) (int, error) {
+	a.configMu.Lock()
+	defer a.configMu.Unlock()
 	return a.mergeImportedConfigJSON([]byte(payload))
 }
 
@@ -1843,20 +2105,20 @@ func (a *App) loadConfig() error {
 			Environments: []EnvConfig{
 				{
 					Name:        "Development",
-					Description: "开发环境",
+					Description: "开发环境（示例，填入自己的 API Key 后使用）",
 					Provider:    "claude",
 					Variables: map[string]string{
-						"ANTHROPIC_API_KEY": "your-dev-api-key",
+						"ANTHROPIC_API_KEY": "",
 						"CLAUDE_MODEL":      "claude-3-5-sonnet-20241022",
 						"API_BASE_URL":      "https://api.anthropic.com",
 					},
 				},
 				{
 					Name:        "Production",
-					Description: "生产环境",
+					Description: "生产环境（示例，填入自己的 API Key 后使用）",
 					Provider:    "claude",
 					Variables: map[string]string{
-						"ANTHROPIC_API_KEY": "your-prod-api-key",
+						"ANTHROPIC_API_KEY": "",
 						"CLAUDE_MODEL":      "claude-3-5-sonnet-20241022",
 						"API_BASE_URL":      "https://api.anthropic.com",
 						"CLAUDE_MAX_TOKENS": "4096",
@@ -1904,14 +2166,22 @@ func (a *App) loadConfig() error {
 		}
 	}
 	// 移除已废弃的 openclaw 配置（provider 已替换为 opencode，旧变量无法直接迁移）
+	var droppedOpenclaw []EnvConfig
 	kept := a.config.Environments[:0]
 	for _, env := range a.config.Environments {
 		if strings.EqualFold(strings.TrimSpace(env.Provider), "openclaw") {
+			droppedOpenclaw = append(droppedOpenclaw, env)
 			continue
 		}
 		kept = append(kept, env)
 	}
 	a.config.Environments = kept
+	if len(droppedOpenclaw) > 0 {
+		// 静默删除不可取：丢弃前落一份备份文件，用户仍可找回数据
+		if payload, err := json.MarshalIndent(droppedOpenclaw, "", "  "); err == nil {
+			_ = writeFileAtomic(a.configPath+".openclaw-dropped.json", payload, 0o600)
+		}
+	}
 	if strings.TrimSpace(a.config.CurrentEnvClaude) == "" && strings.TrimSpace(a.config.CurrentEnv) != "" {
 		a.config.CurrentEnvClaude = a.config.CurrentEnv
 	}
@@ -1969,10 +2239,9 @@ func (a *App) saveConfig() error {
 		renameErr = os.Rename(tmpName, a.configPath)
 	}
 	if renameErr != nil {
-		os.Remove(tmpName)
-		if err := os.WriteFile(a.configPath, data, 0o644); err != nil {
-			return fmt.Errorf("保存配置文件失败 (%s): %v", a.configPath, err)
-		}
+		// rename 反复失败说明目标被占用；降级为非原子直写可能截断 config.json，
+		// 宁可保留临时文件让用户手动恢复
+		return fmt.Errorf("替换 %s 失败（数据保留在 %s）: %v", a.configPath, tmpName, renameErr)
 	}
 
 	notifyCloudSync()

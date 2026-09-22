@@ -40,16 +40,19 @@ func notifyCloudSync() {
 
 // CloudConfig OSS 同步配置（凭证仅存本机 cloud.json）
 type CloudConfig struct {
-	Enabled         bool   `json:"enabled"`
-	Provider        string `json:"provider"` // s3 | aliyun | tencent | r2 | minio | custom
-	Endpoint        string `json:"endpoint"`
-	Region          string `json:"region"`
-	Bucket          string `json:"bucket"`
-	ObjectKey       string `json:"object_key"`
-	AccessKey       string `json:"access_key"`
-	SecretKey       string `json:"secret_key"`
-	PathStyle       bool   `json:"path_style"`
-	Passphrase      string `json:"passphrase,omitempty"`
+	Enabled    bool   `json:"enabled"`
+	Provider   string `json:"provider"` // s3 | aliyun | tencent | r2 | minio | custom
+	Endpoint   string `json:"endpoint"`
+	Region     string `json:"region"`
+	Bucket     string `json:"bucket"`
+	ObjectKey  string `json:"object_key"`
+	AccessKey  string `json:"access_key"`
+	SecretKey  string `json:"secret_key"`
+	PathStyle  bool   `json:"path_style"`
+	Passphrase string `json:"passphrase,omitempty"`
+	// ClearSecrets 仅作为 SaveCloudConfig 的入参标志：置 true 时清空已保存的
+	// SecretKey/Passphrase（持久化前会复位，不落盘）
+	ClearSecrets    bool   `json:"clear_secrets,omitempty"`
 	AutoPush        bool   `json:"auto_push"`
 	AutoPullOnStart bool   `json:"auto_pull_on_start"`
 	LastPushAt      int64  `json:"last_push_at,omitempty"`
@@ -192,11 +195,7 @@ func (cs *CloudSyncService) persistLocked() error {
 	if err != nil {
 		return err
 	}
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, data, 0o644); err != nil {
-		return err
-	}
-	return os.Rename(tmp, path)
+	return writeFileAtomic(path, data, 0o644)
 }
 
 func (cs *CloudSyncService) isConfiguredLocked() bool {
@@ -244,7 +243,12 @@ func (cs *CloudSyncService) SaveCloudConfig(cfg CloudConfig) error {
 	defer cs.mu.Unlock()
 	cfg.LastPushAt = cs.config.LastPushAt
 	cfg.LastPullAt = cs.config.LastPullAt
-	if strings.TrimSpace(cfg.SecretKey) == "" {
+	if cfg.ClearSecrets {
+		// 显式清除凭证：空 SecretKey 不再回落旧值，用户可以在 UI 里换号
+		cfg.SecretKey = ""
+		cfg.Passphrase = ""
+		cfg.ClearSecrets = false
+	} else if strings.TrimSpace(cfg.SecretKey) == "" {
 		cfg.SecretKey = cs.config.SecretKey
 	}
 	cs.config = cfg
@@ -256,8 +260,8 @@ func (cs *CloudSyncService) TestCloudConnection() CloudSyncResult {
 	cs.mu.Lock()
 	cfg := cs.config
 	cs.mu.Unlock()
-	if !cfg.Enabled && (cfg.Bucket == "" || cfg.AccessKey == "") {
-		return CloudSyncResult{Success: false, Message: "请先填写 OSS 配置", Latency: time.Since(start).Milliseconds()}
+	if !csConfigured(cfg) {
+		return CloudSyncResult{Success: false, Message: "请先填写 Bucket、AccessKey 与 SecretKey", Latency: time.Since(start).Milliseconds()}
 	}
 	client := newOSSObjectClient(cfg, cs.httpClient)
 	key := cfg.ObjectKey
@@ -336,6 +340,10 @@ func (cs *CloudSyncService) UploadToCloud() CloudSyncResult {
 func (cs *CloudSyncService) DownloadFromCloud() CloudSyncResult {
 	start := time.Now()
 	cs.mu.Lock()
+	if cs.pushing {
+		cs.mu.Unlock()
+		return CloudSyncResult{Success: false, Message: "正在上传备份，请稍后再拉取", Latency: 0}
+	}
 	cfg := cs.config
 	cs.applying = true
 	cs.mu.Unlock()
@@ -450,26 +458,37 @@ func (cs *CloudSyncService) buildBundle() (*cloudBundle, error) {
 		Files:      map[string]json.RawMessage{},
 	}
 
-	addFile := func(name, path string) {
+	addFile := func(name, path string) error {
 		data, err := os.ReadFile(path)
 		if err != nil || len(data) == 0 {
-			return
+			return fmt.Errorf("读取 %s 失败: %v", path, err)
 		}
 		if !json.Valid(data) {
-			return
+			return fmt.Errorf("%s 不是有效 JSON，拒绝上传", path)
 		}
 		bundle.Files[name] = json.RawMessage(data)
+		return nil
 	}
 
+	// config.json 是备份的核心：读不到时宁可不传，也不能用残缺包覆盖云端的好备份
 	if cs.app != nil && strings.TrimSpace(cs.app.configPath) != "" {
-		addFile("config.json", cs.app.configPath)
+		if err := addFile("config.json", cs.app.configPath); err != nil {
+			return nil, err
+		}
 	} else {
-		addFile("config.json", filepath.Join(dir, mainConfigFile))
+		if err := addFile("config.json", filepath.Join(dir, mainConfigFile)); err != nil {
+			return nil, err
+		}
 	}
-	addFile("mcp.json", filepath.Join(dir, mcpStoreFile))
-	addFile("router.json", filepath.Join(dir, routerStoreFile))
-	addFile("skills.json", filepath.Join(dir, skillsStoreFile))
-	addFile("uptime.json", filepath.Join(dir, uptimeStoreFile))
+	addOptional := func(name, path string) {
+		if err := addFile(name, path); err != nil {
+			delete(bundle.Files, name)
+		}
+	}
+	addOptional("mcp.json", filepath.Join(dir, mcpStoreFile))
+	addOptional("router.json", filepath.Join(dir, routerStoreFile))
+	addOptional("skills.json", filepath.Join(dir, skillsStoreFile))
+	addOptional("uptime.json", filepath.Join(dir, uptimeStoreFile))
 
 	if len(bundle.Files) == 0 {
 		return nil, fmt.Errorf("没有可上传的本地配置")
@@ -489,7 +508,8 @@ func (cs *CloudSyncService) applyBundle(bundle cloudBundle) (int, error) {
 		}
 		var pretty any
 		if json.Unmarshal(raw, &pretty) != nil {
-			return os.WriteFile(path, raw, 0o644)
+			backupFile(path)
+			return writeFileAtomic(path, raw, 0o644)
 		}
 		data, err := json.MarshalIndent(pretty, "", "  ")
 		if err != nil {
@@ -498,11 +518,9 @@ func (cs *CloudSyncService) applyBundle(bundle cloudBundle) (int, error) {
 		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 			return err
 		}
-		tmp := path + ".tmp"
-		if err := os.WriteFile(tmp, data, 0o644); err != nil {
-			return err
-		}
-		return os.Rename(tmp, path)
+		// 云端内容即将覆盖本地文件，覆盖前留一份 .bak 作为最后防线
+		backupFile(path)
+		return writeFileAtomic(path, data, 0o644)
 	}
 
 	for name, raw := range bundle.Files {

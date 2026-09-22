@@ -1,6 +1,6 @@
 <template>
   <div class="grid gap-1.5">
-    <Label v-if="label">
+    <Label v-if="label" :for="inputId">
       <span>{{ label }}</span>
       <AppTooltip v-if="tooltip" :content="tooltip" wrap>
         <span class="inline-flex cursor-help text-muted-foreground">
@@ -10,6 +10,7 @@
     </Label>
     <div class="relative">
       <Input
+        :id="inputId"
         :model-value="modelValue"
         :type="type"
         :placeholder="placeholder"
@@ -28,6 +29,7 @@
 </template>
 
 <script setup lang="ts">
+import { useId } from 'vue'
 import { CircleHelp } from '@lucide/vue'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -55,6 +57,9 @@ const emit = defineEmits<{
   focus: [event: FocusEvent]
   blur: [event: FocusEvent]
 }>()
+
+// Label 的 for 与 Input 的 id 关联：点击标签可聚焦输入框，读屏也能读出字段名
+const inputId = useId()
 
 function onUpdate(value: string | number) {
   emit('update:modelValue', String(value ?? ''))

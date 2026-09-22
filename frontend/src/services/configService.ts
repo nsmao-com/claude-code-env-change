@@ -31,8 +31,17 @@ import {
   AddOfficialLoginEnvs
 } from '../../wailsjs/go/main/App'
 import { callApp } from '@/services/appBridge'
+import type { ProviderPreset } from '@/types'
 
 export const configService = {
+  async getProviderPresets(): Promise<ProviderPreset[]> {
+    try {
+      const presets = await callApp<ProviderPreset[]>('GetProviderPresets')
+      return Array.isArray(presets) ? presets : []
+    } catch {
+      return []
+    }
+  },
   async getOpencodeAppliedNames(): Promise<string[]> {
     try {
       const names = await GetOpencodeAppliedNames()

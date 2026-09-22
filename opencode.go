@@ -51,6 +51,15 @@ func opencodeConfigFile(vars map[string]string) string {
 	return jsonPath
 }
 
+// guardOpencodeJSONC 写回目标是 .jsonc 时中止：写回用的是纯 JSON，
+// 会把用户文件里的注释全部抹掉；明确报错让用户先迁移成 opencode.json
+func guardOpencodeJSONC(path string) error {
+	if strings.EqualFold(filepath.Ext(path), ".jsonc") {
+		return fmt.Errorf("%s 是 JSONC 文件（含注释）；为避免写回时丢失注释已中止，请将其重命名为 opencode.json 后重试", path)
+	}
+	return nil
+}
+
 func opencodeSkillsRoot() string {
 	return filepath.Join(resolveOpencodeConfigDir(nil), "skills")
 }
@@ -177,6 +186,9 @@ func applyOpencodeTemplate(tmpl string, env *EnvConfig) string {
 // mergeWriteOpencodeConfig 把这一套 provider 合并进 opencode.json。
 // 其它已经存在的 provider / mcp / agent 原样保留，所以可以同时应用多套 OpenCode 配置。
 func mergeWriteOpencodeConfig(configFile, incoming string, vars map[string]string) error {
+	if err := guardOpencodeJSONC(configFile); err != nil {
+		return err
+	}
 	desired, err := parseJSONLikeObject([]byte(incoming))
 	if err != nil {
 		return fmt.Errorf("解析待写入的 OpenCode 配置失败: %v", err)
@@ -487,10 +499,20 @@ func (a *App) stripOpencodeProvider(env *EnvConfig) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(configFile, out, 0644)
+	if err := guardOpencodeJSONC(configFile); err != nil {
+		return err
+	}
+	return writeFileAtomic(configFile, out, 0644)
 }
 
 func (a *App) GetOpencodeSettings() map[string]string {
+	a.configMu.Lock()
+	defer a.configMu.Unlock()
+	return a.getOpencodeSettingsLocked()
+}
+
+// getOpencodeSettingsLocked 读取本机配置（调用方必须持有 a.configMu）
+func (a *App) getOpencodeSettingsLocked() map[string]string {
 	vars := map[string]string{}
 	if env := a.findEnvIn("opencode", a.config.CurrentEnvOpencode); env != nil {
 		vars = env.Variables
@@ -575,6 +597,13 @@ func (a *App) GetOpencodeSettings() map[string]string {
 
 // ClearOpencodeSettings 仅清除本应用写入的 model / provider.custom 字段，保留其他配置
 func (a *App) ClearOpencodeSettings() error {
+	a.configMu.Lock()
+	defer a.configMu.Unlock()
+	return a.clearOpencodeSettingsLocked()
+}
+
+// clearOpencodeSettingsLocked 移除本工具写入 opencode.json 的 provider（调用方必须持有 a.configMu）
+func (a *App) clearOpencodeSettingsLocked() error {
 	vars := map[string]string{}
 	if env := a.findEnvIn("opencode", a.config.CurrentEnvOpencode); env != nil {
 		vars = env.Variables

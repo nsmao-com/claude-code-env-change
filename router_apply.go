@@ -436,6 +436,8 @@ func (a *App) SetProviderRouting(provider string, enabled bool) error {
 	if err := rs.SetAppRouting(p, enabled); err != nil {
 		return err
 	}
+	a.configMu.Lock()
+	defer a.configMu.Unlock()
 	if enabled {
 		rs.mu.Lock()
 		running := rs.running
@@ -464,6 +466,8 @@ func (a *App) SetProviderRouting(provider string, enabled bool) error {
 }
 
 func (a *App) RefreshRoutedProviders() error {
+	a.configMu.Lock()
+	defer a.configMu.Unlock()
 	var errs []string
 	for _, provider := range []string{"claude", "claude_desktop", "codex", "antigravity", "opencode", "grok"} {
 		if !isAppRoutingOn(provider) {

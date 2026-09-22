@@ -129,7 +129,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import { Download, Layers, LayoutGrid, List, Loader2, Plus, RefreshCw, Store } from '@lucide/vue'
 import type { Skill, SkillMarketItem } from '@/types'
 import AppModal from '@/components/common/AppModal.vue'
@@ -261,6 +261,7 @@ watch(marketQuery, () => {
   window.clearTimeout(marketTimer)
   marketTimer = window.setTimeout(() => loadMarket(), 350)
 })
+onBeforeUnmount(() => window.clearTimeout(marketTimer))
 
 async function loadMarket() {
   isLoadingPresets.value = true

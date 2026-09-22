@@ -794,22 +794,45 @@ func lookupGitHubSkill(id string) (SkillMarketItem, error) {
 var skillNameLine = regexp.MustCompile(`(?m)^name:\s*.+$`)
 var skillDescLine = regexp.MustCompile(`(?m)^description:\s*.+$`)
 
+// splitSkillFrontmatter 把内容切成 frontmatter（含 --- 定界）与正文；没有 frontmatter 时 body 为空串返回
+func splitSkillFrontmatter(content string) (front, body string, ok bool) {
+	if !strings.HasPrefix(content, "---") {
+		return "", content, false
+	}
+	rest := content[3:]
+	if strings.HasPrefix(rest, "\n") {
+		rest = rest[1:]
+	} else if strings.HasPrefix(rest, "\r\n") {
+		rest = rest[2:]
+	}
+	end := strings.Index(rest, "\n---")
+	if end < 0 {
+		return "", content, false
+	}
+	front = rest[:end]
+	after := rest[end+4:] // 跳过 "\n---"
+	after = strings.TrimPrefix(after, "\r")
+	after = strings.TrimPrefix(after, "\n")
+	return front, after, true
+}
+
 func alignSkillFrontmatter(content, name, fallbackDesc string) string {
 	content = strings.TrimSpace(content)
-	if !strings.HasPrefix(content, "---") {
-		desc := strings.TrimSpace(fallbackDesc)
-		if desc == "" {
-			desc = name
+	if front, body, ok := splitSkillFrontmatter(content); ok {
+		// 只改 frontmatter 区间，正文里以 name:/description: 开头的行（如内嵌示例）不能动
+		if skillNameLine.MatchString(front) {
+			front = skillNameLine.ReplaceAllString(front, "name: "+name)
+		} else {
+			front = "name: " + name + "\n" + front
 		}
-		return "---\nname: " + name + "\ndescription: " + desc + "\n---\n\n" + content
+		if !skillDescLine.MatchString(front) && strings.TrimSpace(fallbackDesc) != "" {
+			front = "description: " + strings.TrimSpace(fallbackDesc) + "\n" + front
+		}
+		return "---\n" + front + "\n---\n\n" + body
 	}
-	if skillNameLine.MatchString(content) {
-		content = skillNameLine.ReplaceAllString(content, "name: "+name)
-	} else {
-		content = strings.Replace(content, "---", "---\nname: "+name, 1)
+	desc := strings.TrimSpace(fallbackDesc)
+	if desc == "" {
+		desc = name
 	}
-	if !skillDescLine.MatchString(content) && strings.TrimSpace(fallbackDesc) != "" {
-		content = strings.Replace(content, "name: "+name, "name: "+name+"\ndescription: "+strings.TrimSpace(fallbackDesc), 1)
-	}
-	return content
+	return "---\nname: " + name + "\ndescription: " + desc + "\n---\n\n" + content
 }

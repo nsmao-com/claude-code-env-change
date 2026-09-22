@@ -54,12 +54,19 @@ type UptimeSnapshot struct {
 	History  map[string][]UptimeCheck `json:"history"`
 	URLs     map[string]string        `json:"urls"` // 便于前端展示当前检查 URL
 	Now      int64                    `json:"now"`
+	// 最近一次自动轮换的说明/失败原因，供面板提示"已自动切换/切换失败"
+	LastRotation      string `json:"last_rotation,omitempty"`
+	LastRotationError string `json:"last_rotation_error,omitempty"`
+	LastRotationAt    int64  `json:"last_rotation_at,omitempty"`
 }
 
 type uptimeStore struct {
-	Settings UptimeSettings           `json:"settings"`
-	Groups   []RotationGroup          `json:"groups"`
-	History  map[string][]UptimeCheck `json:"history"`
+	Settings          UptimeSettings           `json:"settings"`
+	Groups            []RotationGroup          `json:"groups"`
+	History           map[string][]UptimeCheck `json:"history"`
+	LastRotation      string                   `json:"last_rotation,omitempty"`
+	LastRotationError string                   `json:"last_rotation_error,omitempty"`
+	LastRotationAt    int64                    `json:"last_rotation_at,omitempty"`
 }
 
 func (us *UptimeService) GetSnapshot() (UptimeSnapshot, error) {
@@ -158,18 +165,20 @@ func (us *UptimeService) DeleteRotationGroup(name string) error {
 	return nil
 }
 
-// RunOnce 执行一次检查并（可选）触发轮换
+// RunOnce 执行一次检查并（可选）触发轮换。
+// 网络探测在锁外执行：全程持锁会让 UI 的 GetSnapshot/SaveSettings 卡住整个探测周期。
 func (us *UptimeService) RunOnce() (UptimeSnapshot, error) {
 	us.mu.Lock()
-	defer us.mu.Unlock()
-
 	store, err := us.loadStore()
 	if err != nil {
+		us.mu.Unlock()
 		return UptimeSnapshot{}, err
 	}
 
 	if !store.Settings.Enabled {
-		return us.buildSnapshot(store), nil
+		snap := us.buildSnapshot(store)
+		us.mu.Unlock()
+		return snap, nil
 	}
 
 	config := us.app.GetConfig()
@@ -185,18 +194,32 @@ func (us *UptimeService) RunOnce() (UptimeSnapshot, error) {
 		}
 		urls[uptimeEnvKey(env.Provider, env.Name)] = url
 	}
+	keepLast := store.Settings.KeepLast
+	us.mu.Unlock()
 
+	// 逐个检查（避免并发导致 UI 卡顿/过多连接）
+	results := make(map[string]UptimeCheck, len(urls))
+	for key, url := range urls {
+		results[key] = runUptimeCheck(client, url)
+	}
+
+	us.mu.Lock()
+	defer us.mu.Unlock()
+
+	// 探测期间用户可能改过设置，重读一遍再合并，避免整包覆盖
+	store, err = us.loadStore()
+	if err != nil {
+		return UptimeSnapshot{}, err
+	}
 	if store.History == nil {
 		store.History = map[string][]UptimeCheck{}
 	}
-
-	// 逐个检查（避免并发导致 UI 卡顿/过多连接）
-	for key, url := range urls {
-		check := runUptimeCheck(client, url)
-		store.History[key] = appendAndTrim(store.History[key], check, store.Settings.KeepLast)
+	for key, check := range results {
+		store.History[key] = appendAndTrim(store.History[key], check, keepLast)
 	}
 
 	// 轮换：按组评估当前激活环境的连续失败次数
+	config = us.app.GetConfig()
 	for _, group := range store.Groups {
 		group = normalizeRotationGroup(group)
 		if !group.Enabled {
@@ -226,9 +249,20 @@ func (us *UptimeService) RunOnce() (UptimeSnapshot, error) {
 			continue
 		}
 
-		// 切换并应用（沿用现有逻辑：SwitchToEnv + ApplyCurrentEnv）
-		_ = us.app.SwitchToEnv(nextName, group.Provider)
-		_, _ = us.app.ApplyCurrentEnv()
+		// 切换并应用；失败要留痕，用户才知道自己还挂在故障环境上
+		if err := us.app.SwitchToEnv(nextName, group.Provider); err != nil {
+			store.LastRotationError = fmt.Sprintf("切换到 %s 失败: %v", nextName, err)
+			store.LastRotationAt = time.Now().Unix()
+			continue
+		}
+		if _, err := us.app.ApplyCurrentEnv(); err != nil {
+			store.LastRotationError = fmt.Sprintf("已切到 %s，但写回本机失败: %v", nextName, err)
+			store.LastRotationAt = time.Now().Unix()
+		} else {
+			store.LastRotation = fmt.Sprintf("%s：连续 %d 次失败，已自动切换到 %s", group.Name, failCount, nextName)
+			store.LastRotationError = ""
+			store.LastRotationAt = time.Now().Unix()
+		}
 
 		// 更新本地 config 快照，避免多个组使用旧值
 		config = us.app.GetConfig()
@@ -260,11 +294,14 @@ func (us *UptimeService) buildSnapshot(store uptimeStore) UptimeSnapshot {
 	}
 
 	return UptimeSnapshot{
-		Settings: normalizeUptimeSettings(store.Settings),
-		Groups:   store.Groups,
-		History:  store.History,
-		URLs:     urls,
-		Now:      time.Now().Unix(),
+		Settings:          normalizeUptimeSettings(store.Settings),
+		Groups:            store.Groups,
+		History:           store.History,
+		URLs:              urls,
+		Now:               time.Now().Unix(),
+		LastRotation:      store.LastRotation,
+		LastRotationError: store.LastRotationError,
+		LastRotationAt:    store.LastRotationAt,
 	}
 }
 
@@ -305,6 +342,8 @@ func (us *UptimeService) loadStore() (uptimeStore, error) {
 
 	var store uptimeStore
 	if err := json.Unmarshal(data, &store); err != nil {
+		// 损坏时先留一份 .bak，避免下一次保存把用户的轮换组配置永远覆盖掉
+		backupFile(path)
 		return defaultStore, nil
 	}
 
@@ -342,7 +381,7 @@ func (us *UptimeService) saveStore(store uptimeStore) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, 0o644)
+	return writeFileAtomic(path, data, 0o644)
 }
 
 func normalizeUptimeSettings(settings UptimeSettings) UptimeSettings {
@@ -491,9 +530,14 @@ func runUptimeCheck(client *http.Client, url string) UptimeCheck {
 	}
 	defer resp.Body.Close()
 
-	check.Success = true
 	check.StatusCode = resp.StatusCode
 	check.LatencyMs = time.Since(start).Milliseconds()
+	// 服务端错误（5xx）与限流（429）必须算失败，否则故障轮换永远不会触发；
+	// 401/403 说明服务本身在线，不算故障
+	check.Success = resp.StatusCode < 500 && resp.StatusCode != http.StatusTooManyRequests
+	if !check.Success {
+		check.Error = fmt.Sprintf("上游返回 %s", resp.Status)
+	}
 	return check
 }
 

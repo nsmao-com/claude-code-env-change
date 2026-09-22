@@ -393,7 +393,6 @@ function onClient(value: unknown) {
 
 function onEnabledChange(checked: boolean) {
   form.value.enabled = checked
-  toast.success(checked ? '已启用此路由' : '已停用此路由')
 }
 
 async function handleSubmit() {

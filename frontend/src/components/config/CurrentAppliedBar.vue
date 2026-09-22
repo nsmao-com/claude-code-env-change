@@ -11,7 +11,7 @@
           <template v-if="appliedConfigs.length">
             <span
               v-for="config in appliedConfigs"
-              :key="config.name"
+              :key="`${config.provider}-${config.name}`"
               class="inline-flex min-w-0 items-center gap-1 text-xs"
             >
               <BrandIcon :provider="config.provider" class="size-3" />

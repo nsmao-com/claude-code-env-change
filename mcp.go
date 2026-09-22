@@ -111,11 +111,11 @@ func (ms *MCPService) ListServers() ([]MCPServer, error) {
 		return nil, err
 	}
 
-	claudeEnabled := loadClaudeEnabledServers()
-	codexEnabled := loadCodexEnabledServers()
-	antigravityEnabled := loadAntigravityEnabledServers()
-	opencodeEnabled := loadOpencodeEnabledServers()
-	grokEnabled := loadGrokEnabledServers()
+	claudeEnabled, _ := loadClaudeEnabledServers()
+	codexEnabled, _ := loadCodexEnabledServers()
+	antigravityEnabled, _ := loadAntigravityEnabledServers()
+	opencodeEnabled, _ := loadOpencodeEnabledServers()
+	grokEnabled, _ := loadGrokEnabledServers()
 
 	names := make([]string, 0, len(config))
 	for name := range config {
@@ -195,6 +195,8 @@ func (ms *MCPService) SaveServers(servers []MCPServer) error {
 			EnabledInClaude:      server.EnabledInClaude,
 			EnabledInCodex:       server.EnabledInCodex,
 			EnabledInAntigravity: server.EnabledInAntigravity,
+			EnabledInOpencode:    platformContains(platforms, platOpencode),
+			EnabledInGrok:        platformContains(platforms, platGrok),
 		}
 
 		raw[name] = rawMCPServer{
@@ -408,11 +410,7 @@ func (ms *MCPService) saveConfig(payload map[string]rawMCPServer) error {
 	if err != nil {
 		return err
 	}
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, data, 0o644); err != nil {
-		return err
-	}
-	return os.Rename(tmp, path)
+	return writeFileAtomic(path, data, 0o644)
 }
 
 // syncClaudeServers 同步到 Claude 配置
@@ -446,7 +444,9 @@ func (ms *MCPService) syncClaudeServers(servers []MCPServer) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, 0o600)
+	// ~/.claude.json 含 projects 历史、账号信息等本工具不托管的内容，覆盖前留一份 .bak
+	backupFile(path)
+	return writeFileAtomic(path, data, 0o600)
 }
 
 // syncCodexServers 同步到 Codex 配置
@@ -482,7 +482,7 @@ func (ms *MCPService) syncCodexServers(servers []MCPServer) error {
 		return err
 	}
 
-	return os.WriteFile(path, data, 0o644)
+	return writeFileAtomic(path, data, 0o644)
 }
 
 // syncAntigravityServers 同步到 Antigravity CLI MCP 配置（~/.gemini/config/mcp_config.json）
@@ -504,7 +504,8 @@ func (ms *MCPService) syncAntigravityServers(servers []MCPServer) error {
 	existingServers := make(map[string]json.RawMessage)
 	if data, err := os.ReadFile(path); err == nil && len(data) > 0 {
 		if err := json.Unmarshal(data, &payload); err != nil {
-			payload = make(map[string]any)
+			// 解析失败时中止而非清空重建，避免丢失 mcpServers 以外的顶层内容
+			return fmt.Errorf("解析 %s 失败，为保护原文件已中止同步: %v", path, err)
 		}
 		// 读取现有的 mcpServers
 		var mcpPayload claudeMcpFilePayload
@@ -559,7 +560,7 @@ func (ms *MCPService) syncAntigravityServers(servers []MCPServer) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, 0o644)
+	return writeFileAtomic(path, data, 0o644)
 }
 
 // importFromCodex 从 Codex 配置导入
@@ -952,11 +953,16 @@ func (ms *MCPService) mergeImportedServers(target, imported map[string]rawMCPSer
 }
 
 func (ms *MCPService) reconcilePlatformsFromDisk(payload map[string]rawMCPServer) bool {
-	claude := loadClaudeEnabledServers()
-	codex := loadCodexEnabledServers()
-	antigravity := loadAntigravityEnabledServers()
-	opencode := loadOpencodeEnabledServers()
-	grok := loadGrokEnabledServers()
+	claude, errClaude := loadClaudeEnabledServers()
+	codex, errCodex := loadCodexEnabledServers()
+	antigravity, errAntigravity := loadAntigravityEnabledServers()
+	opencode, errOpencode := loadOpencodeEnabledServers()
+	grok, errGrok := loadGrokEnabledServers()
+	// 任一平台文件暂时读不了/解析不了（被占用、语法错误等）时跳过 reconcile：
+	// 把"读不到"当成"用户已删了"会把平台启用标记剥掉并落盘，之后无法自动恢复
+	if errClaude != nil || errCodex != nil || errAntigravity != nil || errOpencode != nil || errGrok != nil {
+		return false
+	}
 	changed := false
 	for name, entry := range payload {
 		present := make([]string, 0, 5)
@@ -992,7 +998,7 @@ func (ms *MCPService) cleanupDeletedServers(payload map[string]rawMCPServer) boo
 	claudeServers := ms.getCurrentClaudeServers()
 	codexServers := ms.getCurrentCodexServers()
 	antigravityServers := ms.getCurrentAntigravityServers()
-	opencodeServers := loadOpencodeEnabledServers()
+	opencodeServers, _ := loadOpencodeEnabledServers()
 	grokServers := ms.getCurrentGrokServers()
 
 	changed := false
@@ -1242,68 +1248,78 @@ func containsNormalized(pool map[string]struct{}, value string) bool {
 	return ok
 }
 
-func loadClaudeEnabledServers() map[string]struct{} {
+func loadClaudeEnabledServers() (map[string]struct{}, error) {
 	result := map[string]struct{}{}
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return result
+		return result, err
 	}
 	path := filepath.Join(home, claudeMcpFile)
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return result
+		if os.IsNotExist(err) {
+			return result, nil
+		}
+		// 读不了/解析不了不能当作"用户已删除"，调用方须跳过 reconcile
+		return result, err
 	}
 	var payload claudeMcpFilePayload
 	if err := json.Unmarshal(data, &payload); err != nil {
-		return result
+		return result, err
 	}
 	for name := range payload.Servers {
 		result[strings.ToLower(strings.TrimSpace(name))] = struct{}{}
 	}
-	return result
+	return result, nil
 }
 
-func loadCodexEnabledServers() map[string]struct{} {
+func loadCodexEnabledServers() (map[string]struct{}, error) {
 	result := map[string]struct{}{}
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return result
+		return result, err
 	}
 	path := filepath.Join(home, codexDirName, codexConfigFile)
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return result
+		if os.IsNotExist(err) {
+			return result, nil
+		}
+		return result, err
 	}
 	var payload codexMcpFilePayload
 	if err := toml.Unmarshal(data, &payload); err != nil {
-		return result
+		return result, err
 	}
 	for name := range payload.Servers {
 		result[strings.ToLower(strings.TrimSpace(name))] = struct{}{}
 	}
-	return result
+	return result, nil
 }
 
-func loadAntigravityEnabledServers() map[string]struct{} {
+func loadAntigravityEnabledServers() (map[string]struct{}, error) {
 	result := map[string]struct{}{}
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return result
+		return result, err
 	}
 	for _, path := range antigravityMcpConfigCandidates(home) {
 		data, err := os.ReadFile(path)
 		if err != nil {
-			continue
+			if os.IsNotExist(err) {
+				continue
+			}
+			return result, err
 		}
 		var payload claudeMcpFilePayload
 		if err := json.Unmarshal(data, &payload); err != nil {
-			continue
+			return result, err
 		}
 		for name := range payload.Servers {
 			result[strings.ToLower(strings.TrimSpace(name))] = struct{}{}
 		}
 	}
-	return result
+	return result, nil
 }
 
 func platformContains(platforms []string, target string) bool {
@@ -1368,16 +1384,14 @@ func claudeConfigPath() (string, error) {
 	return filepath.Join(home, claudeMcpFile), nil
 }
 
+// codexConfigPath 返回 Codex config.toml 路径；只拼接不创建目录，
+// 读取方不应因为列一下配置就在用户磁盘上建出 ~/.codex
 func codexConfigPath() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
 	}
-	dir := filepath.Join(home, codexDirName)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return "", err
-	}
-	return filepath.Join(dir, codexConfigFile), nil
+	return filepath.Join(home, codexDirName, codexConfigFile), nil
 }
 
 // antigravityMcpConfigPath Antigravity CLI 全局 MCP 配置：~/.gemini/config/mcp_config.json
@@ -1429,12 +1443,18 @@ func buildAntigravityEntry(server MCPServer) antigravityMcpServer {
 	return entry
 }
 
+// grokMcpConfigPath 返回路径并确保目录存在（写入方使用）
 func grokMcpConfigPath() (string, error) {
 	dir := resolveGrokHome(nil)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", err
 	}
 	return filepath.Join(dir, grokTomlName), nil
+}
+
+// grokMcpConfigPathReadOnly 只拼接路径不创建目录（读取方使用）
+func grokMcpConfigPathReadOnly() string {
+	return filepath.Join(resolveGrokHome(nil), grokTomlName)
 }
 
 func (ms *MCPService) syncGrokServers(servers []MCPServer) error {
@@ -1465,7 +1485,7 @@ func (ms *MCPService) syncGrokServers(servers []MCPServer) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, 0o644)
+	return writeFileAtomic(path, data, 0o644)
 }
 
 func (ms *MCPService) getCurrentGrokServers() map[string]struct{} {
@@ -1494,36 +1514,39 @@ func buildGrokMcpEntry(server MCPServer) map[string]any {
 	return entry
 }
 
-func loadGrokEnabledServers() map[string]struct{} {
+func loadGrokEnabledServers() (map[string]struct{}, error) {
 	result := map[string]struct{}{}
-	path, err := grokMcpConfigPath()
-	if err != nil {
-		return result
-	}
+	path := grokMcpConfigPathReadOnly()
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return result
+		if os.IsNotExist(err) {
+			return result, nil
+		}
+		return result, err
 	}
 	var payload codexMcpFilePayload
 	if err := toml.Unmarshal(data, &payload); err != nil {
-		return result
+		return result, err
 	}
 	for name := range payload.Servers {
 		result[strings.ToLower(strings.TrimSpace(name))] = struct{}{}
 	}
-	return result
+	return result, nil
 }
 
-func loadOpencodeEnabledServers() map[string]struct{} {
+func loadOpencodeEnabledServers() (map[string]struct{}, error) {
 	result := map[string]struct{}{}
 	path := opencodeConfigFile(nil)
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return result
+		if os.IsNotExist(err) {
+			return result, nil
+		}
+		return result, err
 	}
 	payload, err := parseJSONLikeObject(data)
 	if err != nil {
-		return result
+		return result, err
 	}
 	mcp, _ := payload["mcp"].(map[string]any)
 	for name := range mcp {
@@ -1532,11 +1555,14 @@ func loadOpencodeEnabledServers() map[string]struct{} {
 			result[trimmed] = struct{}{}
 		}
 	}
-	return result
+	return result, nil
 }
 
 func (ms *MCPService) syncOpencodeServers(servers []MCPServer) error {
 	path := opencodeConfigFile(nil)
+	if err := guardOpencodeJSONC(path); err != nil {
+		return err
+	}
 	desired := map[string]any{}
 	managed := map[string]struct{}{}
 	for _, server := range servers {
@@ -1599,7 +1625,7 @@ func (ms *MCPService) syncOpencodeServers(servers []MCPServer) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
-	return os.WriteFile(path, out, 0o644)
+	return writeFileAtomic(path, out, 0o644)
 }
 
 func buildOpencodeMcpEntry(server MCPServer) map[string]any {
@@ -1723,10 +1749,14 @@ func (ms *MCPService) testStdioServer(command string, args []string, env map[str
 	if err != nil {
 		// 尝试常见的路径
 		if runtime.GOOS == "windows" {
-			// Windows 上尝试查找 npx, node 等
-			possiblePaths := []string{
-				filepath.Join(os.Getenv("APPDATA"), "npm", command+".cmd"),
-				filepath.Join(os.Getenv("PROGRAMFILES"), "nodejs", command+".exe"),
+			// Windows 上尝试查找 npx, node 等；env 未设置时跳过对应候选，
+			// 避免 Join 出按 CWD 解析的相对路径
+			possiblePaths := []string{}
+			if appData := os.Getenv("APPDATA"); appData != "" {
+				possiblePaths = append(possiblePaths, filepath.Join(appData, "npm", command+".cmd"))
+			}
+			if programFiles := os.Getenv("PROGRAMFILES"); programFiles != "" {
+				possiblePaths = append(possiblePaths, filepath.Join(programFiles, "nodejs", command+".exe"))
 			}
 			found := false
 			for _, p := range possiblePaths {
@@ -1750,11 +1780,22 @@ func (ms *MCPService) testStdioServer(command string, args []string, env map[str
 
 	cmd := exec.CommandContext(ctx, cmdPath, args...)
 
-	// 设置环境变量
-	cmd.Env = os.Environ()
-	for k, v := range env {
-		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", k, v))
+	// 设置环境变量：先装系统环境，再让配置的同名键覆盖
+	// （直接 append 会在 Unix 上被 os.Environ 里的旧值抢先，配置的 env 静默失效）
+	base := map[string]string{}
+	for _, kv := range os.Environ() {
+		if idx := strings.Index(kv, "="); idx > 0 {
+			base[kv[:idx]] = kv[idx+1:]
+		}
 	}
+	for k, v := range env {
+		base[k] = v
+	}
+	cmdEnv := make([]string, 0, len(base))
+	for k, v := range base {
+		cmdEnv = append(cmdEnv, k+"="+v)
+	}
+	cmd.Env = cmdEnv
 
 	// 尝试启动命令（不等待完成，只检查是否能启动）
 	err = cmd.Start()
@@ -1764,10 +1805,10 @@ func (ms *MCPService) testStdioServer(command string, args []string, env map[str
 		return MCPTestResult{Success: false, Message: fmt.Sprintf("启动失败: %v", err), Latency: latency}
 	}
 
-	// 立即终止进程
-	if cmd.Process != nil {
-		cmd.Process.Kill()
-	}
+	// 立即终止进程：Windows 下 taskkill 杀整棵进程树（npx.cmd 会包一层 cmd.exe），
+	// 并 Wait 回收，避免留下僵尸/常驻的 MCP 子进程
+	killCmd(cmd)
+	_ = cmd.Wait()
 
 	return MCPTestResult{Success: true, Message: "命令可执行", Latency: latency}
 }
@@ -2021,11 +2062,11 @@ func (ms *MCPService) ApplyToPlatform(platform string) (int, error) {
 
 // buildServersFromConfig 从配置构建服务器列表（内部使用，不加锁）
 func (ms *MCPService) buildServersFromConfig(config map[string]rawMCPServer) []MCPServer {
-	claudeEnabled := loadClaudeEnabledServers()
-	codexEnabled := loadCodexEnabledServers()
-	antigravityEnabled := loadAntigravityEnabledServers()
-	opencodeEnabled := loadOpencodeEnabledServers()
-	grokEnabled := loadGrokEnabledServers()
+	claudeEnabled, _ := loadClaudeEnabledServers()
+	codexEnabled, _ := loadCodexEnabledServers()
+	antigravityEnabled, _ := loadAntigravityEnabledServers()
+	opencodeEnabled, _ := loadOpencodeEnabledServers()
+	grokEnabled, _ := loadGrokEnabledServers()
 
 	names := make([]string, 0, len(config))
 	for name := range config {

@@ -38,18 +38,23 @@ func (rs *RouterService) serveResponsesEndpoint(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxGatewayBodyBytes))
-	if err != nil {
-		rs.finishRequest(w, route, r, start, http.StatusBadRequest, "", fmt.Errorf("读取请求体失败: %v", err), true)
-		writeOpenAIError(w, http.StatusBadRequest, "invalid_request_error", "读取请求体失败")
-		return
-	}
-
+	// GET 没有 body：跳过解析，交由下方直连透传（此前空 body 必然 400）
+	var body []byte
 	var req responsesRequest
-	if err := json.Unmarshal(body, &req); err != nil {
-		rs.finishRequest(w, route, r, start, http.StatusBadRequest, "", fmt.Errorf("请求不是有效的 Responses 格式: %v", err), true)
-		writeOpenAIError(w, http.StatusBadRequest, "invalid_request_error", "请求不是有效的 OpenAI Responses 格式")
-		return
+	if r.Method == http.MethodPost {
+		var err error
+		body, err = io.ReadAll(http.MaxBytesReader(w, r.Body, maxGatewayBodyBytes))
+		if err != nil {
+			rs.finishRequest(w, route, r, start, http.StatusBadRequest, "", fmt.Errorf("读取请求体失败: %v", err), true)
+			writeOpenAIError(w, http.StatusBadRequest, "invalid_request_error", "读取请求体失败")
+			return
+		}
+
+		if err := json.Unmarshal(body, &req); err != nil {
+			rs.finishRequest(w, route, r, start, http.StatusBadRequest, "", fmt.Errorf("请求不是有效的 Responses 格式: %v", err), true)
+			writeOpenAIError(w, http.StatusBadRequest, "invalid_request_error", "请求不是有效的 OpenAI Responses 格式")
+			return
+		}
 	}
 
 	inboundModel := req.Model
@@ -68,6 +73,7 @@ func (rs *RouterService) serveResponsesEndpoint(w http.ResponseWriter, r *http.R
 			writeOpenAIError(w, http.StatusBadGateway, "api_error", err.Error())
 			return
 		}
+		copyClientHeaders(upstream, r)
 		resp, err := rs.client.Do(upstream)
 		if err != nil {
 			rs.finishRequest(w, route, r, start, http.StatusBadGateway, inboundModel, err, true)
@@ -106,12 +112,13 @@ func (rs *RouterService) serveResponsesEndpoint(w http.ResponseWriter, r *http.R
 		if req.Stream {
 			if err := convertOpenAIStreamToResponses(resp.Body, w, inboundModel); err != nil {
 				rs.finishRequest(w, route, r, start, http.StatusInternalServerError, inboundModel, err, true)
+				writeOpenAIError(w, http.StatusInternalServerError, "api_error", "流式转换失败: "+err.Error())
 				return
 			}
 			rs.finishRequest(w, route, r, start, http.StatusOK, inboundModel, nil, false)
 			return
 		}
-		respBody, err := io.ReadAll(io.LimitReader(resp.Body, maxGatewayBodyBytes))
+		respBody, err := readUpstreamBody(resp)
 		if err != nil {
 			rs.finishRequest(w, route, r, start, http.StatusBadGateway, inboundModel, err, true)
 			writeOpenAIError(w, http.StatusBadGateway, "api_error", "读取上游响应失败")
@@ -149,12 +156,13 @@ func (rs *RouterService) serveResponsesEndpoint(w http.ResponseWriter, r *http.R
 	if req.Stream {
 		if err := convertAnthropicStreamToResponses(resp.Body, w, inboundModel); err != nil {
 			rs.finishRequest(w, route, r, start, http.StatusInternalServerError, inboundModel, err, true)
+			writeOpenAIError(w, http.StatusInternalServerError, "api_error", "流式转换失败: "+err.Error())
 			return
 		}
 		rs.finishRequest(w, route, r, start, http.StatusOK, inboundModel, nil, false)
 		return
 	}
-	respBody, err := io.ReadAll(io.LimitReader(resp.Body, maxGatewayBodyBytes))
+	respBody, err := readUpstreamBody(resp)
 	if err != nil {
 		rs.finishRequest(w, route, r, start, http.StatusBadGateway, inboundModel, err, true)
 		writeOpenAIError(w, http.StatusBadGateway, "api_error", "读取上游响应失败")
@@ -536,6 +544,8 @@ type responsesSSEEmitter struct {
 	textIndex int
 
 	tools []*responsesToolStream
+
+	started bool
 }
 
 type responsesToolStream struct {
@@ -600,6 +610,24 @@ func (e *responsesSSEEmitter) start() {
 	})
 }
 
+// ensureStarted 懒启动：response.created 延后到拿到上游 ID（或首个内容事件）再发，
+// 避免 created 用 resp_router_ 临时 ID、completed 却用上游派生 ID 的不一致
+func (e *responsesSSEEmitter) ensureStarted() {
+	if e.started {
+		return
+	}
+	e.started = true
+	e.start()
+}
+
+// setID 设置响应 ID；created 一旦发出就锁定，保证整条事件流 ID 一致
+func (e *responsesSSEEmitter) setID(id string) {
+	if e.started {
+		return
+	}
+	e.id = id
+}
+
 func (e *responsesSSEEmitter) ensureMessage() {
 	if e.msgOpen || e.msgDone {
 		return
@@ -622,6 +650,11 @@ func (e *responsesSSEEmitter) ensureMessage() {
 
 func (e *responsesSSEEmitter) textDelta(s string) {
 	if s == "" {
+		return
+	}
+	if e.msgDone {
+		// 消息 item 已 close（如文本→工具切换后再来的迟到文本）：
+		// 此时再发 part/delta 会指向已完成的 item，且文本进不了最终 output，直接丢弃
 		return
 	}
 	e.ensureMessage()
@@ -790,6 +823,7 @@ func (e *responsesSSEEmitter) closeTools() {
 }
 
 func (e *responsesSSEEmitter) complete(finish string, usage *openaiUsage) {
+	e.ensureStarted()
 	if e.msgOpen {
 		e.closeMessage()
 	} else if !e.msgDone && len(e.tools) == 0 {
@@ -817,7 +851,6 @@ func convertOpenAIStreamToResponses(upstream io.Reader, w http.ResponseWriter, i
 	if err != nil {
 		return err
 	}
-	em.start()
 
 	var usage *openaiUsage
 	finish := ""
@@ -837,7 +870,7 @@ func convertOpenAIStreamToResponses(upstream io.Reader, w http.ResponseWriter, i
 		if chunk.ID != "" {
 			id := "resp_" + strings.TrimPrefix(chunk.ID, "chatcmpl-")
 			if id != "resp_" {
-				em.id = id
+				em.setID(id)
 			}
 		}
 		if len(chunk.Choices) == 0 {
@@ -845,7 +878,11 @@ func convertOpenAIStreamToResponses(upstream io.Reader, w http.ResponseWriter, i
 		}
 		choice := chunk.Choices[0]
 		if choice.Delta.Content != "" {
+			em.ensureStarted()
 			em.textDelta(choice.Delta.Content)
+		}
+		if len(choice.Delta.ToolCalls) > 0 {
+			em.ensureStarted()
 		}
 		for _, tc := range choice.Delta.ToolCalls {
 			t := em.toolStart(tc.Index, tc.ID, tc.Function.Name)
@@ -867,7 +904,6 @@ func convertAnthropicStreamToResponses(upstream io.Reader, w http.ResponseWriter
 	if err != nil {
 		return err
 	}
-	em.start()
 
 	var usage *openaiUsage
 	finish := ""
@@ -887,8 +923,9 @@ func convertAnthropicStreamToResponses(upstream io.Reader, w http.ResponseWriter
 		switch event.Type {
 		case "message_start":
 			if event.Message != nil && event.Message.ID != "" {
-				em.id = "resp_" + strings.TrimPrefix(event.Message.ID, "msg_")
+				em.setID("resp_" + strings.TrimPrefix(event.Message.ID, "msg_"))
 			}
+			em.ensureStarted()
 			if event.Message != nil && (event.Message.Usage.InputTokens > 0 || event.Message.Usage.OutputTokens > 0) {
 				usage = &openaiUsage{
 					PromptTokens:     event.Message.Usage.InputTokens,

@@ -244,6 +244,22 @@ export interface UptimeSnapshot {
   history: Record<string, UptimeCheck[]>
   urls: Record<string, string>
   now: number
+  // 最近一次自动轮换：成功说明与失败原因（故障自动切换的留痕）
+  last_rotation?: string
+  last_rotation_error?: string
+  last_rotation_at?: number
+}
+
+// 供应商预设（后端内置目录，一键填充常见第三方端点）
+export interface ProviderPreset {
+  id: string
+  name: string
+  provider: string
+  icon: string
+  description: string
+  variables: Record<string, string>
+  model_choices?: string[]
+  website?: string
 }
 
 // Provider 类型

@@ -151,7 +151,8 @@ const isSaving = ref(false)
 
 const providers = [
   { value: 'claude' as Provider, label: 'Claude Code' },
-  { value: 'claude_desktop' as Provider, label: 'Claude Desktop' },
+  // Claude Desktop 不参与轮换：后端轮换按 provider 切换激活配置并写回 CLI，
+  // desktop 没有独立的切换入口，放进列表只会得到一个点了没反应的死选项
   { value: 'codex' as Provider, label: 'Codex' },
   { value: 'antigravity' as Provider, label: 'Antigravity' },
   { value: 'opencode' as Provider, label: 'OpenCode' },
@@ -213,7 +214,6 @@ function envDesc(name: string): string {
 
 function onEnabledChange(value: boolean) {
   form.value.enabled = value
-  toast.success(value ? '已启用轮换' : '已停用轮换')
 }
 
 function onProvider(value: unknown) {

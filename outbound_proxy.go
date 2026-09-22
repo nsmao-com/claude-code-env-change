@@ -101,8 +101,13 @@ func applyOutboundProxy(cfg OutboundProxySettings) error {
 	http.DefaultTransport = transport
 	outboundProxyMu.Unlock()
 
+	// 整体替换 *http.Client（而非就地改 Transport 字段）：
+	// client.Do 期间并发读写 Transport 字段是数据竞争
 	if globalRouterService != nil && globalRouterService.client != nil {
-		globalRouterService.client.Transport = transport
+		oldClient := globalRouterService.client
+		newClient := *oldClient
+		newClient.Transport = transport
+		globalRouterService.client = &newClient
 	}
 	return nil
 }

@@ -19,6 +19,7 @@ export const en = {
     export: 'Export config',
     import: 'Import config',
     clearClaude: 'Clear Claude',
+    clearClaudeDesktop: 'Clear Claude Desktop',
     clearCodex: 'Clear Codex',
     clearAntigravity: 'Clear Antigravity',
     clearOpencode: 'Clear OpenCode',

@@ -134,6 +134,7 @@ import { fadeEnter } from '@/lib/motion'
 import { FileJson, KeyRound, LayoutGrid, List, Plus, Search, Upload } from '@lucide/vue'
 import type { EnvConfig, Provider } from '@/types'
 import { useConfigStore } from '@/stores/configStore'
+import { useToast } from '@/composables/useToast'
 import ConfigCard from './ConfigCard.vue'
 import ConfigListItem from './ConfigListItem.vue'
 import CurrentAppliedBar from './CurrentAppliedBar.vue'
@@ -251,7 +252,28 @@ function initSortable() {
     filter: 'button, input, textarea, [data-slot="button"]',
     preventOnFilter: true,
     onEnd: async (evt: { oldIndex?: number; newIndex?: number }) => {
+      if (isReordering.value) return
       if (evt.oldIndex === undefined || evt.newIndex === undefined || evt.oldIndex === evt.newIndex) return
+      isReordering.value = true
+      try {
+        await applyReorder(evt)
+      } catch (err) {
+        // 失败必须回滚重渲染并提示，否则 DOM 顺序与 store 永久不一致
+        toast.error('保存排序失败：' + (err instanceof Error ? err.message : String(err)))
+        await configStore.loadConfig()
+      } finally {
+        isReordering.value = false
+      }
+    },
+  })
+}
+
+const isReordering = ref(false)
+const toast = useToast()
+
+async function applyReorder(evt: { oldIndex?: number; newIndex?: number }) {
+      if (evt.oldIndex === undefined || evt.newIndex === undefined || evt.oldIndex === evt.newIndex) return
+      {
       const allEnvs = configStore.environments
       // 配置名只在同一服务商内唯一，排序必须按 provider::name 定位，
       // 否则跨服务商的同名配置会被排到对方的位置上。
@@ -284,9 +306,9 @@ function initSortable() {
         }
       }
       await configStore.reorderEnvs(newOrder)
-    },
-  })
+  }
 }
+
 
 onMounted(() => {
   try {

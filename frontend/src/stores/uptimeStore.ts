@@ -8,6 +8,7 @@ export const useUptimeStore = defineStore('uptime', () => {
   const snapshot = ref<UptimeSnapshot | null>(null)
   const isLoading = ref(false)
   const isRunning = ref(false)
+  const lastError = ref('')
 
   let timer: number | null = null
 
@@ -65,7 +66,9 @@ export const useUptimeStore = defineStore('uptime', () => {
     if (!settings.value.enabled) return
     const intervalMs = Math.max(30, settings.value.interval_seconds) * 1000
     timer = window.setInterval(() => {
-      runOnce()
+      runOnce().catch((err) => {
+        lastError.value = err instanceof Error ? err.message : String(err)
+      })
     }, intervalMs)
   }
 
@@ -78,6 +81,7 @@ export const useUptimeStore = defineStore('uptime', () => {
 
   return {
     snapshot,
+    lastError,
     settings,
     groups,
     history,

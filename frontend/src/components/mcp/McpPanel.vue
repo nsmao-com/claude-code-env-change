@@ -175,7 +175,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import {
   Download,
   FileJson,
@@ -305,6 +305,8 @@ watch(marketQuery, () => {
   window.clearTimeout(marketTimer)
   marketTimer = window.setTimeout(() => loadMarket(false), 350)
 })
+// 面板随页面切换销毁，防抖回调可能在卸载后触发 loadMarket
+onBeforeUnmount(() => window.clearTimeout(marketTimer))
 
 function toggleMarket() {
   showMarket.value = !showMarket.value
@@ -372,6 +374,8 @@ function editServer(index: number) {
 
 async function deleteServer(index: number) {
   const server = mcpStore.servers[index]
+  if (!server) return
+  const key = server.name
 
   const confirmed = await confirm.show(
     '删除 MCP 服务器',
@@ -381,10 +385,10 @@ async function deleteServer(index: number) {
   if (!confirmed) return
 
   try {
-    await mcpStore.deleteServer(index)
+    await mcpStore.deleteServerByKey(key)
     toast.success('MCP 服务器已删除')
   } catch (e: any) {
-    toast.error('删除失败: ' + e.message)
+    toast.error('删除失败: ' + (e?.message || String(e)))
   }
 }
 

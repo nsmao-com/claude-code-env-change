@@ -22,7 +22,9 @@ func resolveMainConfigPath() string {
 	cwd, err := os.Getwd()
 	if err == nil && strings.TrimSpace(cwd) != "" {
 		legacy := filepath.Join(cwd, mainConfigFile)
-		if fileExistsFile(legacy) {
+		// 只有内容确实是本工具的主配置（含 environments 等特有字段）才沿用，
+		// 避免用户把导出的 config.json 放在启动目录时整个存储被静默劫持
+		if fileExistsFile(legacy) && looksLikeMainConfig(legacy) {
 			if canWriteExistingFile(legacy) {
 				return legacy
 			}
@@ -40,7 +42,33 @@ func resolveMainConfigPath() string {
 		return userPath
 	}
 
-	return mainConfigFile
+	// 兜底也要落在确定的位置：裸 "config.json" 会写到不可预测的 CWD
+	home, homeErr := os.UserHomeDir()
+	if homeErr != nil || strings.TrimSpace(home) == "" {
+		home = os.TempDir()
+	}
+	return filepath.Join(home, mcpStoreDir, mainConfigFile)
+}
+
+// looksLikeMainConfig 判断文件是否是本工具的主配置（而不是用户随手放着的导出文件）
+func looksLikeMainConfig(path string) bool {
+	data, err := os.ReadFile(path)
+	if err != nil || len(data) == 0 {
+		return false
+	}
+	var probe map[string]json.RawMessage
+	if json.Unmarshal(data, &probe) != nil {
+		return false
+	}
+	if _, ok := probe["environments"]; !ok {
+		return false
+	}
+	for _, key := range []string{"current_env_claude", "current_env", "current_env_codex"} {
+		if _, ok := probe[key]; ok {
+			return true
+		}
+	}
+	return false
 }
 
 func ensureUserMainConfigPath() (string, error) {

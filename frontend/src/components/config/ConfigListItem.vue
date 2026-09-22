@@ -5,8 +5,10 @@
     :transition="enter.transition"
     :while-press="nested ? undefined : pressSpring"
     :while-hover="nested ? undefined : hoverLift"
+    role="button"
+    tabindex="0"
     :class="[
-      'flex min-w-0 w-full cursor-pointer items-start gap-3 overflow-hidden px-4 py-3 transition-colors hover:bg-muted/70',
+      'flex min-w-0 w-full cursor-pointer items-start gap-3 overflow-hidden px-4 py-3 transition-colors hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60',
       nested
         ? 'rounded-none bg-transparent'
         : 'rounded-2xl bg-card ring-1 ring-black/[0.04] dark:ring-white/10',
@@ -14,6 +16,8 @@
       nested && isActive ? 'border-l-2 border-l-primary bg-primary/10' : '',
     ]"
     @click="$emit('click')"
+    @keydown.enter.prevent="$emit('click')"
+    @keydown.space.prevent="$emit('click')"
   >
     <div class="flex h-8 shrink-0 items-center">
       <GripVertical class="size-3.5 text-muted-foreground/50" />
@@ -160,7 +164,7 @@ const baseUrlValue = computed(() => {
 })
 
 const isUptimeEnabled = computed(() => !!uptimeStore.settings.enabled)
-const uptimeHistory = computed<UptimeCheck[]>(() => uptimeStore.getHistory(props.config.name))
+const uptimeHistory = computed<UptimeCheck[]>(() => uptimeStore.getHistory(`${String(props.config.provider || '').toLowerCase()}/${props.config.name}`))
 const latestCheck = computed(() => uptimeHistory.value.at(-1) ?? null)
 const uptimeBadgeText = computed(() => {
   if (!baseUrlValue.value?.trim()) return '-'

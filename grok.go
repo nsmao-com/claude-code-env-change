@@ -87,14 +87,14 @@ func defaultGrokToml(env *EnvConfig) string {
 func applyGrokTemplate(tmpl string, env *EnvConfig) string {
 	out := tmpl
 	repl := map[string]string{
-		"{{XAI_MODEL}}":        env.Variables["XAI_MODEL"],
-		"{{XAI_BASE_URL}}":     env.Variables["XAI_BASE_URL"],
-		"{{XAI_API_KEY}}":      env.Variables["XAI_API_KEY"],
-		"{{XAI_API_BACKEND}}":  env.Variables["XAI_API_BACKEND"],
-		"{{XAI_MODEL_NAME}}":   env.Variables["XAI_MODEL_NAME"],
-		"{{model}}":            env.Variables["XAI_MODEL"],
-		"{{base_url}}":         env.Variables["XAI_BASE_URL"],
-		"{{api_key}}":          env.Variables["XAI_API_KEY"],
+		"{{XAI_MODEL}}":       env.Variables["XAI_MODEL"],
+		"{{XAI_BASE_URL}}":    env.Variables["XAI_BASE_URL"],
+		"{{XAI_API_KEY}}":     env.Variables["XAI_API_KEY"],
+		"{{XAI_API_BACKEND}}": env.Variables["XAI_API_BACKEND"],
+		"{{XAI_MODEL_NAME}}":  env.Variables["XAI_MODEL_NAME"],
+		"{{model}}":           env.Variables["XAI_MODEL"],
+		"{{base_url}}":        env.Variables["XAI_BASE_URL"],
+		"{{api_key}}":         env.Variables["XAI_API_KEY"],
 	}
 	for k, v := range repl {
 		out = strings.ReplaceAll(out, k, v)
@@ -105,53 +105,60 @@ func applyGrokTemplate(tmpl string, env *EnvConfig) string {
 func mergeWriteGrokConfig(configFile, incoming string, vars map[string]string) error {
 	existing := map[string]any{}
 	if data, err := os.ReadFile(configFile); err == nil && len(data) > 0 {
-		_ = toml.Unmarshal(data, &existing)
+		if err := toml.Unmarshal(data, &existing); err != nil || existing == nil {
+			// 解析失败时中止而非清空重建，避免覆盖用户在 config.toml 里的其他配置
+			return fmt.Errorf("解析 Grok config.toml 失败，为保护原文件已中止写入: %v", err)
+		}
 	} else if err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("读取 Grok config.toml 失败: %v", err)
 	}
 
 	next := map[string]any{}
 	if err := toml.Unmarshal([]byte(incoming), &next); err != nil || next == nil {
-		next = map[string]any{}
+		return fmt.Errorf("配置模板不是有效 TOML: %v", err)
 	}
 
-	preserve := []string{"mcp_servers", "skills", "plugins", "ui", "hooks", "compat", "mcp", "cli", "agent", "session", "permission"}
-	for _, key := range preserve {
-		if v, ok := existing[key]; ok {
-			if _, already := next[key]; !already {
-				next[key] = v
-			}
-		}
+	// 以现有文件为底、新配置覆盖同名顶层键，完整保留用户的自定义段（含注释外的全部键值）
+	merged := existing
+	for key, value := range next {
+		merged[key] = value
 	}
-	injectGrokExtras(next, vars)
+	injectGrokExtras(merged, vars)
 
-	data, err := toml.Marshal(next)
+	data, err := toml.Marshal(merged)
 	if err != nil {
 		return fmt.Errorf("序列化 Grok config.toml 失败: %v", err)
 	}
-	if err := os.WriteFile(configFile, data, 0644); err != nil {
+	if err := writeFileAtomic(configFile, data, 0644); err != nil {
 		return fmt.Errorf("写入 Grok config.toml 失败: %v", err)
 	}
 	return nil
 }
 
 func (a *App) GetGrokSettings() map[string]string {
+	a.configMu.Lock()
+	defer a.configMu.Unlock()
+	return a.getGrokSettingsLocked()
+}
+
+// getGrokSettingsLocked 读取本机配置（调用方必须持有 a.configMu）
+func (a *App) getGrokSettingsLocked() map[string]string {
 	vars := map[string]string{}
 	if env := a.findEnvIn("grok", a.config.CurrentEnvGrok); env != nil {
 		vars = env.Variables
 	}
 	configFile := grokConfigFile(vars)
 	result := map[string]string{
-		"GROK_HOME":         resolveGrokHome(vars),
-		"GROK_CONFIG_PATH":  configFile,
-		"XAI_BASE_URL":      "https://api.x.ai/v1",
-		"XAI_MODEL":         "",
-		"XAI_API_BACKEND":   "responses",
+		"GROK_HOME":        resolveGrokHome(vars),
+		"GROK_CONFIG_PATH": configFile,
+		"XAI_BASE_URL":     "https://api.x.ai/v1",
+		"XAI_MODEL":        "",
+		"XAI_API_BACKEND":  "responses",
 	}
 
 	data, err := os.ReadFile(configFile)
 	if err != nil {
-			if env := a.findEnvIn("grok", a.config.CurrentEnvGrok); env != nil {
+		if env := a.findEnvIn("grok", a.config.CurrentEnvGrok); env != nil {
 			for _, key := range []string{"XAI_BASE_URL", "XAI_MODEL", "XAI_API_KEY", "XAI_API_BACKEND"} {
 				if v := strings.TrimSpace(env.Variables[key]); v != "" {
 					result[key] = v
@@ -195,6 +202,13 @@ func (a *App) GetGrokSettings() map[string]string {
 }
 
 func (a *App) ClearGrokSettings() error {
+	a.configMu.Lock()
+	defer a.configMu.Unlock()
+	return a.clearGrokSettingsLocked()
+}
+
+// clearGrokSettingsLocked 清除 Grok 的 API key（调用方必须持有 a.configMu）
+func (a *App) clearGrokSettingsLocked() error {
 	vars := map[string]string{}
 	if env := a.findEnvIn("grok", a.config.CurrentEnvGrok); env != nil {
 		vars = env.Variables
@@ -226,7 +240,7 @@ func (a *App) ClearGrokSettings() error {
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(configFile, out, 0644); err != nil {
+	if err := writeFileAtomic(configFile, out, 0644); err != nil {
 		return err
 	}
 	a.clearProviderCurrent("grok")

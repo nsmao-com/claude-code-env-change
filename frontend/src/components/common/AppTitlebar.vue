@@ -147,7 +147,7 @@
           </DropdownMenuItem>
           <DropdownMenuItem @click="$emit('clearClaudeDesktop')">
             <BrandIcon provider="claude_desktop" class="size-3.5" />
-            清除 Claude Desktop
+            {{ t('titlebar.clearClaudeDesktop') }}
           </DropdownMenuItem>
           <DropdownMenuItem @click="$emit('clearCodex')">
             <BrandIcon provider="codex" class="size-3.5" />

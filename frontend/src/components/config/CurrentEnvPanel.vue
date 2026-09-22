@@ -36,7 +36,7 @@
         <div class="flex items-start justify-between gap-3">
           <div>
             <p class="text-[15px] font-semibold text-white">环境健康度</p>
-            <p class="mt-0.5 text-[11px] text-white/40">各平台配置规模与写入状态 · 近 7 日视角</p>
+            <p class="mt-0.5 text-[11px] text-white/40">各平台配置数量与写入状态</p>
           </div>
           <div class="flex items-center gap-2">
             <span class="hidden items-center gap-1.5 text-[10.5px] text-white/50 sm:inline-flex">
@@ -273,7 +273,7 @@
             <p class="text-[15px] font-semibold text-foreground">写入追踪</p>
             <p class="mt-0.5 text-[11px] text-muted-foreground">Coverage · 目标 6 个平台全部写入</p>
           </div>
-          <span class="inline-flex items-center gap-0.5 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+          <span class="inline-flex items-center gap-0.5 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400">
             <TrendingUp class="size-3" />
             {{ appliedRate }}%
           </span>
@@ -320,6 +320,7 @@
 </template>
 
 <script setup lang="ts">
+import { useToast } from "@/composables/useToast"
 import { computed, onMounted, ref } from 'vue'
 import type { Component } from 'vue'
 import {
@@ -407,7 +408,7 @@ const kpis = computed(() => {
       sparkColor: '#F26B1D',
       delta: `${appliedRate.value}%`,
       deltaIcon: TrendingUp as Component,
-      deltaClass: 'bg-emerald-50 text-emerald-700',
+      deltaClass: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400',
       hint: '覆盖率',
     },
     {
@@ -415,12 +416,12 @@ const kpis = computed(() => {
       value: configuredCount.value,
       unit: '/ 6',
       icon: CircleCheck as Component,
-      iconClass: 'bg-emerald-500/10 text-emerald-600',
+      iconClass: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
       spark: appliedSpark.value,
       sparkColor: '#10B981',
       delta: `${appliedCount}`,
       deltaIcon: TrendingUp as Component,
-      deltaClass: 'bg-emerald-50 text-emerald-700',
+      deltaClass: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400',
       hint: '个配置生效中',
     },
     {
@@ -433,7 +434,7 @@ const kpis = computed(() => {
       sparkColor: '#8B5CF6',
       delta: `${totalCount.value}`,
       deltaIcon: Minus as Component,
-      deltaClass: 'bg-amber-50 text-amber-700',
+      deltaClass: 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400',
       hint: '个配置可选',
     },
     {
@@ -441,12 +442,12 @@ const kpis = computed(() => {
       value: gatewayPort.value,
       unit: gatewayRunning.value ? '运行中' : '已停止',
       icon: HeartPulse as Component,
-      iconClass: gatewayRunning.value ? 'bg-emerald-500/10 text-emerald-600' : 'bg-black/[0.06] text-muted-foreground',
+      iconClass: gatewayRunning.value ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-black/[0.06] text-muted-foreground dark:bg-white/[0.08]',
       spark: countSpark.value,
       sparkColor: gatewayRunning.value ? '#10B981' : '#A3A3A3',
       delta: `${routerStore.config.routes?.length || 0}`,
       deltaIcon: Activity as Component,
-      deltaClass: 'bg-black/[0.05] text-foreground/70',
+      deltaClass: 'bg-black/[0.05] text-foreground/70 dark:bg-white/[0.06]',
       hint: '条路由规则',
     },
   ]
@@ -455,23 +456,23 @@ const kpis = computed(() => {
 // ---------- 主图 ----------
 const CHART_W = 560
 const CHART_H = 218
-const DAY_LABELS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
-
 const chartPoints = computed(() => {
   const cols = platformCols.value
-  const series = [...cols, ...cols.slice(0, 2)]
+  // 图表展示的是当前各平台的配置数量与写入状态，直接按平台取点，
+  // 不再伪装成"近 7 日"时序（那既无数据支撑，6 个点对 7 个标签也对不上）
+  const series = cols
   const max = Math.max(...series.map(c => c.count), 5)
   const top = 16
   const bottom = CHART_H - 30
   return series.map((c, i) => {
     const appliedValue = c.applied ? c.count : Math.max(Math.round(c.count * 0.3), 0)
     return {
-      label: DAY_LABELS[i],
+      label: c.label,
       id: c.id,
       value: c.count,
       applied: appliedValue,
       active: c.applied,
-      x: 34 + (i / (series.length - 1)) * (CHART_W - 42),
+      x: 34 + (series.length > 1 ? (i / (series.length - 1)) * (CHART_W - 42) : (CHART_W - 42) / 2),
       y: bottom - (c.count / max) * (bottom - top),
       appliedY: bottom - (appliedValue / max) * (bottom - top),
     }
@@ -543,7 +544,7 @@ const chartMeta = computed(() => {
 // ---------- 环形图 ----------
 const R = 66
 const CIRC = 2 * Math.PI * R
-const DONUT_COLORS = ['#F26B1D', '#8B5CF6', '#38BDF8', '#4ADE80', '#FBBF24']
+const DONUT_COLORS = ['#F26B1D', '#8B5CF6', '#38BDF8', '#4ADE80', '#FBBF24', '#F472B6']
 
 const donutSegments = computed(() => {
   const total = Math.max(totalCount.value, 1)
@@ -594,6 +595,8 @@ onMounted(() => {
   routerStore.loadConfig().catch(() => {})
 })
 
+const toast = useToast()
+
 const terminalBusy = ref<Provider | null>(null)
 
 async function openTerminal(id: Provider) {
@@ -602,7 +605,7 @@ async function openTerminal(id: Provider) {
   try {
     await configService.openProviderTerminal(id)
   } catch (e: any) {
-    console.warn('打开终端失败', e?.message || e)
+    toast.error('打开终端失败: ' + (e?.message ?? String(e)))
   } finally {
     terminalBusy.value = null
   }

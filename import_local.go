@@ -16,6 +16,8 @@ import (
 // ImportLocalEnv 从本机 CLI 配置文件读取当前设置，并为指定平台新增一条环境配置。
 // provider 为 claude/claude_desktop/codex/antigravity/opencode/grok；空或 all 则尝试全部平台。
 func (a *App) ImportLocalEnv(provider string) ([]EnvConfig, error) {
+	a.configMu.Lock()
+	defer a.configMu.Unlock()
 	p := strings.ToLower(strings.TrimSpace(provider))
 	if p == "" {
 		p = "all"
@@ -36,7 +38,7 @@ func (a *App) ImportLocalEnv(provider string) ([]EnvConfig, error) {
 		}
 		for _, env := range envs {
 			env := env
-			if err := a.AddEnv(env); err != nil {
+			if err := a.addEnvLocked(env); err != nil {
 				errs = append(errs, fmt.Sprintf("%s: %v", item, err))
 				continue
 			}
@@ -206,7 +208,7 @@ func (a *App) uniqueEnvName(base string) string {
 }
 
 func (a *App) buildLocalClaudeEnv() (*EnvConfig, error) {
-	vars := a.GetClaudeSettings()
+	vars := a.getClaudeSettingsLocked()
 	if len(vars) == 0 {
 		return nil, nil
 	}
@@ -233,7 +235,7 @@ func (a *App) buildLocalCodexEnv() (*EnvConfig, error) {
 		return nil, err
 	}
 	codexDir := filepath.Join(home, ".codex")
-	settings := a.GetCodexSettings()
+	settings := a.getCodexSettingsLocked()
 	if v := settings["base_url"]; v != "" {
 		settings["base_url"] = resolveImportedBaseURL(v)
 	}
@@ -281,7 +283,7 @@ func (a *App) buildLocalAntigravityEnv() (*EnvConfig, error) {
 		return nil, err
 	}
 	geminiDir := filepath.Join(home, ".gemini")
-	settings := a.GetAntigravitySettings()
+	settings := a.getAntigravitySettingsLocked()
 	if v := settings["GOOGLE_GEMINI_BASE_URL"]; v != "" {
 		settings["GOOGLE_GEMINI_BASE_URL"] = resolveImportedBaseURL(v)
 	}
@@ -573,7 +575,7 @@ func asString(v any) string {
 }
 
 func (a *App) buildLocalGrokEnv() (*EnvConfig, error) {
-	settings := a.GetGrokSettings()
+	settings := a.getGrokSettingsLocked()
 	if v := settings["XAI_BASE_URL"]; v != "" {
 		settings["XAI_BASE_URL"] = resolveImportedBaseURL(v)
 	}
@@ -587,7 +589,13 @@ func (a *App) buildLocalGrokEnv() (*EnvConfig, error) {
 	if configFile == "" {
 		configFile = grokConfigFile(nil)
 	}
-	if data, err := os.ReadFile(configFile); err == nil && len(data) > 0 {
+	// config.toml 不存在说明本机没配置过 Grok；getGrokSettingsLocked 的默认值
+	// 不能当作"已有配置"导入，否则会凭空多出一条指向官方 API 的假配置
+	data, readErr := os.ReadFile(configFile)
+	if readErr != nil || len(data) == 0 {
+		return nil, nil
+	}
+	{
 		tmpl := string(data)
 		for _, key := range []string{"XAI_BASE_URL", "XAI_API_KEY", "XAI_MODEL"} {
 			if v := strings.TrimSpace(variables[key]); v != "" {

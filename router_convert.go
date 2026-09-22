@@ -99,9 +99,9 @@ type openaiFunctionCall struct {
 }
 
 type openaiToolCall struct {
-	Index    int               `json:"index,omitempty"`
-	ID       string            `json:"id,omitempty"`
-	Type     string            `json:"type,omitempty"`
+	Index    int                `json:"index,omitempty"`
+	ID       string             `json:"id,omitempty"`
+	Type     string             `json:"type,omitempty"`
 	Function openaiFunctionCall `json:"function"`
 }
 
@@ -139,15 +139,15 @@ type openaiStreamOptions struct {
 }
 
 type openaiRequest struct {
-	Model         string              `json:"model"`
-	Messages      []openaiMessage     `json:"messages"`
-	MaxTokens     *int                `json:"max_tokens,omitempty"`
-	Temperature   *float64            `json:"temperature,omitempty"`
-	TopP          *float64            `json:"top_p,omitempty"`
-	Stop          []string            `json:"stop,omitempty"`
-	Tools         []openaiTool        `json:"tools,omitempty"`
-	ToolChoice    json.RawMessage     `json:"tool_choice,omitempty"`
-	Stream        bool                `json:"stream,omitempty"`
+	Model         string               `json:"model"`
+	Messages      []openaiMessage      `json:"messages"`
+	MaxTokens     *int                 `json:"max_tokens,omitempty"`
+	Temperature   *float64             `json:"temperature,omitempty"`
+	TopP          *float64             `json:"top_p,omitempty"`
+	Stop          []string             `json:"stop,omitempty"`
+	Tools         []openaiTool         `json:"tools,omitempty"`
+	ToolChoice    json.RawMessage      `json:"tool_choice,omitempty"`
+	Stream        bool                 `json:"stream,omitempty"`
 	StreamOptions *openaiStreamOptions `json:"stream_options,omitempty"`
 }
 
@@ -240,6 +240,53 @@ func anthropicSystemToString(raw json.RawMessage) string {
 		}
 	}
 	return strings.Join(parts, "\n\n")
+}
+
+// toolErrorPrefix is_error 在 OpenAI 协议中没有对应字段，用文本标记传达给模型
+const toolErrorPrefix = "[tool execution failed] "
+
+// anthropicToolResultToOpenAIContent 把 tool_result 内容转成 OpenAI tool 消息体。
+// 文本块合并为字符串；含 image 块时输出 content 分片数组（OpenAI tool 消息支持
+// text/image_url 分片），Claude Code 读图片这类结果不再被静默丢弃。
+func anthropicToolResultToOpenAIContent(raw json.RawMessage, isError bool) json.RawMessage {
+	prefix := ""
+	if isError {
+		prefix = toolErrorPrefix
+	}
+	if len(raw) == 0 {
+		return jsonString(prefix)
+	}
+	if s, ok := rawToString(raw); ok {
+		return jsonString(prefix + s)
+	}
+	blocks, ok := rawToBlocks(raw)
+	if !ok {
+		return jsonString(prefix)
+	}
+	var texts []string
+	imageParts := make([]openaiContentPart, 0, 2)
+	for _, b := range blocks {
+		switch b.Type {
+		case "text":
+			if b.Text != "" {
+				texts = append(texts, b.Text)
+			}
+		case "image":
+			if part := anthropicImageToOpenAIPart(b); part != nil {
+				imageParts = append(imageParts, *part)
+			}
+		}
+	}
+	text := prefix + strings.Join(texts, "\n")
+	if len(imageParts) == 0 {
+		return jsonString(text)
+	}
+	parts := make([]openaiContentPart, 0, len(imageParts)+1)
+	if text != "" {
+		parts = append(parts, openaiContentPart{Type: "text", Text: text})
+	}
+	parts = append(parts, imageParts...)
+	return mustMarshalJSON(parts)
 }
 
 func anthropicToolResultContent(raw json.RawMessage) string {
@@ -372,7 +419,7 @@ func anthropicToOpenAIMessages(req anthropicRequest) []openaiMessage {
 					result = append(result, openaiMessage{
 						Role:       "tool",
 						ToolCallID: b.ToolUseID,
-						Content:    jsonString(anthropicToolResultContent(b.Content)),
+						Content:    anthropicToolResultToOpenAIContent(b.Content, b.IsError),
 					})
 				}
 			}
@@ -531,7 +578,7 @@ func dataURLToImageBlock(url string) *anthropicContentBlock {
 }
 
 // openAIToAnthropicMessages 转换消息列表；连续的 tool 消息会合并进同一个 user 消息
-//（Anthropic 要求一次 tool_use 的所有 tool_result 位于同一条 user 消息中）。
+// （Anthropic 要求一次 tool_use 的所有 tool_result 位于同一条 user 消息中）。
 func openAIToAnthropicMessages(req openaiRequest) (system string, messages []anthropicMessage) {
 	var sysParts []string
 	var pendingToolResults []anthropicContentBlock
@@ -552,21 +599,37 @@ func openAIToAnthropicMessages(req openaiRequest) (system string, messages []ant
 		case "system", "developer":
 			if s, ok := rawToString(m.Content); ok && s != "" {
 				sysParts = append(sysParts, s)
-			} else if len(m.Content) > 0 {
-				sysParts = append(sysParts, string(m.Content))
+			} else if parts, ok := rawToParts(m.Content); ok {
+				// content 为分片数组时展开其中的 text 分片，
+				// 不能把原始 JSON 塞进 system prompt
+				var texts []string
+				for _, p := range parts {
+					if p.Type == "text" && p.Text != "" {
+						texts = append(texts, p.Text)
+					}
+				}
+				if s := strings.Join(texts, ""); s != "" {
+					sysParts = append(sysParts, s)
+				}
 			}
 
 		case "tool":
 			contentStr := ""
 			if s, ok := rawToString(m.Content); ok {
 				contentStr = s
-			} else if len(m.Content) > 0 {
-				contentStr = string(m.Content)
+			} else if parts, ok := rawToParts(m.Content); ok {
+				var texts []string
+				for _, p := range parts {
+					if p.Type == "text" && p.Text != "" {
+						texts = append(texts, p.Text)
+					}
+				}
+				contentStr = strings.Join(texts, "")
 			}
 			pendingToolResults = append(pendingToolResults, anthropicContentBlock{
-				Type:     "tool_result",
+				Type:      "tool_result",
 				ToolUseID: m.ToolCallID,
-				Content:  jsonString(contentStr),
+				Content:   jsonString(contentStr),
 			})
 
 		case "assistant":
@@ -856,19 +919,92 @@ func convertOpenAIStreamToAnthropic(upstream io.Reader, w http.ResponseWriter, i
 
 	state := struct {
 		sentStart    bool
-		textOpen     bool
+		openIndex    int // 当前打开的块索引；-1 = 无打开块
+		openIsText   bool
+		textStarted  bool
 		nextBlock    int
 		tools        map[int]*anthropicStreamToolState
 		finishReason string
 		usage        anthropicUsage
 	}{
-		tools: map[int]*anthropicStreamToolState{},
+		openIndex: -1,
+		tools:     map[int]*anthropicStreamToolState{},
 	}
-	closeTextBlock := func() {
-		if state.textOpen {
-			sse.sendEvent("content_block_stop", map[string]any{"type": "content_block_stop", "index": 0})
-			state.textOpen = false
+	flushToolArgs := func(tool *anthropicStreamToolState) {
+		if tool.pendingArgs.Len() > 0 {
+			sse.sendEvent("content_block_delta", map[string]any{
+				"type":  "content_block_delta",
+				"index": tool.blockIndex,
+				"delta": map[string]any{
+					"type":         "input_json_delta",
+					"partial_json": tool.pendingArgs.String(),
+				},
+			})
+			tool.pendingArgs.Reset()
 		}
+	}
+	// closeOpenBlock 关闭当前打开的块。Anthropic SSE 要求块严格串行
+	// start/stop：新块必须等上一个块 stop 之后才能 start。
+	closeOpenBlock := func() {
+		if state.openIndex < 0 {
+			return
+		}
+		if state.openIsText {
+			sse.sendEvent("content_block_stop", map[string]any{"type": "content_block_stop", "index": state.openIndex})
+		} else {
+			for _, tool := range state.tools {
+				if tool.started && tool.blockIndex == state.openIndex {
+					flushToolArgs(tool)
+					break
+				}
+			}
+			sse.sendEvent("content_block_stop", map[string]any{"type": "content_block_stop", "index": state.openIndex})
+		}
+		state.openIndex = -1
+		state.openIsText = false
+	}
+	openTextBlock := func() {
+		if state.openIndex >= 0 && state.openIsText {
+			return
+		}
+		closeOpenBlock()
+		index := 0
+		if state.textStarted {
+			// 文本在工具块之后才到达：分配新的块索引，不能复用已关闭的 0
+			index = state.nextBlock
+			state.nextBlock++
+		} else {
+			state.nextBlock = 1
+		}
+		state.textStarted = true
+		sse.sendEvent("content_block_start", map[string]any{
+			"type":          "content_block_start",
+			"index":         index,
+			"content_block": map[string]any{"type": "text", "text": ""},
+		})
+		state.openIndex = index
+		state.openIsText = true
+	}
+	openToolBlock := func(tool *anthropicStreamToolState) {
+		if tool.started && state.openIndex == tool.blockIndex {
+			return
+		}
+		closeOpenBlock()
+		tool.blockIndex = state.nextBlock
+		state.nextBlock++
+		tool.started = true
+		sse.sendEvent("content_block_start", map[string]any{
+			"type":  "content_block_start",
+			"index": tool.blockIndex,
+			"content_block": map[string]any{
+				"type":  "tool_use",
+				"id":    tool.id,
+				"name":  tool.name,
+				"input": map[string]any{},
+			},
+		})
+		state.openIndex = tool.blockIndex
+		state.openIsText = false
 	}
 	ensureStart := func(id string) {
 		if state.sentStart {
@@ -919,18 +1055,10 @@ func convertOpenAIStreamToAnthropic(upstream io.Reader, w http.ResponseWriter, i
 
 		if delta.Content != "" {
 			ensureStart(chunk.ID)
-			if !state.textOpen {
-				sse.sendEvent("content_block_start", map[string]any{
-					"type":          "content_block_start",
-					"index":         0,
-					"content_block": map[string]any{"type": "text", "text": ""},
-				})
-				state.textOpen = true
-				state.nextBlock = 1
-			}
+			openTextBlock()
 			sse.sendEvent("content_block_delta", map[string]any{
 				"type":  "content_block_delta",
-				"index": 0,
+				"index": state.openIndex,
 				"delta": map[string]any{"type": "text_delta", "text": delta.Content},
 			})
 		}
@@ -952,31 +1080,10 @@ func convertOpenAIStreamToAnthropic(upstream io.Reader, w http.ResponseWriter, i
 			}
 			if !tool.started && tool.id != "" && tool.name != "" {
 				ensureStart(chunk.ID)
-				closeTextBlock()
-				tool.blockIndex = state.nextBlock
-				state.nextBlock++
-				tool.started = true
-				sse.sendEvent("content_block_start", map[string]any{
-					"type":  "content_block_start",
-					"index": tool.blockIndex,
-					"content_block": map[string]any{
-						"type":  "tool_use",
-						"id":    tool.id,
-						"name":  tool.name,
-						"input": map[string]any{},
-					},
-				})
+				openToolBlock(tool)
 			}
-			if tool.started && tool.pendingArgs.Len() > 0 {
-				sse.sendEvent("content_block_delta", map[string]any{
-					"type":  "content_block_delta",
-					"index": tool.blockIndex,
-					"delta": map[string]any{
-						"type":         "input_json_delta",
-						"partial_json": tool.pendingArgs.String(),
-					},
-				})
-				tool.pendingArgs.Reset()
+			if tool.started && tool.pendingArgs.Len() > 0 && state.openIndex == tool.blockIndex {
+				flushToolArgs(tool)
 			}
 		}
 
@@ -985,51 +1092,13 @@ func convertOpenAIStreamToAnthropic(upstream io.Reader, w http.ResponseWriter, i
 		}
 	}
 
-	// 收尾：保证事件序列完整
+	// 收尾：保证事件序列完整；块在打开下一个之前就已按序关闭，
+	// 这里只需关掉最后打开的那个
 	if !state.sentStart {
 		ensureStart("")
-		if !state.textOpen {
-			sse.sendEvent("content_block_start", map[string]any{
-				"type":          "content_block_start",
-				"index":         0,
-				"content_block": map[string]any{"type": "text", "text": ""},
-			})
-			state.textOpen = true
-		}
+		openTextBlock()
 	}
-	closeTextBlock()
-
-	// 按 blockIndex 顺序关闭工具块
-	toolList := make([]*anthropicStreamToolState, 0, len(state.tools))
-	for _, tool := range state.tools {
-		toolList = append(toolList, tool)
-	}
-	for i := 0; i < len(toolList); i++ {
-		for j := i + 1; j < len(toolList); j++ {
-			if toolList[j].blockIndex < toolList[i].blockIndex {
-				toolList[i], toolList[j] = toolList[j], toolList[i]
-			}
-		}
-	}
-	for _, tool := range toolList {
-		if tool.started {
-			if tool.pendingArgs.Len() > 0 {
-				sse.sendEvent("content_block_delta", map[string]any{
-					"type":  "content_block_delta",
-					"index": tool.blockIndex,
-					"delta": map[string]any{
-						"type":         "input_json_delta",
-						"partial_json": tool.pendingArgs.String(),
-					},
-				})
-				tool.pendingArgs.Reset()
-			}
-			sse.sendEvent("content_block_stop", map[string]any{
-				"type":  "content_block_stop",
-				"index": tool.blockIndex,
-			})
-		}
-	}
+	closeOpenBlock()
 
 	stopReason := state.finishReason
 	if stopReason == "" {
@@ -1073,10 +1142,10 @@ type anthropicStreamEvent struct {
 
 	Message *anthropicResponse `json:"message,omitempty"`
 
-	Index        int                   `json:"index"`
+	Index        int                    `json:"index"`
 	ContentBlock *anthropicContentBlock `json:"content_block,omitempty"`
-	Delta        *anthropicStreamDelta `json:"delta,omitempty"`
-	Usage        *anthropicUsage       `json:"usage,omitempty"`
+	Delta        *anthropicStreamDelta  `json:"delta,omitempty"`
+	Usage        *anthropicUsage        `json:"usage,omitempty"`
 }
 
 type anthropicStreamDelta struct {
@@ -1122,6 +1191,7 @@ func convertAnthropicStreamToOpenAI(upstream io.Reader, w http.ResponseWriter, o
 	tools := map[int]*openaiStreamToolState{}
 	finish := ""
 	var usage *openaiUsage
+	promptTokens := 0
 
 	scanner := newSSEScanner(upstream)
 	for {
@@ -1136,8 +1206,12 @@ func convertAnthropicStreamToOpenAI(upstream io.Reader, w http.ResponseWriter, o
 
 		switch event.Type {
 		case "message_start":
-			if event.Message != nil && event.Message.ID != "" {
-				chunkID = "chatcmpl-" + strings.TrimPrefix(event.Message.ID, "msg_")
+			if event.Message != nil {
+				if event.Message.ID != "" {
+					chunkID = "chatcmpl-" + strings.TrimPrefix(event.Message.ID, "msg_")
+				}
+				// input_tokens 只出现在 message_start 里，message_delta 只带 output_tokens
+				promptTokens = event.Message.Usage.InputTokens
 			}
 			if !sentRole {
 				emit(openaiChunkDelta{Role: "assistant", Content: ""}, "", nil)
@@ -1146,12 +1220,24 @@ func convertAnthropicStreamToOpenAI(upstream io.Reader, w http.ResponseWriter, o
 
 		case "content_block_start":
 			if event.ContentBlock != nil && event.ContentBlock.Type == "tool_use" {
-				tools[event.Index] = &openaiStreamToolState{
+				tool := &openaiStreamToolState{
 					callIndex: nextToolIndex,
 					id:        event.ContentBlock.ID,
 					name:      event.ContentBlock.Name,
 				}
+				tools[event.Index] = tool
 				nextToolIndex++
+				// 立即发出带 id/name 的首帧：空参数的 tool_use 上游不会发
+				// input_json_delta，等到 delta 才发首帧会整个丢掉这次调用
+				emit(openaiChunkDelta{
+					ToolCalls: []openaiToolCall{{
+						Index:    tool.callIndex,
+						ID:       tool.id,
+						Type:     "function",
+						Function: openaiFunctionCall{Name: tool.name},
+					}},
+				}, "", nil)
+				tool.started = true
 			}
 
 		case "content_block_delta":
@@ -1171,6 +1257,7 @@ func convertAnthropicStreamToOpenAI(upstream io.Reader, w http.ResponseWriter, o
 					break
 				}
 				if !tool.started {
+					// 兜底：极少数上游直接从 delta 开始而没发 content_block_start
 					emit(openaiChunkDelta{
 						ToolCalls: []openaiToolCall{{
 							Index:    tool.callIndex,
@@ -1194,10 +1281,17 @@ func convertAnthropicStreamToOpenAI(upstream io.Reader, w http.ResponseWriter, o
 				finish = anthropicStopToOpenAIFinish(event.Delta.StopReason)
 			}
 			if event.Usage != nil {
+				// message_delta 只带 output_tokens（input 恒为 0），仅覆盖非零字段，
+				// 否则 message_start 里的 prompt token 计数被清零
+				completion := event.Usage.OutputTokens
+				input := event.Usage.InputTokens
+				if input == 0 {
+					input = promptTokens
+				}
 				usage = &openaiUsage{
-					PromptTokens:     event.Usage.InputTokens,
-					CompletionTokens: event.Usage.OutputTokens,
-					TotalTokens:      event.Usage.InputTokens + event.Usage.OutputTokens,
+					PromptTokens:     input,
+					CompletionTokens: completion,
+					TotalTokens:      input + completion,
 				}
 			}
 
@@ -1212,7 +1306,18 @@ func convertAnthropicStreamToOpenAI(upstream io.Reader, w http.ResponseWriter, o
 	if finish == "" {
 		finish = "stop"
 	}
-	emit(openaiChunkDelta{}, finish, usage)
+	emit(openaiChunkDelta{}, finish, nil)
+	// usage 按规范放在 choices 为空的独立收尾 chunk；与 finish_reason 合并会被严格客户端丢掉
+	if usage != nil {
+		sse.sendData(openaiChunk{
+			ID:      chunkID,
+			Object:  "chat.completion.chunk",
+			Created: created,
+			Model:   outboundModel,
+			Choices: []openaiChunkChoice{},
+			Usage:   usage,
+		})
+	}
 	fmt.Fprintf(sse.w, "data: [DONE]\n\n")
 	sse.flusher.Flush()
 	return nil

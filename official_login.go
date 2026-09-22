@@ -76,6 +76,8 @@ func normalizeProviderID(provider string) string {
 // AddOfficialLoginEnvs 为指定服务商补上官方登录配置；provider 为空或 all 时补齐全部六个。
 // 已存在同名配置时跳过，不覆盖用户改过的内容。
 func (a *App) AddOfficialLoginEnvs(provider string) ([]EnvConfig, error) {
+	a.configMu.Lock()
+	defer a.configMu.Unlock()
 	p := normalizeProviderID(provider)
 	if strings.TrimSpace(provider) == "" || p == "all" {
 		p = "all"
@@ -101,7 +103,7 @@ func (a *App) AddOfficialLoginEnvs(provider string) ([]EnvConfig, error) {
 		if env == nil {
 			continue
 		}
-		if err := a.AddEnv(*env); err != nil {
+		if err := a.addEnvLocked(*env); err != nil {
 			return nil, err
 		}
 		added = append(added, *env)
@@ -412,7 +414,9 @@ func (a *App) officialLoginAntigravity() (string, error) {
 		filepath.Join(geminiDir, "antigravity-cli", "settings.json"),
 		filepath.Join(geminiDir, "settings.json"),
 	} {
-		removeJSONFileKeys(path, "modelProvider")
+		if err := removeJSONFileKeys(path, "modelProvider"); err != nil {
+			return "", err
+		}
 		if err := clearGeminiAuthSelection(path); err != nil {
 			return "", err
 		}
@@ -434,12 +438,18 @@ func isAntigravityThirdPartyKey(name string) bool {
 // 让 agy 重新走账号登录选择流程。
 func clearGeminiAuthSelection(path string) error {
 	data, err := os.ReadFile(path)
-	if err != nil || len(data) == 0 {
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("读取 %s 失败: %v", path, err)
+	}
+	if len(data) == 0 {
 		return nil
 	}
 	payload := map[string]any{}
 	if err := json.Unmarshal(data, &payload); err != nil || payload == nil {
-		return nil
+		return fmt.Errorf("解析 %s 失败，为保护原文件已中止写入", path)
 	}
 	security, ok := payload["security"].(map[string]any)
 	if !ok || security == nil {

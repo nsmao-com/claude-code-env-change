@@ -292,11 +292,7 @@ func (rs *RouterService) SaveRouterConfig(config RouterConfig) error {
 	if err != nil {
 		return err
 	}
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, data, 0o644); err != nil {
-		return err
-	}
-	if err := os.Rename(tmp, path); err != nil {
+	if err := writeFileAtomic(path, data, 0o600); err != nil {
 		return err
 	}
 
@@ -351,7 +347,12 @@ func (rs *RouterService) StartGateway() error {
 		return fmt.Errorf("监听 127.0.0.1:%d 失败: %v", rs.config.Port, err)
 	}
 
-	server := &http.Server{Handler: mux}
+	server := &http.Server{
+		Handler:           mux,
+		ReadHeaderTimeout: 30 * time.Second,
+		IdleTimeout:       120 * time.Second,
+		// 故意不设 WriteTimeout：会掐断 SSE 流式响应
+	}
 	rs.server = server
 	rs.listener = ln
 	rs.running = true
@@ -360,7 +361,11 @@ func (rs *RouterService) StartGateway() error {
 	go func() {
 		serveErr := server.Serve(ln)
 		rs.mu.Lock()
-		rs.running = false
+		// Stop→Start 快速交替时，迟退出的旧 goroutine 不能把新实例标成 stopped
+		if rs.server == server {
+			rs.running = false
+			rs.server = nil
+		}
 		if serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
 			rs.lastErr = serveErr.Error()
 		}
@@ -370,24 +375,29 @@ func (rs *RouterService) StartGateway() error {
 	return nil
 }
 
-// StopGateway 停止本地网关
+// StopGateway 停止本地网关。
+// Shutdown 必须在锁外调用：在途请求处理要拿 rs.mu（findRoute 等），
+// 持锁等待它们结束会互等直到超时，期间所有新请求与保存配置都被卡住。
 func (rs *RouterService) StopGateway() error {
 	rs.mu.Lock()
-	defer rs.mu.Unlock()
-
 	if !rs.running || rs.server == nil {
 		rs.running = false
+		rs.mu.Unlock()
 		return nil
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	err := rs.server.Shutdown(ctx)
+	server := rs.server
 	rs.running = false
 	rs.server = nil
 	rs.listener = nil
+	rs.mu.Unlock()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	err := server.Shutdown(ctx)
 	if err != nil {
-		return fmt.Errorf("停止网关失败: %v", err)
+		// 优雅关停超时（常见于挂在 SSE 上的长连接）：强制断开，避免连接滞留
+		server.Close()
+		return fmt.Errorf("停止网关超时，已强制断开全部连接")
 	}
 	return nil
 }
@@ -658,6 +668,7 @@ func (rs *RouterService) serveAnthropicEndpoint(w http.ResponseWriter, r *http.R
 			writeAnthropicError(w, http.StatusBadGateway, "api_error", err.Error())
 			return
 		}
+		copyClientHeaders(upstream, r)
 		resp, err := rs.client.Do(upstream)
 		if err != nil {
 			rs.finishRequest(w, route, r, start, http.StatusBadGateway, inboundModel, err, true)
@@ -704,13 +715,14 @@ func (rs *RouterService) serveAnthropicEndpoint(w http.ResponseWriter, r *http.R
 	if req.Stream {
 		if err := convertOpenAIStreamToAnthropic(resp.Body, w, inboundModel); err != nil {
 			rs.finishRequest(w, route, r, start, http.StatusInternalServerError, inboundModel, err, true)
+			writeAnthropicError(w, http.StatusInternalServerError, "api_error", "流式转换失败: "+err.Error())
 			return
 		}
 		rs.finishRequest(w, route, r, start, http.StatusOK, inboundModel, nil, false)
 		return
 	}
 
-	respBody, err := io.ReadAll(io.LimitReader(resp.Body, maxGatewayBodyBytes))
+	respBody, err := readUpstreamBody(resp)
 	if err != nil {
 		rs.finishRequest(w, route, r, start, http.StatusBadGateway, inboundModel, err, true)
 		writeAnthropicError(w, http.StatusBadGateway, "api_error", "读取上游响应失败")
@@ -761,6 +773,7 @@ func (rs *RouterService) serveOpenAIEndpoint(w http.ResponseWriter, r *http.Requ
 			writeOpenAIError(w, http.StatusBadGateway, "api_error", err.Error())
 			return
 		}
+		copyClientHeaders(upstream, r)
 		resp, err := rs.client.Do(upstream)
 		if err != nil {
 			rs.finishRequest(w, route, r, start, http.StatusBadGateway, inboundModel, err, true)
@@ -802,13 +815,14 @@ func (rs *RouterService) serveOpenAIEndpoint(w http.ResponseWriter, r *http.Requ
 	if req.Stream {
 		if err := convertAnthropicStreamToOpenAI(resp.Body, w, inboundModel); err != nil {
 			rs.finishRequest(w, route, r, start, http.StatusInternalServerError, inboundModel, err, true)
+			writeOpenAIError(w, http.StatusInternalServerError, "api_error", "流式转换失败: "+err.Error())
 			return
 		}
 		rs.finishRequest(w, route, r, start, http.StatusOK, inboundModel, nil, false)
 		return
 	}
 
-	respBody, err := io.ReadAll(io.LimitReader(resp.Body, maxGatewayBodyBytes))
+	respBody, err := readUpstreamBody(resp)
 	if err != nil {
 		rs.finishRequest(w, route, r, start, http.StatusBadGateway, inboundModel, err, true)
 		writeOpenAIError(w, http.StatusBadGateway, "api_error", "读取上游响应失败")
@@ -954,6 +968,41 @@ func (rs *RouterService) newUpstreamRequest(route APIRoute, method, endpoint str
 	return req, nil
 }
 
+// copyClientHeaders 把入站请求的客户端头透传给上游（跳过逐跳头、长度与鉴权）。
+// 同协议直连时 Claude Code 依赖的 anthropic-beta / anthropic-version 等头
+// 不再被丢弃；鉴权三件套除外——路由配置的 key 必须优先。
+func copyClientHeaders(dst *http.Request, src *http.Request) {
+	if dst == nil || src == nil {
+		return
+	}
+	for key, values := range src.Header {
+		canonical := http.CanonicalHeaderKey(key)
+		if hopByHopHeaders[canonical] {
+			continue
+		}
+		switch canonical {
+		case "Host", "Content-Length",
+			"Authorization", "X-Api-Key", "X-Goog-Api-Key",
+			"Content-Type", "Accept", "Accept-Encoding":
+			continue
+		}
+		dst.Header[key] = append([]string(nil), values...)
+	}
+}
+
+// readUpstreamBody 读上游响应体，超过 maxGatewayBodyBytes 时报错而不是静默截断
+// （截断的 JSON 只会换来一句"响应不是有效格式"，用户查不出原因）
+func readUpstreamBody(resp *http.Response) ([]byte, error) {
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxGatewayBodyBytes+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(data) > maxGatewayBodyBytes {
+		return nil, fmt.Errorf("上游响应超过 %dMB 上限", maxGatewayBodyBytes>>20)
+	}
+	return data, nil
+}
+
 func applyRouteAuth(req *http.Request, route APIRoute) {
 	if route.APIKey == "" {
 		return
@@ -1014,6 +1063,10 @@ func (rs *RouterService) servePassthrough(w http.ResponseWriter, r *http.Request
 		}
 		upstream.Header[key] = append([]string(nil), values...)
 	}
+	// 客户端带来的占位 Authorization 会让路由配置的 key 静默失效，摘掉后由路由注入
+	upstream.Header.Del("Authorization")
+	upstream.Header.Del("X-Api-Key")
+	upstream.Header.Del("X-Goog-Api-Key")
 	applyRouteAuth(upstream, route)
 
 	resp, err := rs.client.Do(upstream)
@@ -1072,7 +1125,6 @@ func (rs *RouterService) finishRequest(_ http.ResponseWriter, route APIRoute, r 
 	}
 
 	rs.statsMu.Lock()
-	defer rs.statsMu.Unlock()
 
 	stats, ok := rs.stats[route.Name]
 	if !ok {
@@ -1092,11 +1144,17 @@ func (rs *RouterService) finishRequest(_ http.ResponseWriter, route APIRoute, r 
 
 	rs.logs = append(rs.logs, entry)
 	trimmed := false
+	var snapshot []RouterLogEntry
 	if len(rs.logs) > maxRouterLogsMemory {
 		rs.logs = rs.logs[len(rs.logs)-maxRouterLogsMemory:]
 		trimmed = true
+		snapshot = make([]RouterLogEntry, len(rs.logs))
+		copy(snapshot, rs.logs)
 	}
-	rs.persistLogLocked(entry, trimmed)
+	rs.statsMu.Unlock()
+
+	// 文件 IO 在锁外执行：高并发下持 statsMu 做同步写会放大每请求延迟
+	rs.persistLog(entry, snapshot, trimmed)
 }
 
 func (rs *RouterService) logFilePath() (string, error) {
@@ -1111,7 +1169,9 @@ func (rs *RouterService) logFilePath() (string, error) {
 	return filepath.Join(dir, routerLogFile), nil
 }
 
-func (rs *RouterService) persistLogLocked(entry RouterLogEntry, rewrite bool) {
+// persistLog 持久化请求日志（在 statsMu 之外调用）。rewrite 时用调用方传入的
+// 内存快照整体重写；快照与磁盘之间极小窗口内的并发日志允许丢失，日志是 best-effort。
+func (rs *RouterService) persistLog(entry RouterLogEntry, snapshot []RouterLogEntry, rewrite bool) {
 	path, err := rs.logFilePath()
 	if err != nil {
 		return
@@ -1119,17 +1179,17 @@ func (rs *RouterService) persistLogLocked(entry RouterLogEntry, rewrite bool) {
 	if rewrite {
 		var b strings.Builder
 		enc := json.NewEncoder(&b)
-		for _, item := range rs.logs {
+		for _, item := range snapshot {
 			_ = enc.Encode(item)
 		}
-		_ = os.WriteFile(path, []byte(b.String()), 0o644)
+		_ = writeFileAtomic(path, []byte(b.String()), 0o600)
 		return
 	}
 	line, err := json.Marshal(entry)
 	if err != nil {
 		return
 	}
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
 	if err != nil {
 		return
 	}

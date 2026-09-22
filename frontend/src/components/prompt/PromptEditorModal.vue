@@ -142,6 +142,11 @@ const activeTab = ref('claude')
 const isLoading = ref(false)
 const isSaving = ref(false)
 const files = ref<PromptFile[]>([])
+// 磁盘快照：用于判断哪些标签被改过（保存全部脏标签）
+const originals = ref<Record<string, string>>({})
+const dirtyProviders = computed(() =>
+  files.value.filter(item => originals.value[item.provider] !== undefined && item.content !== originals.value[item.provider]).map(item => item.provider)
+)
 const editableFile = computed(() => fileOf(activeTab.value))
 const isDesktopFilter = computed(() => configStore.currentFilter === 'claude_desktop')
 
@@ -199,6 +204,7 @@ async function loadFiles() {
   isLoading.value = true
   try {
     files.value = await GetPromptFiles()
+    originals.value = Object.fromEntries(files.value.map(item => [item.provider, item.content]))
   } catch (e: any) {
     toast.error('加载失败: ' + (e?.message || String(e)))
   } finally {
@@ -207,20 +213,26 @@ async function loadFiles() {
 }
 
 async function save() {
-  const provider = activeTab.value
-  const file = fileOf(provider)
-  if (!file) {
+  // 逐个标签编辑时用户往往改了多个标签才点一次保存：
+  // 只保存当前标签会让其余改动静默丢失，这里保存全部与磁盘不一致的标签
+  const dirty = files.value.filter(item => dirtyProviders.value.includes(item.provider))
+  const targets = dirty.length ? dirty : files.value.filter(item => item.provider === activeTab.value)
+  if (!targets.length) {
     toast.error('提示词文件尚未加载完成，请稍后再试')
     return
   }
-  const content = file.content
   isSaving.value = true
   try {
-    await SavePromptFile(provider, content)
+    for (const file of targets) {
+      await SavePromptFile(file.provider, file.content)
+    }
     const refreshed = await GetPromptFiles()
-    const saved = refreshed.find(item => item.provider === provider)
-    if (!saved || saved.content !== content) throw new Error('保存后读取到的内容与编辑内容不一致')
-    files.value = files.value.map(item => item.provider === provider ? saved : item)
+    files.value = files.value.map(item => refreshed.find(r => r.provider === item.provider) || item)
+    originals.value = Object.fromEntries(files.value.map(item => [item.provider, item.content]))
+    for (const file of targets) {
+      const saved = refreshed.find(item => item.provider === file.provider)
+      if (!saved || saved.content !== file.content) throw new Error('保存后读取到的内容与编辑内容不一致')
+    }
     emit('saved')
   } catch (e: any) {
     toast.error('保存失败: ' + (e?.message || String(e)))

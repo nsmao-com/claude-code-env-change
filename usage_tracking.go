@@ -57,7 +57,9 @@ func loadActivationStore() (activationStore, error) {
 	}
 
 	if err := json.Unmarshal(data, &store); err != nil {
-		return activationStore{}, err
+		// 损坏时留一份 .bak 再以空库继续，否则一次半截写入会让统计永久失效
+		backupFile(path)
+		return activationStore{Providers: map[string][]EnvActivationEvent{}}, nil
 	}
 	if store.Providers == nil {
 		store.Providers = map[string][]EnvActivationEvent{}
@@ -76,7 +78,7 @@ func saveActivationStore(store activationStore) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, 0o644)
+	return writeFileAtomic(path, data, 0o644)
 }
 
 func normalizeActivationStore(store *activationStore) {

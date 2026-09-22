@@ -15,7 +15,7 @@
           v-for="item in toasts"
           :key="item.id"
           type="button"
-          class="app-msg-card pointer-events-auto inline-flex w-fit max-w-[min(28rem,calc(100vw-1.5rem))] shrink-0 items-center gap-2.5 rounded-2xl bg-white px-3.5 py-2.5 text-left"
+          class="app-msg-card pointer-events-auto inline-flex w-fit max-w-[min(28rem,calc(100vw-1.5rem))] shrink-0 items-center gap-2.5 rounded-2xl bg-card px-3.5 py-2.5 text-left"
           @click="dismiss(item.id)"
         >
           <span
@@ -26,7 +26,7 @@
             <X v-else-if="item.type === 'error'" class="size-3.5" :stroke-width="2.8" />
             <Info v-else class="size-3.5" :stroke-width="2.8" />
           </span>
-          <span class="min-w-0 break-words text-[13px] leading-snug font-medium text-neutral-800">{{ item.message }}</span>
+          <span class="min-w-0 break-words text-[13px] leading-snug font-medium text-neutral-800 dark:text-neutral-100">{{ item.message }}</span>
         </button>
       </TransitionGroup>
     </div>
@@ -55,6 +55,10 @@ const iconWrap: Record<ToastType, string> = {
     0 10px 28px rgba(15, 23, 42, 0.08),
     0 1px 3px rgba(15, 23, 42, 0.06);
   outline: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+.dark .app-msg-card {
+  outline: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .app-msg-enter-active {

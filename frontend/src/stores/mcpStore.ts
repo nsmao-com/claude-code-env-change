@@ -101,7 +101,15 @@ export const useMcpStore = defineStore('mcp', () => {
   }
 
   async function deleteServer(index: number) {
-    const newList = servers.value.filter((_, i) => i !== index)
+    const target = servers.value[index]
+    if (!target) return
+    await deleteServerByKey(target.name)
+  }
+
+  // 按名称删除（mcp.json 以 name 为主键）：确认弹窗停留期间后台刷新可能让
+  // 索引错位，按 index 会删错条目
+  async function deleteServerByKey(name: string) {
+    const newList = servers.value.filter(s => s.name !== name)
     await saveServers(newList)
   }
 
@@ -169,6 +177,7 @@ export const useMcpStore = defineStore('mcp', () => {
     syncToPlatforms,
     applyToPlatform,
     deleteServer,
+    deleteServerByKey,
     updateServer,
     addServer,
     togglePlatform,

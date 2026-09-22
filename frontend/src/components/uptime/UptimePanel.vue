@@ -13,6 +13,18 @@
             <CardDescription>
               监控会对各配置的 Base URL 做 HTTP 可达性检测，并保留最近 {{ uptimeStore.settings.keep_last }} 次记录。
             </CardDescription>
+            <p
+              v-if="uptimeStore.snapshot?.last_rotation_error"
+              class="mt-2 rounded-md bg-destructive/10 px-2.5 py-1.5 text-xs text-destructive"
+            >
+              自动轮换失败：{{ uptimeStore.snapshot.last_rotation_error }}
+            </p>
+            <p
+              v-else-if="uptimeStore.snapshot?.last_rotation"
+              class="mt-2 rounded-md bg-emerald-500/10 px-2.5 py-1.5 text-xs text-emerald-600 dark:text-emerald-400"
+            >
+              {{ uptimeStore.snapshot.last_rotation }}
+            </p>
           </div>
           <Button variant="outline" size="sm" :disabled="uptimeStore.isRunning" @click="runNow">
             <Loader2 v-if="uptimeStore.isRunning" class="animate-spin" />

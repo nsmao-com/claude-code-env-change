@@ -653,7 +653,7 @@ func configDirForCli(id string) string {
 func detectInstallMethod(path string) string {
 	p := strings.ToLower(filepath.ToSlash(path))
 	switch {
-	case strings.Contains(p, "/pnpm/") || strings.HasSuffix(p, "/pnpm") || strings.Contains(p, "/pnpm\\"):
+	case strings.Contains(p, "/pnpm/") || strings.HasSuffix(p, "/pnpm"):
 		return "pnpm"
 	case strings.Contains(p, "node_modules"), strings.Contains(p, "/npm/"), strings.Contains(p, "/nvm/"),
 		strings.Contains(p, "fnm"), strings.Contains(p, "volta"):

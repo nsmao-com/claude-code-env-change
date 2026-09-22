@@ -31,7 +31,9 @@ func syncAntigravityUserEnv(state map[string]string) error {
 	lines := make([]string, 0, len(names)+2)
 	lines = append(lines, antigravityEnvBlockBegin)
 	for _, name := range names {
-		lines = append(lines, fmt.Sprintf("export %s=%q", name, state[name]))
+		// 单引号包裹并转义内部单引号：Go 的 %q 不转义 $ 和反引号，
+		// 双引号里的 $VAR 会被 shell 展开，非 ASCII 还会被转成 \uXXXX
+		lines = append(lines, fmt.Sprintf("export %s='%s'", name, strings.ReplaceAll(state[name], "'", `'\''`)))
 	}
 	lines = append(lines, antigravityEnvBlockEnd)
 	return rewriteAntigravityEnvBlock(strings.Join(lines, "\n"))
@@ -109,7 +111,7 @@ func rewriteAntigravityEnvBlock(block string) error {
 		if next == string(data) {
 			continue
 		}
-		if err := os.WriteFile(path, []byte(next), 0o644); err != nil {
+		if err := writeFileAtomic(path, []byte(next), 0o644); err != nil {
 			return fmt.Errorf("写入 %s 失败: %v", path, err)
 		}
 	}

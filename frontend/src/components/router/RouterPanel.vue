@@ -208,7 +208,14 @@ const appProviders: { id: Provider; label: string }[] = [
 ]
 
 function onPortUpdate(value: string | number) {
-  portInput.value = Number(value)
+  const raw = String(value).trim()
+  // 清空输入的过程中保持空串，否则 Number('')===0 会立刻回写，用户被迫全选重输
+  if (raw === '') {
+    portInput.value = '' as unknown as number
+    return
+  }
+  const n = Number(raw)
+  if (!Number.isNaN(n)) portInput.value = n
 }
 
 function shortTime(value: string): string {

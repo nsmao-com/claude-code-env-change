@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -459,6 +460,18 @@ func (ls *LogService) aggregateEnvUsage(records []UsageRecord, days int) map[str
 	return byEnv
 }
 
+// pruneLogFileCache 清掉已不存在（被删除/轮转）的日志文件缓存条目，
+// 避免重度使用时缓存与其中的整份解析记录无限累积
+func pruneLogFileCache(alive map[string]struct{}) {
+	logFileCacheMu.Lock()
+	for path := range logFileCache {
+		if _, ok := alive[path]; !ok {
+			delete(logFileCache, path)
+		}
+	}
+	logFileCacheMu.Unlock()
+}
+
 func cachedParseFile(path string, parseAll func() ([]UsageRecord, error), cutoff time.Time) []UsageRecord {
 	info, err := os.Stat(path)
 	if err != nil {
@@ -538,6 +551,12 @@ func (ls *LogService) readClaudeLogs(days int) ([]UsageRecord, error) {
 	if err != nil {
 		return []UsageRecord{}, nil
 	}
+
+	alive := make(map[string]struct{}, len(paths))
+	for _, p := range paths {
+		alive[p] = struct{}{}
+	}
+	pruneLogFileCache(alive)
 
 	return parseFilesConcurrently(paths, func(path string) []UsageRecord {
 		return cachedParseFile(path, func() ([]UsageRecord, error) {
@@ -957,7 +976,7 @@ func parseTimestamp(ts string) (time.Time, error) {
 		}
 	}
 
-	return time.Time{}, nil
+	return time.Time{}, fmt.Errorf("无法解析时间戳: %q", ts)
 }
 
 // Codex CLI 日志条目结构

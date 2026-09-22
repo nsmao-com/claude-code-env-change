@@ -344,6 +344,11 @@ async function saveProxy(kind: 'silent' | 'saved' | 'toggle' = 'silent') {
     }
   } catch (e: unknown) {
     toast.error(t('settings.proxySaveFailed', { error: e instanceof Error ? e.message : String(e) }))
+    // 保存失败时从后端回读真实状态，避免开关显示与实际背离
+    try {
+      const applied = await callApp<OutboundProxySettings>('GetOutboundProxy')
+      proxy.enabled = pickBool(applied, 'enabled', 'Enabled')
+    } catch { /* 保持现状 */ }
   } finally {
     proxySaving.value = false
   }

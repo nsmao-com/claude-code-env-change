@@ -27,8 +27,13 @@
               :compact="compact"
               @toggle="$emit('toggle-platform', $event)"
             />
+            <AppTooltip v-if="testResult && !testResult.success" :content="testResult.message || '检测失败'" wrap>
+              <Badge variant="outline" :class="testResultClass">
+                失败
+              </Badge>
+            </AppTooltip>
             <Badge
-              v-if="testResult"
+              v-else-if="testResult"
               variant="outline"
               :class="testResultClass"
             >

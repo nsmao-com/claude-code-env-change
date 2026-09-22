@@ -22,6 +22,9 @@ export function useConfirm() {
     dialogMessage: string,
     type: 'danger' | 'warning' | 'info' = 'info'
   ): Promise<boolean> => {
+    // 前一个弹窗还没被答复时又来了新的：先把旧的按"取消"结算，
+    // 否则旧调用方的 await 永远挂起，后续逻辑静默死亡
+    finish(false)
     title.value = dialogTitle
     message.value = dialogMessage
     confirmType.value = type

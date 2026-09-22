@@ -1,5 +1,5 @@
 <template>
-  <AppModal v-model="isOpen" :title="isEditing ? '编辑配置' : '新建配置'" size="lg">
+  <AppModal v-model="isOpen" :title="isEditing ? '编辑配置' : '新建配置'" size="lg" :close-on-overlay="false">
     <form class="space-y-4" @submit.prevent="handleSubmit">
       <div class="grid grid-cols-2 gap-4">
         <div class="col-span-2 sm:col-span-1">
@@ -64,6 +64,24 @@
       </div>
 
       <div v-if="form.provider === 'claude' || form.provider === 'claude_desktop'" class="space-y-4">
+        <div v-if="!isEditing && vendorPresets.length" class="space-y-1.5">
+          <p class="text-xs font-medium tracking-wide text-muted-foreground uppercase">从供应商模板填充</p>
+          <div class="flex flex-wrap gap-1.5">
+            <Button
+              v-for="preset in vendorPresets"
+              :key="preset.id"
+              type="button"
+              variant="outline"
+              size="sm"
+              class="h-7 rounded-full px-2.5 text-xs"
+              :title="preset.description"
+              @click="applyVendorPreset(preset)"
+            >
+              <span>{{ preset.icon }}</span>
+              <span>{{ preset.name }}</span>
+            </Button>
+          </div>
+        </div>
         <AppInput v-model="form.claude.baseUrl" label="Base URL" placeholder="https://api.anthropic.com" :tooltip="tips.baseUrlClaude">
           <template #suffix>
             <Button type="button" variant="ghost" size="icon-xs" :disabled="latencyTesting" @click="testLatency(form.claude.baseUrl)">
@@ -570,16 +588,26 @@
     </form>
 
     <template #footer>
-      <Button type="button" variant="secondary" @click="isOpen = false">取消</Button>
-      <Button type="button" @click="handleSubmit">{{ isEditing ? '保存' : '创建' }}</Button>
+      <Button
+        type="button"
+        variant="ghost"
+        :disabled="submitting"
+        title="把当前表单内容复制为 JSON，可发给别人或拖回本窗口导入（包含完整密钥，注意保密）"
+        @click="copyAsJSON"
+      >
+        {{ copied ? '已复制' : '复制 JSON' }}
+      </Button>
+      <Button type="button" variant="secondary" :disabled="submitting" @click="isOpen = false">取消</Button>
+      <Button type="button" :disabled="submitting" @click="handleSubmit">{{ submitting ? '保存中...' : (isEditing ? '保存' : '创建') }}</Button>
     </template>
   </AppModal>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { Eye, EyeOff, Loader2, Zap } from '@lucide/vue'
-import type { EnvConfig, Provider, UpstreamFormat } from '@/types'
+import type { EnvConfig, Provider, UpstreamFormat, ProviderPreset } from '@/types'
+import { configService } from '@/services/configService'
 import { useConfigStore } from '@/stores/configStore'
 import { useToast } from '@/composables/useToast'
 import AppModal from '@/components/common/AppModal.vue'
@@ -669,6 +697,21 @@ function applyPreset(preset: { url: string }) {
   else if (target === 'opencode') form.value.opencode.baseUrl = preset.url
   else form.value.grok.baseUrl = preset.url
 }
+// 供应商预设：从后端目录拉取，一键填充官方兼容端点与推荐模型（Key 仍由用户填写）
+const vendorPresets = ref<ProviderPreset[]>([])
+onMounted(() => {
+  configService.getProviderPresets().then(list => {
+    vendorPresets.value = list.filter(p => p.provider === 'claude')
+  }).catch(() => {})
+})
+
+function applyVendorPreset(preset: ProviderPreset) {
+  form.value.claude.baseUrl = preset.variables['ANTHROPIC_BASE_URL'] || ''
+  if (preset.variables['ANTHROPIC_MODEL']) {
+    form.value.claude.model = preset.variables['ANTHROPIC_MODEL']
+  }
+}
+
 const grokBackends = [
   { value: 'responses', label: 'Responses' },
   { value: 'chat_completions', label: 'Chat' },
@@ -761,8 +804,11 @@ const tips = {
 
 function onProvider(value: unknown) {
   if (value === 'claude' || value === 'claude_desktop' || value === 'codex' || value === 'antigravity' || value === 'opencode' || value === 'grok') {
+    const prevFormat = form.value.upstreamFormat
     form.value.provider = value
-    form.value.upstreamFormat = ''
+    // 新平台支持同一格式时保留用户的「上游格式」选择，误点其它平台再点回来不再丢配置
+    const stillSupported = upstreamFormatOptions(value).some(item => item.value === prevFormat)
+    form.value.upstreamFormat = stillSupported ? prevFormat : ''
   }
 }
 
@@ -1136,15 +1182,20 @@ async function testLatency(url: string) {
   }
 }
 
+const submitting = ref(false)
+
 async function handleSubmit() {
-  if (!form.value.name.trim()) {
+  if (submitting.value) return
+  const name = form.value.name.trim()
+  if (!name) {
     toast.error('请输入配置名称')
     return
   }
 
-  // 名称只需在同一服务商内唯一；不同服务商允许同名
+  // 名称只需在同一服务商内唯一；不同服务商允许同名。
+  // 校验用 trim 后的名字，与保存一致，避免 "foo " 绕过重名检查
   const exists = configStore.environments.some(
-    c => c.name === form.value.name
+    c => c.name === name
       && c.provider === form.value.provider
       && !(isEditing.value && c.name === originalName.value && c.provider === props.editConfig?.provider)
   )
@@ -1153,6 +1204,27 @@ async function handleSubmit() {
     return
   }
 
+  const { variables, templates } = collectVariablesAndTemplates()
+  const configData = buildConfigData(variables, templates)
+
+  submitting.value = true
+  try {
+    if (isEditing.value) {
+      await configStore.updateEnv(originalName.value, props.editConfig?.provider || configData.provider, configData)
+    } else {
+      await configStore.addEnv(configData)
+    }
+    toast.success('配置已保存')
+    isOpen.value = false
+    emit('saved')
+  } catch (e: any) {
+    toast.error('保存失败: ' + (e?.message ?? String(e)))
+  } finally {
+    submitting.value = false
+  }
+}
+
+function collectVariablesAndTemplates(): { variables: Record<string, string>, templates: Record<string, string> } {
   let variables: Record<string, string> = {}
   let templates: Record<string, string> = {}
 
@@ -1274,8 +1346,11 @@ async function handleSubmit() {
       templates['config.toml'] = form.value.grok.configTemplate
     }
   }
+  return { variables, templates }
+}
 
-  const configData: EnvConfig = {
+function buildConfigData(variables: Record<string, string>, templates: Record<string, string>): EnvConfig {
+  return {
     name: form.value.name.trim(),
     description: form.value.description.trim(),
     provider: form.value.provider,
@@ -1287,18 +1362,21 @@ async function handleSubmit() {
     attribution_header: form.value.provider === 'claude' ? form.value.claude.attributionHeader : '',
     disable_nonessential_traffic: form.value.provider === 'claude' ? form.value.claude.disableNonessentialTraffic : ''
   }
+}
 
+// 复制当前表单为 JSON：与"拖拽 JSON 导入"构成分享闭环
+const copied = ref(false)
+
+async function copyAsJSON() {
+  const { variables, templates } = collectVariablesAndTemplates()
+  const payload = buildConfigData(variables, templates)
   try {
-    if (isEditing.value) {
-      await configStore.updateEnv(originalName.value, props.editConfig?.provider || configData.provider, configData)
-    } else {
-      await configStore.addEnv(configData)
-    }
-    toast.success('配置已保存')
-    isOpen.value = false
-    emit('saved')
+    await navigator.clipboard.writeText(JSON.stringify(payload, null, 2))
+    copied.value = true
+    toast.success('已复制到剪贴板（包含完整密钥，注意保密）')
+    setTimeout(() => { copied.value = false }, 2000)
   } catch (e: any) {
-    toast.error('保存失败: ' + e.message)
+    toast.error('复制失败: ' + (e?.message ?? String(e)))
   }
 }
 </script>

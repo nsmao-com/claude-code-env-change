@@ -400,8 +400,12 @@ async function onWinDrop(event: DragEvent) {
   event.preventDefault()
   const file = event.dataTransfer?.files?.[0]
   if (!file) return
-  const text = await file.text()
-  openImportGuarded({ name: file.name, text })
+  try {
+    const text = await file.text()
+    openImportGuarded({ name: file.name, text })
+  } catch (e) {
+    toast.error('读取拖入文件失败: ' + (e instanceof Error ? e.message : String(e)))
+  }
 }
 
 async function handleDroppedPaths(paths: string[]) {

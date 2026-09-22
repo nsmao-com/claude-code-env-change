@@ -278,7 +278,7 @@ func (ss *SkillService) saveConfig(config map[string]rawSkill) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, 0o644)
+	return writeFileAtomic(path, data, 0o644)
 }
 
 func (ss *SkillService) loadConfigWithImport() (map[string]rawSkill, bool, error) {

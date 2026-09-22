@@ -19,6 +19,7 @@ export const zh = {
     export: '导出配置',
     import: '导入配置',
     clearClaude: '清除 Claude',
+    clearClaudeDesktop: '清除 Claude Desktop',
     clearCodex: '清除 Codex',
     clearAntigravity: '清除 Antigravity',
     clearOpencode: '清除 OpenCode',

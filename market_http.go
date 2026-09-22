@@ -127,7 +127,13 @@ func marketCacheLoad(key string) ([]byte, bool) {
 		return nil, false
 	}
 	entry, ok := raw.(marketCacheEntry)
-	if !ok || time.Since(entry.at) > 10*time.Minute {
+	if !ok {
+		marketCache.Delete(key)
+		return nil, false
+	}
+	if time.Since(entry.at) > 10*time.Minute {
+		// 过期即删除，避免桌面应用长期运行时缓存条目无限累积
+		marketCache.Delete(key)
 		return nil, false
 	}
 	return entry.data, true
