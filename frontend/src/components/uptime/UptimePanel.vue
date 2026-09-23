@@ -1,5 +1,5 @@
 <template>
-  <AppModal v-model="isOpen" size="xl" :plain="embedded" :close-on-overlay="false">
+  <AppModal v-model="isOpen" size="xl" :plain="embedded" width="form" :close-on-overlay="false">
     <template #header>
       <h1 class="text-[2.5rem] leading-none font-semibold tracking-tight">监控</h1>
       <p class="mt-2 text-sm text-muted-foreground">每隔一段时间检测可达性，并按轮换组自动切换配置</p>

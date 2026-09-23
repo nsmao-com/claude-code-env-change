@@ -115,7 +115,7 @@
             <Menu class="size-4.5" />
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" class="w-[320px] rounded-2xl p-2 shadow-lg shadow-black/[0.05]">
+        <DropdownMenuContent align="end" class="w-[340px] rounded-2xl p-2 shadow-lg shadow-black/[0.05]">
           <div class="flex items-center justify-between px-2 pt-0.5 pb-1.5">
             <span class="text-[11px] font-semibold tracking-[0.14em] text-muted-foreground">AI ENV</span>
             <span class="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground tabular-nums">v{{ appVersion }}</span>
@@ -161,27 +161,27 @@
           <div class="mx-0.5 mt-2 rounded-xl bg-destructive/5 p-1 ring-1 ring-destructive/10">
             <div class="px-2 pt-1 pb-1 text-[11px] font-medium tracking-wide text-destructive/70">{{ t('titlebar.menuDanger') }}</div>
             <div class="grid grid-cols-2 gap-0.5">
-              <DropdownMenuItem class="rounded-lg px-2 py-1.5 text-xs" @click="$emit('clearClaude')">
+              <DropdownMenuItem class="rounded-lg px-1.5 py-1.5 text-xs" @click="$emit('clearClaude')">
                 <BrandIcon provider="claude" class="size-3.5" />
                 <span class="truncate">{{ t('titlebar.clearClaude') }}</span>
               </DropdownMenuItem>
-              <DropdownMenuItem class="rounded-lg px-2 py-1.5 text-xs" @click="$emit('clearClaudeDesktop')">
+              <DropdownMenuItem class="rounded-lg px-1.5 py-1.5 text-xs" @click="$emit('clearClaudeDesktop')">
                 <BrandIcon provider="claude_desktop" class="size-3.5" />
                 <span class="truncate">{{ t('titlebar.clearClaudeDesktop') }}</span>
               </DropdownMenuItem>
-              <DropdownMenuItem class="rounded-lg px-2 py-1.5 text-xs" @click="$emit('clearCodex')">
+              <DropdownMenuItem class="rounded-lg px-1.5 py-1.5 text-xs" @click="$emit('clearCodex')">
                 <BrandIcon provider="codex" class="size-3.5" />
                 <span class="truncate">{{ t('titlebar.clearCodex') }}</span>
               </DropdownMenuItem>
-              <DropdownMenuItem class="rounded-lg px-2 py-1.5 text-xs" @click="$emit('clearAntigravity')">
+              <DropdownMenuItem class="rounded-lg px-1.5 py-1.5 text-xs" @click="$emit('clearAntigravity')">
                 <BrandIcon provider="antigravity" class="size-3.5" />
                 <span class="truncate">{{ t('titlebar.clearAntigravity') }}</span>
               </DropdownMenuItem>
-              <DropdownMenuItem class="rounded-lg px-2 py-1.5 text-xs" @click="$emit('clearOpencode')">
+              <DropdownMenuItem class="rounded-lg px-1.5 py-1.5 text-xs" @click="$emit('clearOpencode')">
                 <BrandIcon provider="opencode" class="size-3.5" />
                 <span class="truncate">{{ t('titlebar.clearOpencode') }}</span>
               </DropdownMenuItem>
-              <DropdownMenuItem class="rounded-lg px-2 py-1.5 text-xs" @click="$emit('clearGrok')">
+              <DropdownMenuItem class="rounded-lg px-1.5 py-1.5 text-xs" @click="$emit('clearGrok')">
                 <BrandIcon provider="grok" class="size-3.5" />
                 <span class="truncate">{{ t('titlebar.clearGrok') }}</span>
               </DropdownMenuItem>

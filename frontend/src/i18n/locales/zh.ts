@@ -33,6 +33,9 @@ export const zh = {
     routingOn: '已开启 {name} 路由',
     routingOff: '已关闭 {name} 路由',
     routingHint: '开启后把 {name} 指到本机网关（共用同一端口）。要转换协议，请先在配置里改上游格式。',
+    menuNav: '导航',
+    menuActions: '快捷操作',
+    menuDanger: '清除配置',
   },
   palette: {
     title: '搜索',

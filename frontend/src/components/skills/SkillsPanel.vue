@@ -1,5 +1,5 @@
 <template>
-  <AppModal v-model="isOpen" size="xl" :plain="embedded" :tool-filter="embedded" :close-on-overlay="false">
+  <AppModal v-model="isOpen" size="xl" :plain="embedded" :tool-filter="embedded" width="wide" :close-on-overlay="false">
     <template #header>
       <h1 class="text-[2.5rem] leading-none font-semibold tracking-tight">Skills</h1>
       <p class="mt-2 text-sm text-muted-foreground">刷新会检查 Claude / Codex / Antigravity / OpenCode / Grok 目录里是否已有这些 Skill</p>

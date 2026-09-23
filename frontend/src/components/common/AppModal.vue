@@ -1,6 +1,6 @@
 <template>
   <div v-if="plain" class="flex h-full min-h-0 flex-col overflow-hidden bg-background">
-    <div v-if="title || $slots.header" class="flex shrink-0 items-end justify-between gap-4 px-6 pt-4 pb-4">
+    <div v-if="title || $slots.header" class="flex shrink-0 items-end justify-between gap-4 px-6 pt-4 pb-4" :class="plainWidthClass">
       <div class="min-w-0">
         <slot name="header">
           <h1 class="text-[2.5rem] leading-none font-semibold tracking-tight">{{ title }}</h1>
@@ -12,10 +12,11 @@
         </slot>
       </div>
     </div>
-    <div class="flex min-h-0 flex-1 flex-col overflow-y-auto px-6 pb-6 pt-2">
+    <!-- [&>*]:shrink-0：内容超高时靠滚动，而不是把卡片等直接子元素压扁 -->
+    <div class="flex min-h-0 flex-1 flex-col overflow-y-auto px-6 pb-6 pt-2 [&>*]:shrink-0" :class="plainWidthClass">
       <slot />
     </div>
-    <div v-if="$slots.footer" class="shrink-0 border-t px-6 py-3">
+    <div v-if="$slots.footer" class="shrink-0 border-t px-6 py-3" :class="plainWidthClass">
       <slot name="footer" />
     </div>
   </div>
@@ -60,6 +61,8 @@ interface Props {
   closeOnOverlay?: boolean
   plain?: boolean
   toolFilter?: boolean
+  /** plain 模式下的内容宽度：form = 设置/表单页，wide = 列表页；不传则占满窗口 */
+  width?: 'form' | 'wide'
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -68,11 +71,19 @@ const props = withDefaults(defineProps<Props>(), {
   closeOnOverlay: true,
   plain: false,
   toolFilter: false,
+  width: undefined,
 })
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
 }>()
+
+// 表单/设置页在大窗口下整行拉伸很难看，居中限宽；标题、内容、页脚同宽对齐
+const plainWidthClass = computed(() => {
+  if (props.width === 'form') return 'mx-auto w-full max-w-4xl'
+  if (props.width === 'wide') return 'mx-auto w-full max-w-6xl'
+  return ''
+})
 
 const sizeClass = computed(() => {
   const sizes: Record<string, string> = {

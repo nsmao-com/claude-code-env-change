@@ -1,5 +1,5 @@
 <template>
-  <AppModal v-model="open" size="xl" :plain="embedded" :close-on-overlay="false">
+  <AppModal v-model="open" size="xl" :plain="embedded" width="form" :close-on-overlay="false">
     <template #header>
       <h1 class="text-[2.5rem] leading-none font-semibold tracking-tight">{{ t('settings.title') }}</h1>
       <p class="mt-2 text-sm text-muted-foreground">{{ t('settings.subtitle') }}</p>

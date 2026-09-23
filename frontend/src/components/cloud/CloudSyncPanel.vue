@@ -1,5 +1,5 @@
 <template>
-  <AppModal v-model="isOpen" size="lg" :plain="embedded" :close-on-overlay="false">
+  <AppModal v-model="isOpen" size="lg" :plain="embedded" width="form" :close-on-overlay="false">
     <template #header>
       <h1 class="text-[2.5rem] leading-none font-semibold tracking-tight">云同步</h1>
       <p class="mt-2 text-sm text-muted-foreground">把配置自动备份到 S3 / 阿里云 OSS，换电脑后凭同一套凭证拉取</p>

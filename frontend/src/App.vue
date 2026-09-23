@@ -178,10 +178,17 @@ function onSettingsShortcut(e: KeyboardEvent) {
   if ((e.ctrlKey || e.metaKey) && (e.key === 'f' || e.key === 'F')) {
     e.preventDefault()
     page.value = 'env'
-    // 跳到环境页后聚焦搜索框（ConfigGrid 渲染完再找）
-    requestAnimationFrame(() => {
-      document.getElementById('config-search')?.focus()
-    })
+    // 切页渲染需要时间：轮询等搜索框挂载后再聚焦，单次 rAF 会赶在挂载前落空
+    let tries = 0
+    const focusSearch = () => {
+      const input = document.getElementById('config-search')
+      if (input) {
+        input.focus()
+      } else if (tries++ < 20) {
+        requestAnimationFrame(focusSearch)
+      }
+    }
+    requestAnimationFrame(focusSearch)
   }
   if (e.key === 'F5') {
     e.preventDefault()

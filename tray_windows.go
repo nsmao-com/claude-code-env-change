@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	_ "embed"
 	"sort"
 	"strings"
 
@@ -15,9 +16,15 @@ import (
 // 在独立 goroutine 里运行（main.go OnStartup 时 go StartTray(...)），
 // 菜单动作通过 wails runtime 与 App 方法执行，与主窗口事件循环互不阻塞。
 // getlantern/systray 不支持子菜单，配置项平铺在分隔线之后（"Claude: 名称"）。
+//
+//go:embed build/windows/icon.ico
+var trayIconICO []byte
+
 func StartTray(a *App, ctx context.Context) {
 	systray.Run(func() {
-		systray.SetIcon(appIcon)
+		// Windows 托盘只认 ICO 数据，嵌入 build/windows/icon.ico
+		// （PNG 的 appIcon 是给 mac/linux 窗口元数据用的）
+		systray.SetIcon(trayIconICO)
 		systray.SetTitle("AI ENV")
 		systray.SetTooltip("AI ENV — AI CLI 环境与配置管理")
 

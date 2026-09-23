@@ -1,5 +1,5 @@
 <template>
-  <AppModal v-model="isOpen" size="xl" :plain="embedded" :close-on-overlay="false">
+  <AppModal v-model="isOpen" size="xl" :plain="embedded" width="form" :close-on-overlay="false">
     <template #header>
       <div class="flex items-center gap-3">
         <h1 class="text-[2.5rem] leading-none font-semibold tracking-tight">路由</h1>

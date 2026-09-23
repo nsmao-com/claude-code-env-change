@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>AI ENV</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-user-drag: none; }
+  html, body { width: 100%; height: 100%; background: transparent; overflow: hidden; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei UI", "PingFang SC", "Helvetica Neue", sans-serif;
+    color: #272E3B;
+    cursor: default;
+  }
+  .panel {
+    position: absolute;
+    inset: 18px;
+    border-radius: 16px;
+    background: #F3F4F6;
+    box-shadow: 0 10px 28px rgba(16, 24, 40, 0.20), 0 2px 8px rgba(16, 24, 40, 0.10);
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow: hidden;
+    animation: panel-in 0.16s ease-out;
+    transform-origin: 100% 100%;
+  }
+  @keyframes panel-in {
+    from { opacity: 0; transform: translateY(10px) scale(0.98); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  @media (prefers-reduced-motion: reduce) { .panel { animation: none; } }
+
+  .card {
+    background: #FFFFFF;
+    border-radius: 14px;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+  }
+
+  /* ---------- 头部 ---------- */
+  .header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 14px;
+    flex: none;
+  }
+  .header .logo { width: 40px; height: 40px; flex: none; border-radius: 11px; }
+  .header .titles { min-width: 0; }
+  .header .name { font-size: 17px; font-weight: 700; letter-spacing: 0.02em; }
+  .header .sub { margin-top: 2px; font-size: 11.5px; color: #98A1B2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .header .stat {
+    margin-left: auto; text-align: right; flex: none;
+    font-size: 12px; color: #6B7280; line-height: 1.5;
+  }
+  .header .stat b { color: #272E3B; font-weight: 700; }
+
+  /* ---------- 快捷开关 ---------- */
+  .quick { display: flex; padding: 12px 6px; flex: none; }
+  .quick .chip {
+    flex: 1; min-width: 0;
+    display: flex; flex-direction: column; align-items: center; gap: 7px;
+    padding: 4px 2px 6px;
+    border-radius: 10px;
+    position: relative;
+    transition: background-color 0.12s;
+  }
+  .quick .chip:active { background: #F3F4F6; }
+  .quick .chip .glyph { position: relative; color: #A8B0BF; transition: color 0.15s; }
+  .quick .chip.on .glyph { color: #D97757; }
+  .quick .chip .glyph svg { width: 25px; height: 25px; display: block; }
+  .quick .chip .dot {
+    display: none; position: absolute; top: -1px; right: -3px;
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #D97757; box-shadow: 0 0 0 2px #fff;
+  }
+  .quick .chip.alert .dot { display: block; }
+  .quick .chip .lbl { font-size: 11.5px; color: #98A1B2; white-space: nowrap; }
+  .quick .chip.on .lbl { color: #D97757; }
+
+  /* ---------- 菜单 ---------- */
+  .menu { padding: 6px; flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .row {
+    display: flex; align-items: center; gap: 12px;
+    height: 42px; padding: 0 10px;
+    border-radius: 10px;
+    font-size: 14px;
+    flex: none;
+    transition: background-color 0.12s;
+  }
+  .row:hover { background: #F4F5F7; }
+  .row:active { background: #ECEEF1; }
+  .row .ric { flex: none; color: #5A6472; }
+  .row .ric svg { width: 18px; height: 18px; display: block; }
+  .row .rlb { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .chev { flex: none; color: #C2C8D2; }
+  .row .chev svg { width: 15px; height: 15px; display: block; }
+  .row.quitted { color: #D93A3A; }
+  .row.quitted .ric { color: #D93A3A; }
+  .row .rlb .hint { margin-left: 8px; font-size: 11.5px; color: #A8B0BF; }
+
+  /* ---------- 快速切换子页 ---------- */
+  .subview {
+    position: absolute; inset: 10px;
+    display: none;
+    flex-direction: column;
+    gap: 10px;
+    background: #F3F4F6;
+    border-radius: 16px;
+    animation: sub-in 0.16s ease-out;
+  }
+  @keyframes sub-in { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: translateX(0); } }
+  .subview.show { display: flex; }
+  .subhead {
+    flex: none; display: flex; align-items: center; gap: 6px;
+    padding: 6px 6px 0;
+  }
+  .subhead .back {
+    display: flex; align-items: center; justify-content: center;
+    width: 30px; height: 30px; border-radius: 9px; color: #5A6472;
+    transition: background-color 0.12s;
+  }
+  .subhead .back:hover { background: #E9EBEE; }
+  .subhead .back svg { width: 17px; height: 17px; }
+  .subhead .st { font-size: 15px; font-weight: 600; }
+  .providers {
+    flex: none; display: flex; gap: 6px; overflow-x: auto; padding: 2px 2px 0;
+    scrollbar-width: none;
+  }
+  .providers::-webkit-scrollbar { display: none; }
+  .prov-chip {
+    flex: none; padding: 5px 11px; border-radius: 999px;
+    font-size: 12px; color: #5A6472; background: #FFFFFF;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+    transition: background-color 0.12s, color 0.12s;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .prov-chip:hover { background: #F4F5F7; }
+  .prov-chip .pdot { width: 6px; height: 6px; border-radius: 50%; background: #C2C8D2; }
+  .prov-chip.on { background: #272E3B; color: #FFFFFF; }
+  .envlist {
+    flex: 1; min-height: 0; overflow-y: auto;
+    background: #FFFFFF; border-radius: 14px;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+    padding: 6px;
+    scrollbar-width: thin; scrollbar-color: #D5DAE1 transparent;
+  }
+  .envlist::-webkit-scrollbar { width: 8px; }
+  .envlist::-webkit-scrollbar-thumb { background: #DDE1E6; border-radius: 4px; border: 2px solid #fff; }
+  .env {
+    display: flex; flex-direction: column; gap: 2px;
+    padding: 9px 10px; border-radius: 10px;
+    transition: background-color 0.12s;
+  }
+  .env:hover { background: #F4F5F7; }
+  .env:active { background: #ECEEF1; }
+  .env .l1 { display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .env .nm { font-size: 13.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .env .ds { font-size: 11.5px; color: #98A1B2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tag {
+    flex: none; font-size: 10px; padding: 1.5px 6px; border-radius: 999px; line-height: 1.3;
+  }
+  .tag.cur { color: #B4541F; background: #FBEDE6; }
+  .tag.off { color: #6B7280; background: #F1F2F4; }
+  .env .check { margin-left: auto; flex: none; color: #D97757; }
+  .env .check svg { width: 15px; height: 15px; display: block; }
+  .empty { padding: 28px 12px; text-align: center; font-size: 12.5px; color: #A8B0BF; }
+
+  /* ---------- 提示 ---------- */
+  .toast {
+    position: absolute; left: 50%; bottom: 22px;
+    transform: translateX(-50%) translateY(8px);
+    max-width: 86%;
+    background: rgba(23, 27, 33, 0.92); color: #fff;
+    font-size: 12px; line-height: 1.5; padding: 8px 14px; border-radius: 10px;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.18s, transform 0.18s;
+    z-index: 10;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .toast.err { background: rgba(178, 44, 44, 0.94); }
+</style>
+</head>
+<body>
+<div class="panel" id="panel">
+  <div class="card header">
+    <svg class="logo" viewBox="0 0 36 36">
+      <defs><linearGradient id="tray-logo-face" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#303033"/><stop offset="0.5" stop-color="#121214"/><stop offset="1" stop-color="#050506"/></linearGradient></defs>
+      <rect width="36" height="36" rx="10" fill="url(#tray-logo-face)"/>
+      <rect x="0.6" y="0.6" width="34.8" height="34.8" rx="9.4" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="1.2"/>
+      <circle cx="18" cy="18" r="8.3" fill="none" stroke="rgba(255,255,255,0.24)" stroke-width="0.8"/>
+      <path fill="#fff" d="M18 8.8c.9 5.4 3.8 8.3 9.2 9.2-5.4.9-8.3 3.8-9.2 9.2-.9-5.4-3.8-8.3-9.2-9.2 5.4-.9 8.3-3.8 9.2-9.2Z"/>
+      <circle cx="18" cy="18" r="1.8" fill="#111113"/>
+    </svg>
+    <div class="titles">
+      <div class="name">AI ENV</div>
+      <div class="sub" id="h-sub">AI CLI 环境与配置管理</div>
+    </div>
+    <div class="stat" id="h-stat">加载中…</div>
+  </div>
+
+  <div class="card quick" id="quick">
+    <div class="chip" data-act="toggle-main" title="显示 / 隐藏主窗口">
+      <div class="glyph" data-icon="monitor"></div>
+      <div class="lbl">主窗口</div>
+    </div>
+    <div class="chip" data-act="apply-all" title="把各平台激活配置写入本机">
+      <div class="glyph" data-icon="zap"></div>
+      <div class="lbl">全部应用</div>
+    </div>
+    <div class="chip" data-act="router-toggle" id="chip-router" title="本地协议转换网关">
+      <div class="glyph" data-icon="wifi"><span class="dot"></span></div>
+      <div class="lbl" id="chip-router-lbl">本地路由</div>
+    </div>
+    <div class="chip" data-act="check-update" id="chip-update" title="检查新版本">
+      <div class="glyph" data-icon="refresh"><span class="dot"></span></div>
+      <div class="lbl">检查更新</div>
+    </div>
+  </div>
+
+  <div class="card menu">
+    <div class="row" data-act="quick-switch">
+      <div class="ric" data-icon="repeat"></div>
+      <div class="rlb">快速切换</div>
+      <div class="chev" data-icon="chev-r"></div>
+    </div>
+    <div class="row" data-act="open-router">
+      <div class="ric" data-icon="route"></div>
+      <div class="rlb">路由设置<span class="hint" id="router-hint"></span></div>
+      <div class="chev" data-icon="chev-r"></div>
+    </div>
+    <div class="row" data-act="autostart-toggle">
+      <div class="ric" data-icon="rocket"></div>
+      <div class="rlb">开机自启<span class="hint" id="autostart-hint"></span></div>
+      <div class="chev" data-icon="chev-r"></div>
+    </div>
+    <div class="row" data-act="open-settings">
+      <div class="ric" data-icon="gear"></div>
+      <div class="rlb">全局设置</div>
+      <div class="chev" data-icon="chev-r"></div>
+    </div>
+    <div class="row" data-act="help">
+      <div class="ric" data-icon="help"></div>
+      <div class="rlb">帮助</div>
+      <div class="chev" data-icon="chev-r"></div>
+    </div>
+    <div class="row quitted" data-act="quit">
+      <div class="ric" data-icon="power"></div>
+      <div class="rlb">退出</div>
+    </div>
+  </div>
+
+  <div class="subview" id="subview">
+    <div class="subhead">
+      <div class="back" data-act="back" data-icon="chev-l"></div>
+      <div class="st">快速切换</div>
+    </div>
+    <div class="providers" id="providers"></div>
+    <div class="envlist" id="envlist"></div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+(function () {
+  var ICONS = {
+    monitor: '<rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>',
+    zap: '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>',
+    wifi: '<path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/>',
+    refresh: '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>',
+    repeat: '<path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/>',
+    route: '<circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/>',
+    rocket: '<path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>',
+    gear: '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
+    help: '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
+    power: '<path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/>',
+    'chev-r': '<path d="m9 18 6-6-6-6"/>',
+    'chev-l': '<path d="m15 18-6-6 6-6"/>',
+    check: '<polyline points="20 6 9 17 4 12"/>'
+  };
+  function svg(name) {
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + ICONS[name] + '</svg>';
+  }
+  document.querySelectorAll('[data-icon]').forEach(function (el) {
+    el.insertAdjacentHTML('afterbegin', svg(el.getAttribute('data-icon')));
+  });
+
+  var state = null;
+  var currentProvider = null;
+  var busy = {};
+  var toastTimer = null;
+
+  var elPanel = document.getElementById('panel');
+  var elStat = document.getElementById('h-stat');
+  var elSub = document.getElementById('h-sub');
+  var elRouterChip = document.getElementById('chip-router');
+  var elRouterLbl = document.getElementById('chip-router-lbl');
+  var elRouterHint = document.getElementById('router-hint');
+  var elUpdateChip = document.getElementById('chip-update');
+  var elSubView = document.getElementById('subview');
+  var elProviders = document.getElementById('providers');
+  var elEnvList = document.getElementById('envlist');
+  var elToast = document.getElementById('toast');
+
+  function post(action, extra) {
+    var payload = extra || {};
+    payload.action = action;
+    try { window.external.invoke(JSON.stringify(payload)); } catch (e) { /* ignore */ }
+  }
+
+  function toast(msg, isErr) {
+    elToast.textContent = msg;
+    elToast.className = 'toast show' + (isErr ? ' err' : '');
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { elToast.className = 'toast' + (isErr ? ' err' : ''); }, 3600);
+  }
+
+  function busyChip(act, on) {
+    busy[act] = on;
+    var chip = document.querySelector('.chip[data-act="' + act + '"]');
+    if (chip) chip.style.opacity = on ? '0.45' : '';
+  }
+
+  function esc(s) {
+    var d = document.createElement('div');
+    d.textContent = s || '';
+    return d.innerHTML;
+  }
+
+  function applyState(s) {
+    state = s;
+    elStat.innerHTML = '已托管 <b>' + (s.managedCount || 0) + '</b> 条配置';
+    elSub.textContent = 'AI CLI 环境与配置管理 · v' + (s.version || '');
+    elRouterChip.className = 'chip' + (s.routerRunning ? ' on' : '');
+    elRouterLbl.textContent = s.routerRunning ? '路由 · 开' : '本地路由';
+    elRouterHint.textContent = s.routerRunning ? ('已开启 :' + s.routerPort) : '未开启';
+    elUpdateChip.className = 'chip' + (s.updateAvailable ? ' alert' : '');
+    var elAutoHint = document.getElementById('autostart-hint');
+    if (elAutoHint) elAutoHint.textContent = s.autostartEnabled ? '已开启' : '已关闭';
+    if (currentProvider && s.providers) {
+      var still = s.providers.some(function (p) { return p.id === currentProvider; });
+      if (!still) currentProvider = s.providers.length ? s.providers[0].id : null;
+    }
+    renderProviders();
+    renderEnvs();
+  }
+
+  function findProvider() {
+    if (!state || !state.providers) return null;
+    for (var i = 0; i < state.providers.length; i++) {
+      if (state.providers[i].id === currentProvider) return state.providers[i];
+    }
+    return null;
+  }
+
+  function renderProviders() {
+    if (!state || !state.providers) return;
+    if (!currentProvider && state.providers.length) currentProvider = state.providers[0].id;
+    elProviders.innerHTML = '';
+    state.providers.forEach(function (p) {
+      var chip = document.createElement('div');
+      chip.className = 'prov-chip' + (p.id === currentProvider ? ' on' : '');
+      chip.innerHTML = '<span class="pdot" style="background:' + (p.id === currentProvider ? '#fff' : p.color) + '"></span>' + esc(p.label);
+      chip.onclick = function () { currentProvider = p.id; renderProviders(); renderEnvs(); };
+      elProviders.appendChild(chip);
+    });
+  }
+
+  function renderEnvs() {
+    var p = findProvider();
+    elEnvList.innerHTML = '';
+    if (!p) {
+      elEnvList.innerHTML = '<div class="empty">没有可用的配置</div>';
+      return;
+    }
+    if (!p.envs || !p.envs.length) {
+      elEnvList.innerHTML = '<div class="empty">' + esc(p.label) + ' 还没有配置，去软件里添加</div>';
+      return;
+    }
+    p.envs.forEach(function (env) {
+      var isCur = !!env.current;
+      var row = document.createElement('div');
+      row.className = 'env';
+      var tags = '';
+      if (isCur) tags += '<span class="tag cur">当前</span>';
+      if (env.official) tags += '<span class="tag off">官方登录</span>';
+      var l1 = '<div class="l1"><span class="nm">' + esc(env.name) + '</span>' + tags;
+      if (isCur) l1 += '<span class="check">' + svg('check') + '</span>';
+      l1 += '</div>';
+      row.innerHTML = l1 + '<div class="ds">' + esc(env.description || '—') + '</div>';
+      row.onclick = function () {
+        if (isCur) { toast(p.label + ' 当前已是「' + env.name + '」'); return; }
+        post('apply-env', { provider: p.id, name: env.name });
+      };
+      elEnvList.appendChild(row);
+    });
+  }
+
+  function openSwitch() {
+    if (!state || !state.providers || !state.providers.length) { toast('还没有任何配置，先在软件里添加'); return; }
+    if (!currentProvider) currentProvider = state.providers[0].id;
+    renderProviders();
+    renderEnvs();
+    elSubView.classList.add('show');
+  }
+
+  elPanel.addEventListener('click', function (ev) {
+    var target = ev.target.closest('[data-act]');
+    if (!target) return;
+    var act = target.getAttribute('data-act');
+    switch (act) {
+      case 'toggle-main': post('toggle-main'); break;
+      case 'apply-all':
+        if (busy['apply-all']) return;
+        busyChip('apply-all', true);
+        post('apply-all');
+        break;
+      case 'router-toggle':
+        if (busy['router-toggle']) return;
+        busyChip('router-toggle', true);
+        post('router-toggle');
+        break;
+      case 'check-update':
+        if (busy['check-update']) return;
+        busyChip('check-update', true);
+        toast('正在检查更新…');
+        post('check-update');
+        break;
+      case 'quick-switch': openSwitch(); break;
+      case 'open-router': post('open-page', { page: 'router' }); break;
+      case 'open-settings': post('open-page', { page: 'settings' }); break;
+      case 'autostart-toggle':
+        if (busy['autostart-toggle']) return;
+        busyChip('autostart-toggle', true);
+        post('autostart-toggle');
+        break;
+      case 'help': post('help'); break;
+      case 'quit': post('quit'); break;
+      case 'back': elSubView.classList.remove('show'); break;
+    }
+  });
+
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Escape') {
+      if (elSubView.classList.contains('show')) elSubView.classList.remove('show');
+      else post('hide-panel');
+    }
+  });
+
+  window.__panelApply = applyState;
+  window.__panelToast = toast;
+  window.__panelBusy = busyChip;
+
+  post('ready');
+})();
+</script>
+</body>
+</html>

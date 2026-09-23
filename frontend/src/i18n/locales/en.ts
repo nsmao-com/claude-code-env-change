@@ -33,6 +33,9 @@ export const en = {
     routingOn: '{name} routing on',
     routingOff: '{name} routing off',
     routingHint: 'When on, {name} goes through the local gateway (shared port). To convert protocols, set upstream format in the config first.',
+    menuNav: 'Navigate',
+    menuActions: 'Quick actions',
+    menuDanger: 'Clear configs',
   },
   palette: {
     title: 'Search',
