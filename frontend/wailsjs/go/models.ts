@@ -101,6 +101,7 @@ export namespace main {
 	    secret_key: string;
 	    path_style: boolean;
 	    passphrase?: string;
+	    clear_secrets?: boolean;
 	    auto_push: boolean;
 	    auto_pull_on_start: boolean;
 	    last_push_at?: number;
@@ -123,6 +124,7 @@ export namespace main {
 	        this.secret_key = source["secret_key"];
 	        this.path_style = source["path_style"];
 	        this.passphrase = source["passphrase"];
+	        this.clear_secrets = source["clear_secrets"];
 	        this.auto_push = source["auto_push"];
 	        this.auto_pull_on_start = source["auto_pull_on_start"];
 	        this.last_push_at = source["last_push_at"];
@@ -617,6 +619,32 @@ export namespace main {
 	        this.exists = source["exists"];
 	    }
 	}
+	export class ProviderPreset {
+	    id: string;
+	    name: string;
+	    provider: string;
+	    icon: string;
+	    description: string;
+	    variables: Record<string, string>;
+	    model_choices?: string[];
+	    website?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ProviderPreset(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.provider = source["provider"];
+	        this.icon = source["icon"];
+	        this.description = source["description"];
+	        this.variables = source["variables"];
+	        this.model_choices = source["model_choices"];
+	        this.website = source["website"];
+	    }
+	}
 	export class ProxyTestResult {
 	    success: boolean;
 	    message: string;
@@ -999,6 +1027,9 @@ export namespace main {
 	    history: Record<string, Array<UptimeCheck>>;
 	    urls: Record<string, string>;
 	    now: number;
+	    last_rotation?: string;
+	    last_rotation_error?: string;
+	    last_rotation_at?: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new UptimeSnapshot(source);
@@ -1011,6 +1042,9 @@ export namespace main {
 	        this.history = this.convertValues(source["history"], Array<UptimeCheck>, true);
 	        this.urls = source["urls"];
 	        this.now = source["now"];
+	        this.last_rotation = source["last_rotation"];
+	        this.last_rotation_error = source["last_rotation_error"];
+	        this.last_rotation_at = source["last_rotation_at"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -1063,3 +1097,4 @@ export namespace main {
 	}
 
 }
+

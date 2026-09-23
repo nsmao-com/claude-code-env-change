@@ -1909,6 +1909,34 @@ func (a *App) clearAntigravitySettingsLocked() error {
 	return a.saveConfig()
 }
 
+// ClearClaudeSettings 清除 Claude 配置（Wails 绑定入口）
+func (a *App) ClearClaudeSettings() error {
+	a.configMu.Lock()
+	defer a.configMu.Unlock()
+	return a.clearClaudeSettingsLocked()
+}
+
+// ClearClaudeDesktopSettings 清除 Claude Desktop 配置（Wails 绑定入口）
+func (a *App) ClearClaudeDesktopSettings() error {
+	a.configMu.Lock()
+	defer a.configMu.Unlock()
+	return a.clearClaudeDesktopSettingsLocked()
+}
+
+// ClearCodexSettings 清除 Codex 配置（Wails 绑定入口）
+func (a *App) ClearCodexSettings() error {
+	a.configMu.Lock()
+	defer a.configMu.Unlock()
+	return a.clearCodexSettingsLocked()
+}
+
+// ClearAntigravitySettings 清除 Antigravity 配置（Wails 绑定入口）
+func (a *App) ClearAntigravitySettings() error {
+	a.configMu.Lock()
+	defer a.configMu.Unlock()
+	return a.clearAntigravitySettingsLocked()
+}
+
 // ClearAllEnv 清除所有配置 (Claude/Codex/Antigravity/OpenCode/Grok)
 func (a *App) ClearAllEnv() error {
 	a.configMu.Lock()

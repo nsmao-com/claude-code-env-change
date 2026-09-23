@@ -6,6 +6,10 @@ export function AddEnv(arg1) {
   return window['go']['main']['App']['AddEnv'](arg1);
 }
 
+export function AddOfficialLoginEnvs(arg1) {
+  return window['go']['main']['App']['AddOfficialLoginEnvs'](arg1);
+}
+
 export function ApplyCurrentEnv() {
   return window['go']['main']['App']['ApplyCurrentEnv']();
 }
@@ -30,12 +34,12 @@ export function ClearAntigravitySettings() {
   return window['go']['main']['App']['ClearAntigravitySettings']();
 }
 
-export function ClearClaudeSettings() {
-  return window['go']['main']['App']['ClearClaudeSettings']();
-}
-
 export function ClearClaudeDesktopSettings() {
   return window['go']['main']['App']['ClearClaudeDesktopSettings']();
+}
+
+export function ClearClaudeSettings() {
+  return window['go']['main']['App']['ClearClaudeSettings']();
 }
 
 export function ClearCodexSettings() {
@@ -74,12 +78,12 @@ export function GetAppVersion() {
   return window['go']['main']['App']['GetAppVersion']();
 }
 
-export function GetClaudeSettings() {
-  return window['go']['main']['App']['GetClaudeSettings']();
-}
-
 export function GetClaudeDesktopSettings() {
   return window['go']['main']['App']['GetClaudeDesktopSettings']();
+}
+
+export function GetClaudeSettings() {
+  return window['go']['main']['App']['GetClaudeSettings']();
 }
 
 export function GetCodexSettings() {
@@ -88,6 +92,10 @@ export function GetCodexSettings() {
 
 export function GetConfig() {
   return window['go']['main']['App']['GetConfig']();
+}
+
+export function GetConfigDrift() {
+  return window['go']['main']['App']['GetConfigDrift']();
 }
 
 export function GetEnvVar(arg1) {
@@ -118,6 +126,10 @@ export function GetPromptFiles() {
   return window['go']['main']['App']['GetPromptFiles']();
 }
 
+export function GetProviderPresets() {
+  return window['go']['main']['App']['GetProviderPresets']();
+}
+
 export function GetProviderRouting() {
   return window['go']['main']['App']['GetProviderRouting']();
 }
@@ -128,10 +140,6 @@ export function ImportConfig() {
 
 export function ImportConfigJSON(arg1) {
   return window['go']['main']['App']['ImportConfigJSON'](arg1);
-}
-
-export function AddOfficialLoginEnvs(arg1) {
-  return window['go']['main']['App']['AddOfficialLoginEnvs'](arg1);
 }
 
 export function ImportLocalEnv(arg1) {

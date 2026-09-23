@@ -5,6 +5,8 @@ import {context} from '../models';
 
 export function AddEnv(arg1:main.EnvConfig):Promise<void>;
 
+export function AddOfficialLoginEnvs(arg1:string):Promise<Array<main.EnvConfig>>;
+
 export function ApplyCurrentEnv():Promise<string>;
 
 export function ApplyEnv(arg1:string,arg2:string):Promise<string>;
@@ -17,9 +19,9 @@ export function ClearAllEnv():Promise<void>;
 
 export function ClearAntigravitySettings():Promise<void>;
 
-export function ClearClaudeSettings():Promise<void>;
-
 export function ClearClaudeDesktopSettings():Promise<void>;
+
+export function ClearClaudeSettings():Promise<void>;
 
 export function ClearCodexSettings():Promise<void>;
 
@@ -39,13 +41,15 @@ export function GetAntigravitySettings():Promise<Record<string, string>>;
 
 export function GetAppVersion():Promise<string>;
 
-export function GetClaudeSettings():Promise<Record<string, string>>;
-
 export function GetClaudeDesktopSettings():Promise<Record<string, string>>;
+
+export function GetClaudeSettings():Promise<Record<string, string>>;
 
 export function GetCodexSettings():Promise<Record<string, string>>;
 
 export function GetConfig():Promise<main.Config>;
+
+export function GetConfigDrift():Promise<Array<string>>;
 
 export function GetEnvVar(arg1:string):Promise<string>;
 
@@ -61,13 +65,13 @@ export function GetPromptFile(arg1:string):Promise<main.PromptFile>;
 
 export function GetPromptFiles():Promise<Array<main.PromptFile>>;
 
+export function GetProviderPresets():Promise<Array<main.ProviderPreset>>;
+
 export function GetProviderRouting():Promise<Record<string, boolean>>;
 
 export function ImportConfig():Promise<number>;
 
 export function ImportConfigJSON(arg1:string):Promise<number>;
-
-export function AddOfficialLoginEnvs(arg1:string):Promise<Array<main.EnvConfig>>;
 
 export function ImportLocalEnv(arg1:string):Promise<Array<main.EnvConfig>>;
 
