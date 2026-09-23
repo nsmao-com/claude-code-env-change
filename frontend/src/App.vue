@@ -45,6 +45,7 @@
                   @import-local="importLocalConfig"
                   @add-official="addOfficialLogin"
                   @import-json="openImportModal"
+                  @import-clipboard="importFromClipboard"
                 />
               </div>
             </ScrollArea>
@@ -166,6 +167,34 @@ function onSettingsShortcut(e: KeyboardEvent) {
   if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
     e.preventDefault()
     showPalette.value = !showPalette.value
+  }
+  if ((e.ctrlKey || e.metaKey) && (e.key === 'n' || e.key === 'N')) {
+    // 输入框里按 Ctrl+N 不劫持
+    const el = e.target as HTMLElement | null
+    if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) return
+    e.preventDefault()
+    openAddConfig()
+  }
+  if ((e.ctrlKey || e.metaKey) && (e.key === 'f' || e.key === 'F')) {
+    e.preventDefault()
+    page.value = 'env'
+    // 跳到环境页后聚焦搜索框（ConfigGrid 渲染完再找）
+    requestAnimationFrame(() => {
+      document.getElementById('config-search')?.focus()
+    })
+  }
+  if (e.key === 'F5') {
+    e.preventDefault()
+    void configStore.loadConfig()
+    toast.success('已刷新')
+  }
+  if ((e.ctrlKey || e.metaKey) && /^[1-8]$/.test(e.key)) {
+    const idx = Number(e.key) - 1
+    const target = APP_PAGES[idx]
+    if (target) {
+      e.preventDefault()
+      page.value = target.id as AppPage
+    }
   }
 }
 
@@ -435,6 +464,21 @@ function openImportGuarded(file: { name: string, text: string }) {
 
 function importConfig() {
   openImportModal()
+}
+
+// 从剪贴板导入：读文本走同一套导入预览，方便"别人发来一段 JSON"的场景
+async function importFromClipboard() {
+  try {
+    const text = await navigator.clipboard.readText()
+    const trimmed = (text || '').trim()
+    if (!trimmed) {
+      toast.error('剪贴板是空的，先复制一段配置 JSON 再试')
+      return
+    }
+    openImportGuarded({ name: '剪贴板配置.json', text: trimmed })
+  } catch (e) {
+    toast.error('读取剪贴板失败: ' + (e instanceof Error ? e.message : String(e)))
+  }
 }
 
 async function clearClaude() {

@@ -78,6 +78,10 @@ export function GetAppVersion() {
   return window['go']['main']['App']['GetAppVersion']();
 }
 
+export function GetAutostartEnabled() {
+  return window['go']['main']['App']['GetAutostartEnabled']();
+}
+
 export function GetClaudeDesktopSettings() {
   return window['go']['main']['App']['GetClaudeDesktopSettings']();
 }
@@ -192,6 +196,10 @@ export function ReorderEnvs(arg1) {
 
 export function SavePromptFile(arg1, arg2) {
   return window['go']['main']['App']['SavePromptFile'](arg1, arg2);
+}
+
+export function SetAutostart(arg1) {
+  return window['go']['main']['App']['SetAutostart'](arg1);
 }
 
 export function SetEnvVar(arg1, arg2) {

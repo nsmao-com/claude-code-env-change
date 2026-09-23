@@ -21,6 +21,10 @@
             <FileJson />
             导入 JSON
           </Button>
+          <Button variant="outline" size="sm" @click="$emit('import-clipboard')" title="读取剪贴板里的 JSON 配置">
+            <ClipboardPaste />
+            从剪贴板
+          </Button>
           <Button variant="outline" size="sm" :disabled="addingOfficial" @click="$emit('add-official')">
             <KeyRound />
             {{ addingOfficial ? '添加中...' : '官方登录' }}
@@ -99,6 +103,8 @@
             :config="config"
             :index="index"
             :is-active="isEnvActive(config.name, config.provider)"
+            @dblclick="$emit('apply', getOriginalIndex(config.name, config.provider))"
+            :title="config.name + '（双击应用，单击编辑）'"
             @click="$emit('edit', getOriginalIndex(config.name, config.provider))"
             @apply="$emit('apply', getOriginalIndex(config.name, config.provider))"
             @duplicate="$emit('duplicate', getOriginalIndex(config.name, config.provider))"
@@ -114,6 +120,7 @@
             :index="index"
             nested
             :is-active="isEnvActive(config.name, config.provider)"
+            @dblclick="$emit('apply', getOriginalIndex(config.name, config.provider))"
             @click="$emit('edit', getOriginalIndex(config.name, config.provider))"
             @apply="$emit('apply', getOriginalIndex(config.name, config.provider))"
             @duplicate="$emit('duplicate', getOriginalIndex(config.name, config.provider))"
@@ -131,7 +138,7 @@ import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { motion } from 'motion-v'
 import Sortable from 'sortablejs'
 import { fadeEnter } from '@/lib/motion'
-import { FileJson, KeyRound, LayoutGrid, List, Plus, Search, Upload } from '@lucide/vue'
+import { ClipboardPaste, FileJson, KeyRound, LayoutGrid, List, Plus, Search, Upload } from '@lucide/vue' 
 import type { EnvConfig, Provider } from '@/types'
 import { useConfigStore } from '@/stores/configStore'
 import { useToast } from '@/composables/useToast'
@@ -161,6 +168,7 @@ const emit = defineEmits<{
   'import-local': []
   'add-official': []
   'import-json': []
+  'import-clipboard': []
 }>()
 
 const configStore = useConfigStore()

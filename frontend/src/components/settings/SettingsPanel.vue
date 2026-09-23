@@ -116,6 +116,13 @@
             </div>
             <Switch :checked="settings.restoreLastPage" @update:checked="onFlag('restoreLastPage', $event, 'settings.restoreLastPage')" />
           </div>
+          <div class="flex items-start justify-between gap-4">
+            <div class="min-w-0">
+              <p class="text-sm font-medium">{{ t('settings.autostart') }}</p>
+              <p class="mt-0.5 text-xs text-muted-foreground">{{ t('settings.autostartHint') }}</p>
+            </div>
+            <Switch :checked="autostart" :disabled="autostartBusy" @update:checked="onAutostart" />
+          </div>
         </CardContent>
       </Card>
 
@@ -260,6 +267,34 @@ const toast = useToast()
 const appVersion = ref('2.5.4')
 const section = ref<'general' | 'cli' | 'dirs'>('general')
 const proxy = reactive<OutboundProxySettings>({ enabled: false, url: 'http://127.0.0.1:7890' })
+
+// ===== 开机自启 =====
+const autostart = ref(false)
+const autostartBusy = ref(false)
+
+async function loadAutostart() {
+  try {
+    autostart.value = await callApp<boolean>('GetAutostartEnabled')
+  } catch { /* 后端暂不可用时保持默认关闭 */ }
+}
+
+async function onAutostart(value: boolean) {
+  if (autostartBusy.value) return
+  autostartBusy.value = true
+  try {
+    await callApp('SetAutostart', value)
+    autostart.value = value
+    toast.success(value ? t('settings.autostartOn') : t('settings.autostartOff'))
+  } catch (e: unknown) {
+    toast.error(t('settings.autostartFailed', { error: e instanceof Error ? e.message : String(e) }))
+    // 失败回读后端真实状态
+    try {
+      autostart.value = await callApp<boolean>('GetAutostartEnabled')
+    } catch { /* keep */ }
+  } finally {
+    autostartBusy.value = false
+  }
+}
 const proxySaving = ref(false)
 const proxyTesting = ref(false)
 const proxyTestText = ref('')
@@ -389,6 +424,7 @@ onMounted(async () => {
   try {
     appVersion.value = await updateService.version()
   } catch { /* ignore */ }
+  void loadAutostart()
   try {
     const current = await callApp<OutboundProxySettings>('GetOutboundProxy')
     proxy.enabled = pickBool(current, 'enabled', 'Enabled')

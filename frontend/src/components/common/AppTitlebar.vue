@@ -3,7 +3,7 @@
     class="flex h-16 shrink-0 items-center gap-3 px-6"
     style="--wails-draggable: drag"
   >
-    <div class="flex items-center gap-2" style="--wails-draggable: nodrag">
+    <div class="flex shrink-0 items-center gap-2" style="--wails-draggable: nodrag">
       <AppTooltip :content="t('nav.home')">
         <button
           type="button"
@@ -11,13 +11,13 @@
           @click="$emit('navigate', 'home')"
         >
           <AppLogo class="size-9" />
-          <span class="text-[15px] font-semibold tracking-[0.14em] text-foreground">AI ENV</span>
+          <span class="text-[15px] font-semibold tracking-[0.14em] whitespace-nowrap text-foreground">AI ENV</span>
         </button>
       </AppTooltip>
     </div>
 
     <div
-      class="flex items-center gap-0.5"
+      class="flex shrink-0 items-center gap-0.5"
       style="--wails-draggable: nodrag"
       @mouseleave="hoveredTool = null"
       @focusout="onNavFocusOut"
@@ -85,7 +85,7 @@
 
     <button
       type="button"
-      class="hidden h-10 w-[168px] items-center gap-2 rounded-full bg-card px-4 text-[13px] text-muted-foreground shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition-colors hover:bg-muted/60 md:flex"
+      class="hidden h-10 w-[168px] shrink-0 items-center gap-2 rounded-full bg-card px-4 text-[13px] text-muted-foreground shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition-colors hover:bg-muted/60 lg:flex"
       style="--wails-draggable: nodrag"
       @click="$emit('search')"
     >
@@ -94,7 +94,7 @@
       <span class="ml-auto rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium">Ctrl K</span>
     </button>
 
-    <div class="flex items-center gap-2" style="--wails-draggable: nodrag">
+    <div class="flex shrink-0 items-center gap-2" style="--wails-draggable: nodrag">
       <AppTooltip :content="updateAvailable ? t('titlebar.updateAvailable') : t('titlebar.checkUpdate')">
         <button
           type="button"
@@ -115,60 +115,86 @@
             <Menu class="size-4.5" />
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" class="w-48">
-          <DropdownMenuItem
-            v-for="item in menuPages"
-            :key="item.id"
-            :disabled="page === item.id"
-            @click="$emit('navigate', item.id)"
-          >
-            <component :is="item.icon" />
-            {{ item.label }}
-            <DropdownMenuShortcut v-if="page === item.id">{{ t('nav.current') }}</DropdownMenuShortcut>
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem @click="$emit('checkUpdate')">
-            <ArrowUpCircle />
-            {{ t('titlebar.checkUpdate') }}
-            <DropdownMenuShortcut v-if="updateAvailable">{{ t('titlebar.updateAvailable') }}</DropdownMenuShortcut>
-          </DropdownMenuItem>
-          <DropdownMenuItem @click="$emit('export')">
-            <Download />
-            {{ t('titlebar.export') }}
-          </DropdownMenuItem>
-          <DropdownMenuItem @click="$emit('import')">
-            <Upload />
-            {{ t('titlebar.import') }}
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem @click="$emit('clearClaude')">
-            <BrandIcon provider="claude" class="size-3.5" />
-            {{ t('titlebar.clearClaude') }}
-          </DropdownMenuItem>
-          <DropdownMenuItem @click="$emit('clearClaudeDesktop')">
-            <BrandIcon provider="claude_desktop" class="size-3.5" />
-            {{ t('titlebar.clearClaudeDesktop') }}
-          </DropdownMenuItem>
-          <DropdownMenuItem @click="$emit('clearCodex')">
-            <BrandIcon provider="codex" class="size-3.5" />
-            {{ t('titlebar.clearCodex') }}
-          </DropdownMenuItem>
-          <DropdownMenuItem @click="$emit('clearAntigravity')">
-            <BrandIcon provider="antigravity" class="size-3.5" />
-            {{ t('titlebar.clearAntigravity') }}
-          </DropdownMenuItem>
-          <DropdownMenuItem @click="$emit('clearOpencode')">
-            <BrandIcon provider="opencode" class="size-3.5" />
-            {{ t('titlebar.clearOpencode') }}
-          </DropdownMenuItem>
-          <DropdownMenuItem @click="$emit('clearGrok')">
-            <BrandIcon provider="grok" class="size-3.5" />
-            {{ t('titlebar.clearGrok') }}
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem variant="destructive" @click="$emit('clearAll')">{{ t('titlebar.clearAll') }}</DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem disabled>v{{ appVersion }}</DropdownMenuItem>
+        <DropdownMenuContent align="end" class="w-[320px] rounded-2xl p-2 shadow-lg shadow-black/[0.05]">
+          <div class="flex items-center justify-between px-2 pt-0.5 pb-1.5">
+            <span class="text-[11px] font-semibold tracking-[0.14em] text-muted-foreground">AI ENV</span>
+            <span class="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground tabular-nums">v{{ appVersion }}</span>
+          </div>
+
+          <div class="px-2 pt-1 pb-1.5 text-[11px] font-medium tracking-wide text-muted-foreground/80">{{ t('titlebar.menuNav') }}</div>
+          <div class="grid grid-cols-3 gap-1">
+            <DropdownMenuItem
+              v-for="item in gridPages"
+              :key="item.id"
+              class="relative h-auto flex-col items-center gap-1.5 rounded-xl px-1 py-2.5"
+              :class="page === item.id ? 'bg-brand/10 text-brand focus:bg-brand/15 focus:text-brand' : ''"
+              @click="$emit('navigate', item.id)"
+            >
+              <component :is="item.icon" class="size-4.5" />
+              <span class="max-w-full truncate text-[11px] leading-none font-medium">{{ item.label }}</span>
+              <span v-if="page === item.id" class="absolute top-1.5 right-1.5 size-1.5 rounded-full bg-brand" />
+            </DropdownMenuItem>
+          </div>
+
+          <div class="px-2 pt-2 pb-1.5 text-[11px] font-medium tracking-wide text-muted-foreground/80">{{ t('titlebar.menuActions') }}</div>
+          <div class="grid grid-cols-2 gap-1">
+            <DropdownMenuItem class="h-9 rounded-xl px-2.5 text-[13px]" @click="$emit('search')">
+              <Search class="size-4 text-muted-foreground" />
+              <span class="truncate">{{ t('titlebar.search') }}</span>
+              <span class="ml-auto shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">Ctrl K</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem class="h-9 rounded-xl px-2.5 text-[13px]" @click="$emit('checkUpdate')">
+              <ArrowUpCircle class="size-4 text-muted-foreground" />
+              <span class="truncate">{{ t('titlebar.checkUpdate') }}</span>
+              <span v-if="updateAvailable" class="ml-auto size-1.5 shrink-0 rounded-full bg-brand" />
+            </DropdownMenuItem>
+            <DropdownMenuItem class="h-9 rounded-xl px-2.5 text-[13px]" @click="$emit('export')">
+              <Download class="size-4 text-muted-foreground" />
+              <span class="truncate">{{ t('titlebar.export') }}</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem class="h-9 rounded-xl px-2.5 text-[13px]" @click="$emit('import')">
+              <Upload class="size-4 text-muted-foreground" />
+              <span class="truncate">{{ t('titlebar.import') }}</span>
+            </DropdownMenuItem>
+          </div>
+
+          <div class="mx-0.5 mt-2 rounded-xl bg-destructive/5 p-1 ring-1 ring-destructive/10">
+            <div class="px-2 pt-1 pb-1 text-[11px] font-medium tracking-wide text-destructive/70">{{ t('titlebar.menuDanger') }}</div>
+            <div class="grid grid-cols-2 gap-0.5">
+              <DropdownMenuItem class="rounded-lg px-2 py-1.5 text-xs" @click="$emit('clearClaude')">
+                <BrandIcon provider="claude" class="size-3.5" />
+                <span class="truncate">{{ t('titlebar.clearClaude') }}</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem class="rounded-lg px-2 py-1.5 text-xs" @click="$emit('clearClaudeDesktop')">
+                <BrandIcon provider="claude_desktop" class="size-3.5" />
+                <span class="truncate">{{ t('titlebar.clearClaudeDesktop') }}</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem class="rounded-lg px-2 py-1.5 text-xs" @click="$emit('clearCodex')">
+                <BrandIcon provider="codex" class="size-3.5" />
+                <span class="truncate">{{ t('titlebar.clearCodex') }}</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem class="rounded-lg px-2 py-1.5 text-xs" @click="$emit('clearAntigravity')">
+                <BrandIcon provider="antigravity" class="size-3.5" />
+                <span class="truncate">{{ t('titlebar.clearAntigravity') }}</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem class="rounded-lg px-2 py-1.5 text-xs" @click="$emit('clearOpencode')">
+                <BrandIcon provider="opencode" class="size-3.5" />
+                <span class="truncate">{{ t('titlebar.clearOpencode') }}</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem class="rounded-lg px-2 py-1.5 text-xs" @click="$emit('clearGrok')">
+                <BrandIcon provider="grok" class="size-3.5" />
+                <span class="truncate">{{ t('titlebar.clearGrok') }}</span>
+              </DropdownMenuItem>
+            </div>
+            <DropdownMenuItem
+              variant="destructive"
+              class="mt-1 h-8 w-full justify-center rounded-lg text-xs font-medium"
+              @click="$emit('clearAll')"
+            >
+              <Trash2 class="size-3.5" />
+              {{ t('titlebar.clearAll') }}
+            </DropdownMenuItem>
+          </div>
         </DropdownMenuContent>
       </DropdownMenu>
 
@@ -230,6 +256,7 @@ import {
   Search,
   Settings,
   Sun,
+  Trash2,
   Upload,
   X,
 } from '@lucide/vue'
@@ -250,8 +277,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 
@@ -290,10 +315,10 @@ const navItems = computed(() => [
   { id: 'home', label: t('nav.home') },
   ...providerIcons,
 ])
-const menuPages = computed(() => APP_PAGES.map(item => ({
-  ...item,
-  label: t(`nav.${item.id}`),
-})))
+// 设置页不进网格：标题栏右侧已有独立的齿轮入口
+const gridPages = computed(() => APP_PAGES
+  .filter(item => item.id !== 'settings')
+  .map(item => ({ ...item, label: t(`nav.${item.id}`) })))
 const hoveredTool = ref<string | null>(null)
 
 const ICON_COLORS: Record<string, string> = {

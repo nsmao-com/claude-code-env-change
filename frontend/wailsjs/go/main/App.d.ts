@@ -41,6 +41,8 @@ export function GetAntigravitySettings():Promise<Record<string, string>>;
 
 export function GetAppVersion():Promise<string>;
 
+export function GetAutostartEnabled():Promise<boolean>;
+
 export function GetClaudeDesktopSettings():Promise<Record<string, string>>;
 
 export function GetClaudeSettings():Promise<Record<string, string>>;
@@ -98,6 +100,8 @@ export function RefreshRoutedProviders():Promise<void>;
 export function ReorderEnvs(arg1:Array<string>):Promise<void>;
 
 export function SavePromptFile(arg1:string,arg2:string):Promise<void>;
+
+export function SetAutostart(arg1:boolean):Promise<void>;
 
 export function SetEnvVar(arg1:string,arg2:string):Promise<void>;
 

@@ -35,6 +35,8 @@ func main() {
 		app.OnStartup(ctx)
 		routerService.OnStartup(ctx)
 		cloudSyncService.OnStartup()
+		// Windows 系统托盘（其它平台为空实现），独立 goroutine 不阻塞启动
+		go StartTray(app, ctx)
 	}
 
 	// Create application with options
