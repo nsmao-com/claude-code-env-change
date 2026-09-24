@@ -74,12 +74,25 @@
                 <p class="text-[11px] text-muted-foreground">{{ appRoutingHint(item.id) }}</p>
               </div>
             </div>
-            <Switch
-              size="sm"
-              :checked="routerStore.isAppRoutingOn(item.id)"
-              :disabled="routerStore.togglingApp === item.id"
-              @update:checked="(value: boolean) => onAppRouting(item.id, value)"
-            />
+            <div class="flex shrink-0 items-center gap-2">
+              <AppTooltip :content="fallbackTooltip(item.id)" wrap>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  class="h-7 px-2 text-xs"
+                  :disabled="!routeFor(item.id)"
+                  @click="openFallbacks(item.id)"
+                >
+                  备用上游{{ fallbackCount(item.id) ? ` · ${fallbackCount(item.id)}` : '' }}
+                </Button>
+              </AppTooltip>
+              <Switch
+                size="sm"
+                :checked="routerStore.isAppRoutingOn(item.id)"
+                :disabled="routerStore.togglingApp === item.id"
+                @update:checked="(value: boolean) => onAppRouting(item.id, value)"
+              />
+            </div>
           </div>
         </div>
       </CardContent>
@@ -126,13 +139,14 @@
     </div>
 
     <RouterLogsModal v-model="showLogsModal" />
+    <RouteEditModal v-model="showRouteEditor" :edit-route="editingRoute" @saved="routerStore.loadConfig()" />
   </AppModal>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch, onUnmounted } from 'vue'
 import { Loader2, Play, RefreshCw, Square } from '@lucide/vue'
-import type { Provider } from '@/types'
+import type { APIRoute, Provider } from '@/types'
 import { useRouterStore } from '@/stores/routerStore'
 import { useToast } from '@/composables/useToast'
 import AppModal from '@/components/common/AppModal.vue'
@@ -146,6 +160,7 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table'
 import RouterLogsModal from './RouterLogsModal.vue'
+import RouteEditModal from './RouteEditModal.vue'
 
 interface Props {
   modelValue: boolean
@@ -171,6 +186,32 @@ const port = computed(() => routerStore.status?.port ?? routerStore.config.port)
 const portInput = ref(8790)
 const autoStartInput = ref(true)
 const showLogsModal = ref(false)
+const showRouteEditor = ref(false)
+const editingRoute = ref<APIRoute | null>(null)
+
+// 应用路由按模型商 id 命名；开启路由并应用过一次配置后才会生成
+function routeFor(provider: Provider): APIRoute | undefined {
+  return routerStore.config.routes.find(route => route.name.toLowerCase() === provider)
+}
+
+function fallbackCount(provider: Provider): number {
+  return routeFor(provider)?.fallbacks?.length || 0
+}
+
+function fallbackTooltip(provider: Provider): string {
+  if (!routeFor(provider)) return '先打开右侧开关并应用一次该模型商的配置，生成路由后才能设置备用上游'
+  const count = fallbackCount(provider)
+  return count
+    ? `已配置 ${count} 个备用上游：主上游限流、Key 失效或宕机时自动切换`
+    : '添加备用上游：主上游限流、Key 失效或宕机时自动切换'
+}
+
+function openFallbacks(provider: Provider) {
+  const route = routeFor(provider)
+  if (!route) return
+  editingRoute.value = route
+  showRouteEditor.value = true
+}
 
 let pollTimer: number | null = null
 

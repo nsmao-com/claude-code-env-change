@@ -53,13 +53,14 @@
             <TableHead>路由</TableHead>
             <TableHead>路径</TableHead>
             <TableHead>模型</TableHead>
+            <TableHead>上游</TableHead>
             <TableHead>状态</TableHead>
             <TableHead class="text-right">耗时</TableHead>
             <TableHead>错误</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          <TableEmpty v-if="!loading && items.length === 0" :colspan="7" class="text-muted-foreground">
+          <TableEmpty v-if="!loading && items.length === 0" :colspan="8" class="text-muted-foreground">
             没有匹配的日志
           </TableEmpty>
           <TableRow v-for="(log, i) in items" :key="i + log.time + log.path">
@@ -73,6 +74,18 @@
             <TableCell class="max-w-[140px] truncate text-muted-foreground">
               <AppTooltip :content="log.model" wrap :disabled="!log.model">
                 <span class="block truncate">{{ log.model }}</span>
+              </AppTooltip>
+            </TableCell>
+            <TableCell class="max-w-[180px] text-muted-foreground">
+              <AppTooltip
+                :content="log.failover ? `已跳过：${log.failover}` : (log.upstream || '')"
+                wrap
+                :disabled="!log.upstream && !log.failover"
+              >
+                <span class="flex items-center gap-1 truncate">
+                  <span v-if="log.failover" class="shrink-0 rounded bg-amber-500/15 px-1 text-amber-600 dark:text-amber-400">切换</span>
+                  <span class="truncate">{{ log.upstream }}</span>
+                </span>
               </AppTooltip>
             </TableCell>
             <TableCell :class="log.status_code >= 400 ? 'font-bold text-red-500' : 'text-green-600'">
