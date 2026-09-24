@@ -831,7 +831,7 @@ func (a *App) getCodexSettingsLocked() map[string]string {
 	result := make(map[string]string)
 
 	// 读取 auth.json（可能含嵌套的 OAuth tokens 对象，先取原始键再挑出字符串值）
-	authFile := filepath.Join(homeDir, ".codex", "auth.json")
+	authFile := filepath.Join(resolveCodexHome(homeDir), "auth.json")
 	if data, err := os.ReadFile(authFile); err == nil {
 		var authData map[string]json.RawMessage
 		if json.Unmarshal(data, &authData) == nil {
@@ -845,7 +845,7 @@ func (a *App) getCodexSettingsLocked() map[string]string {
 	}
 
 	// 读取 config.toml 的关键字段
-	configFile := filepath.Join(homeDir, ".codex", "config.toml")
+	configFile := filepath.Join(resolveCodexHome(homeDir), "config.toml")
 	if data, err := os.ReadFile(configFile); err == nil {
 		// 优先用 TOML 解析，避免出现单引号/双引号包裹导致前端显示 "'xxx'"
 		var payload map[string]any
@@ -1314,7 +1314,7 @@ func (a *App) applyCodexEnv(env *EnvConfig) (string, error) {
 		return "", fmt.Errorf("获取用户目录失败: %v", err)
 	}
 
-	codexDir := filepath.Join(homeDir, ".codex")
+	codexDir := resolveCodexHome(homeDir)
 	if err := os.MkdirAll(codexDir, 0755); err != nil {
 		return "", fmt.Errorf("创建 .codex 目录失败: %v", err)
 	}
@@ -1778,7 +1778,7 @@ func (a *App) clearCodexSettingsLocked() error {
 		return fmt.Errorf("获取用户目录失败: %v", err)
 	}
 
-	codexDir := filepath.Join(homeDir, ".codex")
+	codexDir := resolveCodexHome(homeDir)
 
 	// config.toml：摘除托管的顶层键与内置 provider 段，而不是删除整个文件
 	configFile := filepath.Join(codexDir, "config.toml")
@@ -2415,13 +2415,7 @@ func promptFilePath(provider string) (string, error) {
 	case "claude":
 		return filepath.Join(homeDir, ".claude", "CLAUDE.md"), nil
 	case "codex":
-		codexHome := strings.TrimSpace(os.Getenv("CODEX_HOME"))
-		if codexHome == "" {
-			codexHome = filepath.Join(homeDir, ".codex")
-		} else {
-			codexHome = expandAndNormalizePath(codexHome, homeDir, filepath.Join(homeDir, ".codex"))
-		}
-		return filepath.Join(codexHome, "AGENTS.md"), nil
+		return filepath.Join(resolveCodexHome(homeDir), "AGENTS.md"), nil
 	case "antigravity":
 		return filepath.Join(homeDir, ".gemini", "GEMINI.md"), nil
 	case "opencode":

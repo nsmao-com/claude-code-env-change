@@ -1168,10 +1168,5 @@ func (ls *LogService) getCodexDir() string {
 		return ""
 	}
 
-	// 检查 CODEX_HOME 环境变量
-	if codexHome := os.Getenv("CODEX_HOME"); codexHome != "" {
-		return codexHome
-	}
-
-	return filepath.Join(homeDir, ".codex")
+	return resolveCodexHome(homeDir)
 }

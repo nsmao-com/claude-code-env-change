@@ -234,7 +234,7 @@ func (a *App) buildLocalCodexEnv() (*EnvConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	codexDir := filepath.Join(home, ".codex")
+	codexDir := resolveCodexHome(home)
 	settings := a.getCodexSettingsLocked()
 	if v := settings["base_url"]; v != "" {
 		settings["base_url"] = resolveImportedBaseURL(v)

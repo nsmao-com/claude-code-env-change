@@ -638,7 +638,7 @@ func configDirForCli(id string) string {
 	case "claude":
 		return firstExistingDir(filepath.Join(home, ".claude"), filepath.Join(appData, ".claude"), filepath.Join(localApp, ".claude"))
 	case "codex":
-		return firstExistingDir(filepath.Join(home, ".codex"), filepath.Join(appData, ".codex"))
+		return firstExistingDir(resolveCodexHome(home), filepath.Join(home, ".codex"), filepath.Join(appData, ".codex"))
 	case "antigravity":
 		return firstExistingDir(filepath.Join(home, ".gemini", "antigravity-cli"), filepath.Join(home, ".gemini"), filepath.Join(appData, ".gemini"))
 	case "opencode":
