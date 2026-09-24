@@ -3,7 +3,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"os/exec"
 	"regexp"
@@ -44,9 +43,9 @@ func openTerminalWithEnv(vars map[string]string) error {
 		return nil
 	}
 	if lastErr != nil {
-		return fmt.Errorf("启动终端失败: %v", lastErr)
+		return errorf("启动终端失败: %v", lastErr)
 	}
-	return fmt.Errorf("未找到可用的终端程序，请手动打开终端使用")
+	return errorf("未找到可用的终端程序，请手动打开终端使用")
 }
 
 func mergedEnvWithOverrides(vars map[string]string) []string {

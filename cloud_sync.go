@@ -11,7 +11,6 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -334,7 +333,7 @@ func (cs *CloudSyncService) TestCloudConnection() CloudSyncResult {
 	cfg := cs.config
 	cs.mu.Unlock()
 	if !csConfigured(cfg) {
-		return CloudSyncResult{Success: false, Message: "请先填写 Bucket、AccessKey 与 SecretKey", Latency: time.Since(start).Milliseconds()}
+		return CloudSyncResult{Success: false, Message: tr("请先填写 Bucket、AccessKey 与 SecretKey"), Latency: time.Since(start).Milliseconds()}
 	}
 	client := newOSSObjectClient(cfg, cs.httpClient)
 	key := cfg.ObjectKey
@@ -344,7 +343,7 @@ func (cs *CloudSyncService) TestCloudConnection() CloudSyncResult {
 	if err := client.Head(key); err != nil {
 		return CloudSyncResult{Success: false, Message: err.Error(), Latency: time.Since(start).Milliseconds()}
 	}
-	return CloudSyncResult{Success: true, Message: "OSS 连接正常（凭证有效）", Latency: time.Since(start).Milliseconds()}
+	return CloudSyncResult{Success: true, Message: tr("OSS 连接正常（凭证有效）"), Latency: time.Since(start).Milliseconds()}
 }
 
 // UploadToCloud 手动上传。云端有别的电脑的新备份时不覆盖，返回 Conflict 让界面确认
@@ -367,12 +366,12 @@ func (cs *CloudSyncService) upload(force, auto bool) CloudSyncResult {
 	cs.mu.Lock()
 	if cs.applying {
 		cs.mu.Unlock()
-		return CloudSyncResult{Success: true, Skipped: true, Message: "正在从云端恢复，跳过上传", Latency: 0}
+		return CloudSyncResult{Success: true, Skipped: true, Message: tr("正在从云端恢复，跳过上传"), Latency: 0}
 	}
 	if cs.pushing {
 		// 自动上传与手动上传并发时会互相覆盖历史索引
 		cs.mu.Unlock()
-		return CloudSyncResult{Success: false, Message: "正在上传，请稍后再试", Latency: 0}
+		return CloudSyncResult{Success: false, Message: tr("正在上传，请稍后再试"), Latency: 0}
 	}
 	cfg := cs.config
 	device := cs.deviceIDLocked()
@@ -385,7 +384,7 @@ func (cs *CloudSyncService) upload(force, auto bool) CloudSyncResult {
 	}()
 
 	if !csConfigured(cfg) {
-		return CloudSyncResult{Success: false, Message: "请先填写 Bucket 与密钥", Latency: time.Since(start).Milliseconds()}
+		return CloudSyncResult{Success: false, Message: tr("请先填写 Bucket 与密钥"), Latency: time.Since(start).Milliseconds()}
 	}
 
 	bundle, err := cs.buildBundle()
@@ -395,21 +394,21 @@ func (cs *CloudSyncService) upload(force, auto bool) CloudSyncResult {
 	bundle.Device = device
 	contentHash := bundleContentHash(bundle.Files)
 	if auto && cfg.LastSyncHash != "" && contentHash == cfg.LastSyncHash {
-		return CloudSyncResult{Success: true, Skipped: true, Message: "本机配置没有变化，无需上传", Latency: time.Since(start).Milliseconds()}
+		return CloudSyncResult{Success: true, Skipped: true, Message: tr("本机配置没有变化，无需上传"), Latency: time.Since(start).Milliseconds()}
 	}
 
 	client := newOSSObjectClient(cfg, cs.httpClient)
 	key := cloudObjectKey(cfg)
 	idx, err := readCloudIndex(client, key, cfg.Passphrase)
 	if err != nil {
-		return fail("读取云端历史失败: " + err.Error())
+		return fail(tr("读取云端历史失败: ") + err.Error())
 	}
 	if !force {
 		if other := idx.newerRemote(cfg.LastRemoteAt, device); other != nil {
 			return CloudSyncResult{
 				Success:    false,
 				Conflict:   true,
-				Message:    cloudConflictMessage(other) + "，已暂停上传。可以先拉取云端，或确认后覆盖（被覆盖的备份仍保留在历史版本里）",
+				Message:    cloudConflictMessage(other) + tr("，已暂停上传。可以先拉取云端，或确认后覆盖（被覆盖的备份仍保留在历史版本里）"),
 				Latency:    time.Since(start).Milliseconds(),
 				RemoteHost: other.Hostname,
 				RemoteAt:   other.ExportedAt,
@@ -430,7 +429,7 @@ func (cs *CloudSyncService) upload(force, auto bool) CloudSyncResult {
 	if strings.TrimSpace(cfg.Passphrase) != "" {
 		enc, err := encryptCloudPayload(payload, cfg.Passphrase)
 		if err != nil {
-			return fail("加密失败: " + err.Error())
+			return fail(tr("加密失败: ") + err.Error())
 		}
 		payload = enc
 		contentType = "application/octet-stream"
@@ -457,7 +456,7 @@ func (cs *CloudSyncService) upload(force, auto bool) CloudSyncResult {
 		idx.Versions = idx.Versions[:cloudHistoryKeep]
 	}
 	if err := writeCloudIndex(client, key, cfg.Passphrase, idx); err != nil {
-		return fail("更新云端历史失败: " + err.Error())
+		return fail(tr("更新云端历史失败: ") + err.Error())
 	}
 	if err := client.Put(key, payload, contentType); err != nil {
 		return fail(err.Error())
@@ -479,7 +478,7 @@ func (cs *CloudSyncService) upload(force, auto bool) CloudSyncResult {
 
 	return CloudSyncResult{
 		Success: true,
-		Message: fmt.Sprintf("已上传 %d 个配置文件到 %s（云端保留最近 %d 份历史）", len(bundle.Files), key, cloudHistoryKeep),
+		Message: sprintf("已上传 %d 个配置文件到 %s（云端保留最近 %d 份历史）", len(bundle.Files), key, cloudHistoryKeep),
 		Latency: time.Since(start).Milliseconds(),
 	}
 }
@@ -506,11 +505,11 @@ func (cs *CloudSyncService) DownloadFromCloud() CloudSyncResult {
 	start := time.Now()
 	cfg, ok := cs.beginApply()
 	if !ok {
-		return CloudSyncResult{Success: false, Message: "正在上传或恢复备份，请稍后再拉取", Latency: 0}
+		return CloudSyncResult{Success: false, Message: tr("正在上传或恢复备份，请稍后再拉取"), Latency: 0}
 	}
 	defer cs.endApply()
 	if !csConfigured(cfg) {
-		return CloudSyncResult{Success: false, Message: "请先填写 Bucket 与密钥", Latency: time.Since(start).Milliseconds()}
+		return CloudSyncResult{Success: false, Message: tr("请先填写 Bucket 与密钥"), Latency: time.Since(start).Milliseconds()}
 	}
 	return cs.restoreObject(cfg, cloudObjectKey(cfg), 0, start)
 }
@@ -521,11 +520,11 @@ func (cs *CloudSyncService) pullOnStartup() CloudSyncResult {
 	start := time.Now()
 	cfg, ok := cs.beginApply()
 	if !ok {
-		return CloudSyncResult{Success: false, Message: "正在上传或恢复备份", Latency: 0}
+		return CloudSyncResult{Success: false, Message: tr("正在上传或恢复备份"), Latency: 0}
 	}
 	defer cs.endApply()
 	if !csConfigured(cfg) {
-		return CloudSyncResult{Success: false, Message: "请先填写 Bucket 与密钥", Latency: time.Since(start).Milliseconds()}
+		return CloudSyncResult{Success: false, Message: tr("请先填写 Bucket 与密钥"), Latency: time.Since(start).Milliseconds()}
 	}
 	cs.mu.Lock()
 	device := cs.deviceIDLocked()
@@ -542,13 +541,13 @@ func (cs *CloudSyncService) pullOnStartup() CloudSyncResult {
 	if latest := idx.latest(); latest != nil {
 		other := idx.newerRemote(cfg.LastRemoteAt, device)
 		if other == nil {
-			return CloudSyncResult{Success: true, Skipped: true, Message: "云端没有新的备份", Latency: time.Since(start).Milliseconds()}
+			return CloudSyncResult{Success: true, Skipped: true, Message: tr("云端没有新的备份"), Latency: time.Since(start).Milliseconds()}
 		}
 		if dirty {
 			return CloudSyncResult{
 				Success:    false,
 				Conflict:   true,
-				Message:    cloudConflictMessage(other) + "，本机也有未上传的修改，已跳过启动时的自动拉取。请在云同步页选择拉取云端或上传本机",
+				Message:    cloudConflictMessage(other) + tr("，本机也有未上传的修改，已跳过启动时的自动拉取。请在云同步页选择拉取云端或上传本机"),
 				Latency:    time.Since(start).Milliseconds(),
 				RemoteHost: other.Hostname,
 				RemoteAt:   other.ExportedAt,
@@ -559,7 +558,7 @@ func (cs *CloudSyncService) pullOnStartup() CloudSyncResult {
 		return CloudSyncResult{
 			Success:  false,
 			Conflict: true,
-			Message:  "本机有未上传的修改，已跳过启动时的自动拉取。请在云同步页选择拉取云端或上传本机",
+			Message:  tr("本机有未上传的修改，已跳过启动时的自动拉取。请在云同步页选择拉取云端或上传本机"),
 			Latency:  time.Since(start).Milliseconds(),
 		}
 	}
@@ -589,11 +588,11 @@ func (cs *CloudSyncService) RestoreCloudVersion(versionKey string) CloudSyncResu
 	start := time.Now()
 	cfg, ok := cs.beginApply()
 	if !ok {
-		return CloudSyncResult{Success: false, Message: "正在上传或恢复备份，请稍后再试", Latency: 0}
+		return CloudSyncResult{Success: false, Message: tr("正在上传或恢复备份，请稍后再试"), Latency: 0}
 	}
 	defer cs.endApply()
 	if !csConfigured(cfg) {
-		return CloudSyncResult{Success: false, Message: "请先填写 Bucket 与密钥", Latency: time.Since(start).Milliseconds()}
+		return CloudSyncResult{Success: false, Message: tr("请先填写 Bucket 与密钥"), Latency: time.Since(start).Milliseconds()}
 	}
 	key := cloudObjectKey(cfg)
 	idx, err := readCloudIndex(newOSSObjectClient(cfg, cs.httpClient), key, cfg.Passphrase)
@@ -601,7 +600,7 @@ func (cs *CloudSyncService) RestoreCloudVersion(versionKey string) CloudSyncResu
 		return CloudSyncResult{Success: false, Message: err.Error(), Latency: time.Since(start).Milliseconds()}
 	}
 	if idx.find(versionKey) == nil {
-		return CloudSyncResult{Success: false, Message: "云端没有这份历史备份，请刷新列表", Latency: time.Since(start).Milliseconds()}
+		return CloudSyncResult{Success: false, Message: tr("云端没有这份历史备份，请刷新列表"), Latency: time.Since(start).Milliseconds()}
 	}
 	// 用户是看过最新版本后主动选的旧版本：同步基准记为最新版本，之后上传不会被当成冲突
 	return cs.restoreObject(cfg, versionKey, idx.latest().ExportedAt, start)
@@ -623,8 +622,8 @@ func (cs *CloudSyncService) restoreObject(cfg CloudConfig, objectKey string, rem
 	}
 	var bundle cloudBundle
 	if err := json.Unmarshal(payload, &bundle); err != nil {
-		cs.recordError("备份内容无法解析")
-		return CloudSyncResult{Success: false, Message: "备份内容无法解析，请确认加密口令是否正确", Latency: time.Since(start).Milliseconds()}
+		cs.recordError(tr("备份内容无法解析"))
+		return CloudSyncResult{Success: false, Message: tr("备份内容无法解析，请确认加密口令是否正确"), Latency: time.Since(start).Milliseconds()}
 	}
 	message, err := cs.restoreBundle(bundle)
 	if err != nil {
@@ -677,7 +676,7 @@ func (cs *CloudSyncService) restoreBundle(bundle cloudBundle) (string, error) {
 		_ = cs.app.RefreshConfig()
 	}
 
-	message := fmt.Sprintf("已从云端恢复 %d 个配置文件", n)
+	message := sprintf("已从云端恢复 %d 个配置文件", n)
 	var syncErrs []string
 	if _, ok := bundle.Files["mcp.json"]; ok && cs.mcp != nil {
 		if err := cs.mcp.applyStoreToPlatforms(); err != nil {
@@ -690,7 +689,7 @@ func (cs *CloudSyncService) restoreBundle(bundle cloudBundle) (string, error) {
 		}
 	}
 	if len(syncErrs) > 0 {
-		message += "；⚠ 写回平台失败: " + strings.Join(syncErrs, "；")
+		message += tr("；⚠ 写回平台失败: ") + strings.Join(syncErrs, "；")
 	}
 	return message, nil
 }
@@ -752,10 +751,10 @@ func (cs *CloudSyncService) buildBundle() (*cloudBundle, error) {
 	addFile := func(name, path string) error {
 		data, err := os.ReadFile(path)
 		if err != nil || len(data) == 0 {
-			return fmt.Errorf("读取 %s 失败: %v", path, err)
+			return errorf("读取 %s 失败: %v", path, err)
 		}
 		if !json.Valid(data) {
-			return fmt.Errorf("%s 不是有效 JSON，拒绝上传", path)
+			return errorf("%s 不是有效 JSON，拒绝上传", path)
 		}
 		bundle.Files[name] = json.RawMessage(data)
 		return nil
@@ -780,6 +779,8 @@ func (cs *CloudSyncService) buildBundle() (*cloudBundle, error) {
 	addOptional("router.json", filepath.Join(dir, routerStoreFile))
 	addOptional("skills.json", filepath.Join(dir, skillsStoreFile))
 	addOptional("uptime.json", filepath.Join(dir, uptimeStoreFile))
+	addOptional(projectsStoreFile, filepath.Join(dir, projectsStoreFile))
+	addOptional(budgetStoreFile, filepath.Join(dir, budgetStoreFile))
 	if prompts := collectPromptFiles(); len(prompts) > 0 {
 		if data, err := json.Marshal(prompts); err == nil {
 			bundle.Files[cloudPromptsFile] = data
@@ -787,7 +788,7 @@ func (cs *CloudSyncService) buildBundle() (*cloudBundle, error) {
 	}
 
 	if len(bundle.Files) == 0 {
-		return nil, fmt.Errorf("没有可上传的本地配置")
+		return nil, errorf("没有可上传的本地配置")
 	}
 	return bundle, nil
 }
@@ -837,9 +838,13 @@ func (cs *CloudSyncService) applyBundle(bundle cloudBundle) (int, error) {
 			path = filepath.Join(dir, skillsStoreFile)
 		case "uptime.json":
 			path = filepath.Join(dir, uptimeStoreFile)
+		case projectsStoreFile:
+			path = filepath.Join(dir, projectsStoreFile)
+		case budgetStoreFile:
+			path = filepath.Join(dir, budgetStoreFile)
 		case cloudPromptsFile:
 			if err := restorePromptFiles(raw); err != nil {
-				return n, fmt.Errorf("写回提示词失败: %v", err)
+				return n, errorf("写回提示词失败: %v", err)
 			}
 			n++
 			continue
@@ -847,12 +852,12 @@ func (cs *CloudSyncService) applyBundle(bundle cloudBundle) (int, error) {
 			continue
 		}
 		if err := write(path, raw); err != nil {
-			return n, fmt.Errorf("写入 %s 失败: %v", name, err)
+			return n, errorf("写入 %s 失败: %v", name, err)
 		}
 		n++
 	}
 	if n == 0 {
-		return 0, fmt.Errorf("备份里没有可识别的配置文件")
+		return 0, errorf("备份里没有可识别的配置文件")
 	}
 	return n, nil
 }
@@ -892,26 +897,26 @@ func encryptCloudPayload(plain []byte, passphrase string) ([]byte, error) {
 
 func decryptCloudPayload(raw []byte, passphrase string) ([]byte, error) {
 	if len(raw) == 0 {
-		return nil, fmt.Errorf("云端备份为空")
+		return nil, errorf("云端备份为空")
 	}
 	hasPassphrase := strings.TrimSpace(passphrase) != ""
 	if raw[0] == '{' {
 		// 本机设了口令却拉到明文：可能是有人拿到了存储桶写权限，塞进一份
 		// 改过 Base URL 的明文备份来截获 Key。宁可拒绝，也不静默套用。
 		if hasPassphrase {
-			return nil, fmt.Errorf("云端备份未加密，但本机设置了加密口令；为防篡改已拒绝恢复。确认备份可信时，请先清空口令再拉取")
+			return nil, errorf("云端备份未加密，但本机设置了加密口令；为防篡改已拒绝恢复。确认备份可信时，请先清空口令再拉取")
 		}
 		return raw, nil
 	}
 	if len(raw) < 4+16+12+16 {
-		return nil, fmt.Errorf("不是本工具的备份格式")
+		return nil, errorf("不是本工具的备份格式")
 	}
 	magic := string(raw[:4])
 	if magic != cloudMagic && magic != cloudMagicLegacy {
-		return nil, fmt.Errorf("不是本工具的备份格式")
+		return nil, errorf("不是本工具的备份格式")
 	}
 	if !hasPassphrase {
-		return nil, fmt.Errorf("该备份已加密，请填写同样的加密口令")
+		return nil, errorf("该备份已加密，请填写同样的加密口令")
 	}
 	salt := raw[4:20]
 	var (
@@ -938,13 +943,13 @@ func decryptCloudPayload(raw []byte, passphrase string) ([]byte, error) {
 	}
 	nonceSize := gcm.NonceSize()
 	if len(raw) < 20+nonceSize {
-		return nil, fmt.Errorf("备份损坏")
+		return nil, errorf("备份损坏")
 	}
 	nonce := raw[20 : 20+nonceSize]
 	sealed := raw[20+nonceSize:]
 	plain, err := gcm.Open(nil, nonce, sealed, aad)
 	if err != nil {
-		return nil, fmt.Errorf("解密失败，请确认加密口令")
+		return nil, errorf("解密失败，请确认加密口令")
 	}
 	return plain, nil
 }

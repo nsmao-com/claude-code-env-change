@@ -40,14 +40,15 @@
 | 模块 | 说明 |
 | --- | --- |
 | 环境 | 多配置、按平台筛选、拖拽排序、一键写入对应 CLI、延迟测速、JSON 拖拽导入 |
+| 项目 | 按项目让 Claude Code 使用另一套接入配置（写入项目 `.claude/settings.local.json`，自动加入 git exclude），管理项目 `.mcp.json` 与 `CLAUDE.md`；用过 Claude Code 的项目会自动列出 |
 | MCP | 管理 stdio / HTTP 服务器，同步到 Claude Code / Claude Desktop / Codex / Antigravity / OpenCode / Grok（Claude Desktop 的远程服务器通过 `npx mcp-remote` 桥接，需本机有 Node.js） |
 | Skills | 编辑 `SKILL.md`，从在线市场 / 内置库导入，按平台启用 |
 | API 路由 | 本机网关端口与按厂商开关；各平台可在 Anthropic Messages、Chat Completions、Responses 之间转换；每条路由可配备用上游，限流、Key 失效或宕机时自动切换 |
 | 监控 | 定时探测 Base URL，可选「用 Key 验证」发现 Key 失效 / 余额不足，按轮换组自动切配置 |
 | 云同步 | S3 / 阿里云 OSS / 兼容端点，scrypt + AES-GCM 加密后上传；云端保留最近 10 份历史可随时恢复，别的电脑传过新备份时暂停自动上传并提示；提示词文件一并备份 |
 | 提示词 | 编辑各平台自定义系统提示词 |
-| 统计 | 请求量、Token、花费估算、模型分布、活动热力图；Claude Desktop / OpenCode / Grok 统计经过本地网关的请求 |
-| 设置 | 语言、主题、强调色、出站代理 |
+| 统计 | 请求量、Token、花费估算、模型分布、活动热力图；Claude Desktop / OpenCode / Grok 统计经过本地网关的请求；可按全部 / 平台 / 配置设每日或每月花费预算，接近与超出时提醒（Windows 同时发系统通知） |
+| 设置 | 语言（后端提示、托盘菜单一并切换）、主题、强调色、出站代理 |
 | CLI | 检测本机 Claude Code / Codex / Antigravity / OpenCode / Grok，按 pnpm、yarn、npm、官方安装器或原生方式安装升级 |
 | 配置目录 | 打开各家 CLI 的本机配置目录和关键文件 |
 | 更新 | 检测 GitHub Release，Windows 可在应用内下载并替换 |

@@ -193,13 +193,13 @@ func (a *App) OpenConfigDir(id string) error {
 		}
 		return openInFileManager(item.Dir)
 	}
-	return fmt.Errorf("未知配置目录")
+	return errorf("未知配置目录")
 }
 
 func (a *App) OpenConfigFile(path string) error {
 	path = strings.TrimSpace(path)
 	if path == "" {
-		return fmt.Errorf("路径为空")
+		return errorf("路径为空")
 	}
 	if !fileExists(path) {
 		return openInFileManager(filepath.Dir(path))
@@ -210,9 +210,9 @@ func (a *App) OpenConfigFile(path string) error {
 func (a *App) UpgradeCliTool(id string) CliUpgradeResult {
 	spec, ok := findCliSpec(id)
 	if !ok {
-		return CliUpgradeResult{ID: id, Success: false, Message: "未知 CLI"}
+		return CliUpgradeResult{ID: id, Success: false, Message: tr("未知 CLI")}
 	}
-	a.emitCliProgress(id, "start", "开始更新 "+spec.Name)
+	a.emitCliProgress(id, "start", sprintf("开始更新 %s", spec.Name))
 	result := a.upgradeOne(spec)
 	a.emitCliProgress(id, "done", result.Message)
 	return result
@@ -225,7 +225,7 @@ func (a *App) UpgradeAllCliTools() []CliUpgradeResult {
 		if !status.Installed || !status.Upgradable {
 			continue
 		}
-		a.emitCliProgress(spec.ID, "start", "开始更新 "+spec.Name)
+		a.emitCliProgress(spec.ID, "start", sprintf("开始更新 %s", spec.Name))
 		result := a.upgradeOne(spec)
 		a.emitCliProgress(spec.ID, "done", result.Message)
 		results = append(results, result)
@@ -291,13 +291,13 @@ func (a *App) upgradeOne(spec cliSpec) CliUpgradeResult {
 		if installCmd := cliInstallCmd(spec); len(installCmd) > 0 && !status.Installed {
 			return a.installCliTool(spec, installCmd)
 		}
-		return CliUpgradeResult{ID: spec.ID, Success: false, Message: spec.Name + " 未安装，且没有可用的在线安装源"}
+		return CliUpgradeResult{ID: spec.ID, Success: false, Message: sprintf("%s 未安装，且没有可用的在线安装源", spec.Name)}
 	}
 	latest := status.LatestVersion
 	if latest == "" && spec.NpmPackage != "" {
 		latest, _ = npmLatestVersion(spec.NpmPackage)
 	}
-	a.emitCliProgress(spec.ID, "start", spec.Name+" 使用 "+installer+" 更新中")
+	a.emitCliProgress(spec.ID, "start", sprintf("%s 使用 %s 更新中", spec.Name, installer))
 
 	var log strings.Builder
 	var err error
@@ -315,7 +315,7 @@ func (a *App) upgradeOne(spec cliSpec) CliUpgradeResult {
 		log.WriteString(out)
 		err = runErr
 	default:
-		return CliUpgradeResult{ID: spec.ID, Success: false, Message: spec.Name + " 未安装，且没有可用的在线安装源"}
+		return CliUpgradeResult{ID: spec.ID, Success: false, Message: sprintf("%s 未安装，且没有可用的在线安装源", spec.Name)}
 	}
 	if err != nil && strings.TrimSpace(log.String()) == "" {
 		return CliUpgradeResult{ID: spec.ID, Success: false, Message: truncateCliError(log.String(), err), Log: log.String()}
@@ -347,34 +347,33 @@ func (a *App) upgradeOne(spec cliSpec) CliUpgradeResult {
 	if latest != "" && (afterVer == "" || versionLess(afterVer, latest)) {
 		current := afterVer
 		if current == "" {
-			current = "未知"
+			current = tr("未知")
 		}
 		return CliUpgradeResult{
 			ID:      spec.ID,
 			Success: false,
-			Message: spec.Name + " 未升到 " + latest + "（当前 " + current + "）。pnpm 10 可能跳过了 native 安装脚本，请看下方日志。",
+			Message: sprintf("%s 未升到 %s（当前 %s）。pnpm 10 可能跳过了 native 安装脚本，请看下方日志。", spec.Name, latest, current),
 			Log:     out,
 		}
 	}
-	msg := spec.Name + " 已更新"
+	msg := sprintf("%s 已更新（%s）", spec.Name, installer)
 	if afterVer != "" {
-		msg += "到 " + afterVer
+		msg = sprintf("%s 已更新到 %s（%s）", spec.Name, afterVer, installer)
 	}
-	msg += "（" + installer + "）"
 	return CliUpgradeResult{ID: spec.ID, Success: true, Message: msg, Log: out}
 }
 
 // installCliTool 通过官方安装器在线安装 CLI
 func (a *App) installCliTool(spec cliSpec, installCmd []string) CliUpgradeResult {
-	a.emitCliProgress(spec.ID, "start", spec.Name+" 使用官方安装器安装中")
+	a.emitCliProgress(spec.ID, "start", sprintf("%s 使用官方安装器安装中", spec.Name))
 	out, runErr := runTool(5*time.Minute, installCmd[0], installCmd[1:]...)
 	after := a.inspectCliTool(spec)
-	msg := spec.Name + " 安装完成"
+	msg := sprintf("%s 安装完成", spec.Name)
 	if runErr != nil || !after.Installed {
-		msg = spec.Name + " 安装未完成，请查看日志"
+		msg = sprintf("%s 安装未完成，请查看日志", spec.Name)
 	}
 	if after.CurrentVersion != "" {
-		msg += "（" + after.CurrentVersion + "）"
+		msg = sprintf("%s（%s）", msg, after.CurrentVersion)
 	}
 	a.emitCliProgress(spec.ID, "done", msg)
 	return CliUpgradeResult{ID: spec.ID, Success: after.Installed, Message: msg, Log: out}
@@ -749,7 +748,7 @@ func runToolRawEnvDir(timeout time.Duration, extraEnv []string, dir, name string
 	case <-ctx.Done():
 		killCmd(cmd)
 		<-done
-		return buf.String(), fmt.Errorf("命令超时")
+		return buf.String(), errorf("命令超时")
 	}
 }
 

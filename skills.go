@@ -111,31 +111,31 @@ func (ss *SkillService) SaveSkill(skill Skill) error {
 
 	name := strings.TrimSpace(skill.Name)
 	if name == "" {
-		return fmt.Errorf("技能名称不能为空")
+		return errorf("技能名称不能为空")
 	}
 	if !skillDirNamePattern.MatchString(name) {
-		return fmt.Errorf("技能名称格式不正确：只允许小写字母/数字/连字符，且长度 1-64")
+		return errorf("技能名称格式不正确：只允许小写字母/数字/连字符，且长度 1-64")
 	}
 
 	enablePlatform := normalizePlatforms(skill.EnablePlatform)
 
 	content := strings.TrimSpace(skill.Content)
 	if content == "" {
-		return fmt.Errorf("SKILL.md 内容不能为空")
+		return errorf("SKILL.md 内容不能为空")
 	}
 
 	meta := parseSkillFrontmatter(content)
 	if !meta.HasFrontmatter {
-		return fmt.Errorf("SKILL.md 必须以 YAML frontmatter 开头（--- ... ---）")
+		return errorf("SKILL.md 必须以 YAML frontmatter 开头（--- ... ---）")
 	}
 	if !meta.HasName || strings.TrimSpace(meta.Name) == "" {
-		return fmt.Errorf("SKILL.md frontmatter 必须包含 name")
+		return errorf("SKILL.md frontmatter 必须包含 name")
 	}
 	if !meta.HasDescription || strings.TrimSpace(meta.Description) == "" {
-		return fmt.Errorf("SKILL.md frontmatter 必须包含 description")
+		return errorf("SKILL.md frontmatter 必须包含 description")
 	}
 	if strings.TrimSpace(meta.Name) != name {
-		return fmt.Errorf("SKILL.md frontmatter name(%s) 与技能目录名(%s) 不一致", strings.TrimSpace(meta.Name), name)
+		return errorf("SKILL.md frontmatter name(%s) 与技能目录名(%s) 不一致", strings.TrimSpace(meta.Name), name)
 	}
 
 	config, err := ss.loadConfig()
@@ -165,7 +165,7 @@ func (ss *SkillService) DeleteSkill(name string) error {
 
 	trimmed := strings.TrimSpace(name)
 	if trimmed == "" {
-		return fmt.Errorf("技能名称不能为空")
+		return errorf("技能名称不能为空")
 	}
 
 	config, err := ss.loadConfig()
@@ -192,7 +192,7 @@ func (ss *SkillService) ApplyToPlatform(platform string) (int, error) {
 
 	plat, ok := normalizePlatform(platform)
 	if !ok {
-		return 0, fmt.Errorf("未知平台")
+		return 0, errorf("未知平台")
 	}
 
 	config, err := ss.loadConfig()
@@ -439,7 +439,7 @@ func (ss *SkillService) applyStoreToPlatforms() error {
 // writeSkillFiles 把 SKILL.md 写到启用的平台；removeDisabled 时从未启用的平台卸载
 func (ss *SkillService) writeSkillFiles(name string, entry rawSkill, removeDisabled bool) error {
 	if !isSafeSkillDirName(name) {
-		return fmt.Errorf("技能名称 %q 不能作为目录名", name)
+		return errorf("技能名称 %q 不能作为目录名", name)
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -506,7 +506,7 @@ func isSafeSkillDirName(name string) bool {
 
 func (ss *SkillService) removeSkillFromAllPlatforms(name string) error {
 	if !isSafeSkillDirName(name) {
-		return fmt.Errorf("技能名称 %q 不能作为目录名", name)
+		return errorf("技能名称 %q 不能作为目录名", name)
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -606,7 +606,7 @@ func parseSkillFrontmatter(content string) skillFrontmatter {
 		i++
 	}
 	if i >= len(lines) {
-		return skillFrontmatter{HasFrontmatter: true, Error: "frontmatter 未找到结束分隔符 ---"}
+		return skillFrontmatter{HasFrontmatter: true, Error: tr("frontmatter 未找到结束分隔符 ---")}
 	}
 
 	frontmatterLines := lines[start:i]

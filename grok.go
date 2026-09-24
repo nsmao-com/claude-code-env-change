@@ -34,7 +34,7 @@ func grokSkillsRoot() string {
 func (a *App) applyGrokEnv(env *EnvConfig) (string, error) {
 	dir := resolveGrokHome(env.Variables)
 	if err := os.MkdirAll(dir, 0755); err != nil {
-		return "", fmt.Errorf("创建 Grok 配置目录失败: %v", err)
+		return "", errorf("创建 Grok 配置目录失败: %v", err)
 	}
 
 	configFile := filepath.Join(dir, "config.toml")
@@ -48,7 +48,7 @@ func (a *App) applyGrokEnv(env *EnvConfig) (string, error) {
 	if err := mergeWriteGrokConfig(configFile, content, env.Variables); err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("Grok 配置已应用到 %s", configFile), nil
+	return sprintf("Grok 配置已应用到 %s", configFile), nil
 }
 
 func defaultGrokToml(env *EnvConfig) string {
@@ -107,15 +107,15 @@ func mergeWriteGrokConfig(configFile, incoming string, vars map[string]string) e
 	if data, err := os.ReadFile(configFile); err == nil && len(data) > 0 {
 		if err := toml.Unmarshal(data, &existing); err != nil || existing == nil {
 			// 解析失败时中止而非清空重建，避免覆盖用户在 config.toml 里的其他配置
-			return fmt.Errorf("解析 Grok config.toml 失败，为保护原文件已中止写入: %v", err)
+			return errorf("解析 Grok config.toml 失败，为保护原文件已中止写入: %v", err)
 		}
 	} else if err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("读取 Grok config.toml 失败: %v", err)
+		return errorf("读取 Grok config.toml 失败: %v", err)
 	}
 
 	next := map[string]any{}
 	if err := toml.Unmarshal([]byte(incoming), &next); err != nil || next == nil {
-		return fmt.Errorf("配置模板不是有效 TOML: %v", err)
+		return errorf("配置模板不是有效 TOML: %v", err)
 	}
 
 	// 以现有文件为底、新配置覆盖同名顶层键，完整保留用户的自定义段（含注释外的全部键值）
@@ -127,10 +127,10 @@ func mergeWriteGrokConfig(configFile, incoming string, vars map[string]string) e
 
 	data, err := toml.Marshal(merged)
 	if err != nil {
-		return fmt.Errorf("序列化 Grok config.toml 失败: %v", err)
+		return errorf("序列化 Grok config.toml 失败: %v", err)
 	}
 	if err := writeFileAtomic(configFile, data, 0644); err != nil {
-		return fmt.Errorf("写入 Grok config.toml 失败: %v", err)
+		return errorf("写入 Grok config.toml 失败: %v", err)
 	}
 	return nil
 }
@@ -225,7 +225,7 @@ func (a *App) clearGrokSettingsLocked() error {
 
 	payload := map[string]any{}
 	if err := toml.Unmarshal(data, &payload); err != nil {
-		return fmt.Errorf("解析 Grok config.toml 失败: %v", err)
+		return errorf("解析 Grok config.toml 失败: %v", err)
 	}
 
 	if modelMap, ok := payload["model"].(map[string]any); ok {

@@ -59,10 +59,13 @@ const (
 	mfString       = 0x0000
 	mfSeparator    = 0x0800
 
-	nimAdd    = 0
-	nimDelete = 2
-	nifIcon   = 0x02
-	nifTip    = 0x04
+	nimAdd      = 0
+	nimModify   = 1
+	nimDelete   = 2
+	nifInfo     = 0x10
+	niifWarning = 0x02
+	nifIcon     = 0x02
+	nifTip      = 0x04
 
 	gwlUserData = ^uintptr(20) // GWLP_USERDATA (-21)
 	hwndTopmost = ^uintptr(0)  // HWND_TOPMOST (-1)
@@ -347,10 +350,49 @@ func (t *trayManager) addTrayIcon() {
 		nid.UFlags |= nifIcon
 		nid.HIcon = t.hIcon
 	}
-	if tip, err := windows.UTF16FromString("AI ENV - AI CLI 环境与配置管理"); err == nil {
-		copy(nid.SzTip[:], tip)
+	if tip, err := windows.UTF16FromString(tr("AI ENV - AI CLI 环境与配置管理")); err == nil {
+		copy(nid.SzTip[:len(nid.SzTip)-1], tip)
 	}
 	procShellNotifyIconW.Call(nimAdd, uintptr(unsafe.Pointer(&nid)))
+}
+
+// trayLanguageChanged 界面换语言后刷新托盘提示文字与右键面板
+func trayLanguageChanged() {
+	t := tray
+	if t == nil || t.hostHwnd == 0 {
+		return
+	}
+	var nid notifyIconData
+	nid.CbSize = uint32(unsafe.Sizeof(nid))
+	nid.HWnd = t.hostHwnd
+	nid.UFlags = nifTip
+	if tip, err := windows.UTF16FromString(tr("AI ENV - AI CLI 环境与配置管理")); err == nil {
+		copy(nid.SzTip[:len(nid.SzTip)-1], tip)
+	}
+	procShellNotifyIconW.Call(nimModify, uintptr(unsafe.Pointer(&nid)))
+	if p := t.getPanel(); p != nil {
+		p.pushState()
+	}
+}
+
+// trayNotify 在托盘图标上弹出系统通知气泡（Windows 10+ 显示为系统通知）
+func trayNotify(title, message string) {
+	t := tray
+	if t == nil || t.hostHwnd == 0 {
+		return
+	}
+	var nid notifyIconData
+	nid.CbSize = uint32(unsafe.Sizeof(nid))
+	nid.HWnd = t.hostHwnd
+	nid.UFlags = nifInfo
+	nid.DwInfoFlags = niifWarning
+	if s, err := windows.UTF16FromString(title); err == nil {
+		copy(nid.SzInfoTitle[:len(nid.SzInfoTitle)-1], s)
+	}
+	if s, err := windows.UTF16FromString(message); err == nil {
+		copy(nid.SzInfo[:len(nid.SzInfo)-1], s)
+	}
+	procShellNotifyIconW.Call(nimModify, uintptr(unsafe.Pointer(&nid)))
 }
 
 func (t *trayManager) removeTrayIcon() {
@@ -516,12 +558,12 @@ func (t *trayManager) fallbackMenu() {
 	if hmenu == 0 {
 		return
 	}
-	appendFallbackItem(hmenu, 1, "显示主窗口")
-	appendFallbackItem(hmenu, 2, "隐藏主窗口")
+	appendFallbackItem(hmenu, 1, tr("显示主窗口"))
+	appendFallbackItem(hmenu, 2, tr("隐藏主窗口"))
 	appendFallbackSeparator(hmenu)
-	appendFallbackItem(hmenu, 3, "全局设置")
+	appendFallbackItem(hmenu, 3, tr("全局设置"))
 	appendFallbackSeparator(hmenu)
-	appendFallbackItem(hmenu, 4, "退出")
+	appendFallbackItem(hmenu, 4, tr("退出"))
 	procSetForegroundWindow.Call(t.hostHwnd)
 	cmd, _, _ := procTrackPopupMenuEx.Call(hmenu, tpmReturnCmd|tpmRightButton|tpmNoNotify,
 		uintptr(pt.X), uintptr(pt.Y), t.hostHwnd, 0)

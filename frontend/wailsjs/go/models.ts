@@ -1,5 +1,217 @@
 export namespace main {
 	
+	export class BudgetRule {
+	    id: string;
+	    scope: string;
+	    provider?: string;
+	    env_name?: string;
+	    period: string;
+	    limit: number;
+	    enabled: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new BudgetRule(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.scope = source["scope"];
+	        this.provider = source["provider"];
+	        this.env_name = source["env_name"];
+	        this.period = source["period"];
+	        this.limit = source["limit"];
+	        this.enabled = source["enabled"];
+	    }
+	}
+	export class BudgetSettings {
+	    rules: BudgetRule[];
+	    warn_percent: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new BudgetSettings(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.rules = this.convertValues(source["rules"], BudgetRule);
+	        this.warn_percent = source["warn_percent"];
+	    }
+
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class BudgetStatus {
+	    rule: BudgetRule;
+	    spent: number;
+	    percent: number;
+	    level: string;
+	    since: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new BudgetStatus(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.rule = this.convertValues(source["rule"], BudgetRule);
+	        this.spent = source["spent"];
+	        this.percent = source["percent"];
+	        this.level = source["level"];
+	        this.since = source["since"];
+	    }
+
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class ProjectEnvVar {
+	    key: string;
+	    value: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ProjectEnvVar(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.key = source["key"];
+	        this.value = source["value"];
+	    }
+	}
+	export class ProjectMcpServer {
+	    name: string;
+	    type: string;
+	    command?: string;
+	    args?: string[];
+	    url?: string;
+	    in_library: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new ProjectMcpServer(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.type = source["type"];
+	        this.command = source["command"];
+	        this.args = source["args"];
+	        this.url = source["url"];
+	        this.in_library = source["in_library"];
+	    }
+	}
+	export class ProjectDetail {
+	    path: string;
+	    name: string;
+	    exists: boolean;
+	    pinned: boolean;
+	    mcp_count: number;
+	    has_claude_md: boolean;
+	    applied_env?: string;
+	    env_override: boolean;
+	    mcp_servers: ProjectMcpServer[];
+	    env_vars: ProjectEnvVar[];
+	    claude_md: string;
+	    mcp_path: string;
+	    settings_path: string;
+	    claude_md_path: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ProjectDetail(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.path = source["path"];
+	        this.name = source["name"];
+	        this.exists = source["exists"];
+	        this.pinned = source["pinned"];
+	        this.mcp_count = source["mcp_count"];
+	        this.has_claude_md = source["has_claude_md"];
+	        this.applied_env = source["applied_env"];
+	        this.env_override = source["env_override"];
+	        this.mcp_servers = this.convertValues(source["mcp_servers"], ProjectMcpServer);
+	        this.env_vars = this.convertValues(source["env_vars"], ProjectEnvVar);
+	        this.claude_md = source["claude_md"];
+	        this.mcp_path = source["mcp_path"];
+	        this.settings_path = source["settings_path"];
+	        this.claude_md_path = source["claude_md_path"];
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class ProjectInfo {
+	    path: string;
+	    name: string;
+	    exists: boolean;
+	    pinned: boolean;
+	    mcp_count: number;
+	    has_claude_md: boolean;
+	    applied_env?: string;
+	    env_override: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new ProjectInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.path = source["path"];
+	        this.name = source["name"];
+	        this.exists = source["exists"];
+	        this.pinned = source["pinned"];
+	        this.mcp_count = source["mcp_count"];
+	        this.has_claude_md = source["has_claude_md"];
+	        this.applied_env = source["applied_env"];
+	        this.env_override = source["env_override"];
+	    }
+	}
 	export class RouteUpstream {
 	    base_url: string;
 	    api_key?: string;

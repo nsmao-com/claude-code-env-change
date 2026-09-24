@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"time"
@@ -23,13 +22,13 @@ func writeFileAtomic(path string, data []byte, perm os.FileMode) error {
 	dir := filepath.Dir(path)
 	tmp, err := os.CreateTemp(dir, filepath.Base(path)+".tmp-*")
 	if err != nil {
-		return fmt.Errorf("创建临时文件失败: %v", err)
+		return errorf("创建临时文件失败: %v", err)
 	}
 	tmpName := tmp.Name()
 	if _, err := tmp.Write(data); err != nil {
 		tmp.Close()
 		os.Remove(tmpName)
-		return fmt.Errorf("写入临时文件失败: %v", err)
+		return errorf("写入临时文件失败: %v", err)
 	}
 	if err := tmp.Sync(); err != nil {
 		tmp.Close()
@@ -54,7 +53,7 @@ func writeFileAtomic(path string, data []byte, perm os.FileMode) error {
 		time.Sleep(120 * time.Millisecond)
 	}
 	// 保留临时文件供人工恢复，绝不降级为非原子直写
-	return fmt.Errorf("替换 %s 失败（原文件未动，临时文件保留在 %s）: %v", path, tmpName, renameErr)
+	return errorf("替换 %s 失败（原文件未动，临时文件保留在 %s）: %v", path, tmpName, renameErr)
 }
 
 // backupFile 把现有文件复制为 <name>.bak（覆盖上一份），用于覆盖删除前的最后防线。

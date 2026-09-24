@@ -222,7 +222,7 @@ func restorePromptFiles(raw json.RawMessage) error {
 func cloudConflictMessage(v *CloudVersion) string {
 	host := strings.TrimSpace(v.Hostname)
 	if host == "" {
-		host = "另一台电脑"
+		host = tr("另一台电脑")
 	}
-	return fmt.Sprintf("云端有 %s 在 %s 上传的新备份，本机还没拉取过", host, time.UnixMilli(v.ExportedAt).Format("2006-01-02 15:04"))
+	return sprintf("云端有 %s 在 %s 上传的新备份，本机还没拉取过", host, time.UnixMilli(v.ExportedAt).Format("2006-01-02 15:04"))
 }

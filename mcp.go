@@ -127,7 +127,7 @@ func (ms *MCPService) SaveServers(servers []MCPServer) error {
 		server := servers[i]
 		name := strings.TrimSpace(server.Name)
 		if name == "" {
-			return fmt.Errorf("服务器名称不能为空")
+			return errorf("服务器名称不能为空")
 		}
 		typ := normalizeServerType(server.Type)
 		platforms := normalizePlatforms(server.EnablePlatform)
@@ -137,10 +137,10 @@ func (ms *MCPService) SaveServers(servers []MCPServer) error {
 		url := strings.TrimSpace(server.URL)
 
 		if typ == "stdio" && command == "" {
-			return fmt.Errorf("%s 需要提供 command", name)
+			return errorf("%s 需要提供 command", name)
 		}
 		if (typ == "http" || typ == "sse") && url == "" {
-			return fmt.Errorf("%s 需要提供 url", name)
+			return errorf("%s 需要提供 url", name)
 		}
 
 		headers := cleanEnv(server.Headers)
@@ -460,7 +460,7 @@ func (ms *MCPService) syncClaudeServers(servers []MCPServer) error {
 	if data, err := os.ReadFile(path); err == nil && len(data) > 0 {
 		if err := json.Unmarshal(data, &payload); err != nil {
 			// 解析失败时中止而非清空重建，避免误删 ~/.claude.json 中的其他配置（projects 历史等）
-			return fmt.Errorf("解析 %s 失败，为保护原文件已中止同步: %v", path, err)
+			return errorf("解析 %s 失败，为保护原文件已中止同步: %v", path, err)
 		}
 	} else if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
@@ -496,7 +496,7 @@ func (ms *MCPService) syncCodexServers(servers []MCPServer) error {
 	if data, err := os.ReadFile(path); err == nil && len(data) > 0 {
 		if err := toml.Unmarshal(data, &payload); err != nil {
 			// 解析失败时中止而非清空重建，避免覆盖 config.toml 中的其他配置
-			return fmt.Errorf("解析 %s 失败，为保护原文件已中止同步: %v", path, err)
+			return errorf("解析 %s 失败，为保护原文件已中止同步: %v", path, err)
 		}
 	} else if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
@@ -540,7 +540,7 @@ func (ms *MCPService) syncAntigravityServers(servers []MCPServer, removed map[st
 	if data, err := os.ReadFile(path); err == nil && len(data) > 0 {
 		if err := json.Unmarshal(data, &payload); err != nil {
 			// 解析失败时中止而非清空重建，避免丢失 mcpServers 以外的顶层内容
-			return fmt.Errorf("解析 %s 失败，为保护原文件已中止同步: %v", path, err)
+			return errorf("解析 %s 失败，为保护原文件已中止同步: %v", path, err)
 		}
 		// 读取现有的 mcpServers
 		var mcpPayload claudeMcpFilePayload
@@ -1514,7 +1514,7 @@ func (ms *MCPService) syncGrokServers(servers []MCPServer) error {
 	payload := make(map[string]any)
 	if data, err := os.ReadFile(path); err == nil && len(data) > 0 {
 		if err := toml.Unmarshal(data, &payload); err != nil {
-			return fmt.Errorf("解析 %s 失败，为保护原文件已中止同步: %v", path, err)
+			return errorf("解析 %s 失败，为保护原文件已中止同步: %v", path, err)
 		}
 	} else if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
@@ -1624,7 +1624,7 @@ func (ms *MCPService) syncOpencodeServers(servers []MCPServer, removed map[strin
 	} else if len(data) > 0 {
 		parsed, parseErr := parseJSONLikeObject(data)
 		if parseErr != nil {
-			return fmt.Errorf("解析 %s 失败，为保护原文件已中止同步: %v", path, parseErr)
+			return errorf("解析 %s 失败，为保护原文件已中止同步: %v", path, parseErr)
 		}
 		payload = parsed
 	}
@@ -1755,7 +1755,7 @@ func (ms *MCPService) TestServer(server MCPServer) MCPTestResult {
 // testHTTPServer 测试 HTTP 类型的 MCP 服务器
 func (ms *MCPService) testHTTPServer(url string, start time.Time) MCPTestResult {
 	if url == "" {
-		return MCPTestResult{Success: false, Message: "URL 为空"}
+		return MCPTestResult{Success: false, Message: tr("URL 为空")}
 	}
 
 	client := &http.Client{Timeout: 10 * time.Second}
@@ -1763,20 +1763,20 @@ func (ms *MCPService) testHTTPServer(url string, start time.Time) MCPTestResult 
 	latency := time.Since(start).Milliseconds()
 
 	if err != nil {
-		return MCPTestResult{Success: false, Message: fmt.Sprintf("连接失败: %v", err), Latency: latency}
+		return MCPTestResult{Success: false, Message: sprintf("连接失败: %v", err), Latency: latency}
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 200 && resp.StatusCode < 500 {
-		return MCPTestResult{Success: true, Message: fmt.Sprintf("连接成功 (HTTP %d)", resp.StatusCode), Latency: latency}
+		return MCPTestResult{Success: true, Message: sprintf("连接成功 (HTTP %d)", resp.StatusCode), Latency: latency}
 	}
-	return MCPTestResult{Success: false, Message: fmt.Sprintf("服务器错误 (HTTP %d)", resp.StatusCode), Latency: latency}
+	return MCPTestResult{Success: false, Message: sprintf("服务器错误 (HTTP %d)", resp.StatusCode), Latency: latency}
 }
 
 // testStdioServer 测试 Stdio 类型的 MCP 服务器
 func (ms *MCPService) testStdioServer(command string, args []string, env map[string]string, start time.Time) MCPTestResult {
 	if command == "" {
-		return MCPTestResult{Success: false, Message: "Command 为空"}
+		return MCPTestResult{Success: false, Message: tr("Command 为空")}
 	}
 
 	// 检查命令是否存在
@@ -1802,10 +1802,10 @@ func (ms *MCPService) testStdioServer(command string, args []string, env map[str
 				}
 			}
 			if !found {
-				return MCPTestResult{Success: false, Message: fmt.Sprintf("命令未找到: %s", command), Latency: time.Since(start).Milliseconds()}
+				return MCPTestResult{Success: false, Message: sprintf("命令未找到: %s", command), Latency: time.Since(start).Milliseconds()}
 			}
 		} else {
-			return MCPTestResult{Success: false, Message: fmt.Sprintf("命令未找到: %s", command), Latency: time.Since(start).Milliseconds()}
+			return MCPTestResult{Success: false, Message: sprintf("命令未找到: %s", command), Latency: time.Since(start).Milliseconds()}
 		}
 	}
 
@@ -1837,7 +1837,7 @@ func (ms *MCPService) testStdioServer(command string, args []string, env map[str
 	latency := time.Since(start).Milliseconds()
 
 	if err != nil {
-		return MCPTestResult{Success: false, Message: fmt.Sprintf("启动失败: %v", err), Latency: latency}
+		return MCPTestResult{Success: false, Message: sprintf("启动失败: %v", err), Latency: latency}
 	}
 
 	// 立即终止进程：Windows 下 taskkill 杀整棵进程树（npx.cmd 会包一层 cmd.exe），
@@ -1845,7 +1845,7 @@ func (ms *MCPService) testStdioServer(command string, args []string, env map[str
 	killCmd(cmd)
 	_ = cmd.Wait()
 
-	return MCPTestResult{Success: true, Message: "命令可执行", Latency: latency}
+	return MCPTestResult{Success: true, Message: tr("命令可执行"), Latency: latency}
 }
 
 // ImportFromJSON 从 JSON 字符串导入 MCP 服务器配置
@@ -1855,7 +1855,7 @@ func (ms *MCPService) ImportFromJSON(jsonStr string) ([]MCPServer, error) {
 
 	jsonStr = strings.TrimSpace(jsonStr)
 	if jsonStr == "" {
-		return nil, fmt.Errorf("JSON 内容为空")
+		return nil, errorf("JSON 内容为空")
 	}
 
 	// 尝试解析为 Claude 格式的 mcpServers
@@ -1890,7 +1890,7 @@ func (ms *MCPService) ImportFromJSON(jsonStr string) ([]MCPServer, error) {
 		return serverArray, nil
 	}
 
-	return nil, fmt.Errorf("无法解析 JSON 格式，请检查格式是否正确")
+	return nil, errorf("无法解析 JSON 格式，请检查格式是否正确")
 }
 
 // parseClaudeFormat 解析 Claude 格式的服务器配置
@@ -1934,7 +1934,7 @@ func (ms *MCPService) parseClaudeFormat(servers map[string]claudeDesktopServer) 
 	}
 
 	if len(result) == 0 {
-		return nil, fmt.Errorf("没有找到有效的服务器配置")
+		return nil, errorf("没有找到有效的服务器配置")
 	}
 
 	return result, nil
@@ -2032,7 +2032,7 @@ func (ms *MCPService) ApplyToPlatform(platform string) (int, error) {
 
 	plat, ok := normalizePlatform(platform)
 	if !ok {
-		return 0, fmt.Errorf("未知平台")
+		return 0, errorf("未知平台")
 	}
 
 	config, err := ms.loadConfig()

@@ -876,7 +876,7 @@ type sseWriter struct {
 func newSSEWriter(w http.ResponseWriter) (*sseWriter, error) {
 	flusher, ok := w.(http.Flusher)
 	if !ok {
-		return nil, fmt.Errorf("ResponseWriter 不支持流式输出")
+		return nil, errorf("ResponseWriter 不支持流式输出")
 	}
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")

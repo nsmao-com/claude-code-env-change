@@ -1,3 +1,5 @@
+import { enBudget } from './en/budget'
+import { enProjects } from './en/projects'
 import { enUpdate } from './en/update'
 import { enStats } from './en/stats'
 import { enPrompt } from './en/prompt'
@@ -15,6 +17,7 @@ export const en = {
   nav: {
     home: 'Home',
     env: 'Environments',
+    projects: 'Projects',
     mcp: 'MCP',
     skills: 'Skills',
     router: 'Router',
@@ -251,4 +254,6 @@ export const en = {
   prompt: enPrompt,
   stats: enStats,
   update: enUpdate,
+  projects: enProjects,
+  budget: enBudget,
 } as const

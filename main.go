@@ -30,11 +30,14 @@ func main() {
 	uptimeService := NewUptimeService(app)
 	routerService := NewRouterService()
 	cloudSyncService := NewCloudSyncService(app, routerService, mcpService, skillService)
+	projectService := NewProjectService(app, mcpService)
+	budgetService := NewBudgetService(app, logService)
 
 	onStartup := func(ctx context.Context) {
 		app.OnStartup(ctx)
 		routerService.OnStartup(ctx)
 		cloudSyncService.OnStartup()
+		budgetService.OnStartup()
 		// Windows 系统托盘 + 右键面板（其它平台为空实现），独立 goroutine 不阻塞启动
 		go StartTray(app, ctx, routerService)
 	}
@@ -72,7 +75,7 @@ func main() {
 			DisableFramelessWindowDecorations: false,
 			Theme:                             windows.SystemDefault,
 		},
-		Mac:   &mac.Options{About: &mac.AboutInfo{Title: "AI ENV", Message: "AI CLI 环境与配置管理工具", Icon: appIcon}},
+		Mac:   &mac.Options{About: &mac.AboutInfo{Title: "AI ENV", Message: tr("AI CLI 环境与配置管理工具"), Icon: appIcon}},
 		Linux: &linux.Options{Icon: appIcon, ProgramName: "AI ENV"},
 		Bind: []interface{}{
 			app,
@@ -82,6 +85,8 @@ func main() {
 			uptimeService,
 			routerService,
 			cloudSyncService,
+			projectService,
+			budgetService,
 		},
 	})
 

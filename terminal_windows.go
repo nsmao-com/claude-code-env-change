@@ -3,7 +3,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"os/exec"
 	"strings"
@@ -19,15 +18,15 @@ func openTerminalWithEnv(vars map[string]string) error {
 			cmd := exec.Command(path)
 			cmd.Env = env
 			if err := cmd.Start(); err != nil {
-				return fmt.Errorf("启动 Windows Terminal 失败: %v", err)
+				return errorf("启动 Windows Terminal 失败: %v", err)
 			}
 			return nil
 		}
 	}
-	cmd := exec.Command("cmd.exe", "/K", "title AI ENV 终端")
+	cmd := exec.Command("cmd.exe", "/K", tr("title AI ENV 终端"))
 	cmd.Env = env
 	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("启动终端失败: %v", err)
+		return errorf("启动终端失败: %v", err)
 	}
 	return nil
 }

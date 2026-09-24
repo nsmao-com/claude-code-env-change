@@ -192,66 +192,66 @@
     </svg>
     <div class="titles">
       <div class="name">AI ENV</div>
-      <div class="sub" id="h-sub">AI CLI 环境与配置管理</div>
+      <div class="sub" id="h-sub" data-i18n="subtitle">AI CLI 环境与配置管理</div>
     </div>
-    <div class="stat" id="h-stat">加载中…</div>
+    <div class="stat" id="h-stat" data-i18n="loading">加载中…</div>
   </div>
 
   <div class="card quick" id="quick">
-    <div class="chip" data-act="toggle-main" title="显示 / 隐藏主窗口">
+    <div class="chip" data-act="toggle-main" title="显示 / 隐藏主窗口" data-i18n-title="toggleMainTip">
       <div class="glyph" data-icon="monitor"></div>
-      <div class="lbl">主窗口</div>
+      <div class="lbl" data-i18n="mainWindow">主窗口</div>
     </div>
-    <div class="chip" data-act="apply-all" title="把各平台激活配置写入本机">
+    <div class="chip" data-act="apply-all" title="把各平台激活配置写入本机" data-i18n-title="applyAllTip">
       <div class="glyph" data-icon="zap"></div>
-      <div class="lbl">全部应用</div>
+      <div class="lbl" data-i18n="applyAll">全部应用</div>
     </div>
-    <div class="chip" data-act="router-toggle" id="chip-router" title="本地协议转换网关">
+    <div class="chip" data-act="router-toggle" id="chip-router" title="本地协议转换网关" data-i18n-title="routerTip">
       <div class="glyph" data-icon="wifi"><span class="dot"></span></div>
       <div class="lbl" id="chip-router-lbl">本地路由</div>
     </div>
-    <div class="chip" data-act="check-update" id="chip-update" title="检查新版本">
+    <div class="chip" data-act="check-update" id="chip-update" title="检查新版本" data-i18n-title="checkUpdateTip">
       <div class="glyph" data-icon="refresh"><span class="dot"></span></div>
-      <div class="lbl">检查更新</div>
+      <div class="lbl" data-i18n="checkUpdate">检查更新</div>
     </div>
   </div>
 
   <div class="card menu">
     <div class="row" data-act="quick-switch">
       <div class="ric" data-icon="repeat"></div>
-      <div class="rlb">快速切换</div>
+      <div class="rlb" data-i18n="quickSwitch">快速切换</div>
       <div class="chev" data-icon="chev-r"></div>
     </div>
     <div class="row" data-act="open-router">
       <div class="ric" data-icon="route"></div>
-      <div class="rlb">路由设置<span class="hint" id="router-hint"></span></div>
+      <div class="rlb"><span data-i18n="routerSettings">路由设置</span><span class="hint" id="router-hint"></span></div>
       <div class="chev" data-icon="chev-r"></div>
     </div>
     <div class="row" data-act="autostart-toggle">
       <div class="ric" data-icon="rocket"></div>
-      <div class="rlb">开机自启<span class="hint" id="autostart-hint"></span></div>
+      <div class="rlb"><span data-i18n="autostart">开机自启</span><span class="hint" id="autostart-hint"></span></div>
       <div class="chev" data-icon="chev-r"></div>
     </div>
     <div class="row" data-act="open-settings">
       <div class="ric" data-icon="gear"></div>
-      <div class="rlb">全局设置</div>
+      <div class="rlb" data-i18n="settings">全局设置</div>
       <div class="chev" data-icon="chev-r"></div>
     </div>
     <div class="row" data-act="help">
       <div class="ric" data-icon="help"></div>
-      <div class="rlb">帮助</div>
+      <div class="rlb" data-i18n="help">帮助</div>
       <div class="chev" data-icon="chev-r"></div>
     </div>
     <div class="row quitted" data-act="quit">
       <div class="ric" data-icon="power"></div>
-      <div class="rlb">退出</div>
+      <div class="rlb" data-i18n="quit">退出</div>
     </div>
   </div>
 
   <div class="subview" id="subview">
     <div class="subhead">
       <div class="back" data-act="back" data-icon="chev-l"></div>
-      <div class="st">快速切换</div>
+      <div class="st" data-i18n="quickSwitch">快速切换</div>
     </div>
     <div class="providers" id="providers"></div>
     <div class="envlist" id="envlist"></div>
@@ -301,6 +301,41 @@
   var elEnvList = document.getElementById('envlist');
   var elToast = document.getElementById('toast');
 
+  // 文字随主界面语言（后端在 state.lang 里告知）
+  var I18N = {
+    zh: {
+      subtitle: 'AI CLI 环境与配置管理', loading: '加载中…', toggleMainTip: '显示 / 隐藏主窗口', mainWindow: '主窗口',
+      applyAllTip: '把各平台激活配置写入本机', applyAll: '全部应用', routerTip: '本地协议转换网关',
+      checkUpdateTip: '检查新版本', checkUpdate: '检查更新', quickSwitch: '快速切换', routerSettings: '路由设置',
+      autostart: '开机自启', settings: '全局设置', help: '帮助', quit: '退出',
+      managed: '已托管 <b>{n}</b> 条配置', routerOn: '路由 · 开', routerOff: '本地路由',
+      routerOnHint: '已开启 :{port}', off: '未开启', enabled: '已开启', disabled: '已关闭',
+      noEnvs: '没有可用的配置', providerEmpty: '{p} 还没有配置，去软件里添加', current: '当前', official: '官方登录',
+      alreadyCurrent: '{p} 当前已是「{name}」', noConfigs: '还没有任何配置，先在软件里添加', checking: '正在检查更新…'
+    },
+    en: {
+      subtitle: 'Environment and config manager for AI CLIs', loading: 'Loading…', toggleMainTip: 'Show / hide the main window', mainWindow: 'Window',
+      applyAllTip: 'Write each platform\'s active config to this computer', applyAll: 'Apply all', routerTip: 'Local protocol-conversion gateway',
+      checkUpdateTip: 'Check for a new version', checkUpdate: 'Update', quickSwitch: 'Quick switch', routerSettings: 'Router',
+      autostart: 'Launch at startup', settings: 'Settings', help: 'Help', quit: 'Quit',
+      managed: '<b>{n}</b> configs managed', routerOn: 'Router · on', routerOff: 'Router',
+      routerOnHint: 'On :{port}', off: 'Off', enabled: 'On', disabled: 'Off',
+      noEnvs: 'No configs available', providerEmpty: 'No {p} configs yet; add one in the app', current: 'Current', official: 'Official login',
+      alreadyCurrent: '{p} is already using "{name}"', noConfigs: 'No configs yet; add one in the app first', checking: 'Checking for updates…'
+    }
+  };
+  var lang = 'zh';
+  function L(key, vars) {
+    var text = (I18N[lang] && I18N[lang][key]) || I18N.zh[key] || key;
+    if (vars) Object.keys(vars).forEach(function (k) { text = text.split('{' + k + '}').join(String(vars[k])); });
+    return text;
+  }
+  function applyStatic() {
+    document.documentElement.lang = lang === 'en' ? 'en' : 'zh-CN';
+    Array.prototype.forEach.call(document.querySelectorAll('[data-i18n]'), function (el) { el.textContent = L(el.getAttribute('data-i18n')); });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-i18n-title]'), function (el) { el.title = L(el.getAttribute('data-i18n-title')); });
+  }
+
   function post(action, extra) {
     var payload = extra || {};
     payload.action = action;
@@ -328,14 +363,15 @@
 
   function applyState(s) {
     state = s;
-    elStat.innerHTML = '已托管 <b>' + (s.managedCount || 0) + '</b> 条配置';
-    elSub.textContent = 'AI CLI 环境与配置管理 · v' + (s.version || '');
+    if (s.lang && s.lang !== lang) { lang = s.lang; applyStatic(); }
+    elStat.innerHTML = L('managed', { n: s.managedCount || 0 });
+    elSub.textContent = L('subtitle') + ' · v' + (s.version || '');
     elRouterChip.className = 'chip' + (s.routerRunning ? ' on' : '');
-    elRouterLbl.textContent = s.routerRunning ? '路由 · 开' : '本地路由';
-    elRouterHint.textContent = s.routerRunning ? ('已开启 :' + s.routerPort) : '未开启';
+    elRouterLbl.textContent = s.routerRunning ? L('routerOn') : L('routerOff');
+    elRouterHint.textContent = s.routerRunning ? L('routerOnHint', { port: s.routerPort }) : L('off');
     elUpdateChip.className = 'chip' + (s.updateAvailable ? ' alert' : '');
     var elAutoHint = document.getElementById('autostart-hint');
-    if (elAutoHint) elAutoHint.textContent = s.autostartEnabled ? '已开启' : '已关闭';
+    if (elAutoHint) elAutoHint.textContent = s.autostartEnabled ? L('enabled') : L('disabled');
     if (currentProvider && s.providers) {
       var still = s.providers.some(function (p) { return p.id === currentProvider; });
       if (!still) currentProvider = s.providers.length ? s.providers[0].id : null;
@@ -369,11 +405,11 @@
     var p = findProvider();
     elEnvList.innerHTML = '';
     if (!p) {
-      elEnvList.innerHTML = '<div class="empty">没有可用的配置</div>';
+      elEnvList.innerHTML = '<div class="empty">' + esc(L('noEnvs')) + '</div>';
       return;
     }
     if (!p.envs || !p.envs.length) {
-      elEnvList.innerHTML = '<div class="empty">' + esc(p.label) + ' 还没有配置，去软件里添加</div>';
+      elEnvList.innerHTML = '<div class="empty">' + esc(L('providerEmpty', { p: p.label })) + '</div>';
       return;
     }
     p.envs.forEach(function (env) {
@@ -381,14 +417,14 @@
       var row = document.createElement('div');
       row.className = 'env';
       var tags = '';
-      if (isCur) tags += '<span class="tag cur">当前</span>';
-      if (env.official) tags += '<span class="tag off">官方登录</span>';
+      if (isCur) tags += '<span class="tag cur">' + esc(L('current')) + '</span>';
+      if (env.official) tags += '<span class="tag off">' + esc(L('official')) + '</span>';
       var l1 = '<div class="l1"><span class="nm">' + esc(env.name) + '</span>' + tags;
       if (isCur) l1 += '<span class="check">' + svg('check') + '</span>';
       l1 += '</div>';
       row.innerHTML = l1 + '<div class="ds">' + esc(env.description || '—') + '</div>';
       row.onclick = function () {
-        if (isCur) { toast(p.label + ' 当前已是「' + env.name + '」'); return; }
+        if (isCur) { toast(L('alreadyCurrent', { p: p.label, name: env.name })); return; }
         post('apply-env', { provider: p.id, name: env.name });
       };
       elEnvList.appendChild(row);
@@ -396,7 +432,7 @@
   }
 
   function openSwitch() {
-    if (!state || !state.providers || !state.providers.length) { toast('还没有任何配置，先在软件里添加'); return; }
+    if (!state || !state.providers || !state.providers.length) { toast(L('noConfigs')); return; }
     if (!currentProvider) currentProvider = state.providers[0].id;
     renderProviders();
     renderEnvs();
@@ -422,7 +458,7 @@
       case 'check-update':
         if (busy['check-update']) return;
         busyChip('check-update', true);
-        toast('正在检查更新…');
+        toast(L('checking'));
         post('check-update');
         break;
       case 'quick-switch': openSwitch(); break;

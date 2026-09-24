@@ -55,6 +55,8 @@
         </motion.div>
       </div>
 
+      <BudgetCard class="mt-4" />
+
       <div class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader class="px-5">
@@ -323,6 +325,7 @@ import {
 import AppModal from '@/components/common/AppModal.vue'
 import AppTooltip from '@/components/common/AppTooltip.vue'
 import ToolFilterChips from '@/components/layout/ToolFilterChips.vue'
+import BudgetCard from './BudgetCard.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 

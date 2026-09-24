@@ -86,5 +86,9 @@ var providerPresets = []ProviderPreset{
 func (a *App) GetProviderPresets() []ProviderPreset {
 	out := make([]ProviderPreset, len(providerPresets))
 	copy(out, providerPresets)
+	for i := range out {
+		out[i].Name = tr(out[i].Name)
+		out[i].Description = tr(out[i].Description)
+	}
 	return out
 }

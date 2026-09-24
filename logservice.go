@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -1099,7 +1098,7 @@ func parseTimestamp(ts string) (time.Time, error) {
 		}
 	}
 
-	return time.Time{}, fmt.Errorf("无法解析时间戳: %q", ts)
+	return time.Time{}, errorf("无法解析时间戳: %q", ts)
 }
 
 // Codex CLI 日志条目结构

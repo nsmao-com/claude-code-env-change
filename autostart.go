@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 )
@@ -34,12 +33,12 @@ func (a *App) GetAutostartEnabled() bool {
 func (a *App) SetAutostart(enabled bool) error {
 	if enabled {
 		if err := enableAutostart(); err != nil {
-			return fmt.Errorf("设置开机自启失败: %v", err)
+			return errorf("设置开机自启失败: %v", err)
 		}
 		return nil
 	}
 	if err := disableAutostart(); err != nil {
-		return fmt.Errorf("关闭开机自启失败: %v", err)
+		return errorf("关闭开机自启失败: %v", err)
 	}
 	return nil
 }

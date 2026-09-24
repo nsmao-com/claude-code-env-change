@@ -40,9 +40,9 @@ func startUpdateScript(scriptPath string) error {
 	select {
 	case err := <-done:
 		if err != nil {
-			return fmt.Errorf("更新脚本进程异常退出: %v", err)
+			return errorf("更新脚本进程异常退出: %v", err)
 		}
-		return fmt.Errorf("更新脚本进程异常退出")
+		return errorf("更新脚本进程异常退出")
 	case <-time.After(700 * time.Millisecond):
 		return nil
 	}
@@ -58,38 +58,38 @@ func markUpdatePending() {
 
 func applyUpdateAndRestart(a *App, newExe, currentExe string) error {
 	if a == nil || a.ctx == nil {
-		return fmt.Errorf("应用未就绪")
+		return errorf("应用未就绪")
 	}
 	scriptPath := filepath.Join(os.TempDir(), fmt.Sprintf("claude-env-update-%d.ps1", os.Getpid()))
 	script := buildReplaceScript(os.Getpid(), newExe, currentExe)
 	if err := os.WriteFile(scriptPath, []byte(script), 0644); err != nil {
-		return fmt.Errorf("写入更新脚本失败: %v", err)
+		return errorf("写入更新脚本失败: %v", err)
 	}
 
 	markUpdatePending()
 	if err := startUpdateScript(scriptPath); err != nil {
 		_ = os.Remove(scriptPath)
 		_ = os.Remove(updateResultLogPath())
-		return fmt.Errorf("启动更新进程失败: %v", err)
+		return errorf("启动更新进程失败: %v", err)
 	}
 	return nil
 }
 
 func startInstallerAfterExit(a *App, installerPath, currentExe string) error {
 	if a == nil || a.ctx == nil {
-		return fmt.Errorf("应用未就绪")
+		return errorf("应用未就绪")
 	}
 	scriptPath := filepath.Join(os.TempDir(), fmt.Sprintf("claude-env-installer-%d.ps1", os.Getpid()))
 	script := buildInstallerScript(os.Getpid(), installerPath, currentExe)
 	if err := os.WriteFile(scriptPath, []byte(script), 0644); err != nil {
-		return fmt.Errorf("写入安装脚本失败: %v", err)
+		return errorf("写入安装脚本失败: %v", err)
 	}
 
 	markUpdatePending()
 	if err := startUpdateScript(scriptPath); err != nil {
 		_ = os.Remove(scriptPath)
 		_ = os.Remove(updateResultLogPath())
-		return fmt.Errorf("启动安装程序失败: %v", err)
+		return errorf("启动安装程序失败: %v", err)
 	}
 	return nil
 }

@@ -9,7 +9,6 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -19,7 +18,7 @@ import (
 )
 
 // errOSSNotFound 对象不存在（用于区分"还没有备份/索引"与网络、鉴权错误）
-var errOSSNotFound = errors.New("云端还没有备份（对象不存在）")
+var errOSSNotFound error = trError("云端还没有备份（对象不存在）")
 
 type ossObjectClient struct {
 	provider  string
@@ -62,7 +61,7 @@ func (c *ossObjectClient) Put(key string, body []byte, contentType string) error
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return ossHTTPError("上传", resp)
+		return ossHTTPError(tr("上传"), resp)
 	}
 	return nil
 }
@@ -82,7 +81,7 @@ func (c *ossObjectClient) Get(key string) ([]byte, error) {
 		return nil, errOSSNotFound
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, ossHTTPError("下载", resp)
+		return nil, ossHTTPError(tr("下载"), resp)
 	}
 	return data, nil
 }
@@ -101,7 +100,7 @@ func (c *ossObjectClient) Delete(key string) error {
 	if resp.StatusCode == http.StatusNotFound || (resp.StatusCode >= 200 && resp.StatusCode < 300) {
 		return nil
 	}
-	return ossHTTPError("删除", resp)
+	return ossHTTPError(tr("删除"), resp)
 }
 
 func (c *ossObjectClient) Head(key string) error {
@@ -118,10 +117,10 @@ func (c *ossObjectClient) Head(key string) error {
 		return nil
 	}
 	if resp.StatusCode == http.StatusForbidden || resp.StatusCode == http.StatusUnauthorized {
-		return ossHTTPError("鉴权", resp)
+		return ossHTTPError(tr("鉴权"), resp)
 	}
 	if resp.StatusCode >= 400 {
-		return ossHTTPError("连接", resp)
+		return ossHTTPError(tr("连接"), resp)
 	}
 	return nil
 }
@@ -135,16 +134,16 @@ func ossHTTPError(action string, resp *http.Response) error {
 	if msg == "" {
 		msg = resp.Status
 	}
-	return fmt.Errorf("%s失败 (HTTP %d): %s", action, resp.StatusCode, msg)
+	return errorf("%s失败 (HTTP %d): %s", action, resp.StatusCode, msg)
 }
 
 func (c *ossObjectClient) newRequest(method, key string, body []byte, contentType string) (*http.Request, error) {
 	if c.bucket == "" || c.accessKey == "" || c.secretKey == "" {
-		return nil, fmt.Errorf("请填写 Bucket、Access Key、Secret Key")
+		return nil, errorf("请填写 Bucket、Access Key、Secret Key")
 	}
 	key = strings.TrimPrefix(key, "/")
 	if key == "" {
-		return nil, fmt.Errorf("对象 Key 不能为空")
+		return nil, errorf("对象 Key 不能为空")
 	}
 	host, canonicalURI, fullURL := c.buildURL(key)
 	var reader io.Reader

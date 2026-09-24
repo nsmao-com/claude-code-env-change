@@ -141,18 +141,18 @@ func (a *App) CheckForUpdate() (UpdateInfo, error) {
 		info.Available = true
 		info.CanApply = goruntime.GOOS == "windows" && info.DownloadURL != "" && !info.IsDev
 		if info.IsDev {
-			info.Message = "发现新版本。开发模式不能覆盖当前程序，请使用正式构建更新，或前往 GitHub 下载。"
+			info.Message = tr("发现新版本。开发模式不能覆盖当前程序，请使用正式构建更新，或前往 GitHub 下载。")
 		} else if info.DownloadURL == "" {
-			info.Message = "发现新版本，但没有匹配当前系统的安装包，请前往 GitHub 下载。"
+			info.Message = tr("发现新版本，但没有匹配当前系统的安装包，请前往 GitHub 下载。")
 		} else if goruntime.GOOS != "windows" {
-			info.Message = "发现新版本。当前系统请从 GitHub 下载安装包后手动更新。"
+			info.Message = tr("发现新版本。当前系统请从 GitHub 下载安装包后手动更新。")
 		} else {
-			info.Message = "发现新版本，可在软件内下载并安装。"
+			info.Message = tr("发现新版本，可在软件内下载并安装。")
 		}
 	case cmp < 0:
-		info.Message = "当前版本高于 GitHub 最新发布。"
+		info.Message = tr("当前版本高于 GitHub 最新发布。")
 	default:
-		info.Message = "当前已是最新版本。"
+		info.Message = tr("当前已是最新版本。")
 	}
 	return info, nil
 }
@@ -160,15 +160,15 @@ func (a *App) CheckForUpdate() (UpdateInfo, error) {
 // DownloadAndApplyUpdate 下载 GitHub 更新并启动 Windows 安装器或更新便携版。
 func (a *App) DownloadAndApplyUpdate() error {
 	if !updateMu.TryLock() {
-		return fmt.Errorf("已有更新任务在进行")
+		return errorf("已有更新任务在进行")
 	}
 	defer updateMu.Unlock()
 
 	if isDevBuild() {
-		return fmt.Errorf("开发模式无法覆盖当前程序，请使用正式构建更新")
+		return errorf("开发模式无法覆盖当前程序，请使用正式构建更新")
 	}
 	if goruntime.GOOS != "windows" {
-		return fmt.Errorf("当前系统请从 GitHub 下载安装包后手动更新")
+		return errorf("当前系统请从 GitHub 下载安装包后手动更新")
 	}
 
 	info, err := a.CheckForUpdate()
@@ -179,23 +179,23 @@ func (a *App) DownloadAndApplyUpdate() error {
 		return fmt.Errorf("%s", info.Message)
 	}
 	if info.DownloadURL == "" {
-		return fmt.Errorf("没有匹配当前系统的安装包")
+		return errorf("没有匹配当前系统的安装包")
 	}
 	installerAsset := isWindowsInstallerAsset(info.AssetName)
 
 	exePath, err := os.Executable()
 	if err != nil {
-		return fmt.Errorf("无法定位当前程序: %v", err)
+		return errorf("无法定位当前程序: %v", err)
 	}
 	exePath, err = filepath.EvalSymlinks(exePath)
 	if err != nil {
-		return fmt.Errorf("无法解析程序路径: %v", err)
+		return errorf("无法解析程序路径: %v", err)
 	}
 
 	// 便携版仍需原目录可写；NSIS 安装器会自行请求管理员权限。
 	if !installerAsset {
 		if err := checkExeDirWritable(exePath); err != nil {
-			msg := "安装目录没有写入权限，无法自动覆盖更新；请到 GitHub 下载安装包手动更新"
+			msg := tr("安装目录没有写入权限，无法自动覆盖更新；请到 GitHub 下载安装包手动更新")
 			a.emitUpdateProgress(UpdateProgress{Phase: "error", Message: msg})
 			return fmt.Errorf("%s", msg)
 		}
@@ -203,10 +203,10 @@ func (a *App) DownloadAndApplyUpdate() error {
 
 	tmpDir, err := os.MkdirTemp("", "claude-env-update-*")
 	if err != nil {
-		return fmt.Errorf("创建临时目录失败: %v", err)
+		return errorf("创建临时目录失败: %v", err)
 	}
 
-	a.emitUpdateProgress(UpdateProgress{Phase: "download", Percent: 0, Message: "开始下载…"})
+	a.emitUpdateProgress(UpdateProgress{Phase: "download", Percent: 0, Message: tr("开始下载…")})
 
 	archivePath := filepath.Join(tmpDir, sanitizeFileName(info.AssetName))
 	if err := downloadWithProgress(a, info.DownloadURL, archivePath, info.AssetSize); err != nil {
@@ -222,7 +222,7 @@ func (a *App) DownloadAndApplyUpdate() error {
 	}
 
 	if installerAsset {
-		a.emitUpdateProgress(UpdateProgress{Phase: "apply", Percent: 100, Message: "即将退出并启动安装向导…"})
+		a.emitUpdateProgress(UpdateProgress{Phase: "apply", Percent: 100, Message: tr("即将退出并启动安装向导…")})
 		if err := startInstallerAfterExit(a, archivePath, exePath); err != nil {
 			os.RemoveAll(tmpDir)
 			a.emitUpdateProgress(UpdateProgress{Phase: "error", Message: err.Error()})
@@ -232,7 +232,7 @@ func (a *App) DownloadAndApplyUpdate() error {
 		return nil
 	}
 
-	a.emitUpdateProgress(UpdateProgress{Phase: "extract", Percent: 100, Message: "正在解压安装包…"})
+	a.emitUpdateProgress(UpdateProgress{Phase: "extract", Percent: 100, Message: tr("正在解压安装包…")})
 
 	newExe := filepath.Join(tmpDir, "claude-env-switcher-update.exe")
 	lowerName := strings.ToLower(info.AssetName)
@@ -247,14 +247,14 @@ func (a *App) DownloadAndApplyUpdate() error {
 	case strings.HasSuffix(lowerName, ".exe"):
 		if err := os.Rename(archivePath, newExe); err != nil {
 			os.RemoveAll(tmpDir)
-			return fmt.Errorf("准备安装文件失败: %v", err)
+			return errorf("准备安装文件失败: %v", err)
 		}
 	default:
 		os.RemoveAll(tmpDir)
-		return fmt.Errorf("不支持的安装包格式: %s", info.AssetName)
+		return errorf("不支持的安装包格式: %s", info.AssetName)
 	}
 
-	a.emitUpdateProgress(UpdateProgress{Phase: "apply", Percent: 100, Message: "即将重启并完成安装…"})
+	a.emitUpdateProgress(UpdateProgress{Phase: "apply", Percent: 100, Message: tr("即将重启并完成安装…")})
 	if err := applyUpdateAndRestart(a, newExe, exePath); err != nil {
 		a.emitUpdateProgress(UpdateProgress{Phase: "error", Message: err.Error()})
 		return err
@@ -278,7 +278,7 @@ func fetchLatestRelease() (*ghRelease, error) {
 		}
 		var rel ghRelease
 		if err := json.Unmarshal(body, &rel); err != nil {
-			lastErr = fmt.Errorf("解析 GitHub 响应失败")
+			lastErr = errorf("解析 GitHub 响应失败")
 			continue
 		}
 		if rel.Message != "" && rel.TagName == "" {
@@ -286,13 +286,13 @@ func fetchLatestRelease() (*ghRelease, error) {
 			continue
 		}
 		if rel.Draft || strings.TrimSpace(rel.TagName) == "" {
-			lastErr = fmt.Errorf("未找到可用的 GitHub Release")
+			lastErr = errorf("未找到可用的 GitHub Release")
 			continue
 		}
 		return &rel, nil
 	}
 	if lastErr == nil {
-		lastErr = fmt.Errorf("无法连接 GitHub，请检查网络或代理")
+		lastErr = errorf("无法连接 GitHub，请检查网络或代理")
 	}
 	return nil, lastErr
 }
@@ -318,10 +318,10 @@ func httpGetBytes(url string, timeout time.Duration, accept string) ([]byte, err
 		return nil, err
 	}
 	if resp.StatusCode == http.StatusForbidden {
-		return nil, fmt.Errorf("GitHub API 请求过于频繁，请稍后再试")
+		return nil, errorf("GitHub API 请求过于频繁，请稍后再试")
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("GitHub 返回 %d", resp.StatusCode)
+		return nil, errorf("GitHub 返回 %d", resp.StatusCode)
 	}
 	return body, nil
 }
@@ -345,7 +345,7 @@ func downloadWithProgress(a *App, url, dest string, expectedSize int64) error {
 		return nil
 	}
 	if lastErr == nil {
-		lastErr = fmt.Errorf("下载失败")
+		lastErr = errorf("下载失败")
 	}
 	return lastErr
 }
@@ -363,11 +363,11 @@ func downloadOne(a *App, url, dest string, expectedSize int64) error {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return fmt.Errorf("下载失败: %v", err)
+		return errorf("下载失败: %v", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("下载失败，服务器返回 %d", resp.StatusCode)
+		return errorf("下载失败，服务器返回 %d", resp.StatusCode)
 	}
 
 	total := resp.ContentLength
@@ -377,7 +377,7 @@ func downloadOne(a *App, url, dest string, expectedSize int64) error {
 
 	out, err := os.Create(dest)
 	if err != nil {
-		return fmt.Errorf("无法写入临时文件: %v", err)
+		return errorf("无法写入临时文件: %v", err)
 	}
 	defer out.Close()
 
@@ -390,16 +390,16 @@ func downloadOne(a *App, url, dest string, expectedSize int64) error {
 				Percent:  progressPercent(read, tot),
 				Received: read,
 				Total:    tot,
-				Message:  fmt.Sprintf("正在下载 %s / %s", formatBytes(read), formatBytes(tot)),
+				Message:  sprintf("正在下载 %s / %s", formatBytes(read), formatBytes(tot)),
 			})
 		},
 	}
 	written, err := io.Copy(out, reader)
 	if err != nil {
-		return fmt.Errorf("下载中断: %v", err)
+		return errorf("下载中断: %v", err)
 	}
 	if expectedSize > 0 && written != expectedSize {
-		return fmt.Errorf("下载文件大小不完整：期望 %d 字节，实际 %d 字节", expectedSize, written)
+		return errorf("下载文件大小不完整：期望 %d 字节，实际 %d 字节", expectedSize, written)
 	}
 	return nil
 }
@@ -426,7 +426,7 @@ func (c *countingReader) Read(p []byte) (int, error) {
 func extractPrimaryExe(zipPath, dest string) error {
 	r, err := zip.OpenReader(zipPath)
 	if err != nil {
-		return fmt.Errorf("无法打开安装包: %v", err)
+		return errorf("无法打开安装包: %v", err)
 	}
 	defer r.Close()
 
@@ -469,22 +469,22 @@ func extractPrimaryExe(zipPath, dest string) error {
 		}
 	}
 	if chosen == nil {
-		return fmt.Errorf("安装包中未找到 Windows 可执行文件")
+		return errorf("安装包中未找到 Windows 可执行文件")
 	}
 
 	rc, err := chosen.Open()
 	if err != nil {
-		return fmt.Errorf("读取安装包失败: %v", err)
+		return errorf("读取安装包失败: %v", err)
 	}
 	defer rc.Close()
 
 	out, err := os.Create(dest)
 	if err != nil {
-		return fmt.Errorf("无法写入更新文件: %v", err)
+		return errorf("无法写入更新文件: %v", err)
 	}
 	defer out.Close()
 	if _, err := io.Copy(out, rc); err != nil {
-		return fmt.Errorf("解压失败: %v", err)
+		return errorf("解压失败: %v", err)
 	}
 	return nil
 }
@@ -500,16 +500,16 @@ func verifyFileDigest(path, digest string) error {
 	}
 	f, err := os.Open(path)
 	if err != nil {
-		return fmt.Errorf("无法校验下载文件")
+		return errorf("无法校验下载文件")
 	}
 	defer f.Close()
 	h := sha256.New()
 	if _, err := io.Copy(h, f); err != nil {
-		return fmt.Errorf("校验下载文件失败")
+		return errorf("校验下载文件失败")
 	}
 	got := hex.EncodeToString(h.Sum(nil))
 	if !strings.EqualFold(got, hexStr) {
-		return fmt.Errorf("下载文件校验失败，请重试")
+		return errorf("下载文件校验失败，请重试")
 	}
 	return nil
 }

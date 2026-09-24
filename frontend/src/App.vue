@@ -49,6 +49,7 @@
                 />
               </div>
             </ScrollArea>
+            <ProjectsPanel v-else-if="page === 'projects'" class="h-full min-h-0" embedded :model-value="true" />
             <McpPanel v-else-if="page === 'mcp'" class="h-full min-h-0" embedded :model-value="true" />
             <SkillsPanel v-else-if="page === 'skills'" class="h-full min-h-0" embedded :model-value="true" />
             <RouterPanel v-else-if="page === 'router'" class="h-full min-h-0" embedded :model-value="true" />
@@ -99,7 +100,8 @@
 
 <script setup lang="ts">
 import { ref, onMounted, nextTick, watch, onBeforeUnmount } from 'vue'
-import type { AppPage, EnvConfig } from '@/types'
+import type { AppPage, BudgetStatus, EnvConfig } from '@/types'
+import { budgetAlertMessage } from '@/lib/budget'
 import { useConfigStore } from '@/stores/configStore'
 import { useUptimeStore } from '@/stores/uptimeStore'
 import { useRouterStore } from '@/stores/routerStore'
@@ -122,6 +124,7 @@ import ConfigGrid from '@/components/config/ConfigGrid.vue'
 import ConfigImportModal from '@/components/config/ConfigImportModal.vue'
 import ConfigModal from '@/components/config/ConfigModal.vue'
 import McpPanel from '@/components/mcp/McpPanel.vue'
+import ProjectsPanel from '@/components/projects/ProjectsPanel.vue'
 import StatsModal from '@/components/stats/StatsModal.vue'
 import PromptEditorModal from '@/components/prompt/PromptEditorModal.vue'
 import SkillsPanel from '@/components/skills/SkillsPanel.vue'
@@ -143,7 +146,12 @@ const confirm = useConfirm()
 const toast = useToast()
 useTheme()
 const { settings, saveLastPage, readLastPage } = useSettings()
-const { t } = useI18n()
+const { t, locale } = useI18n()
+
+// 后端产生的提示（错误信息、托盘、同步结果等）跟随界面语言；启动时也同步一次
+watch(locale, (lang) => {
+  callApp('SetLanguage', lang).catch(() => {})
+}, { immediate: true })
 
 const page = ref<AppPage>('home')
 const showConfigModal = ref(false)
@@ -246,6 +254,10 @@ onMounted(async () => {
   })
   EventsOn('cloud:pull-failed', (message: string) => {
     toast.error(t('app.cloudPullFailed', { error: message || t('app.unknownError') }))
+  })
+  // 花费达到预算提醒比例或超出上限（同一周期同一级别只来一次）
+  EventsOn('budget:alert', (status: BudgetStatus) => {
+    if (status?.rule) toast.error(budgetAlertMessage(t, status))
   })
   // 云端有别的电脑的新备份（自动上传暂停）或本机有未上传修改（跳过启动拉取）
   EventsOn('cloud:conflict', (result: { remote_host?: string, remote_at?: number }) => {

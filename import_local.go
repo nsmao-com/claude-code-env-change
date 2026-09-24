@@ -48,9 +48,9 @@ func (a *App) ImportLocalEnv(provider string) ([]EnvConfig, error) {
 
 	if len(added) == 0 {
 		if len(errs) > 0 {
-			return nil, fmt.Errorf("本机没有可导入的配置：%s", strings.Join(errs, "；"))
+			return nil, errorf("本机没有可导入的配置：%s", strings.Join(errs, "；"))
 		}
-		return nil, fmt.Errorf("本机没有可导入的配置")
+		return nil, errorf("本机没有可导入的配置")
 	}
 	return added, nil
 }
@@ -116,7 +116,7 @@ func (a *App) buildLocalProviderEnvs(provider string) ([]EnvConfig, error) {
 		}
 		return []EnvConfig{*env}, nil
 	default:
-		return nil, fmt.Errorf("未知平台 %s", provider)
+		return nil, errorf("未知平台 %s", provider)
 	}
 }
 
@@ -137,7 +137,7 @@ func (a *App) buildLocalClaudeDesktopEnv() (*EnvConfig, error) {
 	}
 	var payload map[string]any
 	if err := json.Unmarshal(data, &payload); err != nil || payload == nil {
-		return nil, fmt.Errorf("Claude Desktop 配置 JSON 无效: %v", err)
+		return nil, errorf("Claude Desktop 配置 JSON 无效: %v", err)
 	}
 	vars := readClaudeDesktopEnv(data)
 	if v := vars["ANTHROPIC_BASE_URL"]; v != "" {
@@ -148,8 +148,8 @@ func (a *App) buildLocalClaudeDesktopEnv() (*EnvConfig, error) {
 		return nil, nil
 	}
 	return &EnvConfig{
-		Name:        a.uniqueEnvName("本机 Claude Desktop"),
-		Description: "从本机 Claude Desktop 配置导入",
+		Name:        a.uniqueEnvName(tr("本机 Claude Desktop")),
+		Description: tr("从本机 Claude Desktop 配置导入"),
 		Provider:    "claude_desktop",
 		Variables:   vars,
 		Templates:   map[string]string{"claude_desktop_config.json": string(data)},
@@ -193,7 +193,7 @@ func readClaudeDesktopEnv(data []byte) map[string]string {
 func (a *App) uniqueEnvName(base string) string {
 	base = strings.TrimSpace(base)
 	if base == "" {
-		base = "本机配置"
+		base = tr("本机配置")
 	}
 	if a.findEnv(base) == nil {
 		return base
@@ -219,8 +219,8 @@ func (a *App) buildLocalClaudeEnv() (*EnvConfig, error) {
 		return nil, nil
 	}
 	return &EnvConfig{
-		Name:                       a.uniqueEnvName("本机 Claude"),
-		Description:                "从本机 ~/.claude/settings.json 导入",
+		Name:                       a.uniqueEnvName(tr("本机 Claude")),
+		Description:                tr("从本机 ~/.claude/settings.json 导入"),
 		Provider:                   "claude",
 		Variables:                  vars,
 		Icon:                       "💻",
@@ -268,8 +268,8 @@ func (a *App) buildLocalCodexEnv() (*EnvConfig, error) {
 		return nil, nil
 	}
 	return &EnvConfig{
-		Name:        a.uniqueEnvName("本机 Codex"),
-		Description: "从本机 ~/.codex 导入",
+		Name:        a.uniqueEnvName(tr("本机 Codex")),
+		Description: tr("从本机 ~/.codex 导入"),
 		Provider:    "codex",
 		Variables:   variables,
 		Templates:   templates,
@@ -328,8 +328,8 @@ func (a *App) buildLocalAntigravityEnv() (*EnvConfig, error) {
 		return nil, nil
 	}
 	return &EnvConfig{
-		Name:        a.uniqueEnvName("本机 Antigravity"),
-		Description: "从本机 ~/.gemini (Antigravity CLI) 导入",
+		Name:        a.uniqueEnvName(tr("本机 Antigravity")),
+		Description: tr("从本机 ~/.gemini (Antigravity CLI) 导入"),
 		Provider:    "antigravity",
 		Variables:   variables,
 		Templates:   templates,
@@ -356,7 +356,7 @@ func (a *App) buildLocalOpencodeEnvs() ([]EnvConfig, error) {
 	}
 	payload, err := parseJSONLikeObject(data)
 	if err != nil {
-		return nil, fmt.Errorf("解析 OpenCode 配置失败: %v", err)
+		return nil, errorf("解析 OpenCode 配置失败: %v", err)
 	}
 
 	providers := opencodeProviderMap(payload)
@@ -419,8 +419,8 @@ func (a *App) buildLocalOpencodeEnvs() ([]EnvConfig, error) {
 			variables["OPENCODE_API_KEY"] = key
 		}
 		out = append(out, EnvConfig{
-			Name:        a.uniqueEnvName("本机 OpenCode"),
-			Description: "从本机 OpenCode 配置导入",
+			Name:        a.uniqueEnvName(tr("本机 OpenCode")),
+			Description: tr("从本机 OpenCode 配置导入"),
 			Provider:    "opencode",
 			Variables:   variables,
 			Icon:        "💻",
@@ -481,8 +481,8 @@ func (a *App) envFromOpencodeProvider(id string, raw map[string]any, authKey, de
 		variables["OPENCODE_MODELS"] = strings.Join(modelIDs, ",")
 	}
 	return &EnvConfig{
-		Name:        a.uniqueEnvName("本机 OpenCode · " + display),
-		Description: "从本机 OpenCode provider " + id + " 导入",
+		Name:        a.uniqueEnvName(sprintf("本机 OpenCode · %s", display)),
+		Description: sprintf("从本机 OpenCode provider %s 导入", id),
 		Provider:    "opencode",
 		Variables:   variables,
 		Icon:        "💻",
@@ -628,8 +628,8 @@ func (a *App) buildLocalGrokEnv() (*EnvConfig, error) {
 		return nil, nil
 	}
 	return &EnvConfig{
-		Name:        a.uniqueEnvName("本机 Grok"),
-		Description: "从本机 ~/.grok/config.toml 导入",
+		Name:        a.uniqueEnvName(tr("本机 Grok")),
+		Description: tr("从本机 ~/.grok/config.toml 导入"),
 		Provider:    "grok",
 		Variables:   variables,
 		Templates:   templates,

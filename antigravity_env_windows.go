@@ -3,7 +3,6 @@
 package main
 
 import (
-	"fmt"
 	"syscall"
 	"unsafe"
 
@@ -15,7 +14,7 @@ import (
 func syncAntigravityUserEnv(state map[string]string) error {
 	key, err := registry.OpenKey(registry.CURRENT_USER, `Environment`, registry.ALL_ACCESS)
 	if err != nil {
-		return fmt.Errorf("打开用户环境变量失败: %v", err)
+		return errorf("打开用户环境变量失败: %v", err)
 	}
 	defer key.Close()
 
@@ -24,7 +23,7 @@ func syncAntigravityUserEnv(state map[string]string) error {
 		value, present := state[name]
 		if present {
 			if err := key.SetStringValue(name, value); err != nil {
-				return fmt.Errorf("写入 %s 失败: %v", name, err)
+				return errorf("写入 %s 失败: %v", name, err)
 			}
 			changed = true
 			continue
@@ -33,7 +32,7 @@ func syncAntigravityUserEnv(state map[string]string) error {
 			if err == registry.ErrNotExist {
 				continue
 			}
-			return fmt.Errorf("删除 %s 失败: %v", name, err)
+			return errorf("删除 %s 失败: %v", name, err)
 		}
 		changed = true
 	}

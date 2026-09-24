@@ -121,7 +121,7 @@ func (rs *RouterService) doWithFailover(r *http.Request, route APIRoute, build f
 		resp, err := rs.client.Do(req)
 		if err != nil {
 			routeUpstreamHealth.markFailed(route.Name, up)
-			lastErr = fmt.Errorf("上游请求失败: %v", err)
+			lastErr = errorf("上游请求失败: %v", err)
 			if r != nil && r.Context().Err() != nil {
 				// 客户端已断开，没必要再换上游
 				return nil, lastErr
@@ -155,7 +155,7 @@ func (rs *RouterService) doWithFailover(r *http.Request, route APIRoute, build f
 		return resp, nil
 	}
 	if lastErr == nil {
-		lastErr = fmt.Errorf("路由 %s 没有可用的上游", route.Name)
+		lastErr = errorf("路由 %s 没有可用的上游", route.Name)
 	}
 	return nil, lastErr
 }

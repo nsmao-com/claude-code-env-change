@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -51,8 +50,8 @@ func officialLoginEnvFor(provider string) *EnvConfig {
 		return nil
 	}
 	return &EnvConfig{
-		Name:          meta.name,
-		Description:   meta.desc,
+		Name:          tr(meta.name),
+		Description:   tr(meta.desc),
 		Provider:      meta.provider,
 		Variables:     map[string]string{},
 		Icon:          officialLoginIcon,
@@ -89,14 +88,15 @@ func (a *App) AddOfficialLoginEnvs(provider string) ([]EnvConfig, error) {
 	} else {
 		meta := officialLoginMetaFor(p)
 		if meta == nil {
-			return nil, fmt.Errorf("未知平台 %s", provider)
+			return nil, errorf("未知平台 %s", provider)
 		}
 		targets = append(targets, *meta)
 	}
 
 	added := make([]EnvConfig, 0, len(targets))
 	for _, meta := range targets {
-		if a.findEnvIn(meta.provider, meta.name) != nil {
+		// 名称随界面语言生成；换过语言后中英文名都算已存在，避免重复添加
+		if a.findEnvIn(meta.provider, meta.name) != nil || a.findEnvIn(meta.provider, tr(meta.name)) != nil {
 			continue
 		}
 		env := officialLoginEnvFor(meta.provider)
@@ -109,7 +109,7 @@ func (a *App) AddOfficialLoginEnvs(provider string) ([]EnvConfig, error) {
 		added = append(added, *env)
 	}
 	if len(added) == 0 {
-		return nil, fmt.Errorf("官方登录配置已经存在，无需重复添加")
+		return nil, errorf("官方登录配置已经存在，无需重复添加")
 	}
 	return added, nil
 }
@@ -124,7 +124,7 @@ func (a *App) localOfficialLoginEnv(provider string) *EnvConfig {
 	if env == nil {
 		return nil
 	}
-	env.Description = "本机当前为官方登录（未检测到第三方接入）"
+	env.Description = tr("本机当前为官方登录（未检测到第三方接入）")
 	return env
 }
 
@@ -201,7 +201,7 @@ var claudeThirdPartyEnvKeys = []string{
 func (a *App) officialLoginClaude() (string, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		return "", fmt.Errorf("获取用户目录失败: %v", err)
+		return "", errorf("获取用户目录失败: %v", err)
 	}
 	settingsFile := filepath.Join(homeDir, ".claude", "settings.json")
 
@@ -209,16 +209,16 @@ func (a *App) officialLoginClaude() (string, error) {
 	if readErr != nil {
 		if os.IsNotExist(readErr) {
 			// 没有 settings.json 时本来就是官方登录状态
-			return "已切换到 Claude 官方登录；运行 claude 按提示登录即可", nil
+			return tr("已切换到 Claude 官方登录；运行 claude 按提示登录即可"), nil
 		}
-		return "", fmt.Errorf("读取 %s 失败: %v", settingsFile, readErr)
+		return "", errorf("读取 %s 失败: %v", settingsFile, readErr)
 	}
 
 	settings := map[string]any{}
 	if len(strings.TrimSpace(string(data))) > 0 {
 		parsed, parseErr := parseJSONLikeObject(data)
 		if parseErr != nil {
-			return "", fmt.Errorf("解析 %s 失败，为保护原文件已中止写入: %v", settingsFile, parseErr)
+			return "", errorf("解析 %s 失败，为保护原文件已中止写入: %v", settingsFile, parseErr)
 		}
 		settings = parsed
 	}
@@ -236,44 +236,44 @@ func (a *App) officialLoginClaude() (string, error) {
 
 	content, err := json.MarshalIndent(settings, "", "  ")
 	if err != nil {
-		return "", fmt.Errorf("序列化配置失败: %v", err)
+		return "", errorf("序列化配置失败: %v", err)
 	}
 	if err := writeFileAtomic(settingsFile, content, 0644); err != nil {
-		return "", fmt.Errorf("写入 settings.json 失败: %v", err)
+		return "", errorf("写入 settings.json 失败: %v", err)
 	}
-	return "已切换到 Claude 官方登录；如未登录过请运行 claude 按提示登录", nil
+	return tr("已切换到 Claude 官方登录；如未登录过请运行 claude 按提示登录"), nil
 }
 
 func (a *App) officialLoginClaudeDesktop() (string, error) {
 	settingsFile, err := claudeDesktopConfigPath()
 	if err != nil {
-		return "", fmt.Errorf("获取 Claude Desktop 配置路径失败: %v", err)
+		return "", errorf("获取 Claude Desktop 配置路径失败: %v", err)
 	}
 	// 3P 档案放在 configLibrary，_meta.json 的 appliedId 还指着它就仍然算第三方接入，
 	// 只删字段不够，必须把这份档案连同 meta 记录一起摘掉才会回到官方账号。
 	if strings.EqualFold(filepath.Base(filepath.Dir(settingsFile)), "configLibrary") {
 		if err := os.Remove(settingsFile); err != nil && !os.IsNotExist(err) {
-			return "", fmt.Errorf("移除 Claude Desktop 第三方档案失败: %v", err)
+			return "", errorf("移除 Claude Desktop 第三方档案失败: %v", err)
 		}
 		id := strings.TrimSuffix(filepath.Base(settingsFile), filepath.Ext(settingsFile))
 		if err := removeClaudeDesktopMetaEntry(filepath.Dir(settingsFile), id); err != nil {
 			return "", err
 		}
-		return "已切换到 Claude Desktop 官方登录；重启 Claude Desktop 生效", nil
+		return tr("已切换到 Claude Desktop 官方登录；重启 Claude Desktop 生效"), nil
 	}
 
 	data, readErr := os.ReadFile(settingsFile)
 	if readErr != nil {
 		if os.IsNotExist(readErr) {
-			return "已切换到 Claude Desktop 官方登录", nil
+			return tr("已切换到 Claude Desktop 官方登录"), nil
 		}
-		return "", fmt.Errorf("读取 %s 失败: %v", settingsFile, readErr)
+		return "", errorf("读取 %s 失败: %v", settingsFile, readErr)
 	}
 
 	settings := map[string]any{}
 	if len(strings.TrimSpace(string(data))) > 0 {
 		if err := json.Unmarshal(data, &settings); err != nil {
-			return "", fmt.Errorf("解析 %s 失败，为保护原文件已中止写入: %v", settingsFile, err)
+			return "", errorf("解析 %s 失败，为保护原文件已中止写入: %v", settingsFile, err)
 		}
 		if settings == nil {
 			settings = map[string]any{}
@@ -303,18 +303,18 @@ func (a *App) officialLoginClaudeDesktop() (string, error) {
 
 	content, err := json.MarshalIndent(settings, "", "  ")
 	if err != nil {
-		return "", fmt.Errorf("序列化 Claude Desktop 配置失败: %v", err)
+		return "", errorf("序列化 Claude Desktop 配置失败: %v", err)
 	}
 	if err := writeFileAtomic(settingsFile, content, 0o600); err != nil {
-		return "", fmt.Errorf("写入 Claude Desktop 配置失败: %v", err)
+		return "", errorf("写入 Claude Desktop 配置失败: %v", err)
 	}
-	return "已切换到 Claude Desktop 官方登录；重启 Claude Desktop 生效", nil
+	return tr("已切换到 Claude Desktop 官方登录；重启 Claude Desktop 生效"), nil
 }
 
 func (a *App) officialLoginCodex() (string, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		return "", fmt.Errorf("获取用户目录失败: %v", err)
+		return "", errorf("获取用户目录失败: %v", err)
 	}
 	codexDir := resolveCodexHome(homeDir)
 
@@ -323,20 +323,20 @@ func (a *App) officialLoginCodex() (string, error) {
 	if data, readErr := os.ReadFile(configFile); readErr == nil && len(data) > 0 {
 		payload := map[string]any{}
 		if err := toml.Unmarshal(data, &payload); err != nil {
-			return "", fmt.Errorf("解析 %s 失败，为保护原文件已中止写入: %v", configFile, err)
+			return "", errorf("解析 %s 失败，为保护原文件已中止写入: %v", configFile, err)
 		}
 		delete(payload, "model_provider")
 		delete(payload, "model_providers")
 		delete(payload, "model")
 		out, err := toml.Marshal(payload)
 		if err != nil {
-			return "", fmt.Errorf("序列化 config.toml 失败: %v", err)
+			return "", errorf("序列化 config.toml 失败: %v", err)
 		}
 		if err := writeFileAtomic(configFile, out, 0644); err != nil {
-			return "", fmt.Errorf("写入 config.toml 失败: %v", err)
+			return "", errorf("写入 config.toml 失败: %v", err)
 		}
 	} else if readErr != nil && !os.IsNotExist(readErr) {
-		return "", fmt.Errorf("读取 %s 失败: %v", configFile, readErr)
+		return "", errorf("读取 %s 失败: %v", configFile, readErr)
 	}
 
 	// auth.json：只摘 API Key，保留 OAuth 的 tokens，避免把已登录的账号踢掉
@@ -344,34 +344,34 @@ func (a *App) officialLoginCodex() (string, error) {
 	if data, readErr := os.ReadFile(authFile); readErr == nil && len(data) > 0 {
 		payload, err := parseJSONLikeObject(data)
 		if err != nil {
-			return "", fmt.Errorf("解析 %s 失败，为保护原文件已中止写入: %v", authFile, err)
+			return "", errorf("解析 %s 失败，为保护原文件已中止写入: %v", authFile, err)
 		}
 		delete(payload, "OPENAI_API_KEY")
 		if len(payload) == 0 {
 			// 只有 API Key 时直接删文件，codex 会引导重新登录
 			if err := os.Remove(authFile); err != nil && !os.IsNotExist(err) {
-				return "", fmt.Errorf("清理 auth.json 失败: %v", err)
+				return "", errorf("清理 auth.json 失败: %v", err)
 			}
 		} else {
 			out, err := json.MarshalIndent(payload, "", "  ")
 			if err != nil {
-				return "", fmt.Errorf("序列化 auth.json 失败: %v", err)
+				return "", errorf("序列化 auth.json 失败: %v", err)
 			}
 			if err := writeFileAtomic(authFile, out, 0600); err != nil {
-				return "", fmt.Errorf("写入 auth.json 失败: %v", err)
+				return "", errorf("写入 auth.json 失败: %v", err)
 			}
 		}
 	} else if readErr != nil && !os.IsNotExist(readErr) {
-		return "", fmt.Errorf("读取 %s 失败: %v", authFile, readErr)
+		return "", errorf("读取 %s 失败: %v", authFile, readErr)
 	}
 
-	return "已切换到 Codex 官方登录；如未登录过请运行 codex login", nil
+	return tr("已切换到 Codex 官方登录；如未登录过请运行 codex login"), nil
 }
 
 func (a *App) officialLoginAntigravity() (string, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		return "", fmt.Errorf("获取用户目录失败: %v", err)
+		return "", errorf("获取用户目录失败: %v", err)
 	}
 	geminiDir := filepath.Join(homeDir, ".gemini")
 
@@ -393,20 +393,20 @@ func (a *App) officialLoginAntigravity() (string, error) {
 		content := strings.Join(kept, "\n")
 		if strings.TrimSpace(content) == "" {
 			if err := os.Remove(envFile); err != nil && !os.IsNotExist(err) {
-				return "", fmt.Errorf("清理 .env 失败: %v", err)
+				return "", errorf("清理 .env 失败: %v", err)
 			}
 		} else {
 			if err := writeFileAtomic(envFile, []byte(content+"\n"), 0644); err != nil {
-				return "", fmt.Errorf("写入 .env 失败: %v", err)
+				return "", errorf("写入 .env 失败: %v", err)
 			}
 		}
 	} else if readErr != nil && !os.IsNotExist(readErr) {
-		return "", fmt.Errorf("读取 %s 失败: %v", envFile, readErr)
+		return "", errorf("读取 %s 失败: %v", envFile, readErr)
 	}
 
 	// agy 只认进程环境变量，持久化到用户环境的那两个键必须一并清掉
 	if err := syncAntigravityUserEnv(nil); err != nil {
-		return "", fmt.Errorf("清理用户环境变量失败: %v", err)
+		return "", errorf("清理用户环境变量失败: %v", err)
 	}
 
 	// modelProvider 留着会让 agy 继续找 GEMINI_API_KEY，必须摘掉才会走 Google 账号登录
@@ -422,7 +422,7 @@ func (a *App) officialLoginAntigravity() (string, error) {
 		}
 	}
 
-	return "已切换到 Antigravity 官方登录；请新开终端后运行 agy 用 Google 账号登录", nil
+	return tr("已切换到 Antigravity 官方登录；请新开终端后运行 agy 用 Google 账号登录"), nil
 }
 
 func isAntigravityThirdPartyKey(name string) bool {
@@ -442,14 +442,14 @@ func clearGeminiAuthSelection(path string) error {
 		if os.IsNotExist(err) {
 			return nil
 		}
-		return fmt.Errorf("读取 %s 失败: %v", path, err)
+		return errorf("读取 %s 失败: %v", path, err)
 	}
 	if len(data) == 0 {
 		return nil
 	}
 	payload := map[string]any{}
 	if err := json.Unmarshal(data, &payload); err != nil || payload == nil {
-		return fmt.Errorf("解析 %s 失败，为保护原文件已中止写入", path)
+		return errorf("解析 %s 失败，为保护原文件已中止写入", path)
 	}
 	security, ok := payload["security"].(map[string]any)
 	if !ok || security == nil {
@@ -475,10 +475,10 @@ func clearGeminiAuthSelection(path string) error {
 	}
 	out, err := json.MarshalIndent(payload, "", "  ")
 	if err != nil {
-		return fmt.Errorf("序列化 %s 失败: %v", path, err)
+		return errorf("序列化 %s 失败: %v", path, err)
 	}
 	if err := writeFileAtomic(path, out, 0644); err != nil {
-		return fmt.Errorf("写入 %s 失败: %v", path, err)
+		return errorf("写入 %s 失败: %v", path, err)
 	}
 	return nil
 }
@@ -489,13 +489,13 @@ func (a *App) officialLoginOpencode(env *EnvConfig) (string, error) {
 	if readErr != nil {
 		if os.IsNotExist(readErr) {
 			a.setOpencodeOfficialCurrent(env)
-			return "已切换到 OpenCode 官方登录；运行 opencode auth login 登录账号", nil
+			return tr("已切换到 OpenCode 官方登录；运行 opencode auth login 登录账号"), nil
 		}
-		return "", fmt.Errorf("读取 %s 失败: %v", configFile, readErr)
+		return "", errorf("读取 %s 失败: %v", configFile, readErr)
 	}
 	payload, err := parseJSONLikeObject(data)
 	if err != nil {
-		return "", fmt.Errorf("解析 OpenCode 配置失败，为保护原文件已中止写入: %v", err)
+		return "", errorf("解析 OpenCode 配置失败，为保护原文件已中止写入: %v", err)
 	}
 
 	// 把本工具接管过的自定义 provider 全部摘掉，官方登录不依赖它们
@@ -530,13 +530,13 @@ func (a *App) officialLoginOpencode(env *EnvConfig) (string, error) {
 
 	out, err := json.MarshalIndent(payload, "", "  ")
 	if err != nil {
-		return "", fmt.Errorf("序列化 OpenCode 配置失败: %v", err)
+		return "", errorf("序列化 OpenCode 配置失败: %v", err)
 	}
 	if err := writeFileAtomic(configFile, out, 0644); err != nil {
-		return "", fmt.Errorf("写入 OpenCode 配置失败: %v", err)
+		return "", errorf("写入 OpenCode 配置失败: %v", err)
 	}
 	a.setOpencodeOfficialCurrent(env)
-	return "已切换到 OpenCode 官方登录；如未登录过请运行 opencode auth login", nil
+	return tr("已切换到 OpenCode 官方登录；如未登录过请运行 opencode auth login"), nil
 }
 
 // setOpencodeOfficialCurrent 官方登录是独占的：其它 OpenCode 配置的激活状态一并撤掉，
@@ -554,14 +554,14 @@ func (a *App) officialLoginGrok(env *EnvConfig) (string, error) {
 	data, readErr := os.ReadFile(configFile)
 	if readErr != nil {
 		if os.IsNotExist(readErr) {
-			return "已切换到 Grok 官方登录；运行 grok 按提示用 xAI 账号登录", nil
+			return tr("已切换到 Grok 官方登录；运行 grok 按提示用 xAI 账号登录"), nil
 		}
-		return "", fmt.Errorf("读取 %s 失败: %v", configFile, readErr)
+		return "", errorf("读取 %s 失败: %v", configFile, readErr)
 	}
 	payload := map[string]any{}
 	if len(data) > 0 {
 		if err := toml.Unmarshal(data, &payload); err != nil {
-			return "", fmt.Errorf("解析 %s 失败，为保护原文件已中止写入: %v", configFile, err)
+			return "", errorf("解析 %s 失败，为保护原文件已中止写入: %v", configFile, err)
 		}
 	}
 
@@ -587,10 +587,10 @@ func (a *App) officialLoginGrok(env *EnvConfig) (string, error) {
 
 	out, err := toml.Marshal(payload)
 	if err != nil {
-		return "", fmt.Errorf("序列化 Grok config.toml 失败: %v", err)
+		return "", errorf("序列化 Grok config.toml 失败: %v", err)
 	}
 	if err := writeFileAtomic(configFile, out, 0644); err != nil {
-		return "", fmt.Errorf("写入 Grok config.toml 失败: %v", err)
+		return "", errorf("写入 Grok config.toml 失败: %v", err)
 	}
-	return "已切换到 Grok 官方登录；如未登录过请运行 grok 按提示登录", nil
+	return tr("已切换到 Grok 官方登录；如未登录过请运行 grok 按提示登录"), nil
 }

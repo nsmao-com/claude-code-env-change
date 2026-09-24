@@ -110,6 +110,10 @@ export function GetGrokSettings() {
   return window['go']['main']['App']['GetGrokSettings']();
 }
 
+export function GetLanguage() {
+  return window['go']['main']['App']['GetLanguage']();
+}
+
 export function GetOpencodeAppliedNames() {
   return window['go']['main']['App']['GetOpencodeAppliedNames']();
 }
@@ -208,6 +212,10 @@ export function SetAutostart(arg1) {
 
 export function SetEnvVar(arg1, arg2) {
   return window['go']['main']['App']['SetEnvVar'](arg1, arg2);
+}
+
+export function SetLanguage(arg1) {
+  return window['go']['main']['App']['SetLanguage'](arg1);
 }
 
 export function SetOutboundProxy(arg1) {

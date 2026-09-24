@@ -265,7 +265,7 @@ func rewriteLiveBaseURL(env *EnvConfig, localBase string) {
 func prepareLiveEnv(env *EnvConfig) (*EnvConfig, error) {
 	live := cloneEnvConfig(env)
 	if live == nil {
-		return nil, fmt.Errorf("环境配置为空")
+		return nil, errorf("环境配置为空")
 	}
 	if isAppRoutingOn(live.Provider) {
 		localBase, err := wireRouterForEnv(live)
@@ -282,21 +282,22 @@ func prepareLiveEnv(env *EnvConfig) (*EnvConfig, error) {
 func wireRouterForEnv(env *EnvConfig) (string, error) {
 	rs := globalRouterService
 	if rs == nil {
-		return "", fmt.Errorf("路由服务未初始化")
+		return "", errorf("路由服务未初始化")
 	}
 
 	format := normalizeUpstreamFormat(env.UpstreamFormat)
 	baseURL, apiKey, model := upstreamVarsForEnv(env)
 	if strings.TrimSpace(baseURL) == "" {
-		return "", fmt.Errorf("此配置未填写上游 Base URL，无法开启路由")
+		return "", errorf("此配置未填写上游 Base URL，无法开启路由")
 	}
 	if _, err := url.Parse(baseURL); err != nil {
-		return "", fmt.Errorf("上游 Base URL 无效: %v", err)
+		return "", errorf("上游 Base URL 无效: %v", err)
 	}
 
 	route := APIRoute{
-		Name:         providerRouteName(env.Provider),
-		Description:  fmt.Sprintf("配置 %q 的应用路由（上游格式: %s）", env.Name, upstreamFormatLabel(format)),
+		Name: providerRouteName(env.Provider),
+		// 路由描述是写进 router.json 的数据，前端靠其中的"应用路由"识别自动条目，不随界面语言变化
+		Description:  untranslatedf("配置 %q 的应用路由（上游格式: %s）", env.Name, upstreamFormatLabel(format)),
 		SourceFormat: sourceFormatForEnv(env),
 		TargetFormat: targetFormatForEnv(env),
 		BaseURL:      strings.TrimRight(strings.TrimSpace(baseURL), "/"),
@@ -306,7 +307,7 @@ func wireRouterForEnv(env *EnvConfig) (string, error) {
 	}
 
 	if err := rs.upsertAutoRoute(route); err != nil {
-		return "", fmt.Errorf("写入路由配置失败: %v", err)
+		return "", errorf("写入路由配置失败: %v", err)
 	}
 	_ = removeAutoRouteByName(sanitizeAutoRouteName(env.Name))
 
@@ -316,9 +317,9 @@ func wireRouterForEnv(env *EnvConfig) (string, error) {
 	if !running {
 		if err := rs.StartGateway(); err != nil {
 			if needsConversion(env) {
-				return "", fmt.Errorf("此供应商使用 %s 接口格式，需要路由服务才能正常工作，请先启动路由（%v）", upstreamFormatLabel(format), err)
+				return "", errorf("此供应商使用 %s 接口格式，需要路由服务才能正常工作，请先启动路由（%v）", upstreamFormatLabel(format), err)
 			}
-			return "", fmt.Errorf("启动路由网关失败: %v", err)
+			return "", errorf("启动路由网关失败: %v", err)
 		}
 	}
 
@@ -383,7 +384,7 @@ func (rs *RouterService) upsertAutoRoute(route APIRoute) error {
 func (rs *RouterService) SetAppRouting(provider string, enabled bool) error {
 	p, ok := knownProvider(provider)
 	if !ok {
-		return fmt.Errorf("未知模型商: %s", provider)
+		return errorf("未知模型商: %s", provider)
 	}
 	rs.mu.Lock()
 	if rs.config.AppRouting == nil {
@@ -431,11 +432,11 @@ func (a *App) GetProviderRouting() map[string]bool {
 func (a *App) SetProviderRouting(provider string, enabled bool) error {
 	p, ok := knownProvider(provider)
 	if !ok {
-		return fmt.Errorf("未知模型商: %s", provider)
+		return errorf("未知模型商: %s", provider)
 	}
 	rs := globalRouterService
 	if rs == nil {
-		return fmt.Errorf("路由服务未初始化")
+		return errorf("路由服务未初始化")
 	}
 	if err := rs.SetAppRouting(p, enabled); err != nil {
 		return err
@@ -448,7 +449,7 @@ func (a *App) SetProviderRouting(provider string, enabled bool) error {
 		rs.mu.Unlock()
 		if !running {
 			if err := rs.StartGateway(); err != nil {
-				return fmt.Errorf("启动路由网关失败: %v", err)
+				return errorf("启动路由网关失败: %v", err)
 			}
 		}
 	}

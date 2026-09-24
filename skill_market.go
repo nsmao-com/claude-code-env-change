@@ -33,13 +33,13 @@ type skillMarketSource struct {
 
 func skillMarketSources() []skillMarketSource {
 	return []skillMarketSource{
-		{ID: "builtin", Label: "内置", Kind: "builtin"},
-		{ID: "online", Label: "热门", Kind: "skillssh"},
+		{ID: "builtin", Label: tr("内置"), Kind: "builtin"},
+		{ID: "online", Label: tr("热门"), Kind: "skillssh"},
 		{ID: "anthropic", Label: "Anthropic", Kind: "github", Repo: "anthropics/skills", Branch: "main", Dir: "skills"},
-		{ID: "baoyu", Label: "中文", Kind: "github", Repo: "JimLiu/baoyu-skills", Branch: "main", Dir: "skills"},
-		{ID: "engineering", Label: "工程", Kind: "github", Repo: "alirezarezvani/claude-skills", Branch: "main"},
+		{ID: "baoyu", Label: tr("中文"), Kind: "github", Repo: "JimLiu/baoyu-skills", Branch: "main", Dir: "skills"},
+		{ID: "engineering", Label: tr("工程"), Kind: "github", Repo: "alirezarezvani/claude-skills", Branch: "main"},
 		{ID: "vercel", Label: "Vercel", Kind: "github", Repo: "vercel-labs/agent-skills", Branch: "main", Dir: "skills"},
-		{ID: "skillsmp", Label: "全网", Kind: "skillsmp"},
+		{ID: "skillsmp", Label: tr("全网"), Kind: "skillsmp"},
 	}
 }
 
@@ -67,7 +67,7 @@ func (ss *SkillService) SearchSkillMarketplace(source, query string) ([]SkillMar
 	}
 	src, ok := skillSourceByID(source)
 	if !ok {
-		return nil, fmt.Errorf("未知技能市场")
+		return nil, errorf("未知技能市场")
 	}
 	var (
 		items []SkillMarketItem
@@ -119,7 +119,7 @@ func (ss *SkillService) SearchSkillMarketplace(source, query string) ([]SkillMar
 func (ss *SkillService) ImportSkillMarketplace(id string) (Skill, error) {
 	id = strings.TrimSpace(id)
 	if id == "" {
-		return Skill{}, fmt.Errorf("未选择技能")
+		return Skill{}, errorf("未选择技能")
 	}
 	if strings.HasPrefix(id, "builtin:") {
 		name := strings.TrimPrefix(id, "builtin:")
@@ -128,7 +128,7 @@ func (ss *SkillService) ImportSkillMarketplace(id string) (Skill, error) {
 				return skillFromPreset(preset), nil
 			}
 		}
-		return Skill{}, fmt.Errorf("找不到内置技能 %s", name)
+		return Skill{}, errorf("找不到内置技能 %s", name)
 	}
 	if strings.HasPrefix(id, "skillssh:") {
 		return importSkillsSh(strings.TrimPrefix(id, "skillssh:"))
@@ -143,7 +143,7 @@ func (ss *SkillService) ImportSkillMarketplace(id string) (Skill, error) {
 	}
 	content := strings.TrimSpace(string(body))
 	if content == "" {
-		return Skill{}, fmt.Errorf("SKILL.md 为空")
+		return Skill{}, errorf("SKILL.md 为空")
 	}
 	name := slugMarketName(item.Name)
 	if !skillDirNamePattern.MatchString(name) {
@@ -222,9 +222,9 @@ func fetchGitHubSkillCatalog(src skillMarketSource) ([]SkillMarketItem, error) {
 	data, err := marketGetGitHubAPI("repos/" + src.Repo + "/contents/" + dir)
 	if err != nil {
 		if last != nil {
-			return nil, fmt.Errorf("读取 %s 失败: %v", src.Label, last)
+			return nil, errorf("读取 %s 失败: %v", src.Label, last)
 		}
-		return nil, fmt.Errorf("读取 %s 失败: %v", src.Label, err)
+		return nil, errorf("读取 %s 失败: %v", src.Label, err)
 	}
 	var entries []struct {
 		Name string `json:"name"`
@@ -250,7 +250,7 @@ func fetchGitHubSkillCatalog(src skillMarketSource) ([]SkillMarketItem, error) {
 		})
 	}
 	if len(items) == 0 {
-		return nil, fmt.Errorf("%s 没有公开技能", src.Label)
+		return nil, errorf("%s 没有公开技能", src.Label)
 	}
 	return items, nil
 }
@@ -304,7 +304,7 @@ func fetchJsdelivrSkillTree(src skillMarketSource, branch string) ([]SkillMarket
 		}
 	}
 	if len(items) == 0 {
-		return nil, fmt.Errorf("%s 没有 SKILL.md", src.Label)
+		return nil, errorf("%s 没有 SKILL.md", src.Label)
 	}
 	return items, nil
 }
@@ -376,7 +376,7 @@ func fetchGitHubSkillTree(src skillMarketSource, branch string) ([]SkillMarketIt
 		}
 	}
 	if len(items) == 0 {
-		return nil, fmt.Errorf("%s 树里没有 SKILL.md", src.Label)
+		return nil, errorf("%s 树里没有 SKILL.md", src.Label)
 	}
 	return items, nil
 }
@@ -418,7 +418,7 @@ func downloadGitHubSkillMD(repo, skillDir string) ([]byte, error) {
 		}
 	}
 	if last == nil {
-		last = fmt.Errorf("下载 SKILL.md 失败")
+		last = errorf("下载 SKILL.md 失败")
 	}
 	return nil, last
 }
@@ -456,9 +456,9 @@ func fetchSkillsShCatalog(query string) ([]SkillMarketItem, error) {
 	}
 	if len(items) == 0 {
 		if last != nil {
-			return nil, fmt.Errorf("读取 skills.sh 失败: %v", last)
+			return nil, errorf("读取 skills.sh 失败: %v", last)
 		}
-		return nil, fmt.Errorf("skills.sh 没有匹配的技能")
+		return nil, errorf("skills.sh 没有匹配的技能")
 	}
 	if len(items) > 80 {
 		items = items[:80]
@@ -529,7 +529,7 @@ func parseSkillsShItem(raw json.RawMessage) (SkillMarketItem, bool) {
 		desc = firstNonEmpty(body.Name, body.Source)
 	}
 	if body.Installs > 0 {
-		desc = fmt.Sprintf("%s · %d 安装", desc, body.Installs)
+		desc = sprintf("%s · %d 安装", desc, body.Installs)
 	}
 	repo, path := splitSkillsShID(id)
 	return SkillMarketItem{
@@ -571,7 +571,7 @@ func fetchSkillsMPCatalog(query, lang string) ([]SkillMarketItem, error) {
 	}
 	data, err := marketHTTPGet(rawURL, 18*time.Second)
 	if err != nil {
-		return nil, fmt.Errorf("读取 SkillsMP 失败: %v", err)
+		return nil, errorf("读取 SkillsMP 失败: %v", err)
 	}
 	var payload struct {
 		Success bool `json:"success"`
@@ -621,7 +621,7 @@ func fetchSkillsMPCatalog(query, lang string) ([]SkillMarketItem, error) {
 		})
 	}
 	if len(items) == 0 {
-		return nil, fmt.Errorf("SkillsMP 没有可导入的技能")
+		return nil, errorf("SkillsMP 没有可导入的技能")
 	}
 	return items, nil
 }
@@ -662,7 +662,7 @@ func splitSkillsShID(id string) (repo, path string) {
 func importSkillsSh(id string) (Skill, error) {
 	id = strings.Trim(id, "/")
 	if id == "" {
-		return Skill{}, fmt.Errorf("技能 ID 无效")
+		return Skill{}, errorf("技能 ID 无效")
 	}
 	data, err := marketHTTPGet("https://skills.sh/api/v1/skills/"+id, 15*time.Second)
 	content := ""
@@ -701,13 +701,13 @@ func importSkillsSh(id string) (Skill, error) {
 			}
 			body, downErr := downloadGitHubSkillMD(repo, path)
 			if downErr != nil {
-				return Skill{}, fmt.Errorf("下载 SKILL.md 失败: %v", downErr)
+				return Skill{}, errorf("下载 SKILL.md 失败: %v", downErr)
 			}
 			content = strings.TrimSpace(string(body))
 		}
 	}
 	if content == "" {
-		return Skill{}, fmt.Errorf("没有找到 SKILL.md")
+		return Skill{}, errorf("没有找到 SKILL.md")
 	}
 	if !skillDirNamePattern.MatchString(name) {
 		name = slugMarketName(lastPathSegment(id))
@@ -774,12 +774,12 @@ func parseClaudeMarketplace(src skillMarketSource, data []byte) []SkillMarketIte
 func lookupGitHubSkill(id string) (SkillMarketItem, error) {
 	// github:owner/repo:path
 	if !strings.HasPrefix(id, "github:") {
-		return SkillMarketItem{}, fmt.Errorf("不支持的技能来源")
+		return SkillMarketItem{}, errorf("不支持的技能来源")
 	}
 	rest := strings.TrimPrefix(id, "github:")
 	idx := strings.Index(rest, ":")
 	if idx <= 0 {
-		return SkillMarketItem{}, fmt.Errorf("技能 ID 无效")
+		return SkillMarketItem{}, errorf("技能 ID 无效")
 	}
 	repo := rest[:idx]
 	path := rest[idx+1:]

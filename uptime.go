@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -144,7 +143,7 @@ func (us *UptimeService) DeleteRotationGroup(name string) error {
 
 	trimmed := strings.TrimSpace(name)
 	if trimmed == "" {
-		return fmt.Errorf("轮换组名称不能为空")
+		return errorf("轮换组名称不能为空")
 	}
 
 	store, err := us.loadStore()
@@ -270,15 +269,15 @@ func (us *UptimeService) RunOnce() (UptimeSnapshot, error) {
 		// 只切换并写回这一组所属的平台（ApplyCurrentEnv 会把所有平台都重写一遍）；
 		// 失败要留痕，用户才知道自己还挂在故障环境上
 		if _, err := us.app.ApplyEnv(nextName, group.Provider); err != nil {
-			store.LastRotationError = fmt.Sprintf("切换到 %s 失败: %v", nextName, err)
+			store.LastRotationError = sprintf("切换到 %s 失败: %v", nextName, err)
 			store.LastRotationAt = time.Now().Unix()
 			continue
 		}
-		reason := fmt.Sprintf("连续 %d 次失败", failCount)
+		reason := sprintf("连续 %d 次失败", failCount)
 		if last := history[len(history)-1]; last.Error != "" {
 			reason += "（" + last.Error + "）"
 		}
-		store.LastRotation = fmt.Sprintf("%s：%s，已自动切换到 %s", group.Name, reason, nextName)
+		store.LastRotation = sprintf("%s：%s，已自动切换到 %s", group.Name, reason, nextName)
 		store.LastRotationError = ""
 		store.LastRotationAt = time.Now().Unix()
 
@@ -459,16 +458,16 @@ func normalizeStringList(values []string) []string {
 func (us *UptimeService) validateRotationGroup(group RotationGroup) error {
 	group = normalizeRotationGroup(group)
 	if group.Name == "" {
-		return fmt.Errorf("轮换组名称不能为空")
+		return errorf("轮换组名称不能为空")
 	}
 	if group.Provider != "claude" && group.Provider != "claude_desktop" && group.Provider != "codex" && group.Provider != "antigravity" && group.Provider != "opencode" && group.Provider != "grok" {
-		return fmt.Errorf("轮换组 provider 必须是 claude/claude_desktop/codex/antigravity/opencode/grok")
+		return errorf("轮换组 provider 必须是 claude/claude_desktop/codex/antigravity/opencode/grok")
 	}
 	if len(group.EnvNames) == 0 {
-		return fmt.Errorf("轮换组必须至少包含 1 个配置")
+		return errorf("轮换组必须至少包含 1 个配置")
 	}
 	if group.FailureThreshold <= 0 {
-		return fmt.Errorf("失败阈值必须 >= 1")
+		return errorf("失败阈值必须 >= 1")
 	}
 
 	config := us.app.GetConfig()
@@ -483,7 +482,7 @@ func (us *UptimeService) validateRotationGroup(group RotationGroup) error {
 
 	for _, name := range group.EnvNames {
 		if !known[group.Provider+"\x00"+name] {
-			return fmt.Errorf("轮换组包含不存在的配置：%s", name)
+			return errorf("轮换组包含不存在的配置：%s", name)
 		}
 	}
 
@@ -555,7 +554,7 @@ func runUptimeCheck(client *http.Client, url string) UptimeCheck {
 	// 可达性检测不带 Key，401/403 说明服务本身在线，不算故障（Key 失效要靠鉴权探测发现）
 	check.Success = resp.StatusCode < 500 && resp.StatusCode != http.StatusTooManyRequests
 	if !check.Success {
-		check.Error = fmt.Sprintf("上游返回 %s", resp.Status)
+		check.Error = sprintf("上游返回 %s", resp.Status)
 	}
 	return check
 }

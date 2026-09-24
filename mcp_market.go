@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/url"
 	"strings"
 	"time"
@@ -41,12 +40,12 @@ func (ms *MCPService) SearchMcpMarketplace(query, cursor string) (McpMarketPage,
 		if cursor != "" {
 			return McpMarketPage{Warning: err.Error()}, nil
 		}
-		return McpMarketPage{Items: fallback, Warning: "官方市场暂不可用，已显示常用 MCP。 " + err.Error()}, nil
+		return McpMarketPage{Items: fallback, Warning: tr("官方市场暂不可用，已显示常用 MCP。 ") + err.Error()}, nil
 	}
 	if len(page.Items) == 0 && cursor == "" && query != "" {
 		page.Items = filterMcpCurated(query)
 		if len(page.Items) > 0 {
-			page.Warning = "官方结果为空，已附带常用 MCP"
+			page.Warning = tr("官方结果为空，已附带常用 MCP")
 		}
 	}
 	return page, nil
@@ -55,7 +54,7 @@ func (ms *MCPService) SearchMcpMarketplace(query, cursor string) (McpMarketPage,
 func (ms *MCPService) ImportMcpMarketplace(id string, platforms []string) error {
 	id = strings.TrimSpace(id)
 	if id == "" {
-		return fmt.Errorf("未选择 MCP")
+		return errorf("未选择 MCP")
 	}
 	item, err := resolveMcpMarketItem(id)
 	if err != nil {
@@ -226,7 +225,7 @@ func resolveMcpMarketItem(id string) (McpMarketItem, error) {
 		data, err = marketHTTPGet(mcpRegistryBase+"/v0.1/servers/"+encoded, 15*time.Second)
 	}
 	if err != nil {
-		return McpMarketItem{}, fmt.Errorf("读取 MCP 详情失败: %v", err)
+		return McpMarketItem{}, errorf("读取 MCP 详情失败: %v", err)
 	}
 	var wrapped struct {
 		Server json.RawMessage `json:"server"`
@@ -237,7 +236,7 @@ func resolveMcpMarketItem(id string) (McpMarketItem, error) {
 	}
 	item, ok := parseMcpRegistryServer(raw)
 	if !ok {
-		return McpMarketItem{}, fmt.Errorf("无法解析 MCP 详情")
+		return McpMarketItem{}, errorf("无法解析 MCP 详情")
 	}
 	return item, nil
 }
@@ -248,7 +247,7 @@ func mcpMarketToServer(item McpMarketItem, platforms []string) (MCPServer, error
 		name = slugMarketName(item.Title)
 	}
 	if name == "" {
-		return MCPServer{}, fmt.Errorf("名称无效")
+		return MCPServer{}, errorf("名称无效")
 	}
 	plats := normalizePlatforms(platforms)
 	if len(plats) == 0 {
@@ -265,10 +264,10 @@ func mcpMarketToServer(item McpMarketItem, platforms []string) (MCPServer, error
 		EnablePlatform: plats,
 	}
 	if (server.Type == "http" || server.Type == "sse") && server.URL == "" {
-		return MCPServer{}, fmt.Errorf("%s 没有可用的远程地址", item.Title)
+		return MCPServer{}, errorf("%s 没有可用的远程地址", item.Title)
 	}
 	if server.Type == "stdio" && server.Command == "" {
-		return MCPServer{}, fmt.Errorf("%s 没有可用的安装命令", item.Title)
+		return MCPServer{}, errorf("%s 没有可用的安装命令", item.Title)
 	}
 	return server, nil
 }
@@ -308,17 +307,17 @@ func curatedMcpServers() []McpMarketItem {
 		}
 	}
 	return []McpMarketItem{
-		stdio("filesystem", "Filesystem", "本地文件读写", "@modelcontextprotocol/server-filesystem"),
-		stdio("github", "GitHub", "仓库、issue、PR", "@modelcontextprotocol/server-github"),
-		stdio("memory", "Memory", "跨会话记忆", "@modelcontextprotocol/server-memory"),
-		stdio("sequential-thinking", "Sequential Thinking", "分步推理", "@modelcontextprotocol/server-sequential-thinking"),
-		stdio("puppeteer", "Puppeteer", "浏览器自动化", "@modelcontextprotocol/server-puppeteer"),
-		stdio("brave-search", "Brave Search", "网页搜索", "@modelcontextprotocol/server-brave-search"),
-		stdio("context7", "Context7", "库文档检索", "@upstash/context7-mcp"),
-		stdio("playwright", "Playwright", "浏览器 MCP", "@playwright/mcp"),
-		stdio("exa", "Exa Search", "Exa 搜索", "exa-mcp-server"),
-		uvx("fetch", "Fetch", "抓取网页", "mcp-server-fetch"),
-		uvx("time", "Time", "时区与时间", "mcp-server-time"),
-		uvx("git", "Git", "本地 git 操作", "mcp-server-git"),
+		stdio("filesystem", "Filesystem", tr("本地文件读写"), "@modelcontextprotocol/server-filesystem"),
+		stdio("github", "GitHub", tr("仓库、issue、PR"), "@modelcontextprotocol/server-github"),
+		stdio("memory", "Memory", tr("跨会话记忆"), "@modelcontextprotocol/server-memory"),
+		stdio("sequential-thinking", "Sequential Thinking", tr("分步推理"), "@modelcontextprotocol/server-sequential-thinking"),
+		stdio("puppeteer", "Puppeteer", tr("浏览器自动化"), "@modelcontextprotocol/server-puppeteer"),
+		stdio("brave-search", "Brave Search", tr("网页搜索"), "@modelcontextprotocol/server-brave-search"),
+		stdio("context7", "Context7", tr("库文档检索"), "@upstash/context7-mcp"),
+		stdio("playwright", "Playwright", tr("浏览器 MCP"), "@playwright/mcp"),
+		stdio("exa", "Exa Search", tr("Exa 搜索"), "exa-mcp-server"),
+		uvx("fetch", "Fetch", tr("抓取网页"), "mcp-server-fetch"),
+		uvx("time", "Time", tr("时区与时间"), "mcp-server-time"),
+		uvx("git", "Git", tr("本地 git 操作"), "mcp-server-git"),
 	}
 }
