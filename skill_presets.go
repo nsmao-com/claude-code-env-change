@@ -18,7 +18,7 @@ func (ss *SkillService) GetSkillPresets() []SkillPreset {
 var builtinSkillPresets = []SkillPreset{
 	{
 		Name:        "commit-helper",
-		Description: "生成规范的 Conventional Commits 提交信息，自动归纳变更内容",
+		Description: tr("生成规范的 Conventional Commits 提交信息，自动归纳变更内容"),
 		Content: `---
 name: commit-helper
 description: 生成规范的 Conventional Commits 提交信息。当用户要求提交代码、写 commit message 时使用。
@@ -59,7 +59,7 @@ description: 生成规范的 Conventional Commits 提交信息。当用户要求
 	},
 	{
 		Name:        "code-reviewer",
-		Description: "系统性代码审查：正确性、安全、性能、可维护性四维度走查",
+		Description: tr("系统性代码审查：正确性、安全、性能、可维护性四维度走查"),
 		Content: `---
 name: code-reviewer
 description: 系统性代码审查。当用户要求 review 代码、检查代码质量时使用。
@@ -103,7 +103,7 @@ description: 系统性代码审查。当用户要求 review 代码、检查代�
 	},
 	{
 		Name:        "test-writer",
-		Description: "为指定代码生成边界覆盖完整的单元测试",
+		Description: tr("为指定代码生成边界覆盖完整的单元测试"),
 		Content: `---
 name: test-writer
 description: 生成单元测试。当用户要求写测试、补测试、提高覆盖率时使用。
@@ -142,7 +142,7 @@ description: 生成单元测试。当用户要求写测试、补测试、提高�
 	},
 	{
 		Name:        "changelog-generator",
-		Description: "根据 git 历史或变更内容生成 Keep a Changelog 格式的变更日志",
+		Description: tr("根据 git 历史或变更内容生成 Keep a Changelog 格式的变更日志"),
 		Content: `---
 name: changelog-generator
 description: 生成变更日志。当用户要求写 changelog、发布说明、release notes 时使用。
@@ -184,7 +184,7 @@ description: 生成变更日志。当用户要求写 changelog、发布说明、
 	},
 	{
 		Name:        "sql-optimizer",
-		Description: "分析 SQL 与表结构，给出索引、改写与分页优化建议",
+		Description: tr("分析 SQL 与表结构，给出索引、改写与分页优化建议"),
 		Content: `---
 name: sql-optimizer
 description: SQL 优化建议。当用户要求优化 SQL、排查慢查询时使用。
@@ -215,7 +215,7 @@ description: SQL 优化建议。当用户要求优化 SQL、排查慢查询时�
 	},
 	{
 		Name:        "regex-helper",
-		Description: "编写、解释与调试正则表达式，注重性能与可读性",
+		Description: tr("编写、解释与调试正则表达式，注重性能与可读性"),
 		Content: `---
 name: regex-helper
 description: 正则表达式编写与解释。当用户要求写正则、解释正则、优化正则时使用。
@@ -243,7 +243,7 @@ description: 正则表达式编写与解释。当用户要求写正则、解释�
 	},
 	{
 		Name:        "refactor-advisor",
-		Description: "评估代码坏味道并给出小步安全的重构方案",
+		Description: tr("评估代码坏味道并给出小步安全的重构方案"),
 		Content: `---
 name: refactor-advisor
 description: 重构建议。当用户要求重构、改善代码结构、消除坏味道时使用。
@@ -276,7 +276,7 @@ description: 重构建议。当用户要求重构、改善代码结构、消除�
 	},
 	{
 		Name:        "doc-writer",
-		Description: "撰写清晰的 README、API 文档与模块说明",
+		Description: tr("撰写清晰的 README、API 文档与模块说明"),
 		Content: `---
 name: doc-writer
 description: 技术文档撰写。当用户要求写 README、API 文档、使用说明时使用。

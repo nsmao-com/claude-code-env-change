@@ -63,6 +63,8 @@ export const enRouter: DeepString<typeof zhRouter> = {
     clearMsg: "Clear all request logs? This cannot be undone.",
     cleared: "Logs cleared",
     clearFailed: "Clear failed: {error}",
+    tokens: "Tokens",
+    tokensTip: "Input {input} · output {output} · cache hits {cache}",
   },
   edit: {
     titleEdit: "Edit route",

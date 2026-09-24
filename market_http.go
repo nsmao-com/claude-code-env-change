@@ -72,7 +72,7 @@ func marketGetGitHubFile(repo, branch, rel string) ([]byte, error) {
 		last = err
 	}
 	if last == nil {
-		last = fmt.Errorf("下载失败")
+		last = errorf("下载失败")
 	}
 	return nil, last
 }
@@ -96,7 +96,7 @@ func marketGetGitHubRaw(path string) ([]byte, error) {
 		last = err
 	}
 	if last == nil {
-		last = fmt.Errorf("下载失败")
+		last = errorf("下载失败")
 	}
 	return nil, last
 }
@@ -116,7 +116,7 @@ func marketGetGitHubAPI(path string) ([]byte, error) {
 		last = err
 	}
 	if last == nil {
-		last = fmt.Errorf("请求 GitHub 失败")
+		last = errorf("请求 GitHub 失败")
 	}
 	return nil, last
 }

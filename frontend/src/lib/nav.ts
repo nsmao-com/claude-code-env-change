@@ -3,6 +3,7 @@ import {
   Activity,
   ChartColumn,
   Cloud,
+  FolderGit2,
   House,
   Layers,
   MessageSquareText,
@@ -24,6 +25,7 @@ export interface AppPageMeta {
 export const APP_PAGES: AppPageMeta[] = [
   { id: 'home', label: '首页', title: '首页', subtitle: '总览各平台环境健康度与写入状态。', icon: House },
   { id: 'env', label: '环境', title: '环境', subtitle: '查看并应用各 CLI 的环境配置。', icon: Layers },
+  { id: 'projects', label: '项目', title: '项目', subtitle: '按项目管理 Claude Code 的 MCP、接入配置与 CLAUDE.md。', icon: FolderGit2 },
   { id: 'mcp', label: 'MCP', title: 'MCP', subtitle: '管理 Model Context Protocol 服务器。', icon: Plug },
   { id: 'skills', label: 'Skills', title: 'Skills', subtitle: '管理各平台的自定义 SKILL.md。', icon: Sparkles },
   { id: 'router', label: '路由', title: '路由', subtitle: '本地协议转换网关，跨工具复用 API。', icon: Route },

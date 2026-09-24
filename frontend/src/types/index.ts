@@ -160,6 +160,9 @@ export interface RouterLogEntry {
   error?: string
   upstream?: string
   failover?: string
+  input_tokens?: number
+  output_tokens?: number
+  cache_read_tokens?: number
 }
 
 export interface RouterLogQuery {
@@ -206,12 +209,31 @@ export interface CloudConfig {
   last_push_at?: number
   last_pull_at?: number
   last_error?: string
+  // 以下由后端维护
+  device_id?: string
+  last_remote_at?: number
+  last_sync_hash?: string
 }
 
 export interface CloudSyncResult {
   success: boolean
   message: string
   latency: number
+  // 云端有别的电脑上传的新备份，本次没有上传/拉取
+  conflict?: boolean
+  skipped?: boolean
+  remote_host?: string
+  remote_at?: number
+}
+
+// 云端保留的一份历史备份
+export interface CloudVersion {
+  key: string
+  exported_at: number
+  hostname?: string
+  device?: string
+  files: number
+  size: number
 }
 
 export interface CloudSyncStatus {
@@ -278,7 +300,69 @@ export interface ProviderPreset {
 // Provider 类型
 export type Provider = 'claude' | 'claude_desktop' | 'codex' | 'antigravity' | 'opencode' | 'grok'
 
-export type AppPage = 'home' | 'env' | 'mcp' | 'skills' | 'router' | 'uptime' | 'cloud' | 'prompts' | 'stats' | 'settings'
+export type AppPage = 'home' | 'env' | 'projects' | 'mcp' | 'skills' | 'router' | 'uptime' | 'cloud' | 'prompts' | 'stats' | 'settings'
+
+// 花费预算
+export type BudgetScope = 'all' | 'provider' | 'env'
+export type BudgetPeriod = 'day' | 'month'
+
+export interface BudgetRule {
+  id: string
+  scope: BudgetScope | string
+  provider?: string
+  env_name?: string
+  period: BudgetPeriod | string
+  limit: number
+  enabled: boolean
+}
+
+export interface BudgetSettings {
+  rules: BudgetRule[]
+  warn_percent: number
+}
+
+export interface BudgetStatus {
+  rule: BudgetRule
+  spent: number
+  percent: number
+  level: 'ok' | 'warn' | 'over' | string
+  since: string
+}
+
+// 项目级配置（Claude Code 的 .mcp.json / .claude/settings.local.json / CLAUDE.md）
+export interface ProjectInfo {
+  path: string
+  name: string
+  exists: boolean
+  pinned: boolean
+  mcp_count: number
+  has_claude_md: boolean
+  applied_env?: string
+  env_override: boolean
+}
+
+export interface ProjectMcpServer {
+  name: string
+  type: string
+  command?: string
+  args?: string[]
+  url?: string
+  in_library: boolean
+}
+
+export interface ProjectEnvVar {
+  key: string
+  value: string
+}
+
+export interface ProjectDetail extends ProjectInfo {
+  mcp_servers: ProjectMcpServer[]
+  env_vars: ProjectEnvVar[]
+  claude_md: string
+  mcp_path: string
+  settings_path: string
+  claude_md_path: string
+}
 
 export interface OutboundProxySettings {
   enabled: boolean

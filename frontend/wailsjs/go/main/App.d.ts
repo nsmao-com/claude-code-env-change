@@ -57,6 +57,8 @@ export function GetEnvVar(arg1:string):Promise<string>;
 
 export function GetGrokSettings():Promise<Record<string, string>>;
 
+export function GetLanguage():Promise<string>;
+
 export function GetOpencodeAppliedNames():Promise<Array<string>>;
 
 export function GetOpencodeSettings():Promise<Record<string, string>>;
@@ -106,6 +108,8 @@ export function SaveTextFile(arg1:string,arg2:string):Promise<string>;
 export function SetAutostart(arg1:boolean):Promise<void>;
 
 export function SetEnvVar(arg1:string,arg2:string):Promise<void>;
+
+export function SetLanguage(arg1:string):Promise<void>;
 
 export function SetOutboundProxy(arg1:main.OutboundProxySettings):Promise<void>;
 

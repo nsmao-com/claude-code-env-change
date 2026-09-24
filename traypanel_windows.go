@@ -5,7 +5,6 @@ package main
 import (
 	_ "embed"
 	"encoding/json"
-	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -54,13 +53,13 @@ type trayPanel struct {
 func newTrayPanel(m *trayManager) (*trayPanel, error) {
 	// WebView2 要求调用线程是 COM STA；面板线程是新锁的 OS 线程，必须自己初始化
 	if hr, _, _ := procCoInitEx.Call(0, 0x2 /* COINIT_APARTMENTTHREADED */); int32(hr) < 0 {
-		return nil, fmt.Errorf("CoInitializeEx 失败: 0x%08x", uint32(hr))
+		return nil, errorf("CoInitializeEx 失败: 0x%08x", uint32(hr))
 	}
 
 	// 先探测 WebView2 运行时，缺失时直接失败走回退菜单，
 	// 也避免 Embed 内部把失败当成挂起
 	if version, err := webviewloader.GetAvailableCoreWebView2BrowserVersionString(""); err != nil || version == "" {
-		return nil, fmt.Errorf("WebView2 运行时不可用: %v", err)
+		return nil, errorf("WebView2 运行时不可用: %v", err)
 	}
 
 	p := &trayPanel{mgr: m}
@@ -82,7 +81,7 @@ func newTrayPanel(m *trayManager) (*trayPanel, error) {
 		m.hostHwnd, 0, hInst, 0,
 	)
 	if hwnd == 0 {
-		return nil, fmt.Errorf("创建面板窗口失败: %v", err)
+		return nil, errorf("创建面板窗口失败: %v", err)
 	}
 	p.hwnd = hwnd
 	procSetWindowLongPtrW.Call(hwnd, gwlUserData, uintptr(unsafe.Pointer(p)))
@@ -97,7 +96,7 @@ func newTrayPanel(m *trayManager) (*trayPanel, error) {
 		p.pushState()
 	}
 	if !chromium.Embed(hwnd) {
-		return nil, fmt.Errorf("WebView2 初始化失败")
+		return nil, errorf("WebView2 初始化失败")
 	}
 	chromium.SetBackgroundColour(0, 0, 0, 0)
 	if settings, serr := chromium.GetSettings(); serr == nil {
@@ -318,7 +317,7 @@ func (p *trayPanel) onMessage(message string, _ *edge.ICoreWebView2, _ *edge.ICo
 			msg, err := m.app.ApplyCurrentEnv()
 			p.resetBusy("apply-all")
 			if err != nil {
-				p.toastMsg("全部应用失败: "+err.Error(), true)
+				p.toastMsg(sprintf("全部应用失败: %v", err), true)
 				return
 			}
 			runtime.EventsEmit(m.ctx, "tray:applied", msg)
@@ -329,11 +328,11 @@ func (p *trayPanel) onMessage(message string, _ *edge.ICoreWebView2, _ *edge.ICo
 		go func() {
 			_, err := m.app.ApplyEnv(req.Name, req.Provider)
 			if err != nil {
-				p.toastMsg("应用「"+req.Name+"」失败: "+err.Error(), true)
+				p.toastMsg(sprintf("应用「%s」失败: %v", req.Name, err), true)
 				return
 			}
-			runtime.EventsEmit(m.ctx, "tray:applied", "已应用 "+req.Name)
-			p.toastMsg("已应用「"+req.Name+"」", false)
+			runtime.EventsEmit(m.ctx, "tray:applied", sprintf("已应用 %s", req.Name))
+			p.toastMsg(sprintf("已应用「%s」", req.Name), false)
 			p.pushState()
 		}()
 	case "router-toggle":
@@ -346,7 +345,7 @@ func (p *trayPanel) onMessage(message string, _ *edge.ICoreWebView2, _ *edge.ICo
 			}
 			p.resetBusy("router-toggle")
 			if err != nil {
-				p.toastMsg("路由切换失败: "+err.Error(), true)
+				p.toastMsg(sprintf("路由切换失败: %v", err), true)
 				return
 			}
 			runtime.EventsEmit(m.ctx, "tray:router-changed", m.router.GetGatewayStatus().Running)
@@ -361,7 +360,11 @@ func (p *trayPanel) onMessage(message string, _ *edge.ICoreWebView2, _ *edge.ICo
 				p.toastMsg(err.Error(), true)
 				return
 			}
-			p.toastMsg(map[bool]string{true: "已开启开机自启", false: "已关闭开机自启"}[!enabled], false)
+			if !enabled {
+				p.toastMsg(tr("已开启开机自启"), false)
+			} else {
+				p.toastMsg(tr("已关闭开机自启"), false)
+			}
 			p.pushState()
 		}()
 	case "check-update":
@@ -369,7 +372,7 @@ func (p *trayPanel) onMessage(message string, _ *edge.ICoreWebView2, _ *edge.ICo
 			info, err := m.app.CheckForUpdate()
 			p.resetBusy("check-update")
 			if err != nil {
-				p.toastMsg("检查更新失败: "+err.Error(), true)
+				p.toastMsg(sprintf("检查更新失败: %v", err), true)
 				return
 			}
 			m.mu.Lock()
@@ -377,9 +380,9 @@ func (p *trayPanel) onMessage(message string, _ *edge.ICoreWebView2, _ *edge.ICo
 			m.mu.Unlock()
 			if info.Available {
 				// tag 本身带 v（v2.6.15），不再重复拼接
-				p.toastMsg("发现新版本 v"+strings.TrimPrefix(info.LatestVersion, "v")+"，可在主窗口中更新", false)
+				p.toastMsg(sprintf("发现新版本 v%s，可在主窗口中更新", strings.TrimPrefix(info.LatestVersion, "v")), false)
 			} else {
-				p.toastMsg("已是最新版本 v"+info.CurrentVersion, false)
+				p.toastMsg(sprintf("已是最新版本 v%s", info.CurrentVersion), false)
 			}
 			runtime.EventsEmit(m.ctx, "tray:update-status", info.Available)
 			p.pushState()
@@ -416,6 +419,7 @@ type trayProviderDto struct {
 }
 
 type trayPanelState struct {
+	Lang            string            `json:"lang"` // 面板文字随主界面语言
 	Version         string            `json:"version"`
 	ManagedCount    int               `json:"managedCount"`
 	RouterRunning   bool              `json:"routerRunning"`
@@ -435,7 +439,7 @@ var trayProviderDefs = []struct{ id, label, color string }{
 }
 
 func buildTrayPanelState(m *trayManager) trayPanelState {
-	st := trayPanelState{Version: appVersion}
+	st := trayPanelState{Version: appVersion, Lang: backendLanguage()}
 	cfg := m.app.GetConfig()
 	st.ManagedCount = len(cfg.Environments)
 	gs := m.router.GetGatewayStatus()

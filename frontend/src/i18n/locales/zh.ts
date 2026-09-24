@@ -1,3 +1,5 @@
+import { zhBudget } from './zh/budget'
+import { zhProjects } from './zh/projects'
 import { zhUpdate } from './zh/update'
 import { zhStats } from './zh/stats'
 import { zhPrompt } from './zh/prompt'
@@ -15,6 +17,7 @@ export const zh = {
   nav: {
     home: '首页',
     env: '环境',
+    projects: '项目',
     mcp: 'MCP',
     skills: 'Skills',
     router: '路由',
@@ -251,4 +254,6 @@ export const zh = {
   prompt: zhPrompt,
   stats: zhStats,
   update: zhUpdate,
+  projects: zhProjects,
+  budget: zhBudget,
 } as const

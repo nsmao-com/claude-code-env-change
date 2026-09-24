@@ -33,8 +33,8 @@ func (rs *RouterService) serveResponsesEndpoint(w http.ResponseWriter, r *http.R
 	start := time.Now()
 
 	if r.Method != http.MethodPost && r.Method != http.MethodGet {
-		rs.finishRequest(w, route, r, start, http.StatusMethodNotAllowed, "", fmt.Errorf("仅支持 POST /v1/responses"), true)
-		writeOpenAIError(w, http.StatusMethodNotAllowed, "invalid_request_error", "仅支持 POST /v1/responses")
+		rs.finishRequest(w, route, r, start, http.StatusMethodNotAllowed, "", errorf("仅支持 POST /v1/responses"), true)
+		writeOpenAIError(w, http.StatusMethodNotAllowed, "invalid_request_error", tr("仅支持 POST /v1/responses"))
 		return
 	}
 
@@ -45,14 +45,14 @@ func (rs *RouterService) serveResponsesEndpoint(w http.ResponseWriter, r *http.R
 		var err error
 		body, err = io.ReadAll(http.MaxBytesReader(w, r.Body, maxGatewayBodyBytes))
 		if err != nil {
-			rs.finishRequest(w, route, r, start, http.StatusBadRequest, "", fmt.Errorf("读取请求体失败: %v", err), true)
-			writeOpenAIError(w, http.StatusBadRequest, "invalid_request_error", "读取请求体失败")
+			rs.finishRequest(w, route, r, start, http.StatusBadRequest, "", errorf("读取请求体失败: %v", err), true)
+			writeOpenAIError(w, http.StatusBadRequest, "invalid_request_error", tr("读取请求体失败"))
 			return
 		}
 
 		if err := json.Unmarshal(body, &req); err != nil {
-			rs.finishRequest(w, route, r, start, http.StatusBadRequest, "", fmt.Errorf("请求不是有效的 Responses 格式: %v", err), true)
-			writeOpenAIError(w, http.StatusBadRequest, "invalid_request_error", "请求不是有效的 OpenAI Responses 格式")
+			rs.finishRequest(w, route, r, start, http.StatusBadRequest, "", errorf("请求不是有效的 Responses 格式: %v", err), true)
+			writeOpenAIError(w, http.StatusBadRequest, "invalid_request_error", tr("请求不是有效的 OpenAI Responses 格式"))
 			return
 		}
 	}
@@ -107,7 +107,7 @@ func (rs *RouterService) serveResponsesEndpoint(w http.ResponseWriter, r *http.R
 		if req.Stream {
 			if err := convertOpenAIStreamToResponses(resp.Body, w, inboundModel); err != nil {
 				rs.finishRequest(w, route, r, start, http.StatusInternalServerError, inboundModel, err, true)
-				writeOpenAIError(w, http.StatusInternalServerError, "api_error", "流式转换失败: "+err.Error())
+				writeOpenAIError(w, http.StatusInternalServerError, "api_error", tr("流式转换失败: ")+err.Error())
 				return
 			}
 			rs.finishRequest(w, route, r, start, http.StatusOK, inboundModel, nil, false)
@@ -116,13 +116,13 @@ func (rs *RouterService) serveResponsesEndpoint(w http.ResponseWriter, r *http.R
 		respBody, err := readUpstreamBody(resp)
 		if err != nil {
 			rs.finishRequest(w, route, r, start, http.StatusBadGateway, inboundModel, err, true)
-			writeOpenAIError(w, http.StatusBadGateway, "api_error", "读取上游响应失败")
+			writeOpenAIError(w, http.StatusBadGateway, "api_error", tr("读取上游响应失败"))
 			return
 		}
 		var oResp openaiResponse
 		if err := json.Unmarshal(respBody, &oResp); err != nil {
-			rs.finishRequest(w, route, r, start, http.StatusBadGateway, inboundModel, fmt.Errorf("上游响应解析失败: %v", err), true)
-			writeOpenAIError(w, http.StatusBadGateway, "api_error", "上游响应不是有效的 OpenAI 格式")
+			rs.finishRequest(w, route, r, start, http.StatusBadGateway, inboundModel, errorf("上游响应解析失败: %v", err), true)
+			writeOpenAIError(w, http.StatusBadGateway, "api_error", tr("上游响应不是有效的 OpenAI 格式"))
 			return
 		}
 		rs.finishRequest(w, route, r, start, http.StatusOK, inboundModel, nil, false)
@@ -147,7 +147,7 @@ func (rs *RouterService) serveResponsesEndpoint(w http.ResponseWriter, r *http.R
 	if req.Stream {
 		if err := convertAnthropicStreamToResponses(resp.Body, w, inboundModel); err != nil {
 			rs.finishRequest(w, route, r, start, http.StatusInternalServerError, inboundModel, err, true)
-			writeOpenAIError(w, http.StatusInternalServerError, "api_error", "流式转换失败: "+err.Error())
+			writeOpenAIError(w, http.StatusInternalServerError, "api_error", tr("流式转换失败: ")+err.Error())
 			return
 		}
 		rs.finishRequest(w, route, r, start, http.StatusOK, inboundModel, nil, false)
@@ -156,13 +156,13 @@ func (rs *RouterService) serveResponsesEndpoint(w http.ResponseWriter, r *http.R
 	respBody, err := readUpstreamBody(resp)
 	if err != nil {
 		rs.finishRequest(w, route, r, start, http.StatusBadGateway, inboundModel, err, true)
-		writeOpenAIError(w, http.StatusBadGateway, "api_error", "读取上游响应失败")
+		writeOpenAIError(w, http.StatusBadGateway, "api_error", tr("读取上游响应失败"))
 		return
 	}
 	var aResp anthropicResponse
 	if err := json.Unmarshal(respBody, &aResp); err != nil {
-		rs.finishRequest(w, route, r, start, http.StatusBadGateway, inboundModel, fmt.Errorf("上游响应解析失败: %v", err), true)
-		writeOpenAIError(w, http.StatusBadGateway, "api_error", "上游响应不是有效的 Anthropic 格式")
+		rs.finishRequest(w, route, r, start, http.StatusBadGateway, inboundModel, errorf("上游响应解析失败: %v", err), true)
+		writeOpenAIError(w, http.StatusBadGateway, "api_error", tr("上游响应不是有效的 Anthropic 格式"))
 		return
 	}
 	oResp := anthropicResponseToOpenAI(&aResp)

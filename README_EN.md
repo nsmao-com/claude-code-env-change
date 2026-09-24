@@ -40,14 +40,15 @@ The current version is the latest version listed in [GitHub Releases](https://gi
 | Module | What it does |
 | --- | --- |
 | Environments | Multiple profiles, per-tool filter, drag reorder, one-click apply, latency probe, drag-and-drop JSON import |
+| Projects | Point Claude Code at a different profile per project (written to the project's `.claude/settings.local.json` and added to git exclude), and manage the project's `.mcp.json` and `CLAUDE.md`; projects you've used with Claude Code are listed automatically |
 | MCP | stdio / HTTP servers, sync into Claude Code / Claude Desktop / Codex / Antigravity / OpenCode / Grok (remote servers reach Claude Desktop through an `npx mcp-remote` bridge, which needs Node.js) |
 | Skills | Edit `SKILL.md`, import from online marketplaces or the bundled library, enable per platform |
 | API router | Local gateway port and per-vendor switches; all five CLIs can convert between Anthropic Messages, Chat Completions, and Responses; each route can list backup upstreams that take over on rate limits, dead keys, or outages |
 | Uptime | Periodic Base URL checks, optional key verification that catches expired keys or exhausted credit, and rotation groups |
-| Cloud sync | S3 / Aliyun OSS / compatible endpoints, scrypt + AES-GCM encrypted objects |
+| Cloud sync | S3 / Aliyun OSS / compatible endpoints, scrypt + AES-GCM encrypted objects; the last 10 backups stay restorable, auto-upload pauses when another computer has pushed a newer one, and prompt files are included |
 | Prompts | Custom system prompts per CLI |
-| Stats | Requests, tokens, cost estimate, model mix, activity heatmap |
-| Settings | Language, theme, accent, outbound proxy |
+| Stats | Requests, tokens, cost estimate, model mix, activity heatmap; Claude Desktop / OpenCode / Grok are counted from requests through the local gateway; daily or monthly spending budgets for all platforms, one platform or one profile, with alerts near and over the limit (plus a system notification on Windows) |
+| Settings | Language (backend messages and the tray follow it too), theme, accent, outbound proxy |
 | CLI | Detect local Claude / Codex / Antigravity / OpenCode / Grok; install/upgrade via pnpm, yarn, npm, official installer, or native update |
 | Config folders | Open each CLI’s config directory and key files |
 | Updates | GitHub Release check; Windows can download and replace in-app |

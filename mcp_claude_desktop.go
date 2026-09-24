@@ -274,7 +274,7 @@ func (ms *MCPService) syncClaudeDesktopServers(servers []MCPServer, removed map[
 				// 没有服务器要写给 Claude Desktop：不因为它的配置坏了挡住其它平台的保存
 				return nil
 			}
-			return fmt.Errorf("解析 %s 失败，为保护原文件已中止同步: %v", path, err)
+			return errorf("解析 %s 失败，为保护原文件已中止同步: %v", path, err)
 		}
 	case err != nil && !errors.Is(err, os.ErrNotExist):
 		return err

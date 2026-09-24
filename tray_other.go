@@ -18,3 +18,9 @@ func trayAllowQuit() {}
 
 // trayShouldHideOnClose 非 Windows 平台保持"关闭即退出"。
 func trayShouldHideOnClose() bool { return false }
+
+// trayNotify 非 Windows 平台没有托盘，提醒只走界面通知。
+func trayNotify(title, message string) {}
+
+// trayLanguageChanged 非 Windows 平台没有托盘文字需要刷新。
+func trayLanguageChanged() {}

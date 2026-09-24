@@ -56,4 +56,5 @@ export const enStats: DeepString<typeof zhStats> = {
   input: "Input",
   output: "Output",
   loadFailed: "Failed to load statistics: {error}",
+  gatewayHint: "This platform keeps no local usage log, so only requests through the local gateway are counted (recording starts once its switch is on in Router).",
 }

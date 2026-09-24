@@ -183,16 +183,16 @@ func (a *App) TestOutboundProxy(cfg OutboundProxySettings) ProxyTestResult {
 	resp, err := client.Do(req)
 	latency := time.Since(start).Milliseconds()
 	if err != nil {
-		return ProxyTestResult{Success: false, Message: fmt.Sprintf("无法连接: %v", err), Latency: latency}
+		return ProxyTestResult{Success: false, Message: sprintf("无法连接: %v", err), Latency: latency}
 	}
 	defer resp.Body.Close()
 	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 32<<10))
 	if resp.StatusCode >= 200 && resp.StatusCode < 500 {
-		via := "系统网络"
+		via := tr("系统网络")
 		if cfg.Enabled {
 			via = displayProxyURL(cfg.URL)
 		}
-		return ProxyTestResult{Success: true, Message: fmt.Sprintf("出站正常（%s）", via), Latency: latency}
+		return ProxyTestResult{Success: true, Message: sprintf("出站正常（%s）", via), Latency: latency}
 	}
 	return ProxyTestResult{Success: false, Message: fmt.Sprintf("HTTP %d", resp.StatusCode), Latency: latency}
 }
@@ -200,22 +200,22 @@ func (a *App) TestOutboundProxy(cfg OutboundProxySettings) ProxyTestResult {
 func normalizeProxyURL(raw string) (string, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
-		return "", fmt.Errorf("请填写代理地址，例如 http://127.0.0.1:7890")
+		return "", errorf("请填写代理地址，例如 http://127.0.0.1:7890")
 	}
 	if !strings.Contains(raw, "://") {
 		raw = "http://" + raw
 	}
 	u, err := url.Parse(raw)
 	if err != nil || strings.TrimSpace(u.Host) == "" {
-		return "", fmt.Errorf("代理地址无效")
+		return "", errorf("代理地址无效")
 	}
 	switch strings.ToLower(u.Scheme) {
 	case "http", "https", "socks5", "socks5h":
 	default:
-		return "", fmt.Errorf("仅支持 http / https / socks5")
+		return "", errorf("仅支持 http / https / socks5")
 	}
 	if u.Port() == "" {
-		return "", fmt.Errorf("请带上端口，例如 127.0.0.1:7890")
+		return "", errorf("请带上端口，例如 127.0.0.1:7890")
 	}
 	u.Scheme = strings.ToLower(u.Scheme)
 	return u.String(), nil
@@ -267,7 +267,7 @@ func newOutboundTransport(cfg OutboundProxySettings) (*http.Transport, error) {
 		}
 		dialer, err := proxy.SOCKS5("tcp", u.Host, auth, proxy.Direct)
 		if err != nil {
-			return nil, fmt.Errorf("创建 SOCKS5 代理失败: %v", err)
+			return nil, errorf("创建 SOCKS5 代理失败: %v", err)
 		}
 		direct := &net.Dialer{Timeout: 30 * time.Second, KeepAlive: 30 * time.Second}
 		transport.Proxy = nil

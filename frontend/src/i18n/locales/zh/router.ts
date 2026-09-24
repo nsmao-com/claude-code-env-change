@@ -60,6 +60,8 @@ export const zhRouter = {
     clearMsg: "确定清空全部请求日志吗？此操作不可撤销。",
     cleared: "日志已清空",
     clearFailed: "清空失败: {error}",
+    tokens: "Tokens",
+    tokensTip: "输入 {input} · 输出 {output} · 缓存命中 {cache}",
   },
   edit: {
     titleEdit: "编辑路由",

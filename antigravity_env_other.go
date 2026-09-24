@@ -114,7 +114,7 @@ func rewriteAntigravityEnvBlock(block string) error {
 			continue
 		}
 		if err := writeFileAtomic(path, []byte(next), 0o644); err != nil {
-			return fmt.Errorf("写入 %s 失败: %v", path, err)
+			return errorf("写入 %s 失败: %v", path, err)
 		}
 	}
 	return nil

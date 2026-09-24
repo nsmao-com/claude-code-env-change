@@ -1,4 +1,4 @@
-import type { EnvConfig, Config, MCPServer, MCPTestResult, Skill, SkillPreset, SkillMarketItem, McpMarketPage, UptimeSettings, RotationGroup, UptimeSnapshot, RouterConfig, GatewayStatus, RouterTestResult, RouterLogQuery, RouterLogPage, CloudConfig, CloudSyncResult, CloudSyncStatus } from '@/types'
+import type { EnvConfig, Config, MCPServer, MCPTestResult, Skill, SkillPreset, SkillMarketItem, McpMarketPage, UptimeSettings, RotationGroup, UptimeSnapshot, RouterConfig, GatewayStatus, RouterTestResult, RouterLogQuery, RouterLogPage, CloudConfig, CloudSyncResult, CloudSyncStatus, CloudVersion, ProjectInfo, ProjectDetail, BudgetSettings, BudgetStatus } from '@/types'
 
 declare global {
   interface Window {
@@ -74,7 +74,27 @@ declare global {
           GetCloudSyncStatus(): Promise<CloudSyncStatus>
           TestCloudConnection(): Promise<CloudSyncResult>
           UploadToCloud(): Promise<CloudSyncResult>
+          ForceUploadToCloud(): Promise<CloudSyncResult>
           DownloadFromCloud(): Promise<CloudSyncResult>
+          ListCloudVersions(): Promise<CloudVersion[]>
+          RestoreCloudVersion(key: string): Promise<CloudSyncResult>
+        }
+        BudgetService: {
+          GetBudgetSettings(): Promise<BudgetSettings>
+          SaveBudgetSettings(settings: BudgetSettings): Promise<void>
+          GetBudgetStatus(): Promise<BudgetStatus[]>
+        }
+        ProjectService: {
+          ListProjects(): Promise<ProjectInfo[]>
+          AddProject(path: string): Promise<ProjectInfo>
+          RemoveProject(path: string): Promise<void>
+          PickProjectDirectory(): Promise<string>
+          GetProjectDetail(path: string): Promise<ProjectDetail>
+          AddLibraryMcpToProject(path: string, names: string[]): Promise<void>
+          RemoveProjectMcp(path: string, name: string): Promise<void>
+          ApplyEnvToProject(path: string, envName: string): Promise<string>
+          ClearProjectEnv(path: string): Promise<void>
+          SaveProjectClaudeMD(path: string, content: string): Promise<void>
         }
       }
     }

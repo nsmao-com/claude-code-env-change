@@ -6,6 +6,10 @@ export function DownloadFromCloud() {
   return window['go']['main']['CloudSyncService']['DownloadFromCloud']();
 }
 
+export function ForceUploadToCloud() {
+  return window['go']['main']['CloudSyncService']['ForceUploadToCloud']();
+}
+
 export function GetCloudConfig() {
   return window['go']['main']['CloudSyncService']['GetCloudConfig']();
 }
@@ -14,8 +18,16 @@ export function GetCloudSyncStatus() {
   return window['go']['main']['CloudSyncService']['GetCloudSyncStatus']();
 }
 
+export function ListCloudVersions() {
+  return window['go']['main']['CloudSyncService']['ListCloudVersions']();
+}
+
 export function OnStartup() {
   return window['go']['main']['CloudSyncService']['OnStartup']();
+}
+
+export function RestoreCloudVersion(arg1) {
+  return window['go']['main']['CloudSyncService']['RestoreCloudVersion'](arg1);
 }
 
 export function SaveCloudConfig(arg1) {

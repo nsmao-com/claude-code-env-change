@@ -55,7 +55,7 @@ func opencodeConfigFile(vars map[string]string) string {
 // 会把用户文件里的注释全部抹掉；明确报错让用户先迁移成 opencode.json
 func guardOpencodeJSONC(path string) error {
 	if strings.EqualFold(filepath.Ext(path), ".jsonc") {
-		return fmt.Errorf("%s 是 JSONC 文件（含注释）；为避免写回时丢失注释已中止，请将其重命名为 opencode.json 后重试", path)
+		return errorf("%s 是 JSONC 文件（含注释）；为避免写回时丢失注释已中止，请将其重命名为 opencode.json 后重试", path)
 	}
 	return nil
 }
@@ -74,7 +74,7 @@ func (a *App) applyOpencodeEnv(env *EnvConfig) (string, error) {
 	a.persistOpencodeProviderID(env.Name, env.Variables["OPENCODE_PROVIDER_ID"])
 	configFile := opencodeConfigFile(env.Variables)
 	if err := os.MkdirAll(filepath.Dir(configFile), 0755); err != nil {
-		return "", fmt.Errorf("创建 OpenCode 配置目录失败: %v", err)
+		return "", errorf("创建 OpenCode 配置目录失败: %v", err)
 	}
 
 	var content string
@@ -87,7 +87,7 @@ func (a *App) applyOpencodeEnv(env *EnvConfig) (string, error) {
 	if err := mergeWriteOpencodeConfig(configFile, content, env.Variables); err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("OpenCode 配置已应用到 %s", configFile), nil
+	return sprintf("OpenCode 配置已应用到 %s", configFile), nil
 }
 
 // defaultOpencodeConfig 生成默认 opencode.json：
@@ -191,18 +191,18 @@ func mergeWriteOpencodeConfig(configFile, incoming string, vars map[string]strin
 	}
 	desired, err := parseJSONLikeObject([]byte(incoming))
 	if err != nil {
-		return fmt.Errorf("解析待写入的 OpenCode 配置失败: %v", err)
+		return errorf("解析待写入的 OpenCode 配置失败: %v", err)
 	}
 
 	existing := map[string]any{}
 	if data, err := os.ReadFile(configFile); err == nil && len(data) > 0 {
 		parsed, parseErr := parseJSONLikeObject(data)
 		if parseErr != nil {
-			return fmt.Errorf("读取 OpenCode 配置失败: %v", parseErr)
+			return errorf("读取 OpenCode 配置失败: %v", parseErr)
 		}
 		existing = parsed
 	} else if err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("读取 OpenCode 配置失败: %v", err)
+		return errorf("读取 OpenCode 配置失败: %v", err)
 	}
 
 	existProv, _ := existing["provider"].(map[string]any)
@@ -223,7 +223,7 @@ func mergeWriteOpencodeConfig(configFile, incoming string, vars map[string]strin
 	injectOpencodeExtras(existing, vars)
 	data, err := json.MarshalIndent(existing, "", "  ")
 	if err != nil {
-		return fmt.Errorf("序列化 OpenCode 配置失败: %v", err)
+		return errorf("序列化 OpenCode 配置失败: %v", err)
 	}
 	return writeFileAtomic(configFile, data, 0644)
 }
@@ -482,7 +482,7 @@ func (a *App) stripOpencodeProvider(env *EnvConfig) error {
 	}
 	payload, err := parseJSONLikeObject(data)
 	if err != nil {
-		return fmt.Errorf("解析 OpenCode 配置失败: %v", err)
+		return errorf("解析 OpenCode 配置失败: %v", err)
 	}
 	id := opencodeProviderID(env)
 	if providers, ok := payload["provider"].(map[string]any); ok && providers != nil {
@@ -621,7 +621,7 @@ func (a *App) clearOpencodeSettingsLocked() error {
 
 	payload, err := parseJSONLikeObject(data)
 	if err != nil {
-		return fmt.Errorf("解析 OpenCode 配置失败: %v", err)
+		return errorf("解析 OpenCode 配置失败: %v", err)
 	}
 
 	changed := false

@@ -6,7 +6,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -148,12 +147,12 @@ func classifyAuthProbe(status int, protocol string, body []byte) (bool, string) 
 	case status >= 200 && status < 300:
 		return true, ""
 	case status == http.StatusUnauthorized, status == http.StatusPaymentRequired, status == http.StatusForbidden:
-		return false, fmt.Sprintf("Key 无效、过期或余额不足（HTTP %d）%s", status, detail)
+		return false, sprintf("Key 无效、过期或余额不足（HTTP %d）%s", status, detail)
 	case status == http.StatusBadRequest && protocol == "gemini":
 		// Gemini 对无效 Key 返回 400 INVALID_ARGUMENT
-		return false, fmt.Sprintf("Key 无效（HTTP 400）%s", detail)
+		return false, sprintf("Key 无效（HTTP 400）%s", detail)
 	case status == http.StatusTooManyRequests, status >= 500:
-		return false, fmt.Sprintf("上游返回 HTTP %d%s", status, detail)
+		return false, sprintf("上游返回 HTTP %d%s", status, detail)
 	default:
 		return true, ""
 	}

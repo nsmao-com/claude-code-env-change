@@ -1,6 +1,7 @@
 import { GetUsageStats, GetHeatmapData, GetRecentLogs, GetLogDirectory, GetEnvUsageSummary, GetStatsOverview } from '../../wailsjs/go/main/LogService'
 
-export type StatsPlatform = 'all' | 'claude' | 'antigravity' | 'codex'
+// claude_desktop / opencode / grok 没有本地用量日志，数据来自经过本地网关的请求
+export type StatsPlatform = 'all' | 'claude' | 'antigravity' | 'codex' | 'claude_desktop' | 'opencode' | 'grok'
 
 export interface UsageRecord {
   timestamp: string

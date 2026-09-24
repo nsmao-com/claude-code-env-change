@@ -53,4 +53,5 @@ export const zhStats = {
   input: "输入",
   output: "输出",
   loadFailed: "统计数据加载失败: {error}",
+  gatewayHint: "该平台没有本地用量日志，这里只统计经过本地网关的请求（在路由页打开它的开关后开始记录）。",
 }

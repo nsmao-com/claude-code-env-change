@@ -68,6 +68,8 @@ type App struct {
 
 // NewApp creates a new App application struct
 func NewApp() *App {
+	// 托盘、启动时的自动拉取在前端就绪前就会产生提示，先用上次的界面语言
+	loadBackendLanguage()
 	a := &App{
 		configPath: resolveMainConfigPath(),
 	}
@@ -150,7 +152,7 @@ func (a *App) SetEnvVar(key, value string) error {
 	// 设置当前进程的环境变量
 	err := os.Setenv(key, value)
 	if err != nil {
-		return fmt.Errorf("设置环境变量失败: %v", err)
+		return errorf("设置环境变量失败: %v", err)
 	}
 
 	// 调用平台特定的持久化方法
@@ -207,7 +209,7 @@ func (a *App) ApplyEnv(name, provider string) (string, error) {
 	defer a.configMu.Unlock()
 	env := a.findEnvIn(provider, name)
 	if env == nil {
-		return "", fmt.Errorf("找不到环境配置 %q (%s)", name, provider)
+		return "", errorf("找不到环境配置 %q (%s)", name, provider)
 	}
 	if err := a.switchToEnvLocked(name, provider); err != nil {
 		return "", err
@@ -232,7 +234,7 @@ func (a *App) UnapplyEnv(name string) error {
 		return fmt.Errorf("environment '%s' not found", name)
 	}
 	if env.Provider != "opencode" {
-		return fmt.Errorf("只有 OpenCode 支持停用单套配置")
+		return errorf("只有 OpenCode 支持停用单套配置")
 	}
 	if !a.isOpencodeCurrent(name) {
 		return nil
@@ -247,7 +249,7 @@ func (a *App) UnapplyEnv(name string) error {
 	if last := a.config.CurrentEnvOpencode; last != "" {
 		if remaining := a.findEnvIn("opencode", last); remaining != nil {
 			if _, err := a.applyOpencodeEnv(remaining); err != nil {
-				return fmt.Errorf("已停用 %s，但刷新默认模型失败: %v", name, err)
+				return errorf("已停用 %s，但刷新默认模型失败: %v", name, err)
 			}
 		}
 	}
@@ -296,7 +298,7 @@ func (a *App) UpdateEnv(oldName string, oldProvider string, newEnv EnvConfig) er
 	// 目标 (name, provider) 不能与其他配置冲突（同服务商内唯一）
 	for i, existing := range a.config.Environments {
 		if i != idx && existing.Name == newEnv.Name && sameProvider(existing.Provider, newEnv.Provider) {
-			return fmt.Errorf("配置名称 %q 在 %s 下已存在", newEnv.Name, newEnv.Provider)
+			return errorf("配置名称 %q 在 %s 下已存在", newEnv.Name, newEnv.Provider)
 		}
 	}
 
@@ -321,7 +323,7 @@ func (a *App) UpdateEnv(oldName string, oldProvider string, newEnv EnvConfig) er
 	}
 	if !providerChanged && a.isCurrentEnvFor(newEnv.Provider, newEnv.Name) {
 		if _, err := a.applyEnvByProvider(&newEnv); err != nil {
-			return fmt.Errorf("配置已保存，但写回本机失败: %v", err)
+			return errorf("配置已保存，但写回本机失败: %v", err)
 		}
 	}
 	return nil
@@ -481,7 +483,7 @@ func (a *App) DeleteEnv(name string, provider string) error {
 			if env.Provider == "opencode" && a.isOpencodeCurrent(name) {
 				if err := a.stripOpencodeProvider(&env); err != nil {
 					// 磁盘上的 provider 摘不掉就删配置会让界面与 opencode.json 不一致，先中止
-					return fmt.Errorf("从 opencode.json 摘除该配置失败，已中止删除: %v", err)
+					return errorf("从 opencode.json 摘除该配置失败，已中止删除: %v", err)
 				}
 			}
 			// Remove environment from slice
@@ -560,7 +562,7 @@ func (a *App) TestLatency(urlStr string) (int64, error) {
 		resp, err = probeURL(client, http.MethodGet, urlStr)
 	}
 	if err != nil {
-		return time.Since(start).Milliseconds(), fmt.Errorf("无法连接: %v", err)
+		return time.Since(start).Milliseconds(), errorf("无法连接: %v", err)
 	}
 	defer resp.Body.Close()
 	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 64<<10))
@@ -570,7 +572,7 @@ func (a *App) TestLatency(urlStr string) (int64, error) {
 func normalizeProbeURL(urlStr string) (string, error) {
 	urlStr = strings.TrimSpace(urlStr)
 	if urlStr == "" {
-		return "", fmt.Errorf("URL 为空")
+		return "", errorf("URL 为空")
 	}
 	lower := strings.ToLower(urlStr)
 	if !strings.HasPrefix(lower, "http://") && !strings.HasPrefix(lower, "https://") {
@@ -602,7 +604,7 @@ func (a *App) ApplyCurrentEnv() (string, error) {
 		}
 		env := a.findEnvIn(provider, envName)
 		if env == nil {
-			errs = append(errs, fmt.Sprintf("%s: 找不到环境配置 %q", label, envName))
+			errs = append(errs, sprintf("%s: 找不到环境配置 %q", label, envName))
 			return
 		}
 		msg, err := applyFn(env)
@@ -628,7 +630,7 @@ func (a *App) ApplyCurrentEnv() (string, error) {
 	}
 
 	if len(msgs) == 0 && len(errs) == 0 {
-		return "没有激活的环境可应用", nil
+		return tr("没有激活的环境可应用"), nil
 	}
 
 	now := time.Now()
@@ -640,12 +642,12 @@ func (a *App) ApplyCurrentEnv() (string, error) {
 	_ = RecordEnvActivation("grok", a.config.CurrentEnvGrok, now)
 
 	if len(msgs) == 0 {
-		return "", fmt.Errorf("应用失败: %s", strings.Join(errs, "；"))
+		return "", errorf("应用失败: %s", strings.Join(errs, "；"))
 	}
 
 	result := strings.Join(msgs, "；")
 	if len(errs) > 0 {
-		result += "；⚠ 部分失败: " + strings.Join(errs, "；")
+		result += tr("；⚠ 部分失败: ") + strings.Join(errs, "；")
 	}
 	return result, nil
 }
@@ -976,11 +978,11 @@ func (a *App) OpenProviderTerminal(provider string) error {
 	provider = strings.ToLower(strings.TrimSpace(provider))
 	name := a.currentEnvNameForProvider(provider)
 	if name == "" {
-		return fmt.Errorf("该平台还没有已应用的配置")
+		return errorf("该平台还没有已应用的配置")
 	}
 	env := a.findEnvIn(provider, name)
 	if env == nil {
-		return fmt.Errorf("找不到环境配置 %q", name)
+		return errorf("找不到环境配置 %q", name)
 	}
 	vars := env.Variables
 	// 路由开启时使用实际写入本机的 live 变量（例如指向本地网关的 base URL）
@@ -988,7 +990,7 @@ func (a *App) OpenProviderTerminal(provider string) error {
 		vars = live.Variables
 	}
 	if len(vars) == 0 {
-		return fmt.Errorf("该配置没有可注入的环境变量")
+		return errorf("该配置没有可注入的环境变量")
 	}
 	return openTerminalWithEnv(vars)
 }
@@ -997,12 +999,12 @@ func (a *App) OpenProviderTerminal(provider string) error {
 func (a *App) applyClaudeEnv(env *EnvConfig) (string, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		return "", fmt.Errorf("获取用户目录失败: %v", err)
+		return "", errorf("获取用户目录失败: %v", err)
 	}
 
 	claudeDir := filepath.Join(homeDir, ".claude")
 	if err := os.MkdirAll(claudeDir, 0755); err != nil {
-		return "", fmt.Errorf("创建 .claude 目录失败: %v", err)
+		return "", errorf("创建 .claude 目录失败: %v", err)
 	}
 
 	settingsFile := filepath.Join(claudeDir, "settings.json")
@@ -1014,27 +1016,46 @@ func (a *App) applyClaudeEnv(env *EnvConfig) (string, error) {
 	if data, err := os.ReadFile(settingsFile); err == nil && len(strings.TrimSpace(string(data))) > 0 {
 		parsed, parseErr := parseJSONLikeObject(data)
 		if parseErr != nil {
-			return "", fmt.Errorf("解析 %s 失败，为保护原文件已中止写入: %v", settingsFile, parseErr)
+			return "", errorf("解析 %s 失败，为保护原文件已中止写入: %v", settingsFile, parseErr)
 		}
 		settings = parsed
 	} else if err != nil && !os.IsNotExist(err) {
-		return "", fmt.Errorf("读取 %s 失败: %v", settingsFile, err)
+		return "", errorf("读取 %s 失败: %v", settingsFile, err)
 	}
 
-	// 更新 env 字段：先摘掉本工具托管的键（含上一套配置写入的），再合并新配置；
-	// 用户自己加的 env 变量（如 HTTP_PROXY）保持不动，不再整表抹掉
+	mergeClaudeEnv(settings, env)
+
+	// 写入 settings.json
+	settingsContent, err := json.MarshalIndent(settings, "", "  ")
+	if err != nil {
+		return "", errorf("序列化配置失败: %v", err)
+	}
+
+	if err := writeFileAtomic(settingsFile, settingsContent, 0644); err != nil {
+		return "", errorf("写入 settings.json 失败: %v", err)
+	}
+
+	return tr("Claude 配置已应用到 ~/.claude/settings.json"), nil
+}
+
+// mergeClaudeEnv 更新 settings 的 env 字段：先摘掉本工具托管的键（含上一套配置写入的），
+// 再合并新配置；用户自己加的 env 变量（如 HTTP_PROXY）保持不动。env 为 nil 时只摘不加。
+// 全局 ~/.claude/settings.json 与项目 .claude/settings.local.json 共用。
+func mergeClaudeEnv(settings map[string]any, env *EnvConfig) {
 	envMap := make(map[string]any)
 	if existing, ok := settings["env"].(map[string]any); ok && existing != nil {
 		for key, value := range existing {
 			envMap[key] = value
 		}
 	}
-	managed := make(map[string]bool, len(claudeThirdPartyEnvKeys)+len(env.Variables)+2)
+	managed := make(map[string]bool, len(claudeThirdPartyEnvKeys)+2)
 	for _, key := range claudeThirdPartyEnvKeys {
 		managed[key] = true
 	}
-	for key := range env.Variables {
-		managed[key] = true
+	if env != nil {
+		for key := range env.Variables {
+			managed[key] = true
+		}
 	}
 	managed["CLAUDE_CODE_ATTRIBUTION_HEADER"] = true
 	managed["CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"] = true
@@ -1043,35 +1064,25 @@ func (a *App) applyClaudeEnv(env *EnvConfig) (string, error) {
 			delete(envMap, key)
 		}
 	}
-	for key, value := range env.Variables {
-		if value != "" {
-			envMap[key] = value
+	if env != nil {
+		for key, value := range env.Variables {
+			if value != "" {
+				envMap[key] = value
+			}
 		}
-	}
-	// 根据配置添加 Claude Code 优化选项
-	if env.AttributionHeader != "" {
-		envMap["CLAUDE_CODE_ATTRIBUTION_HEADER"] = env.AttributionHeader
-	}
-	if env.DisableNonessentialTraffic != "" {
-		envMap["CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"] = env.DisableNonessentialTraffic
+		// 根据配置添加 Claude Code 优化选项
+		if env.AttributionHeader != "" {
+			envMap["CLAUDE_CODE_ATTRIBUTION_HEADER"] = env.AttributionHeader
+		}
+		if env.DisableNonessentialTraffic != "" {
+			envMap["CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"] = env.DisableNonessentialTraffic
+		}
 	}
 	if len(envMap) == 0 {
 		delete(settings, "env")
 	} else {
 		settings["env"] = envMap
 	}
-
-	// 写入 settings.json
-	settingsContent, err := json.MarshalIndent(settings, "", "  ")
-	if err != nil {
-		return "", fmt.Errorf("序列化配置失败: %v", err)
-	}
-
-	if err := writeFileAtomic(settingsFile, settingsContent, 0644); err != nil {
-		return "", fmt.Errorf("写入 settings.json 失败: %v", err)
-	}
-
-	return "Claude 配置已应用到 ~/.claude/settings.json", nil
 }
 
 // applyClaudeDesktopEnv 写入 Claude Desktop 官方配置文件。
@@ -1079,19 +1090,19 @@ func (a *App) applyClaudeEnv(env *EnvConfig) (string, error) {
 func (a *App) applyClaudeDesktopEnv(env *EnvConfig) (string, error) {
 	settingsFile, err := claudeDesktopConfigPath()
 	if err != nil {
-		return "", fmt.Errorf("获取 Claude Desktop 配置路径失败: %v", err)
+		return "", errorf("获取 Claude Desktop 配置路径失败: %v", err)
 	}
 	if err := os.MkdirAll(filepath.Dir(settingsFile), 0o755); err != nil {
-		return "", fmt.Errorf("创建 Claude Desktop 配置目录失败: %v", err)
+		return "", errorf("创建 Claude Desktop 配置目录失败: %v", err)
 	}
 
 	settings := map[string]any{}
 	if tmpl := strings.TrimSpace(env.Templates["claude_desktop_config.json"]); tmpl != "" {
 		if err := json.Unmarshal([]byte(tmpl), &settings); err != nil {
-			return "", fmt.Errorf("解析 Claude Desktop 配置模板失败: %v", err)
+			return "", errorf("解析 Claude Desktop 配置模板失败: %v", err)
 		}
 		if settings == nil {
-			return "", fmt.Errorf("Claude Desktop 配置模板必须是 JSON 对象")
+			return "", errorf("Claude Desktop 配置模板必须是 JSON 对象")
 		}
 		// MCP 服务器由 MCP 页面管理：模板是导入时的快照，不能用它盖掉当前的 mcpServers
 		if data, readErr := os.ReadFile(settingsFile); readErr == nil && len(data) > 0 {
@@ -1104,13 +1115,13 @@ func (a *App) applyClaudeDesktopEnv(env *EnvConfig) (string, error) {
 		}
 	} else if data, readErr := os.ReadFile(settingsFile); readErr == nil && len(data) > 0 {
 		if err := json.Unmarshal(data, &settings); err != nil {
-			return "", fmt.Errorf("解析 %s 失败，为保护原文件已中止写入: %v", settingsFile, err)
+			return "", errorf("解析 %s 失败，为保护原文件已中止写入: %v", settingsFile, err)
 		}
 		if settings == nil {
-			return "", fmt.Errorf("解析 %s 失败：配置必须是 JSON 对象", settingsFile)
+			return "", errorf("解析 %s 失败：配置必须是 JSON 对象", settingsFile)
 		}
 	} else if readErr != nil && !os.IsNotExist(readErr) {
-		return "", fmt.Errorf("读取 %s 失败: %v", settingsFile, readErr)
+		return "", errorf("读取 %s 失败: %v", settingsFile, readErr)
 	}
 
 	// Claude Desktop 3P 的 configLibrary 使用 inference* 字段；旧版文件仍接受顶层 env。
@@ -1166,17 +1177,17 @@ func (a *App) applyClaudeDesktopEnv(env *EnvConfig) (string, error) {
 
 	content, err := json.MarshalIndent(settings, "", "  ")
 	if err != nil {
-		return "", fmt.Errorf("序列化 Claude Desktop 配置失败: %v", err)
+		return "", errorf("序列化 Claude Desktop 配置失败: %v", err)
 	}
 	if err := writeFileAtomic(settingsFile, content, 0o600); err != nil {
-		return "", fmt.Errorf("写入 Claude Desktop 配置失败: %v", err)
+		return "", errorf("写入 Claude Desktop 配置失败: %v", err)
 	}
 	if isThirdParty {
 		if err := writeClaudeDesktopMeta(settingsFile); err != nil {
 			return "", err
 		}
 	}
-	return "Claude Desktop 配置已应用到 " + settingsFile, nil
+	return tr("Claude Desktop 配置已应用到 ") + settingsFile, nil
 }
 
 // comparableEnvVariables 只比较某个平台实际写入的字段，避免 Claude Desktop
@@ -1210,20 +1221,20 @@ func writeClaudeDesktopMeta(configFile string) error {
 	}
 	id := strings.TrimSuffix(filepath.Base(configFile), filepath.Ext(configFile))
 	if !isClaudeDesktopConfigID(id) {
-		return fmt.Errorf("Claude Desktop 配置文件名无效")
+		return errorf("Claude Desktop 配置文件名无效")
 	}
 	metaPath := filepath.Join(dir, "_meta.json")
 	meta := map[string]any{"appliedId": id, "entries": []any{}}
 	if data, err := os.ReadFile(metaPath); err == nil && len(data) > 0 {
 		var existing map[string]any
 		if err := json.Unmarshal(data, &existing); err != nil {
-			return fmt.Errorf("解析 Claude Desktop 索引失败，为保护原索引已中止写入: %v", err)
+			return errorf("解析 Claude Desktop 索引失败，为保护原索引已中止写入: %v", err)
 		}
 		for key, value := range existing {
 			meta[key] = value
 		}
 	} else if err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("读取 Claude Desktop 索引失败: %v", err)
+		return errorf("读取 Claude Desktop 索引失败: %v", err)
 	}
 	meta["appliedId"] = id
 	entries, _ := meta["entries"].([]any)
@@ -1245,10 +1256,10 @@ func writeClaudeDesktopMeta(configFile string) error {
 	meta["entries"] = entries
 	data, err := json.MarshalIndent(meta, "", "  ")
 	if err != nil {
-		return fmt.Errorf("序列化 Claude Desktop 索引失败: %v", err)
+		return errorf("序列化 Claude Desktop 索引失败: %v", err)
 	}
 	if err := writeFileAtomic(metaPath, data, 0o600); err != nil {
-		return fmt.Errorf("写入 Claude Desktop 索引失败: %v", err)
+		return errorf("写入 Claude Desktop 索引失败: %v", err)
 	}
 	return nil
 }
@@ -1267,7 +1278,7 @@ func removeClaudeDesktopMetaEntry(dir, id string) error {
 	}
 	var meta map[string]any
 	if err := json.Unmarshal(data, &meta); err != nil {
-		return fmt.Errorf("解析 Claude Desktop 索引失败: %v", err)
+		return errorf("解析 Claude Desktop 索引失败: %v", err)
 	}
 	entries, _ := meta["entries"].([]any)
 	kept := make([]any, 0, len(entries))
@@ -1290,7 +1301,7 @@ func removeClaudeDesktopMetaEntry(dir, id string) error {
 	}
 	updated, err := json.MarshalIndent(meta, "", "  ")
 	if err != nil {
-		return fmt.Errorf("序列化 Claude Desktop 索引失败: %v", err)
+		return errorf("序列化 Claude Desktop 索引失败: %v", err)
 	}
 	if len(kept) == 0 && len(meta) == 0 {
 		return os.Remove(metaPath)
@@ -1333,12 +1344,12 @@ func updateClaudeDesktopModels(raw any, model string) []map[string]string {
 func (a *App) applyCodexEnv(env *EnvConfig) (string, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		return "", fmt.Errorf("获取用户目录失败: %v", err)
+		return "", errorf("获取用户目录失败: %v", err)
 	}
 
 	codexDir := resolveCodexHome(homeDir)
 	if err := os.MkdirAll(codexDir, 0755); err != nil {
-		return "", fmt.Errorf("创建 .codex 目录失败: %v", err)
+		return "", errorf("创建 .codex 目录失败: %v", err)
 	}
 
 	variables := env.Variables
@@ -1367,11 +1378,11 @@ requires_openai_auth = true
 	configFile := filepath.Join(codexDir, "config.toml")
 	configData, err := buildCodexConfigData(configContent, configFile, variables)
 	if err != nil {
-		return "", fmt.Errorf("序列化 config.toml 失败: %v", err)
+		return "", errorf("序列化 config.toml 失败: %v", err)
 	}
 	backupFile(configFile)
 	if err := writeFileAtomic(configFile, configData, 0644); err != nil {
-		return "", fmt.Errorf("写入 config.toml 失败: %v", err)
+		return "", errorf("写入 config.toml 失败: %v", err)
 	}
 
 	// 2. 处理 auth.json
@@ -1389,7 +1400,7 @@ requires_openai_auth = true
 	authFile := filepath.Join(codexDir, "auth.json")
 	incoming := map[string]any{}
 	if err := json.Unmarshal([]byte(authContent), &incoming); err != nil {
-		return "", fmt.Errorf("auth.json 模板不是有效 JSON: %v", err)
+		return "", errorf("auth.json 模板不是有效 JSON: %v", err)
 	}
 	authOut := map[string]json.RawMessage{}
 	if data, err := os.ReadFile(authFile); err == nil && len(data) > 0 {
@@ -1404,14 +1415,14 @@ requires_openai_auth = true
 	}
 	out, err := json.MarshalIndent(authOut, "", "  ")
 	if err != nil {
-		return "", fmt.Errorf("序列化 auth.json 失败: %v", err)
+		return "", errorf("序列化 auth.json 失败: %v", err)
 	}
 	backupFile(authFile)
 	if err := writeFileAtomic(authFile, out, 0o600); err != nil {
-		return "", fmt.Errorf("写入 auth.json 失败: %v", err)
+		return "", errorf("写入 auth.json 失败: %v", err)
 	}
 
-	return "Codex 配置已应用", nil
+	return tr("Codex 配置已应用"), nil
 }
 
 func buildCodexConfigData(configContent, configFile string, vars map[string]string) ([]byte, error) {
@@ -1429,7 +1440,7 @@ func buildCodexConfigData(configContent, configFile string, vars map[string]stri
 	var payload map[string]any
 	if err := toml.Unmarshal([]byte(configContent), &payload); err != nil || payload == nil {
 		// 模板本身不是合法 TOML：写进去 Codex 就起不来了，必须拒绝
-		return nil, fmt.Errorf("config.toml 模板不是有效 TOML: %v", err)
+		return nil, errorf("config.toml 模板不是有效 TOML: %v", err)
 	}
 	injectCodexExtras(payload, vars)
 	if len(existingMcpServers) > 0 {
@@ -1471,12 +1482,12 @@ var antigravityManagedEnvVars = []string{"GEMINI_API_KEY", "GOOGLE_GEMINI_BASE_U
 func (a *App) applyAntigravityEnv(env *EnvConfig) (string, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		return "", fmt.Errorf("获取用户目录失败: %v", err)
+		return "", errorf("获取用户目录失败: %v", err)
 	}
 
 	geminiDir := filepath.Join(homeDir, ".gemini")
 	if err := os.MkdirAll(geminiDir, 0755); err != nil {
-		return "", fmt.Errorf("创建 .gemini 目录失败: %v", err)
+		return "", errorf("创建 .gemini 目录失败: %v", err)
 	}
 
 	// 1. 处理 .env 文件（旧 Gemini CLI 兼容；本工具也通过它记录当前生效值）
@@ -1507,13 +1518,13 @@ GEMINI_MODEL=%s
 	envFile := filepath.Join(geminiDir, ".env")
 	// .env 里有 API Key，仅本人可读
 	if err := writeFileAtomic(envFile, []byte(envContent), 0o600); err != nil {
-		return "", fmt.Errorf("写入 .env 失败: %v", err)
+		return "", errorf("写入 .env 失败: %v", err)
 	}
 
 	desiredSettings := map[string]any{}
 	if tmpl, ok := env.Templates["settings.json"]; ok && strings.TrimSpace(tmpl) != "" {
 		if err := json.Unmarshal([]byte(tmpl), &desiredSettings); err != nil {
-			return "", fmt.Errorf("解析 settings.json 模板失败: %v", err)
+			return "", errorf("解析 settings.json 模板失败: %v", err)
 		}
 	} else {
 		desiredSettings = map[string]any{
@@ -1538,7 +1549,7 @@ GEMINI_MODEL=%s
 	//    没配 API Key 就不写 modelProvider，让 agy 走默认的 Google 账号登录。
 	antigravityDir := filepath.Join(geminiDir, "antigravity-cli")
 	if err := os.MkdirAll(antigravityDir, 0755); err != nil {
-		return "", fmt.Errorf("创建 antigravity-cli 目录失败: %v", err)
+		return "", errorf("创建 antigravity-cli 目录失败: %v", err)
 	}
 	apiKey := strings.TrimSpace(env.Variables["GEMINI_API_KEY"])
 	antigravityDesired := maps.Clone(desiredSettings)
@@ -1573,13 +1584,13 @@ GEMINI_MODEL=%s
 		persistVars["GOOGLE_GEMINI_BASE_URL"] = baseURL
 	}
 	if err := syncAntigravityUserEnv(persistVars); err != nil {
-		return "", fmt.Errorf("配置已写入，但更新用户环境变量失败: %v", err)
+		return "", errorf("配置已写入，但更新用户环境变量失败: %v", err)
 	}
 
 	if apiKey != "" {
-		return "Antigravity CLI 配置已应用；密钥已写入用户环境变量，请新开终端后运行 agy", nil
+		return tr("Antigravity CLI 配置已应用；密钥已写入用户环境变量，请新开终端后运行 agy"), nil
 	}
-	return "Antigravity CLI 配置已应用", nil
+	return tr("Antigravity CLI 配置已应用"), nil
 }
 
 // removeJSONFileKeys 从 JSON 文件顶层移除指定键（文件不存在则忽略）。
@@ -1590,14 +1601,14 @@ func removeJSONFileKeys(path string, keys ...string) error {
 		if os.IsNotExist(err) {
 			return nil
 		}
-		return fmt.Errorf("读取 %s 失败: %v", path, err)
+		return errorf("读取 %s 失败: %v", path, err)
 	}
 	if len(data) == 0 {
 		return nil
 	}
 	payload := map[string]any{}
 	if json.Unmarshal(data, &payload) != nil {
-		return fmt.Errorf("解析 %s 失败，为保护原文件已中止写入", path)
+		return errorf("解析 %s 失败，为保护原文件已中止写入", path)
 	}
 	changed := false
 	for _, key := range keys {
@@ -1624,24 +1635,24 @@ func writeGeminiStyleSettings(settingsFile string, desiredSettings map[string]an
 		// 否则会用模板覆盖掉用户的全部设置
 		parsed, parseErr := parseJSONLikeObject(data)
 		if parseErr != nil {
-			return fmt.Errorf("解析 %s 失败，为保护原文件已中止写入: %v", settingsFile, parseErr)
+			return errorf("解析 %s 失败，为保护原文件已中止写入: %v", settingsFile, parseErr)
 		}
 		if parsed != nil { // 文件内容为 null 时保持空 map
 			existingSettings = parsed
 		}
 	} else if err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("读取 %s 失败: %v", settingsFile, err)
+		return errorf("读取 %s 失败: %v", settingsFile, err)
 	}
 
 	deepMergeMap(existingSettings, desiredSettings)
 	injectGeminiSettingsExtras(existingSettings, vars)
 	settingsContent, err := json.MarshalIndent(existingSettings, "", "  ")
 	if err != nil {
-		return fmt.Errorf("序列化 %s 失败: %v", settingsFile, err)
+		return errorf("序列化 %s 失败: %v", settingsFile, err)
 	}
 
 	if err := writeFileAtomic(settingsFile, settingsContent, 0644); err != nil {
-		return fmt.Errorf("写入 %s 失败: %v", settingsFile, err)
+		return errorf("写入 %s 失败: %v", settingsFile, err)
 	}
 	return nil
 }
@@ -1667,7 +1678,7 @@ func parseJSONLikeObject(data []byte) (map[string]any, error) {
 		if err5 := json5.Unmarshal(data, &payload); err5 == nil {
 			return payload, nil
 		} else {
-			return nil, fmt.Errorf("配置文件不是有效 JSON/JSON5（json: %v; json5: %v）", err, err5)
+			return nil, errorf("配置文件不是有效 JSON/JSON5（json: %v; json5: %v）", err, err5)
 		}
 	}
 }
@@ -1719,7 +1730,7 @@ func expandPercentEnv(value string) string {
 func (a *App) clearClaudeSettingsLocked() error {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		return fmt.Errorf("获取用户目录失败: %v", err)
+		return errorf("获取用户目录失败: %v", err)
 	}
 
 	settingsFile := filepath.Join(homeDir, ".claude", "settings.json")
@@ -1728,7 +1739,7 @@ func (a *App) clearClaudeSettingsLocked() error {
 	data, readErr := os.ReadFile(settingsFile)
 	if readErr != nil || len(strings.TrimSpace(string(data))) == 0 {
 		if readErr != nil && !os.IsNotExist(readErr) {
-			return fmt.Errorf("读取 %s 失败: %v", settingsFile, readErr)
+			return errorf("读取 %s 失败: %v", settingsFile, readErr)
 		}
 		// 文件不存在，本机已经是干净的；激活状态仍要一起清掉
 		a.clearProviderCurrent("claude")
@@ -1736,7 +1747,7 @@ func (a *App) clearClaudeSettingsLocked() error {
 	}
 	settings, parseErr := parseJSONLikeObject(data)
 	if parseErr != nil {
-		return fmt.Errorf("解析 %s 失败，为保护原文件已中止写入: %v", settingsFile, parseErr)
+		return errorf("解析 %s 失败，为保护原文件已中止写入: %v", settingsFile, parseErr)
 	}
 
 	// 只摘本工具托管的 env 键，用户自加的其它变量保持不动
@@ -1754,11 +1765,11 @@ func (a *App) clearClaudeSettingsLocked() error {
 	// 写回文件
 	settingsContent, err := json.MarshalIndent(settings, "", "  ")
 	if err != nil {
-		return fmt.Errorf("序列化配置失败: %v", err)
+		return errorf("序列化配置失败: %v", err)
 	}
 
 	if err := writeFileAtomic(settingsFile, settingsContent, 0644); err != nil {
-		return fmt.Errorf("写入 settings.json 失败: %v", err)
+		return errorf("写入 settings.json 失败: %v", err)
 	}
 
 	a.clearProviderCurrent("claude")
@@ -1814,7 +1825,7 @@ var codexManagedConfigKeys = []string{"model_provider", "model", "model_reasonin
 func (a *App) clearCodexSettingsLocked() error {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		return fmt.Errorf("获取用户目录失败: %v", err)
+		return errorf("获取用户目录失败: %v", err)
 	}
 
 	codexDir := resolveCodexHome(homeDir)
@@ -1825,7 +1836,7 @@ func (a *App) clearCodexSettingsLocked() error {
 		payload := map[string]any{}
 		if err := toml.Unmarshal(data, &payload); err != nil {
 			backupFile(configFile)
-			return fmt.Errorf("解析 %s 失败，为保护原文件已中止清除（已备份 .bak）: %v", configFile, err)
+			return errorf("解析 %s 失败，为保护原文件已中止清除（已备份 .bak）: %v", configFile, err)
 		}
 		for _, key := range codexManagedConfigKeys {
 			delete(payload, key)
@@ -1842,7 +1853,7 @@ func (a *App) clearCodexSettingsLocked() error {
 		} else if out, err := toml.Marshal(payload); err == nil {
 			backupFile(configFile)
 			if err := writeFileAtomic(configFile, out, 0644); err != nil {
-				return fmt.Errorf("写回 config.toml 失败: %v", err)
+				return errorf("写回 config.toml 失败: %v", err)
 			}
 		}
 	}
@@ -1853,7 +1864,7 @@ func (a *App) clearCodexSettingsLocked() error {
 		auth := map[string]json.RawMessage{}
 		if err := json.Unmarshal(data, &auth); err != nil {
 			backupFile(authFile)
-			return fmt.Errorf("解析 %s 失败，为保护原文件已中止清除（已备份 .bak）: %v", authFile, err)
+			return errorf("解析 %s 失败，为保护原文件已中止清除（已备份 .bak）: %v", authFile, err)
 		}
 		delete(auth, "OPENAI_API_KEY")
 		if len(auth) == 0 {
@@ -1862,7 +1873,7 @@ func (a *App) clearCodexSettingsLocked() error {
 		} else if out, err := json.MarshalIndent(auth, "", "  "); err == nil {
 			backupFile(authFile)
 			if err := writeFileAtomic(authFile, out, 0o600); err != nil {
-				return fmt.Errorf("写回 auth.json 失败: %v", err)
+				return errorf("写回 auth.json 失败: %v", err)
 			}
 		}
 	}
@@ -1875,7 +1886,7 @@ func (a *App) clearCodexSettingsLocked() error {
 func (a *App) clearAntigravitySettingsLocked() error {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		return fmt.Errorf("获取用户目录失败: %v", err)
+		return errorf("获取用户目录失败: %v", err)
 	}
 
 	geminiDir := filepath.Join(homeDir, ".gemini")
@@ -1914,7 +1925,7 @@ func (a *App) clearAntigravitySettingsLocked() error {
 
 	// 移除持久化到用户环境的 agy 变量
 	if err := syncAntigravityUserEnv(nil); err != nil {
-		return fmt.Errorf("清理用户环境变量失败: %v", err)
+		return errorf("清理用户环境变量失败: %v", err)
 	}
 
 	// 清除 agy 配置里的认证信息（保留用户的其他偏好设置）
@@ -1937,7 +1948,7 @@ func (a *App) clearAntigravitySettingsLocked() error {
 				if out, err := json.MarshalIndent(payload, "", "  "); err == nil {
 					backupFile(antigravitySettings)
 					if err := writeFileAtomic(antigravitySettings, out, 0644); err != nil {
-						return fmt.Errorf("写回 %s 失败: %v", antigravitySettings, err)
+						return errorf("写回 %s 失败: %v", antigravitySettings, err)
 					}
 				}
 			}
@@ -2006,7 +2017,7 @@ func (a *App) ClearAllEnv() error {
 	}
 
 	if len(errors) > 0 {
-		return fmt.Errorf("部分清除失败: %s", strings.Join(errors, "; "))
+		return errorf("部分清除失败: %s", strings.Join(errors, "; "))
 	}
 
 	return nil
@@ -2026,26 +2037,26 @@ func (a *App) SaveTextFile(content, defaultName string) (string, error) {
 		defaultName = "export.txt"
 	}
 	ext := strings.ToLower(filepath.Ext(defaultName))
-	filter := runtime.FileFilter{DisplayName: "所有文件", Pattern: "*.*"}
+	filter := runtime.FileFilter{DisplayName: tr("所有文件"), Pattern: "*.*"}
 	switch ext {
 	case ".json":
-		filter = runtime.FileFilter{DisplayName: "JSON 文件", Pattern: "*.json"}
+		filter = runtime.FileFilter{DisplayName: tr("JSON 文件"), Pattern: "*.json"}
 	case ".toml":
-		filter = runtime.FileFilter{DisplayName: "TOML 文件", Pattern: "*.toml"}
+		filter = runtime.FileFilter{DisplayName: tr("TOML 文件"), Pattern: "*.toml"}
 	}
 	filePath, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
-		Title:           "保存文件",
+		Title:           tr("保存文件"),
 		DefaultFilename: defaultName,
-		Filters:         []runtime.FileFilter{filter, {DisplayName: "所有文件", Pattern: "*.*"}},
+		Filters:         []runtime.FileFilter{filter, {DisplayName: tr("所有文件"), Pattern: "*.*"}},
 	})
 	if err != nil {
-		return "", fmt.Errorf("打开对话框失败: %v", err)
+		return "", errorf("打开对话框失败: %v", err)
 	}
 	if filePath == "" {
 		return "", nil // 用户取消
 	}
 	if err := writeFileAtomic(filePath, []byte(content), 0644); err != nil {
-		return "", fmt.Errorf("保存文件失败: %v", err)
+		return "", errorf("保存文件失败: %v", err)
 	}
 	return filePath, nil
 }
@@ -2054,14 +2065,14 @@ func (a *App) SaveTextFile(content, defaultName string) (string, error) {
 func (a *App) ExportConfig(defaultName string) (string, error) {
 	// 打开保存文件对话框
 	filePath, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
-		Title:           "导出配置",
+		Title:           tr("导出配置"),
 		DefaultFilename: defaultName,
 		Filters: []runtime.FileFilter{
-			{DisplayName: "JSON 文件", Pattern: "*.json"},
+			{DisplayName: tr("JSON 文件"), Pattern: "*.json"},
 		},
 	})
 	if err != nil {
-		return "", fmt.Errorf("打开对话框失败: %v", err)
+		return "", errorf("打开对话框失败: %v", err)
 	}
 	if filePath == "" {
 		return "", nil // 用户取消
@@ -2070,17 +2081,17 @@ func (a *App) ExportConfig(defaultName string) (string, error) {
 	a.configMu.Lock()
 	if a.configLoadErr != nil {
 		a.configMu.Unlock()
-		return "", fmt.Errorf("配置加载失败，导出会是空配置已取消: %v", a.configLoadErr)
+		return "", errorf("配置加载失败，导出会是空配置已取消: %v", a.configLoadErr)
 	}
 	data, err := json.MarshalIndent(a.config, "", "  ")
 	a.configMu.Unlock()
 	if err != nil {
-		return "", fmt.Errorf("序列化配置失败: %v", err)
+		return "", errorf("序列化配置失败: %v", err)
 	}
 
 	err = writeFileAtomic(filePath, data, 0644)
 	if err != nil {
-		return "", fmt.Errorf("导出配置文件失败: %v", err)
+		return "", errorf("导出配置文件失败: %v", err)
 	}
 
 	return filePath, nil
@@ -2090,13 +2101,13 @@ func (a *App) ExportConfig(defaultName string) (string, error) {
 func (a *App) ImportConfig() (int, error) {
 	// 打开文件选择对话框
 	filePath, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
-		Title: "导入配置",
+		Title: tr("导入配置"),
 		Filters: []runtime.FileFilter{
-			{DisplayName: "JSON 文件", Pattern: "*.json"},
+			{DisplayName: tr("JSON 文件"), Pattern: "*.json"},
 		},
 	})
 	if err != nil {
-		return 0, fmt.Errorf("打开对话框失败: %v", err)
+		return 0, errorf("打开对话框失败: %v", err)
 	}
 	if filePath == "" {
 		return 0, nil // 用户取消
@@ -2104,7 +2115,7 @@ func (a *App) ImportConfig() (int, error) {
 
 	data, err := os.ReadFile(filePath)
 	if err != nil {
-		return 0, fmt.Errorf("读取配置文件失败: %v", err)
+		return 0, errorf("读取配置文件失败: %v", err)
 	}
 	a.configMu.Lock()
 	defer a.configMu.Unlock()
@@ -2121,20 +2132,20 @@ func (a *App) ImportConfigJSON(payload string) (int, error) {
 // ReadDroppedFile 读取用户拖入的本地文本文件（导入预览用）
 func (a *App) ReadDroppedFile(path string) (string, error) {
 	if strings.TrimSpace(path) == "" {
-		return "", fmt.Errorf("路径为空")
+		return "", errorf("路径为空")
 	}
 	ext := strings.ToLower(filepath.Ext(path))
 	switch ext {
 	case "", ".json", ".txt", ".jsonc":
 	default:
-		return "", fmt.Errorf("只支持 JSON 文件")
+		return "", errorf("只支持 JSON 文件")
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return "", fmt.Errorf("读取文件失败: %v", err)
+		return "", errorf("读取文件失败: %v", err)
 	}
 	if len(data) > 8<<20 {
-		return "", fmt.Errorf("文件太大（上限 8MB）")
+		return "", errorf("文件太大（上限 8MB）")
 	}
 	data = bytes.TrimPrefix(data, []byte("\xef\xbb\xbf"))
 	return string(data), nil
@@ -2144,7 +2155,7 @@ func (a *App) mergeImportedConfigJSON(data []byte) (int, error) {
 	data = bytes.TrimPrefix(data, []byte("\xef\xbb\xbf"))
 	var importedConfig Config
 	if err := json.Unmarshal(data, &importedConfig); err != nil {
-		return 0, fmt.Errorf("解析配置文件失败: %v", err)
+		return 0, errorf("解析配置文件失败: %v", err)
 	}
 
 	// 名称只在同一服务商内唯一，重名判断必须带上 provider，
@@ -2187,10 +2198,10 @@ func (a *App) mergeImportedConfigJSON(data []byte) (int, error) {
 	}
 
 	if importCount == 0 {
-		return 0, fmt.Errorf("文件里没有可导入的环境配置")
+		return 0, errorf("文件里没有可导入的环境配置")
 	}
 	if err := a.saveConfig(); err != nil {
-		return 0, fmt.Errorf("保存配置失败: %v", err)
+		return 0, errorf("保存配置失败: %v", err)
 	}
 	return importCount, nil
 }
@@ -2205,7 +2216,7 @@ func (a *App) loadConfig() error {
 				// 交给 Claude Code 的默认模型，避免示例随模型下线而失效
 				{
 					Name:        "Development",
-					Description: "开发环境（示例，填入自己的 API Key 后使用）",
+					Description: tr("开发环境（示例，填入自己的 API Key 后使用）"),
 					Provider:    "claude",
 					Variables: map[string]string{
 						"ANTHROPIC_BASE_URL": "https://api.anthropic.com",
@@ -2214,7 +2225,7 @@ func (a *App) loadConfig() error {
 				},
 				{
 					Name:        "Production",
-					Description: "生产环境（示例，填入自己的 API Key 后使用）",
+					Description: tr("生产环境（示例，填入自己的 API Key 后使用）"),
 					Provider:    "claude",
 					Variables: map[string]string{
 						"ANTHROPIC_BASE_URL": "https://api.anthropic.com",
@@ -2230,7 +2241,7 @@ func (a *App) loadConfig() error {
 	// 读取配置文件
 	data, err := os.ReadFile(a.configPath)
 	if err != nil {
-		a.configLoadErr = fmt.Errorf("读取配置文件失败 (%s): %v", a.configPath, err)
+		a.configLoadErr = errorf("读取配置文件失败 (%s): %v", a.configPath, err)
 		return a.configLoadErr
 	}
 
@@ -2238,7 +2249,7 @@ func (a *App) loadConfig() error {
 	// （json.Unmarshal 出错前可能已经写进去一半字段）。
 	var loaded Config
 	if err := json.Unmarshal(data, &loaded); err != nil {
-		a.configLoadErr = fmt.Errorf("解析配置文件失败 (%s): %v", a.configPath, err)
+		a.configLoadErr = errorf("解析配置文件失败 (%s): %v", a.configPath, err)
 		return a.configLoadErr
 	}
 	a.config = loaded
@@ -2289,18 +2300,18 @@ func (a *App) loadConfig() error {
 
 func (a *App) saveConfig() error {
 	if a.configLoadErr != nil {
-		return fmt.Errorf("%v；为避免覆盖已有配置已暂停写入，请修复或备份后删除该文件再重启", a.configLoadErr)
+		return errorf("%v；为避免覆盖已有配置已暂停写入，请修复或备份后删除该文件再重启", a.configLoadErr)
 	}
 
 	data, err := json.MarshalIndent(a.config, "", "  ")
 	if err != nil {
-		return fmt.Errorf("序列化配置失败: %v", err)
+		return errorf("序列化配置失败: %v", err)
 	}
 
 	dir := filepath.Dir(a.configPath)
 	if dir != "" && dir != "." {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
-			return fmt.Errorf("创建配置目录失败 (%s): %v", dir, err)
+			return errorf("创建配置目录失败 (%s): %v", dir, err)
 		}
 	}
 
@@ -2308,27 +2319,27 @@ func (a *App) saveConfig() error {
 	// 不会把 config.json 截断成半截 JSON（那正是下次启动解析失败的根源）。
 	tmp, err := os.CreateTemp(dir, ".config-*.tmp")
 	if err != nil {
-		return fmt.Errorf("保存配置文件失败 (%s): %v", a.configPath, err)
+		return errorf("保存配置文件失败 (%s): %v", a.configPath, err)
 	}
 	tmpName := tmp.Name()
 	if _, err := tmp.Write(data); err != nil {
 		tmp.Close()
 		os.Remove(tmpName)
-		return fmt.Errorf("保存配置文件失败 (%s): %v", a.configPath, err)
+		return errorf("保存配置文件失败 (%s): %v", a.configPath, err)
 	}
 	if err := tmp.Sync(); err != nil {
 		tmp.Close()
 		os.Remove(tmpName)
-		return fmt.Errorf("保存配置文件失败 (%s): %v", a.configPath, err)
+		return errorf("保存配置文件失败 (%s): %v", a.configPath, err)
 	}
 	if err := tmp.Close(); err != nil {
 		os.Remove(tmpName)
-		return fmt.Errorf("保存配置文件失败 (%s): %v", a.configPath, err)
+		return errorf("保存配置文件失败 (%s): %v", a.configPath, err)
 	}
 	// config.json 存着各平台的 API Key，仅本人可读
 	if err := os.Chmod(tmpName, 0o600); err != nil {
 		os.Remove(tmpName)
-		return fmt.Errorf("保存配置文件失败 (%s): %v", a.configPath, err)
+		return errorf("保存配置文件失败 (%s): %v", a.configPath, err)
 	}
 	renameErr := os.Rename(tmpName, a.configPath)
 	for i := 0; renameErr != nil && i < 4; i++ {
@@ -2339,7 +2350,7 @@ func (a *App) saveConfig() error {
 	if renameErr != nil {
 		// rename 反复失败说明目标被占用；降级为非原子直写可能截断 config.json，
 		// 宁可保留临时文件让用户手动恢复
-		return fmt.Errorf("替换 %s 失败（数据保留在 %s）: %v", a.configPath, tmpName, renameErr)
+		return errorf("替换 %s 失败（数据保留在 %s）: %v", a.configPath, tmpName, renameErr)
 	}
 
 	notifyCloudSync()
@@ -2358,8 +2369,8 @@ type PromptFile struct {
 func (a *App) GetPromptFiles() ([]PromptFile, error) {
 	// Claude Desktop 没有 Claude Code 那样的全局提示词文件；它的行为由
 	// configLibrary / MCP 配置管理，因此不放进这个提示词文件列表。
-	files := make([]PromptFile, 0, 5)
-	for _, provider := range []string{"claude", "codex", "antigravity", "opencode", "grok"} {
+	files := make([]PromptFile, 0, len(promptProviders))
+	for _, provider := range promptProviders {
 		path, err := promptFilePath(provider)
 		if err != nil {
 			return nil, err
@@ -2375,7 +2386,7 @@ func (a *App) GetPromptFiles() ([]PromptFile, error) {
 			files[i].Content = ""
 			files[i].Exists = false
 		} else {
-			return nil, fmt.Errorf("读取 %s 失败: %v", files[i].Path, err)
+			return nil, errorf("读取 %s 失败: %v", files[i].Path, err)
 		}
 	}
 
@@ -2394,7 +2405,7 @@ func (a *App) GetPromptFile(provider string) (PromptFile, error) {
 		file.Content = string(data)
 		file.Exists = true
 	} else if !os.IsNotExist(err) {
-		return PromptFile{}, fmt.Errorf("读取 %s 失败: %v", filePath, err)
+		return PromptFile{}, errorf("读取 %s 失败: %v", filePath, err)
 	}
 
 	return file, nil
@@ -2410,21 +2421,23 @@ func (a *App) SavePromptFile(provider, content string) error {
 
 	// 确保目录存在
 	if err := os.MkdirAll(dirPath, 0755); err != nil {
-		return fmt.Errorf("创建目录失败: %v", err)
+		return errorf("创建目录失败: %v", err)
 	}
 
 	// 写入文件
 	if err := writeFileAtomic(filePath, []byte(content), 0644); err != nil {
-		return fmt.Errorf("写入文件失败: %v", err)
+		return errorf("写入文件失败: %v", err)
 	}
 	// 读回校验，避免权限、同步软件或文件映射导致界面显示已保存但磁盘内容未覆盖。
 	data, err := os.ReadFile(filePath)
 	if err != nil {
-		return fmt.Errorf("保存后读取文件失败: %v", err)
+		return errorf("保存后读取文件失败: %v", err)
 	}
 	if string(data) != content {
-		return fmt.Errorf("保存后校验失败，文件内容未完整覆盖")
+		return errorf("保存后校验失败，文件内容未完整覆盖")
 	}
+	// 提示词也在云同步的备份范围内
+	notifyCloudSync()
 
 	return nil
 }
@@ -2438,8 +2451,9 @@ func (a *App) DeletePromptFile(provider string) error {
 
 	// 删除文件（如果不存在则忽略）
 	if err := os.Remove(filePath); err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("删除文件失败: %v", err)
+		return errorf("删除文件失败: %v", err)
 	}
+	notifyCloudSync()
 
 	return nil
 }
@@ -2447,7 +2461,7 @@ func (a *App) DeletePromptFile(provider string) error {
 func promptFilePath(provider string) (string, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		return "", fmt.Errorf("获取用户目录失败: %v", err)
+		return "", errorf("获取用户目录失败: %v", err)
 	}
 	switch strings.ToLower(strings.TrimSpace(provider)) {
 	case "claude":
@@ -2461,6 +2475,6 @@ func promptFilePath(provider string) (string, error) {
 	case "grok":
 		return filepath.Join(resolveGrokHome(nil), "GROK.md"), nil
 	default:
-		return "", fmt.Errorf("未知的 Provider: %s", provider)
+		return "", errorf("未知的 Provider: %s", provider)
 	}
 }
