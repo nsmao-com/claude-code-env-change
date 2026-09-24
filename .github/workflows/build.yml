@@ -32,8 +32,12 @@ jobs:
             fi
           done
 
-  build-macos:
+  checks:
     needs: verify-release
+    uses: ./.github/workflows/ci.yml
+
+  build-macos:
+    needs: [verify-release, checks]
     runs-on: macos-latest
     steps:
       - name: Checkout
@@ -180,7 +184,7 @@ jobs:
           if-no-files-found: error
 
   build-windows:
-    needs: verify-release
+    needs: [verify-release, checks]
     runs-on: windows-latest
     steps:
       - name: Checkout
@@ -262,7 +266,7 @@ jobs:
             echo
             echo "### 验证"
             echo "- GitHub Actions 已完成版本校验。"
-            echo "- Go 与前端检查按本次提交执行。"
+            echo "- 已通过 gofmt、go vet（Linux/Windows/macOS）、go test 与前端类型检查。"
             echo
             echo "官网：https://www.nsmao.com"
           } > release-body.md
