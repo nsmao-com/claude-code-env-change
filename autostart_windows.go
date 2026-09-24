@@ -3,8 +3,6 @@
 package main
 
 import (
-	"os"
-
 	"golang.org/x/sys/windows/registry"
 )
 
@@ -45,11 +43,8 @@ func disableAutostartWindows() error {
 		return err
 	}
 	defer key.Close()
+	// 值本身不存在视为已关闭；其它错误（如权限不足）必须上报，否则界面显示已关闭、实际仍会自启
 	if err := key.DeleteValue(autostartName); err != nil && err != registry.ErrNotExist {
-		// 键本身不存在也视为已关闭
-		if _, statErr := os.Stat(autostartRunKey); statErr != nil {
-			return nil
-		}
 		return err
 	}
 	return nil
