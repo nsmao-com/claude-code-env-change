@@ -1635,7 +1635,7 @@ func writeGeminiStyleSettings(settingsFile string, desiredSettings map[string]an
 		// 否则会用模板覆盖掉用户的全部设置
 		parsed, parseErr := parseJSONLikeObject(data)
 		if parseErr != nil {
-			return fmt.Errorf("解析 %s 失败，为保护原文件已中止写入: %v", settingsFile, parseErr)
+			return errorf("解析 %s 失败，为保护原文件已中止写入: %v", settingsFile, parseErr)
 		}
 		if parsed != nil { // 文件内容为 null 时保持空 map
 			existingSettings = parsed

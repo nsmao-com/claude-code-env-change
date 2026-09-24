@@ -82,7 +82,7 @@ func openMacTerminalWithEnv(vars map[string]string) error {
 	}
 	if out, err := exec.Command("open", path).CombinedOutput(); err != nil {
 		_ = os.Remove(path)
-		return fmt.Errorf("启动终端失败: %v %s", err, strings.TrimSpace(string(out)))
+		return errorf("启动终端失败: %v %s", err, strings.TrimSpace(string(out)))
 	}
 	// 终端没能执行脚本时兜底清理，避免含密钥的脚本长期留在临时目录
 	time.AfterFunc(2*time.Minute, func() { _ = os.Remove(path) })
@@ -108,7 +108,7 @@ func writeMacTerminalScript(vars map[string]string) (string, error) {
 
 	f, err := os.CreateTemp("", "ai-env-terminal-*.command")
 	if err != nil {
-		return "", fmt.Errorf("创建终端脚本失败: %v", err)
+		return "", errorf("创建终端脚本失败: %v", err)
 	}
 	path := f.Name()
 	_, werr := f.WriteString(b.String())
@@ -121,7 +121,7 @@ func writeMacTerminalScript(vars map[string]string) (string, error) {
 	}
 	if werr != nil {
 		_ = os.Remove(path)
-		return "", fmt.Errorf("写入终端脚本失败: %v", werr)
+		return "", errorf("写入终端脚本失败: %v", werr)
 	}
 	return path, nil
 }
