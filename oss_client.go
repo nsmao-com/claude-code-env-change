@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"sort"
 	"strings"
 	"time"
@@ -168,8 +167,8 @@ func (c *ossObjectClient) buildURL(key string) (host, canonicalURI, fullURL stri
 		if endpoint == "" {
 			if c.pathStyle {
 				host = fmt.Sprintf("s3.%s.amazonaws.com", region)
-				canonicalURI = "/" + url.PathEscape(c.bucket) + "/" + encodedKey
-				fullURL = fmt.Sprintf("%s://%s/%s/%s", scheme, host, url.PathEscape(c.bucket), encodedKey)
+				canonicalURI = "/" + awsURIEncode(c.bucket) + "/" + encodedKey
+				fullURL = fmt.Sprintf("%s://%s/%s/%s", scheme, host, awsURIEncode(c.bucket), encodedKey)
 				return
 			}
 			host = fmt.Sprintf("%s.s3.%s.amazonaws.com", c.bucket, region)
@@ -185,8 +184,8 @@ func (c *ossObjectClient) buildURL(key string) (host, canonicalURI, fullURL stri
 
 	if c.pathStyle {
 		host = endpoint
-		canonicalURI = "/" + url.PathEscape(c.bucket) + "/" + encodedKey
-		fullURL = fmt.Sprintf("%s://%s/%s/%s", scheme, host, url.PathEscape(c.bucket), encodedKey)
+		canonicalURI = "/" + awsURIEncode(c.bucket) + "/" + encodedKey
+		fullURL = fmt.Sprintf("%s://%s/%s/%s", scheme, host, awsURIEncode(c.bucket), encodedKey)
 		return
 	}
 
@@ -201,12 +200,32 @@ func (c *ossObjectClient) buildURL(key string) (host, canonicalURI, fullURL stri
 	return
 }
 
+// encodeOSSPath 按 SigV4 的 UriEncode 规则逐段编码：除 A-Z a-z 0-9 - _ . ~ 外全部 %XX。
+// url.PathEscape 会保留 + = @ , : & $ 等字符，签名里的 canonical URI 与服务端
+// 计算的不一致，对象 Key 带这些字符时一律 403 SignatureDoesNotMatch。
 func encodeOSSPath(key string) string {
 	parts := strings.Split(key, "/")
 	for i, p := range parts {
-		parts[i] = url.PathEscape(p)
+		parts[i] = awsURIEncode(p)
 	}
 	return strings.Join(parts, "/")
+}
+
+func awsURIEncode(s string) string {
+	const hexDigits = "0123456789ABCDEF"
+	var b strings.Builder
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if ('A' <= c && c <= 'Z') || ('a' <= c && c <= 'z') || ('0' <= c && c <= '9') ||
+			c == '-' || c == '_' || c == '.' || c == '~' {
+			b.WriteByte(c)
+			continue
+		}
+		b.WriteByte('%')
+		b.WriteByte(hexDigits[c>>4])
+		b.WriteByte(hexDigits[c&15])
+	}
+	return b.String()
 }
 
 func (c *ossObjectClient) signS3(req *http.Request, method, host, canonicalURI string, body []byte, contentType string) {
