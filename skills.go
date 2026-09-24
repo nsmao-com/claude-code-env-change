@@ -410,6 +410,28 @@ func discoverSkillsFromRoot(root string) map[string]string {
 }
 
 func (ss *SkillService) syncSkill(name string, entry rawSkill) error {
+	return ss.writeSkillFiles(name, entry, true)
+}
+
+// applyStoreToPlatforms 云端恢复后调用：把备份里的 Skill 写到各自启用的平台。
+// 只写不删：新电脑上已有、备份里没启用的同名 Skill 保持原样。
+func (ss *SkillService) applyStoreToPlatforms() error {
+	ss.mu.Lock()
+	defer ss.mu.Unlock()
+	config, err := ss.loadConfig()
+	if err != nil {
+		return err
+	}
+	for name, entry := range config {
+		if err := ss.writeSkillFiles(name, entry, false); err != nil {
+			return fmt.Errorf("%s: %v", name, err)
+		}
+	}
+	return nil
+}
+
+// writeSkillFiles 把 SKILL.md 写到启用的平台；removeDisabled 时从未启用的平台卸载
+func (ss *SkillService) writeSkillFiles(name string, entry rawSkill, removeDisabled bool) error {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return err
@@ -452,6 +474,9 @@ func (ss *SkillService) syncSkill(name string, entry rawSkill) error {
 			continue
 		}
 
+		if !removeDisabled {
+			continue
+		}
 		// 安全卸载：仅删除 SKILL.md（如目录为空则顺带删除目录）
 		if err := os.Remove(file); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return err

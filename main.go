@@ -29,7 +29,7 @@ func main() {
 	skillService := NewSkillService()
 	uptimeService := NewUptimeService(app)
 	routerService := NewRouterService()
-	cloudSyncService := NewCloudSyncService(app, routerService)
+	cloudSyncService := NewCloudSyncService(app, routerService, mcpService, skillService)
 
 	onStartup := func(ctx context.Context) {
 		app.OnStartup(ctx)

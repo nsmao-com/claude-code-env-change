@@ -18,6 +18,7 @@ import (
 	"sync"
 	"time"
 
+	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 	"golang.org/x/crypto/scrypt"
 )
 
@@ -95,16 +96,20 @@ type CloudSyncService struct {
 	config     CloudConfig
 	app        *App
 	router     *RouterService
+	mcp        *MCPService
+	skills     *SkillService
 	httpClient *http.Client
 	timer      *time.Timer
 	pushing    bool
 	applying   bool
 }
 
-func NewCloudSyncService(app *App, router *RouterService) *CloudSyncService {
+func NewCloudSyncService(app *App, router *RouterService, mcp *MCPService, skills *SkillService) *CloudSyncService {
 	cs := &CloudSyncService{
 		app:        app,
 		router:     router,
+		mcp:        mcp,
+		skills:     skills,
 		httpClient: &http.Client{Timeout: 45 * time.Second},
 	}
 	_ = cs.loadConfig()
@@ -118,7 +123,16 @@ func (cs *CloudSyncService) OnStartup() {
 	pull := cs.config.Enabled && cs.config.AutoPullOnStart && cs.isConfiguredLocked()
 	cs.mu.Unlock()
 	if pull {
-		_ = cs.DownloadFromCloud()
+		// OnStartup 与前端加载并行：拉取可能在界面读完配置之后才完成，
+		// 必须通知前端刷新，否则界面一直显示拉取前的旧数据；失败也要让用户知道
+		result := cs.DownloadFromCloud()
+		if cs.app != nil && cs.app.ctx != nil {
+			if result.Success {
+				wailsruntime.EventsEmit(cs.app.ctx, "cloud:pulled", result.Message)
+			} else {
+				wailsruntime.EventsEmit(cs.app.ctx, "cloud:pull-failed", result.Message)
+			}
+		}
 	}
 }
 
@@ -384,7 +398,7 @@ func (cs *CloudSyncService) DownloadFromCloud() CloudSyncResult {
 		return CloudSyncResult{Success: false, Message: "备份内容无法解析，请确认加密口令是否正确", Latency: time.Since(start).Milliseconds()}
 	}
 
-	n, err := cs.applyBundle(bundle)
+	message, err := cs.restoreBundle(bundle)
 	if err != nil {
 		cs.recordError(err.Error())
 		return CloudSyncResult{Success: false, Message: err.Error(), Latency: time.Since(start).Milliseconds()}
@@ -396,6 +410,21 @@ func (cs *CloudSyncService) DownloadFromCloud() CloudSyncResult {
 	_ = cs.persistLocked()
 	cs.mu.Unlock()
 
+	return CloudSyncResult{
+		Success: true,
+		Message: message,
+		Latency: time.Since(start).Milliseconds(),
+	}
+}
+
+// restoreBundle 把备份写回本机：先覆盖中央存储，再让各服务重新加载，
+// 最后把 MCP 与 Skills 写回各平台文件（否则换电脑后平台里没有这些条目，
+// 下次加载会把启用标记全部清空）
+func (cs *CloudSyncService) restoreBundle(bundle cloudBundle) (string, error) {
+	n, err := cs.applyBundle(bundle)
+	if err != nil {
+		return "", err
+	}
 	if cs.router != nil {
 		_ = cs.router.ReloadFromDisk()
 	}
@@ -403,11 +432,22 @@ func (cs *CloudSyncService) DownloadFromCloud() CloudSyncResult {
 		_ = cs.app.RefreshConfig()
 	}
 
-	return CloudSyncResult{
-		Success: true,
-		Message: fmt.Sprintf("已从云端恢复 %d 个配置文件", n),
-		Latency: time.Since(start).Milliseconds(),
+	message := fmt.Sprintf("已从云端恢复 %d 个配置文件", n)
+	var syncErrs []string
+	if _, ok := bundle.Files["mcp.json"]; ok && cs.mcp != nil {
+		if err := cs.mcp.applyStoreToPlatforms(); err != nil {
+			syncErrs = append(syncErrs, "MCP: "+err.Error())
+		}
 	}
+	if _, ok := bundle.Files["skills.json"]; ok && cs.skills != nil {
+		if err := cs.skills.applyStoreToPlatforms(); err != nil {
+			syncErrs = append(syncErrs, "Skills: "+err.Error())
+		}
+	}
+	if len(syncErrs) > 0 {
+		message += "；⚠ 写回平台失败: " + strings.Join(syncErrs, "；")
+	}
+	return message, nil
 }
 
 func csConfigured(cfg CloudConfig) bool {

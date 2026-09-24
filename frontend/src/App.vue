@@ -239,6 +239,14 @@ onMounted(async () => {
   EventsOn('tray:update-status', (available: boolean) => {
     if (available) updateAvailable.value = true
   })
+  // 启动时自动从云端拉取与界面加载并行，拉取完成后刷新界面
+  EventsOn('cloud:pulled', (message: string) => {
+    void onCloudPulled()
+    if (typeof message === 'string' && message) toast.success(message)
+  })
+  EventsOn('cloud:pull-failed', (message: string) => {
+    toast.error(`启动时从云端拉取失败：${message || '未知错误'}`)
+  })
 
   try {
     await configStore.loadConfig()

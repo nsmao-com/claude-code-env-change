@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
+	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -87,5 +90,61 @@ func TestCloudPayloadMagicDowngradeFails(t *testing.T) {
 	tampered := append([]byte(cloudMagicLegacy), enc[4:]...)
 	if _, err := decryptCloudPayload(tampered, "pass"); err == nil {
 		t.Fatalf("篡改 magic 后应解密失败")
+	}
+}
+
+// 换电脑恢复：备份里的 MCP 与 Skills 必须写回各平台文件，且重新加载后平台标记仍在；
+// 新电脑上本来就有、备份里没有的 MCP 服务器不能被删掉
+func TestCloudRestoreWritesBackToPlatforms(t *testing.T) {
+	home, _ := withMcpHome(t)
+	claudeJSON := filepath.Join(home, claudeMcpFile)
+	if err := os.WriteFile(claudeJSON, []byte(`{"mcpServers":{"local-only":{"command":"node","args":["x.js"]}}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	ms := NewMCPService()
+	ss := NewSkillService()
+	cs := &CloudSyncService{mcp: ms, skills: ss}
+	bundle := cloudBundle{Version: 1, Files: map[string]json.RawMessage{
+		"mcp.json":    json.RawMessage(`{"fetch":{"type":"stdio","command":"uvx","args":["mcp-server-fetch"],"enable_platform":["claude-code","codex"]}}`),
+		"skills.json": json.RawMessage(`{"review":{"content":"---\nname: review\ndescription: d\n---\nbody","enable_platform":["claude-code"]}}`),
+	}}
+	msg, err := cs.restoreBundle(bundle)
+	if err != nil {
+		t.Fatalf("恢复失败: %v", err)
+	}
+	if strings.Contains(msg, "⚠") {
+		t.Fatalf("写回平台不应失败: %s", msg)
+	}
+
+	servers := readJSONFile(t, claudeJSON)["mcpServers"].(map[string]any)
+	if _, ok := servers["fetch"]; !ok {
+		t.Fatalf("fetch 应写回 Claude Code: %v", servers)
+	}
+	if _, ok := servers["local-only"]; !ok {
+		t.Fatalf("本机已有的 local-only 不能被恢复流程删掉: %v", servers)
+	}
+	if data, err := os.ReadFile(filepath.Join(home, ".codex", "config.toml")); err != nil || !strings.Contains(string(data), "fetch") {
+		t.Fatalf("fetch 应写回 Codex: %v %s", err, data)
+	}
+	if !fileExists(filepath.Join(home, ".claude", "skills", "review", "SKILL.md")) {
+		t.Fatalf("Skill 应写回 ~/.claude/skills")
+	}
+
+	listed, err := ms.ListServers()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range listed {
+		if s.Name == "fetch" && !(platformContains(s.EnablePlatform, platClaudeCode) && platformContains(s.EnablePlatform, platCodex)) {
+			t.Fatalf("重新加载后 fetch 的平台标记丢失: %v", s.EnablePlatform)
+		}
+	}
+	skills, err := ss.ListSkills()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(skills) != 1 || !platformContains(skills[0].EnablePlatform, platClaudeCode) {
+		t.Fatalf("重新加载后 Skill 的平台标记丢失: %+v", skills)
 	}
 }

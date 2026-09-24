@@ -273,8 +273,15 @@ func (ms *MCPService) configPath() (string, error) {
 	return filepath.Join(dir, mcpStoreFile), nil
 }
 
-// loadConfig 加载配置
+// loadConfig 加载配置：导入各平台已有的服务器，并按平台文件校正启用标记
 func (ms *MCPService) loadConfig() (map[string]rawMCPServer, error) {
+	return ms.loadConfigWith(true)
+}
+
+// loadConfigWith reconcile=false 时只做"导入 + 合并"，不按平台文件剥离启用标记、
+// 不清理平台里找不到的服务器。云端恢复后必须这样加载：新电脑的平台文件里还没有
+// 这些服务器，按磁盘校正会把恢复出来的平台标记全部清空。
+func (ms *MCPService) loadConfigWith(reconcile bool) (map[string]rawMCPServer, error) {
 	path, err := ms.configPath()
 	if err != nil {
 		return nil, err
@@ -336,13 +343,14 @@ func (ms *MCPService) loadConfig() (map[string]rawMCPServer, error) {
 		}
 	}
 
-	if ms.reconcilePlatformsFromDisk(payload) {
-		changed = true
-	}
-
-	// 清理不再存在于任何平台配置中的服务器
-	if ms.cleanupDeletedServers(payload) {
-		changed = true
+	if reconcile {
+		if ms.reconcilePlatformsFromDisk(payload) {
+			changed = true
+		}
+		// 清理不再存在于任何平台配置中的服务器
+		if ms.cleanupDeletedServers(payload) {
+			changed = true
+		}
 	}
 
 	if changed {
@@ -2003,6 +2011,18 @@ func (ms *MCPService) SyncToPlatforms() ([]MCPServer, error) {
 
 	servers := ms.buildServersFromConfig(config)
 	return servers, ms.syncAllPlatforms(servers, nil)
+}
+
+// applyStoreToPlatforms 云端恢复后调用：以恢复出的中央存储为准写回各平台，
+// 同时保留本机平台文件里已有、备份里没有的服务器
+func (ms *MCPService) applyStoreToPlatforms() error {
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
+	config, err := ms.loadConfigWith(false)
+	if err != nil {
+		return err
+	}
+	return ms.syncAllPlatforms(ms.buildServersFromConfig(config), nil)
 }
 
 // ApplyToPlatform 把所有可写入的 MCP 一次性加入指定服务商配置。
