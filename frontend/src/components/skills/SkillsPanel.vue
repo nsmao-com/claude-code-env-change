@@ -266,16 +266,22 @@ watch(marketQuery, () => {
 })
 onBeforeUnmount(() => window.clearTimeout(marketTimer))
 
+// 切换来源或改搜索词时旧请求可能晚于新请求返回，只采纳最后一次发起的结果
+let marketSeq = 0
 async function loadMarket() {
+  const seq = ++marketSeq
   isLoadingPresets.value = true
   marketError.value = ''
   try {
-    marketItems.value = await skillService.searchMarketplace(marketSource.value, marketQuery.value.trim())
+    const items = await skillService.searchMarketplace(marketSource.value, marketQuery.value.trim())
+    if (seq !== marketSeq) return
+    marketItems.value = items
   } catch (e: any) {
+    if (seq !== marketSeq) return
     marketItems.value = []
     marketError.value = e?.message || t('skills.marketLoadFailed')
   } finally {
-    isLoadingPresets.value = false
+    if (seq === marketSeq) isLoadingPresets.value = false
   }
 }
 

@@ -71,6 +71,8 @@ func (ms *MCPService) ImportMcpMarketplace(id string, platforms []string) error 
 func fetchMcpRegistry(query, cursor string) (McpMarketPage, error) {
 	params := url.Values{}
 	params.Set("limit", "30")
+	// 不带 version=latest 时 Registry 会把同一服务器的每个历史版本各列一行
+	params.Set("version", "latest")
 	if query != "" {
 		params.Set("search", query)
 	}
@@ -192,15 +194,17 @@ func parseMcpRegistryServer(raw json.RawMessage) (McpMarketItem, bool) {
 				item.Command = "uvx"
 				item.Args = []string{ident}
 			default:
-				if strings.TrimSpace(pkg.Transport.URL) != "" {
-					item.Type = "http"
-					item.URL = strings.TrimSpace(pkg.Transport.URL)
-					item.Hint = item.URL
-					break
+				if strings.TrimSpace(pkg.Transport.URL) == "" {
+					continue
 				}
-				continue
+				item.Type = "http"
+				item.URL = strings.TrimSpace(pkg.Transport.URL)
 			}
-			item.Hint = strings.TrimSpace(item.Command + " " + strings.Join(item.Args, " "))
+			if item.URL != "" {
+				item.Hint = item.URL
+			} else {
+				item.Hint = strings.TrimSpace(item.Command + " " + strings.Join(item.Args, " "))
+			}
 			break
 		}
 	}

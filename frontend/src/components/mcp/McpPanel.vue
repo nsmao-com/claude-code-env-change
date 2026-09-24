@@ -341,19 +341,24 @@ function importPlatforms(): string[] {
   return [currentPlatform.value]
 }
 
+// 搜索词变化时旧请求可能晚于新请求返回，只采纳最后一次发起的结果
+let marketSeq = 0
 async function loadMarket(more: boolean) {
+  const seq = ++marketSeq
   marketLoading.value = true
   marketError.value = ''
   try {
     const page = await mcpService.searchMarketplace(marketQuery.value.trim(), more ? marketNext.value : '')
+    if (seq !== marketSeq) return
     marketItems.value = more ? [...marketItems.value, ...(page.items || [])] : (page.items || [])
     marketNext.value = page.next || ''
     marketWarning.value = page.warning || ''
   } catch (e: any) {
+    if (seq !== marketSeq) return
     if (!more) marketItems.value = []
     marketError.value = e?.message || t('mcp.marketLoadFailed')
   } finally {
-    marketLoading.value = false
+    if (seq === marketSeq) marketLoading.value = false
   }
 }
 
