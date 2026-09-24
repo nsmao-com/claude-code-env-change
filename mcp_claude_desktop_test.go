@@ -285,3 +285,65 @@ func TestClaudeDesktopEnvKeepsMcpServers(t *testing.T) {
 		t.Fatalf("清除环境不应删掉 MCP 服务器: %v", cfg)
 	}
 }
+
+// 服务器没有变化时不重写 Claude Desktop 配置（不重排用户的键、不刷新 .bak）
+func TestMcpSyncClaudeDesktopNoopWhenUnchanged(t *testing.T) {
+	_, desktopConfig := withMcpHome(t)
+	if err := os.MkdirAll(filepath.Dir(desktopConfig), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	original := `{"zeta":1,"alpha":{"b":2,"a":1},"mcpServers":{"fs":{"command":"npx","args":["-y","pkg"]}}}`
+	if err := os.WriteFile(desktopConfig, []byte(original), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	ms := NewMCPService()
+	servers := []MCPServer{{Name: "fs", Type: "stdio", Command: "npx", Args: []string{"-y", "pkg"}, EnablePlatform: []string{platClaudeDesktop}}}
+	if err := ms.syncClaudeDesktopServers(servers, nil); err != nil {
+		t.Fatal(err)
+	}
+	after, _ := os.ReadFile(desktopConfig)
+	if string(after) != original {
+		t.Fatalf("内容未变时不应重写文件:\n%s", after)
+	}
+	if _, err := os.Stat(desktopConfig + ".bak"); !os.IsNotExist(err) {
+		t.Fatalf("内容未变时不应生成 .bak")
+	}
+
+	// 没有任何服务器、原文件也没有 mcpServers：同样不写
+	noServers := `{"preferences":{}}`
+	if err := os.WriteFile(desktopConfig, []byte(noServers), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := ms.syncClaudeDesktopServers(nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	if after, _ := os.ReadFile(desktopConfig); string(after) != noServers {
+		t.Fatalf("不应凭空加上 mcpServers: %s", after)
+	}
+}
+
+// Claude Desktop 配置文件损坏时：没给它启用服务器就照常保存；给它启用了则中止并保留原文件
+func TestMcpCorruptClaudeDesktopConfig(t *testing.T) {
+	home, desktopConfig := withMcpHome(t)
+	if err := os.MkdirAll(filepath.Dir(desktopConfig), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	corrupt := `{"mcpServers": oops`
+	if err := os.WriteFile(desktopConfig, []byte(corrupt), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	ms := NewMCPService()
+	if err := ms.SaveServers([]MCPServer{{Name: "a", Type: "stdio", Command: "node", EnablePlatform: []string{platClaudeCode}}}); err != nil {
+		t.Fatalf("未启用 Claude Desktop 时不应被它的坏配置挡住: %v", err)
+	}
+	if _, ok := readJSONFile(t, filepath.Join(home, claudeMcpFile))["mcpServers"].(map[string]any)["a"]; !ok {
+		t.Fatalf("Claude Code 应已同步")
+	}
+	err := ms.SaveServers([]MCPServer{{Name: "a", Type: "stdio", Command: "node", EnablePlatform: []string{platClaudeDesktop}}})
+	if err == nil {
+		t.Fatalf("要写入 Claude Desktop 时遇到坏配置应报错")
+	}
+	if after, _ := os.ReadFile(desktopConfig); string(after) != corrupt {
+		t.Fatalf("损坏的配置文件不应被改写")
+	}
+}
