@@ -209,9 +209,6 @@ func (ms *MCPService) syncAllPlatforms(servers []MCPServer, removed map[string]s
 	if err := ms.syncClaudeServers(servers); err != nil {
 		return err
 	}
-	if err := ms.syncClaudeDesktopServers(servers, removed); err != nil {
-		return err
-	}
 	if err := ms.syncCodexServers(servers); err != nil {
 		return err
 	}
@@ -221,7 +218,11 @@ func (ms *MCPService) syncAllPlatforms(servers []MCPServer, removed map[string]s
 	if err := ms.syncGrokServers(servers); err != nil {
 		return err
 	}
-	return ms.syncOpencodeServers(servers, removed)
+	if err := ms.syncOpencodeServers(servers, removed); err != nil {
+		return err
+	}
+	// Claude Desktop 放最后：它的配置文件由用户另行编辑，出问题时不拖累其它平台
+	return ms.syncClaudeDesktopServers(servers, removed)
 }
 
 // storedServerNames 读取中央存储里现有的服务器名（小写），不触发平台导入

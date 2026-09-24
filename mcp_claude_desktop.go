@@ -270,6 +270,10 @@ func (ms *MCPService) syncClaudeDesktopServers(servers []MCPServer, removed map[
 	switch {
 	case err == nil && len(strings.TrimSpace(string(data))) > 0:
 		if err := json.Unmarshal(data, &payload); err != nil || payload == nil {
+			if len(desired) == 0 {
+				// 没有服务器要写给 Claude Desktop：不因为它的配置坏了挡住其它平台的保存
+				return nil
+			}
 			return fmt.Errorf("解析 %s 失败，为保护原文件已中止同步: %v", path, err)
 		}
 	case err != nil && !errors.Is(err, os.ErrNotExist):
@@ -280,16 +284,21 @@ func (ms *MCPService) syncClaudeDesktopServers(servers []MCPServer, removed map[
 	}
 
 	merged := map[string]any{}
-	if existing, ok := payload["mcpServers"].(map[string]any); ok {
-		for name, entry := range existing {
-			if _, isManaged := managed[strings.ToLower(strings.TrimSpace(name))]; isManaged {
-				continue
-			}
-			merged[name] = entry
+	existing, hadServers := payload["mcpServers"].(map[string]any)
+	for name, entry := range existing {
+		if _, isManaged := managed[strings.ToLower(strings.TrimSpace(name))]; isManaged {
+			continue
 		}
+		merged[name] = entry
 	}
 	for name, entry := range desired {
 		merged[name] = entry
+	}
+	// 服务器没变就不动文件：避免每次保存 MCP 都重排用户的配置、刷新 .bak
+	if before, err := json.Marshal(existing); err == nil {
+		if after, err := json.Marshal(merged); err == nil && (string(before) == string(after) || (!hadServers && len(merged) == 0)) {
+			return nil
+		}
 	}
 	payload["mcpServers"] = merged
 
