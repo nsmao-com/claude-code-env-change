@@ -410,7 +410,8 @@ func (ms *MCPService) saveConfig(payload map[string]rawMCPServer) error {
 	if err != nil {
 		return err
 	}
-	return writeFileAtomic(path, data, 0o644)
+	// MCP 的 env / headers 常带访问令牌，仅本人可读
+	return writeFileAtomic(path, data, 0o600)
 }
 
 // syncClaudeServers 同步到 Claude 配置
