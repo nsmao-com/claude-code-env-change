@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"golang.org/x/net/proxy"
@@ -36,6 +37,35 @@ var (
 	outboundProxyMu      sync.RWMutex
 	outboundProxyCurrent OutboundProxySettings
 )
+
+// switchableTransport 固定挂在 http.DefaultTransport 上；切换代理只原子替换内部的
+// *http.Transport。此前直接改写 http.DefaultTransport 与路由网关的 client 字段，
+// 与正在处理的请求并发读写，是数据竞争。
+type switchableTransport struct {
+	current atomic.Pointer[http.Transport]
+}
+
+func (s *switchableTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	return s.current.Load().RoundTrip(req)
+}
+
+func (s *switchableTransport) CloseIdleConnections() {
+	if t := s.current.Load(); t != nil {
+		t.CloseIdleConnections()
+	}
+}
+
+var outboundTransport = func() *switchableTransport {
+	st := &switchableTransport{}
+	t, _ := newOutboundTransport(OutboundProxySettings{})
+	st.current.Store(t)
+	return st
+}()
+
+func init() {
+	// 所有未显式指定 Transport 的 http.Client（路由网关、监控、云同步、更新检查）都走这里
+	http.DefaultTransport = outboundTransport
+}
 
 func outboundProxyPath() (string, error) {
 	home, err := os.UserHomeDir()
@@ -76,7 +106,8 @@ func saveOutboundProxy(cfg OutboundProxySettings) error {
 		return err
 	}
 	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, data, 0o644); err != nil {
+	// 代理地址可能带账号密码，仅本人可读
+	if err := os.WriteFile(tmp, data, 0o600); err != nil {
 		return err
 	}
 	return os.Rename(tmp, path)
@@ -98,16 +129,11 @@ func applyOutboundProxy(cfg OutboundProxySettings) error {
 
 	outboundProxyMu.Lock()
 	outboundProxyCurrent = cfg
-	http.DefaultTransport = transport
+	old := outboundTransport.current.Swap(transport)
 	outboundProxyMu.Unlock()
-
-	// 整体替换 *http.Client（而非就地改 Transport 字段）：
-	// client.Do 期间并发读写 Transport 字段是数据竞争
-	if globalRouterService != nil && globalRouterService.client != nil {
-		oldClient := globalRouterService.client
-		newClient := *oldClient
-		newClient.Transport = transport
-		globalRouterService.client = &newClient
+	// 旧代理的空闲连接不会再被复用，及时关掉
+	if old != nil && old != transport {
+		old.CloseIdleConnections()
 	}
 	return nil
 }
