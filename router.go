@@ -13,6 +13,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -348,7 +349,7 @@ func (rs *RouterService) StartGateway() error {
 	}
 
 	server := &http.Server{
-		Handler:           mux,
+		Handler:           gatewayGuard(mux),
 		ReadHeaderTimeout: 30 * time.Second,
 		IdleTimeout:       120 * time.Second,
 		// 故意不设 WriteTimeout：会掐断 SSE 流式响应
@@ -583,6 +584,52 @@ func (rs *RouterService) TestRoute(name string) RouterTestResult {
 }
 
 // ============ HTTP 处理 ============
+
+// gatewayGuard 拦截浏览器发起的请求。网关会给上游注入真实 API Key，
+// 只监听 127.0.0.1 并不够：任意网页都能向本机端口发"简单请求"（text/plain 的 POST
+// 不触发预检）来盗刷额度，DNS 重绑定还能让网页读到响应。CLI 客户端不带 Origin /
+// Sec-Fetch-Site，也总是用回环地址访问，因此下面三条不会误伤正常调用。
+func gatewayGuard(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if reason := rejectGatewayRequest(r); reason != "" {
+			writeJSONError(w, http.StatusForbidden, reason)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func rejectGatewayRequest(r *http.Request) string {
+	if !isLoopbackHost(r.Host) {
+		return "网关只接受 127.0.0.1 / localhost 访问"
+	}
+	switch strings.ToLower(strings.TrimSpace(r.Header.Get("Sec-Fetch-Site"))) {
+	case "", "none", "same-origin":
+	default:
+		return "网关拒绝来自网页的跨站请求"
+	}
+	if origin := strings.TrimSpace(r.Header.Get("Origin")); origin != "" {
+		u, err := url.Parse(origin)
+		if err != nil || !isLoopbackHost(u.Host) {
+			return "网关拒绝来自网页的跨站请求"
+		}
+	}
+	return ""
+}
+
+// isLoopbackHost 判断 Host（可带端口）是否指向本机回环地址
+func isLoopbackHost(hostport string) bool {
+	host := strings.TrimSpace(hostport)
+	if h, _, err := net.SplitHostPort(host); err == nil {
+		host = h
+	}
+	host = strings.Trim(host, "[]")
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
+}
 
 func (rs *RouterService) handleRoot(w http.ResponseWriter, r *http.Request) {
 	path := strings.Trim(r.URL.Path, "/")
