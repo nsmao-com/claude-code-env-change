@@ -248,15 +248,23 @@ func (ls *LogService) GetStatsOverview(statsDays, heatmapDays int, platform stri
 	statsCutoff := time.Now().AddDate(0, 0, -statsDays).Format(recordTimeLayout)
 	heatmapCutoff := time.Now().AddDate(0, 0, -heatmapDays).Format(recordTimeLayout)
 
+	logDir := ls.getClaudeProjectsDir()
+	if gatewayStatsProviders[platform] {
+		// 这几个平台的数据只来自本地网关的用量记录
+		if path, err := gatewayUsagePath(); err == nil {
+			logDir = path
+		}
+	}
+
 	return StatsOverview{
 		Stats:        aggregateUsageStats(records, statsCutoff),
 		Heatmap:      aggregateHeatmap(records, heatmapCutoff),
-		LogDirectory: ls.getClaudeProjectsDir(),
+		LogDirectory: logDir,
 		EnvSummary:   ls.aggregateEnvUsage(records, statsDays),
 	}, nil
 }
 
-// loadRecordsForPlatform 并发读取各平台日志（"all" 时三个平台同时读取）
+// loadRecordsForPlatform 并发读取各平台日志（"all" 时各来源同时读取）
 func (ls *LogService) loadRecordsForPlatform(days int, platform string) []UsageRecord {
 	readClaude := func() []UsageRecord {
 		records, _ := ls.readClaudeLogs(days)
@@ -271,13 +279,21 @@ func (ls *LogService) loadRecordsForPlatform(days int, platform string) []UsageR
 		return records
 	}
 
+	// Claude Desktop / OpenCode / Grok 没有本地用量日志，只有经过本地网关的请求有数据
+	readGateway := func(provider string) func() []UsageRecord {
+		return func() []UsageRecord { return readGatewayUsage(days, provider) }
+	}
+
 	readers := map[string][]func() []UsageRecord{
-		"claude":      {readClaude},
-		"antigravity": {readGemini},
-		"codex":       {readCodex},
+		"claude":         {readClaude},
+		"antigravity":    {readGemini},
+		"codex":          {readCodex},
+		"claude_desktop": {readGateway("claude_desktop")},
+		"opencode":       {readGateway("opencode")},
+		"grok":           {readGateway("grok")},
 	}[platform]
 	if readers == nil {
-		readers = []func() []UsageRecord{readClaude, readGemini, readCodex}
+		readers = []func() []UsageRecord{readClaude, readGemini, readCodex, readGateway("")}
 	}
 
 	if len(readers) == 1 {

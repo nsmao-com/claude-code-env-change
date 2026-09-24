@@ -141,6 +141,9 @@ export namespace main {
 	    last_push_at?: number;
 	    last_pull_at?: number;
 	    last_error?: string;
+	    device_id?: string;
+	    last_remote_at?: number;
+	    last_sync_hash?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new CloudConfig(source);
@@ -164,12 +167,19 @@ export namespace main {
 	        this.last_push_at = source["last_push_at"];
 	        this.last_pull_at = source["last_pull_at"];
 	        this.last_error = source["last_error"];
+	        this.device_id = source["device_id"];
+	        this.last_remote_at = source["last_remote_at"];
+	        this.last_sync_hash = source["last_sync_hash"];
 	    }
 	}
 	export class CloudSyncResult {
 	    success: boolean;
 	    message: string;
 	    latency: number;
+	    conflict?: boolean;
+	    skipped?: boolean;
+	    remote_host?: string;
+	    remote_at?: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new CloudSyncResult(source);
@@ -180,6 +190,10 @@ export namespace main {
 	        this.success = source["success"];
 	        this.message = source["message"];
 	        this.latency = source["latency"];
+	        this.conflict = source["conflict"];
+	        this.skipped = source["skipped"];
+	        this.remote_host = source["remote_host"];
+	        this.remote_at = source["remote_at"];
 	    }
 	}
 	export class CloudSyncStatus {
@@ -206,6 +220,28 @@ export namespace main {
 	        this.last_error = source["last_error"];
 	        this.object_key = source["object_key"];
 	        this.provider = source["provider"];
+	    }
+	}
+	export class CloudVersion {
+	    key: string;
+	    exported_at: number;
+	    hostname?: string;
+	    device?: string;
+	    files: number;
+	    size: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new CloudVersion(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.key = source["key"];
+	        this.exported_at = source["exported_at"];
+	        this.hostname = source["hostname"];
+	        this.device = source["device"];
+	        this.files = source["files"];
+	        this.size = source["size"];
 	    }
 	}
 	export class EnvConfig {
@@ -375,6 +411,9 @@ export namespace main {
 	    error?: string;
 	    upstream?: string;
 	    failover?: string;
+	    input_tokens?: number;
+	    output_tokens?: number;
+	    cache_read_tokens?: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new RouterLogEntry(source);
@@ -391,6 +430,9 @@ export namespace main {
 	        this.error = source["error"];
 	        this.upstream = source["upstream"];
 	        this.failover = source["failover"];
+	        this.input_tokens = source["input_tokens"];
+	        this.output_tokens = source["output_tokens"];
+	        this.cache_read_tokens = source["cache_read_tokens"];
 	    }
 	}
 	export class RouteStats {

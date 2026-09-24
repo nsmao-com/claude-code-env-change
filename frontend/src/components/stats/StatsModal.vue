@@ -37,6 +37,10 @@
         {{ t('stats.loadingData') }}
       </div>
 
+      <p v-if="isGatewayPlatform" class="mb-3 rounded-xl bg-muted/50 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
+        {{ t('stats.gatewayHint') }}
+      </p>
+
       <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <motion.div v-for="(card, i) in kpiItems" :key="card.label" :initial="{ opacity: 0, y: 12 }" :animate="{ opacity: 1, y: 0 }" :transition="{ delay: i * 0.05, duration: 0.28, ease: [0.22, 1, 0.36, 1] }">
           <Card size="sm">
@@ -362,6 +366,10 @@ const { error: toastError } = useToast()
 const loading = ref(false)
 const days = ref(7)
 const platform = ref<StatsPlatform>('all')
+// 这几个平台没有本地用量日志，统计的是经过本地网关的请求
+const GATEWAY_PLATFORMS: StatsPlatform[] = ['claude_desktop', 'opencode', 'grok']
+const STATS_PLATFORMS: StatsPlatform[] = ['claude', 'codex', 'antigravity', ...GATEWAY_PLATFORMS]
+const isGatewayPlatform = computed(() => GATEWAY_PLATFORMS.includes(platform.value))
 const stats = ref<UsageStats | null>(null)
 const heatmap = ref<HeatmapData[]>([])
 const envSummary = ref<Record<string, EnvUsageSummary>>({})
@@ -793,7 +801,7 @@ watch(isOpen, (open) => {
   }}, { immediate: true })
 
 watch(() => configStore.currentFilter, (tool) => {
-  const next: StatsPlatform = tool === 'claude' || tool === 'codex' || tool === 'antigravity' ? tool : 'all'
+  const next: StatsPlatform = STATS_PLATFORMS.find(item => item === tool) ?? 'all'
   if (platform.value === next) return
   platform.value = next
   if (isOpen.value) loadData()

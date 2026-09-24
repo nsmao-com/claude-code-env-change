@@ -77,6 +77,10 @@ type RouterLogEntry struct {
 	Error      string `json:"error,omitempty"`
 	Upstream   string `json:"upstream,omitempty"` // 实际响应的上游 host
 	Failover   string `json:"failover,omitempty"` // 被跳过的上游及原因
+	// 上游响应里解析出的用量（输入不含缓存命中部分）
+	InputTokens     int `json:"input_tokens,omitempty"`
+	OutputTokens    int `json:"output_tokens,omitempty"`
+	CacheReadTokens int `json:"cache_read_tokens,omitempty"`
 }
 
 // RouterLogQuery 完整日志查询
@@ -136,6 +140,7 @@ func NewRouterService() *RouterService {
 	globalRouterService = rs
 	rs.loadConfig()
 	rs.loadPersistedLogs()
+	pruneGatewayUsage()
 	return rs
 }
 
@@ -851,6 +856,13 @@ func (rs *RouterService) serveOpenAIEndpoint(w http.ResponseWriter, r *http.Requ
 		payload := map[string]any{}
 		_ = json.Unmarshal(body, &payload)
 		payload["model"] = mappedModel
+		// 流式请求默认不带用量；客户端没指定 stream_options 时请上游在最后一块附上，
+		// 统计才拿得到（OpenCode 等 OpenAI 兼容客户端都能处理这个只含 usage 的分片）
+		if stream, _ := payload["stream"].(bool); stream {
+			if _, ok := payload["stream_options"]; !ok {
+				payload["stream_options"] = map[string]any{"include_usage": true}
+			}
+		}
 		resp, err := rs.doWithFailover(r, route, func(rt APIRoute) (*http.Request, error) {
 			req, err := rs.newUpstreamRequest(rt, r.Method, "/v1/chat/completions", payload)
 			if err == nil {
@@ -1210,9 +1222,19 @@ func (rs *RouterService) finishRequest(_ http.ResponseWriter, route APIRoute, r 
 	if reqErr != nil {
 		entry.Error = reqErr.Error()
 	}
+	var usageLine *gatewayUsageLine
 	if trace := gatewayTraceFrom(r); trace != nil {
 		entry.Upstream = trace.upstream
 		entry.Failover = strings.Join(trace.skipped, "；")
+		if trace.usage != nil {
+			if u := trace.usage.usage(); !u.empty() {
+				entry.InputTokens = u.InputTokens
+				entry.OutputTokens = u.OutputTokens
+				entry.CacheReadTokens = u.CacheReadTokens
+				line := newGatewayUsageLine(route.Name, model, u, time.Now())
+				usageLine = &line
+			}
+		}
 	}
 
 	rs.statsMu.Lock()
@@ -1249,6 +1271,9 @@ func (rs *RouterService) finishRequest(_ http.ResponseWriter, route APIRoute, r 
 
 	// 文件 IO 在锁外执行：高并发下持 statsMu 做同步写会放大每请求延迟
 	rs.persistLog(entry, snapshot, trimmed)
+	if usageLine != nil {
+		appendGatewayUsage(*usageLine)
+	}
 }
 
 func (rs *RouterService) logFilePath() (string, error) {

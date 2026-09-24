@@ -4,11 +4,17 @@ import {main} from '../models';
 
 export function DownloadFromCloud():Promise<main.CloudSyncResult>;
 
+export function ForceUploadToCloud():Promise<main.CloudSyncResult>;
+
 export function GetCloudConfig():Promise<main.CloudConfig>;
 
 export function GetCloudSyncStatus():Promise<main.CloudSyncStatus>;
 
+export function ListCloudVersions():Promise<Array<main.CloudVersion>>;
+
 export function OnStartup():Promise<void>;
+
+export function RestoreCloudVersion(arg1:string):Promise<main.CloudSyncResult>;
 
 export function SaveCloudConfig(arg1:main.CloudConfig):Promise<void>;
 

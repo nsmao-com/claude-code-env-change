@@ -160,6 +160,9 @@ export interface RouterLogEntry {
   error?: string
   upstream?: string
   failover?: string
+  input_tokens?: number
+  output_tokens?: number
+  cache_read_tokens?: number
 }
 
 export interface RouterLogQuery {
@@ -206,12 +209,31 @@ export interface CloudConfig {
   last_push_at?: number
   last_pull_at?: number
   last_error?: string
+  // 以下由后端维护
+  device_id?: string
+  last_remote_at?: number
+  last_sync_hash?: string
 }
 
 export interface CloudSyncResult {
   success: boolean
   message: string
   latency: number
+  // 云端有别的电脑上传的新备份，本次没有上传/拉取
+  conflict?: boolean
+  skipped?: boolean
+  remote_host?: string
+  remote_at?: number
+}
+
+// 云端保留的一份历史备份
+export interface CloudVersion {
+  key: string
+  exported_at: number
+  hostname?: string
+  device?: string
+  files: number
+  size: number
 }
 
 export interface CloudSyncStatus {

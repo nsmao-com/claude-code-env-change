@@ -247,6 +247,13 @@ onMounted(async () => {
   EventsOn('cloud:pull-failed', (message: string) => {
     toast.error(t('app.cloudPullFailed', { error: message || t('app.unknownError') }))
   })
+  // 云端有别的电脑的新备份（自动上传暂停）或本机有未上传修改（跳过启动拉取）
+  EventsOn('cloud:conflict', (result: { remote_host?: string, remote_at?: number }) => {
+    const detail = result?.remote_at
+      ? t('cloud.conflictRemote', { host: result.remote_host || t('cloud.unknownHost'), time: new Date(result.remote_at).toLocaleString() })
+      : t('cloud.conflictLocal')
+    toast.error(t('cloud.conflictToast', { detail }))
+  })
 
   try {
     await configStore.loadConfig()

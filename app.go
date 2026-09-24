@@ -2358,8 +2358,8 @@ type PromptFile struct {
 func (a *App) GetPromptFiles() ([]PromptFile, error) {
 	// Claude Desktop 没有 Claude Code 那样的全局提示词文件；它的行为由
 	// configLibrary / MCP 配置管理，因此不放进这个提示词文件列表。
-	files := make([]PromptFile, 0, 5)
-	for _, provider := range []string{"claude", "codex", "antigravity", "opencode", "grok"} {
+	files := make([]PromptFile, 0, len(promptProviders))
+	for _, provider := range promptProviders {
 		path, err := promptFilePath(provider)
 		if err != nil {
 			return nil, err
@@ -2425,6 +2425,8 @@ func (a *App) SavePromptFile(provider, content string) error {
 	if string(data) != content {
 		return fmt.Errorf("保存后校验失败，文件内容未完整覆盖")
 	}
+	// 提示词也在云同步的备份范围内
+	notifyCloudSync()
 
 	return nil
 }
@@ -2440,6 +2442,7 @@ func (a *App) DeletePromptFile(provider string) error {
 	if err := os.Remove(filePath); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("删除文件失败: %v", err)
 	}
+	notifyCloudSync()
 
 	return nil
 }

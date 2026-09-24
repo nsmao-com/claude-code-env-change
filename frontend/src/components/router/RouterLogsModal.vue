@@ -56,17 +56,18 @@
             <TableHead>{{ t('router.logs.upstream') }}</TableHead>
             <TableHead>{{ t('router.logs.status') }}</TableHead>
             <TableHead class="text-right">{{ t('router.logs.duration') }}</TableHead>
+            <TableHead class="text-right">{{ t('router.logs.tokens') }}</TableHead>
             <TableHead>{{ t('router.logs.error') }}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          <TableEmpty v-if="!loading && items.length === 0" :colspan="8" class="text-muted-foreground">
+          <TableEmpty v-if="!loading && items.length === 0" :colspan="9" class="text-muted-foreground">
             {{ t('router.logs.empty') }}
           </TableEmpty>
           <TableRow v-for="(log, i) in items" :key="i + log.time + log.path">
             <TableCell class="text-muted-foreground">{{ log.time }}</TableCell>
             <TableCell class="font-bold">{{ log.route }}</TableCell>
-            <TableCell class="max-w-[220px] truncate text-muted-foreground">
+            <TableCell class="max-w-[170px] truncate text-muted-foreground">
               <AppTooltip :content="log.path" wrap :disabled="!log.path">
                 <span class="block truncate">{{ log.path }}</span>
               </AppTooltip>
@@ -76,7 +77,7 @@
                 <span class="block truncate">{{ log.model }}</span>
               </AppTooltip>
             </TableCell>
-            <TableCell class="max-w-[180px] text-muted-foreground">
+            <TableCell class="max-w-[150px] text-muted-foreground">
               <AppTooltip
                 :content="log.failover ? t('router.logs.skipped', { list: log.failover }) : (log.upstream || '')"
                 wrap
@@ -92,6 +93,14 @@
               {{ log.status_code }}
             </TableCell>
             <TableCell class="text-right text-muted-foreground">{{ log.duration_ms }}ms</TableCell>
+            <TableCell class="whitespace-nowrap text-right text-muted-foreground">
+              <AppTooltip
+                v-if="log.input_tokens || log.output_tokens"
+                :content="t('router.logs.tokensTip', { input: log.input_tokens || 0, output: log.output_tokens || 0, cache: log.cache_read_tokens || 0 })"
+              >
+                <span>{{ formatTokens(log.input_tokens || 0) }} / {{ formatTokens(log.output_tokens || 0) }}</span>
+              </AppTooltip>
+            </TableCell>
             <TableCell class="max-w-[240px] truncate text-red-500">
               <AppTooltip :content="log.error" wrap :disabled="!log.error">
                 <span class="block truncate">{{ log.error }}</span>
@@ -177,6 +186,12 @@ watch(isOpen, (open) => {
     reload(true)
   }
 })
+
+function formatTokens(n: number) {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`
+  return String(n)
+}
 
 function onRouteFilter(value: unknown) {
   routeFilter.value = !value || value === '__all__' ? '' : String(value)

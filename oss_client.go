@@ -9,6 +9,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -16,6 +17,9 @@ import (
 	"strings"
 	"time"
 )
+
+// errOSSNotFound 对象不存在（用于区分"还没有备份/索引"与网络、鉴权错误）
+var errOSSNotFound = errors.New("云端还没有备份（对象不存在）")
 
 type ossObjectClient struct {
 	provider  string
@@ -75,12 +79,29 @@ func (c *ossObjectClient) Get(key string) ([]byte, error) {
 	defer resp.Body.Close()
 	data, _ := io.ReadAll(io.LimitReader(resp.Body, 32<<20))
 	if resp.StatusCode == http.StatusNotFound {
-		return nil, fmt.Errorf("云端还没有备份（对象不存在）")
+		return nil, errOSSNotFound
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, ossHTTPError("下载", resp)
 	}
 	return data, nil
+}
+
+// Delete 删除对象；对象本来就不存在也算成功
+func (c *ossObjectClient) Delete(key string) error {
+	req, err := c.newRequest(http.MethodDelete, key, nil, "")
+	if err != nil {
+		return err
+	}
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusNotFound || (resp.StatusCode >= 200 && resp.StatusCode < 300) {
+		return nil
+	}
+	return ossHTTPError("删除", resp)
 }
 
 func (c *ossObjectClient) Head(key string) error {

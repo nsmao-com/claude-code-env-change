@@ -44,9 +44,9 @@ The current version is the latest version listed in [GitHub Releases](https://gi
 | Skills | Edit `SKILL.md`, import from online marketplaces or the bundled library, enable per platform |
 | API router | Local gateway port and per-vendor switches; all five CLIs can convert between Anthropic Messages, Chat Completions, and Responses; each route can list backup upstreams that take over on rate limits, dead keys, or outages |
 | Uptime | Periodic Base URL checks, optional key verification that catches expired keys or exhausted credit, and rotation groups |
-| Cloud sync | S3 / Aliyun OSS / compatible endpoints, scrypt + AES-GCM encrypted objects |
+| Cloud sync | S3 / Aliyun OSS / compatible endpoints, scrypt + AES-GCM encrypted objects; the last 10 backups stay restorable, auto-upload pauses when another computer has pushed a newer one, and prompt files are included |
 | Prompts | Custom system prompts per CLI |
-| Stats | Requests, tokens, cost estimate, model mix, activity heatmap |
+| Stats | Requests, tokens, cost estimate, model mix, activity heatmap; Claude Desktop / OpenCode / Grok are counted from requests through the local gateway |
 | Settings | Language, theme, accent, outbound proxy |
 | CLI | Detect local Claude / Codex / Antigravity / OpenCode / Grok; install/upgrade via pnpm, yarn, npm, official installer, or native update |
 | Config folders | Open each CLI’s config directory and key files |

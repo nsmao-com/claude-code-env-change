@@ -44,9 +44,9 @@
 | Skills | 编辑 `SKILL.md`，从在线市场 / 内置库导入，按平台启用 |
 | API 路由 | 本机网关端口与按厂商开关；各平台可在 Anthropic Messages、Chat Completions、Responses 之间转换；每条路由可配备用上游，限流、Key 失效或宕机时自动切换 |
 | 监控 | 定时探测 Base URL，可选「用 Key 验证」发现 Key 失效 / 余额不足，按轮换组自动切配置 |
-| 云同步 | S3 / 阿里云 OSS / 兼容端点，scrypt + AES-GCM 加密后上传 |
+| 云同步 | S3 / 阿里云 OSS / 兼容端点，scrypt + AES-GCM 加密后上传；云端保留最近 10 份历史可随时恢复，别的电脑传过新备份时暂停自动上传并提示；提示词文件一并备份 |
 | 提示词 | 编辑各平台自定义系统提示词 |
-| 统计 | 请求量、Token、花费估算、模型分布、活动热力图 |
+| 统计 | 请求量、Token、花费估算、模型分布、活动热力图；Claude Desktop / OpenCode / Grok 统计经过本地网关的请求 |
 | 设置 | 语言、主题、强调色、出站代理 |
 | CLI | 检测本机 Claude Code / Codex / Antigravity / OpenCode / Grok，按 pnpm、yarn、npm、官方安装器或原生方式安装升级 |
 | 配置目录 | 打开各家 CLI 的本机配置目录和关键文件 |

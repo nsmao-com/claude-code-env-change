@@ -146,6 +146,11 @@ func (rs *RouterService) doWithFailover(r *http.Request, route APIRoute, build f
 		}
 		if trace != nil {
 			trace.upstream = upstreamHost(up.BaseURL)
+			if resp.StatusCode < 300 {
+				// 旁路解析成功响应里的 token 用量，finishRequest 时取结果
+				trace.usage = newUsageSniffer(resp.Body)
+				resp.Body = trace.usage
+			}
 		}
 		return resp, nil
 	}
@@ -166,6 +171,7 @@ func upstreamHost(baseURL string) string {
 type gatewayTrace struct {
 	upstream string
 	skipped  []string
+	usage    *usageSniffer
 }
 
 func (t *gatewayTrace) skip(up RouteUpstream, reason string) {

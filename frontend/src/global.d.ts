@@ -1,4 +1,4 @@
-import type { EnvConfig, Config, MCPServer, MCPTestResult, Skill, SkillPreset, SkillMarketItem, McpMarketPage, UptimeSettings, RotationGroup, UptimeSnapshot, RouterConfig, GatewayStatus, RouterTestResult, RouterLogQuery, RouterLogPage, CloudConfig, CloudSyncResult, CloudSyncStatus } from '@/types'
+import type { EnvConfig, Config, MCPServer, MCPTestResult, Skill, SkillPreset, SkillMarketItem, McpMarketPage, UptimeSettings, RotationGroup, UptimeSnapshot, RouterConfig, GatewayStatus, RouterTestResult, RouterLogQuery, RouterLogPage, CloudConfig, CloudSyncResult, CloudSyncStatus, CloudVersion } from '@/types'
 
 declare global {
   interface Window {
@@ -74,7 +74,10 @@ declare global {
           GetCloudSyncStatus(): Promise<CloudSyncStatus>
           TestCloudConnection(): Promise<CloudSyncResult>
           UploadToCloud(): Promise<CloudSyncResult>
+          ForceUploadToCloud(): Promise<CloudSyncResult>
           DownloadFromCloud(): Promise<CloudSyncResult>
+          ListCloudVersions(): Promise<CloudVersion[]>
+          RestoreCloudVersion(key: string): Promise<CloudSyncResult>
         }
       }
     }
