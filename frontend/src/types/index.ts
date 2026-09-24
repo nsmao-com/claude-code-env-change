@@ -221,6 +221,8 @@ export interface UptimeSettings {
   interval_seconds: number
   timeout_seconds: number
   keep_last: number
+  // reachability：只测 Base URL 可达；auth：带 Key 请求列模型接口，能发现 Key 失效/余额不足
+  probe_mode?: 'reachability' | 'auth'
 }
 
 export interface RotationGroup {

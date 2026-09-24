@@ -30,6 +30,9 @@ type UptimeSettings struct {
 	IntervalSeconds int  `json:"interval_seconds"`
 	TimeoutSeconds  int  `json:"timeout_seconds"`
 	KeepLast        int  `json:"keep_last"`
+	// ProbeMode reachability：只测 Base URL 可达；auth：带 Key 请求列模型接口，
+	// 能发现 Key 失效/余额不足
+	ProbeMode string `json:"probe_mode"`
 }
 
 type RotationGroup struct {
@@ -186,21 +189,36 @@ func (us *UptimeService) RunOnce() (UptimeSnapshot, error) {
 	timeout := time.Duration(store.Settings.TimeoutSeconds) * time.Second
 	client := &http.Client{Timeout: timeout}
 
-	urls := make(map[string]string)
+	type target struct {
+		url   string
+		probe authProbe
+		auth  bool
+	}
+	authMode := store.Settings.ProbeMode == uptimeProbeAuth
+	targets := make(map[string]target)
 	for _, env := range config.Environments {
 		url := deriveEnvURL(env)
 		if strings.TrimSpace(url) == "" {
 			continue
 		}
-		urls[uptimeEnvKey(env.Provider, env.Name)] = url
+		t := target{url: url}
+		if authMode {
+			// 没有 Key 的配置（官方登录等）退回可达性检测
+			t.probe, t.auth = buildAuthProbe(env)
+		}
+		targets[uptimeEnvKey(env.Provider, env.Name)] = t
 	}
 	keepLast := store.Settings.KeepLast
 	us.mu.Unlock()
 
 	// 逐个检查（避免并发导致 UI 卡顿/过多连接）
-	results := make(map[string]UptimeCheck, len(urls))
-	for key, url := range urls {
-		results[key] = runUptimeCheck(client, url)
+	results := make(map[string]UptimeCheck, len(targets))
+	for key, t := range targets {
+		if t.auth {
+			results[key] = runAuthCheck(client, t.probe)
+		} else {
+			results[key] = runUptimeCheck(client, t.url)
+		}
 	}
 
 	us.mu.Lock()
@@ -249,20 +267,20 @@ func (us *UptimeService) RunOnce() (UptimeSnapshot, error) {
 			continue
 		}
 
-		// 切换并应用；失败要留痕，用户才知道自己还挂在故障环境上
-		if err := us.app.SwitchToEnv(nextName, group.Provider); err != nil {
+		// 只切换并写回这一组所属的平台（ApplyCurrentEnv 会把所有平台都重写一遍）；
+		// 失败要留痕，用户才知道自己还挂在故障环境上
+		if _, err := us.app.ApplyEnv(nextName, group.Provider); err != nil {
 			store.LastRotationError = fmt.Sprintf("切换到 %s 失败: %v", nextName, err)
 			store.LastRotationAt = time.Now().Unix()
 			continue
 		}
-		if _, err := us.app.ApplyCurrentEnv(); err != nil {
-			store.LastRotationError = fmt.Sprintf("已切到 %s，但写回本机失败: %v", nextName, err)
-			store.LastRotationAt = time.Now().Unix()
-		} else {
-			store.LastRotation = fmt.Sprintf("%s：连续 %d 次失败，已自动切换到 %s", group.Name, failCount, nextName)
-			store.LastRotationError = ""
-			store.LastRotationAt = time.Now().Unix()
+		reason := fmt.Sprintf("连续 %d 次失败", failCount)
+		if last := history[len(history)-1]; last.Error != "" {
+			reason += "（" + last.Error + "）"
 		}
+		store.LastRotation = fmt.Sprintf("%s：%s，已自动切换到 %s", group.Name, reason, nextName)
+		store.LastRotationError = ""
+		store.LastRotationAt = time.Now().Unix()
 
 		// 更新本地 config 快照，避免多个组使用旧值
 		config = us.app.GetConfig()
@@ -398,6 +416,7 @@ func normalizeUptimeSettings(settings UptimeSettings) UptimeSettings {
 	if out.KeepLast > 50 {
 		out.KeepLast = 50
 	}
+	out.ProbeMode = normalizeUptimeProbeMode(out.ProbeMode)
 	return out
 }
 
@@ -533,7 +552,7 @@ func runUptimeCheck(client *http.Client, url string) UptimeCheck {
 	check.StatusCode = resp.StatusCode
 	check.LatencyMs = time.Since(start).Milliseconds()
 	// 服务端错误（5xx）与限流（429）必须算失败，否则故障轮换永远不会触发；
-	// 401/403 说明服务本身在线，不算故障
+	// 可达性检测不带 Key，401/403 说明服务本身在线，不算故障（Key 失效要靠鉴权探测发现）
 	check.Success = resp.StatusCode < 500 && resp.StatusCode != http.StatusTooManyRequests
 	if !check.Success {
 		check.Error = fmt.Sprintf("上游返回 %s", resp.Status)
@@ -567,6 +586,8 @@ func consecutiveFailures(history []UptimeCheck) int {
 
 func currentEnvNameByProvider(config Config, provider string) string {
 	switch strings.ToLower(strings.TrimSpace(provider)) {
+	case "claude_desktop":
+		return config.CurrentEnvClaudeDesktop
 	case "codex":
 		return config.CurrentEnvCodex
 	case "antigravity":

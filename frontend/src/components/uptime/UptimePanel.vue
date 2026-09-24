@@ -11,7 +11,7 @@
           <div>
             <CardTitle>Uptime 监控</CardTitle>
             <CardDescription>
-              监控会对各配置的 Base URL 做 HTTP 可达性检测，并保留最近 {{ uptimeStore.settings.keep_last }} 次记录。
+              {{ form.probe_auth ? '监控会带上各配置的 Key 请求列模型接口，Key 失效或余额不足也算失败' : '监控会对各配置的 Base URL 做 HTTP 可达性检测' }}，并保留最近 {{ uptimeStore.settings.keep_last }} 次记录。
             </CardDescription>
             <p
               v-if="uptimeStore.snapshot?.last_rotation_error"
@@ -50,6 +50,16 @@
           <Label>超时（秒）</Label>
           <Input v-model="form.timeout_seconds" type="number" min="1" max="60" />
           <p class="text-[11px] text-muted-foreground">建议 8-15 秒</p>
+        </div>
+        <div class="grid gap-1.5 sm:col-span-3">
+          <Label>用 Key 验证</Label>
+          <div class="flex items-center gap-2">
+            <Switch :checked="form.probe_auth" :disabled="isSavingSettings" @update:checked="onProbeAuthChange" />
+            <span class="text-xs text-muted-foreground">
+              {{ form.probe_auth ? '已开启：401 / 402 / 403 记为失败，可触发自动轮换' : '未开启：只检测地址能否连通，Key 失效时仍显示正常' }}
+            </span>
+          </div>
+          <p class="text-[11px] text-muted-foreground">请求的是列模型接口，不消耗 token；中转站没实现该接口时按在线处理。官方登录等没有 Key 的配置仍只检测连通性。</p>
         </div>
       </CardContent>
       <CardFooter class="justify-end">
@@ -184,7 +194,8 @@ const isSavingSettings = ref(false)
 const form = ref({
   enabled: false,
   interval_minutes: 5,
-  timeout_seconds: 8
+  timeout_seconds: 8,
+  probe_auth: false
 })
 
 watch(isOpen, async (open) => {
@@ -197,6 +208,7 @@ function hydrateForm() {
   form.value.enabled = uptimeStore.settings.enabled
   form.value.interval_minutes = Math.max(1, Math.round((uptimeStore.settings.interval_seconds || 300) / 60))
   form.value.timeout_seconds = uptimeStore.settings.timeout_seconds || 8
+  form.value.probe_auth = uptimeStore.settings.probe_mode === 'auth'
 }
 
 async function persistSettings(successMessage: string) {
@@ -209,7 +221,8 @@ async function persistSettings(successMessage: string) {
       enabled: !!form.value.enabled,
       interval_seconds: intervalSeconds,
       timeout_seconds: timeoutSeconds,
-      keep_last: uptimeStore.settings.keep_last || 10
+      keep_last: uptimeStore.settings.keep_last || 10,
+      probe_mode: form.value.probe_auth ? 'auth' : 'reachability'
     })
     toast.success(successMessage)
   } catch (e: any) {
@@ -227,6 +240,16 @@ async function onEnabledChange(value: boolean) {
     await persistSettings(value ? '已开启监控' : '已关闭监控')
   } catch {
     form.value.enabled = prev
+  }
+}
+
+async function onProbeAuthChange(value: boolean) {
+  const prev = form.value.probe_auth
+  form.value.probe_auth = value
+  try {
+    await persistSettings(value ? '已开启 Key 验证' : '已改为只检测连通性')
+  } catch {
+    form.value.probe_auth = prev
   }
 }
 
