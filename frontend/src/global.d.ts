@@ -81,6 +81,7 @@ declare global {
     runtime: {
       WindowMinimise(): void
       WindowToggleMaximise(): void
+      WindowHide(): void
       Quit(): void
     }
   }

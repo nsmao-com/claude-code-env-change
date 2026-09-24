@@ -394,8 +394,15 @@ onMounted(async () => {
   routerStore.refreshStatus().catch(() => {})
 })
 
+// Windows 上有托盘：点关闭=隐藏到托盘，退出走托盘面板；其它平台仍是退出
+const isWindows = /Windows/i.test(navigator.userAgent)
+
 function closeWindow() {
-  window.runtime?.Quit()
+  if (isWindows) {
+    window.runtime?.WindowHide()
+  } else {
+    window.runtime?.Quit()
+  }
 }
 
 function minimizeWindow() {

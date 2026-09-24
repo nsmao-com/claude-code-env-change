@@ -35,8 +35,8 @@ func main() {
 		app.OnStartup(ctx)
 		routerService.OnStartup(ctx)
 		cloudSyncService.OnStartup()
-		// Windows 系统托盘（其它平台为空实现），独立 goroutine 不阻塞启动
-		go StartTray(app, ctx)
+		// Windows 系统托盘 + 右键面板（其它平台为空实现），独立 goroutine 不阻塞启动
+		go StartTray(app, ctx, routerService)
 	}
 
 	// Create application with options
@@ -52,8 +52,13 @@ func main() {
 		BackgroundColour: &options.RGBA{R: 244, G: 244, B: 245, A: 1},
 		OnStartup:        onStartup,
 		OnDomReady:       nil,
-		OnBeforeClose:    nil,
-		OnShutdown:       nil,
+		// 点击关闭（Alt+F4 等）时隐藏到托盘继续运行；退出走托盘面板的"退出"
+		OnBeforeClose: func(ctx context.Context) bool {
+			return trayShouldHideOnClose()
+		},
+		OnShutdown: func(ctx context.Context) {
+			StopTray()
+		},
 		WindowStartState: options.Normal,
 		Frameless:        true, // 启用无边框模式
 		DragAndDrop: &options.DragAndDrop{

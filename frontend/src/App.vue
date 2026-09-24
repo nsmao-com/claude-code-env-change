@@ -131,7 +131,7 @@ import CloudSyncPanel from '@/components/cloud/CloudSyncPanel.vue'
 import UpdateDialog from '@/components/common/UpdateDialog.vue'
 import SettingsPanel from '@/components/settings/SettingsPanel.vue'
 import CommandPalette from '@/components/common/CommandPalette.vue'
-import { OnFileDrop, OnFileDropOff } from '../wailsjs/runtime/runtime'
+import { OnFileDrop, OnFileDropOff, EventsOn, EventsOff } from '../wailsjs/runtime/runtime'
 import { Upload } from '@lucide/vue'
 import { classifyImportPayload } from '@/lib/configImport'
 import { callApp } from '@/services/appBridge'
@@ -222,6 +222,24 @@ onMounted(async () => {
     /* runtime 未就绪时仍可用 HTML5 拖放 */
   }
 
+  // 托盘面板发来的指令：跳转页面 / 配置已应用 / 路由开关变化 / 更新状态
+  EventsOn('tray:navigate', (target: string) => {
+    if (APP_PAGES.some(item => item.id === target)) page.value = target as AppPage
+  })
+  EventsOn('tray:applied', (message: string) => {
+    void configStore.loadConfig()
+    if (typeof message === 'string' && message) {
+      if (message.includes('⚠')) toast.error(message)
+      else toast.success(message)
+    }
+  })
+  EventsOn('tray:router-changed', () => {
+    routerStore.refreshStatus().catch(() => {})
+  })
+  EventsOn('tray:update-status', (available: boolean) => {
+    if (available) updateAvailable.value = true
+  })
+
   try {
     await configStore.loadConfig()
     const drift = await callApp<string[]>('GetConfigDrift')
@@ -264,6 +282,12 @@ onBeforeUnmount(() => {
   window.removeEventListener('dragleave', onWinDragLeave)
   window.removeEventListener('drop', onWinDrop)
   try { OnFileDropOff() } catch { /* ignore */ }
+  try {
+    EventsOff('tray:navigate')
+    EventsOff('tray:applied')
+    EventsOff('tray:router-changed')
+    EventsOff('tray:update-status')
+  } catch { /* ignore */ }
 })
 
 function openAddConfig() {
