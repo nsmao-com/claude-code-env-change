@@ -101,6 +101,8 @@ export function ReorderEnvs(arg1:Array<string>):Promise<void>;
 
 export function SavePromptFile(arg1:string,arg2:string):Promise<void>;
 
+export function SaveTextFile(arg1:string,arg2:string):Promise<string>;
+
 export function SetAutostart(arg1:boolean):Promise<void>;
 
 export function SetEnvVar(arg1:string,arg2:string):Promise<void>;

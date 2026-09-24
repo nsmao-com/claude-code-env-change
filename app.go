@@ -1980,6 +1980,37 @@ func (a *App) RefreshConfig() error {
 	return a.loadConfig()
 }
 
+// SaveTextFile 把任意文本保存到用户选择的路径（带保存对话框），返回实际路径，取消返回空串。
+// 供前端把生成的 MCP / 配置内容导出为文件使用。
+func (a *App) SaveTextFile(content, defaultName string) (string, error) {
+	if defaultName == "" {
+		defaultName = "export.txt"
+	}
+	ext := strings.ToLower(filepath.Ext(defaultName))
+	filter := runtime.FileFilter{DisplayName: "所有文件", Pattern: "*.*"}
+	switch ext {
+	case ".json":
+		filter = runtime.FileFilter{DisplayName: "JSON 文件", Pattern: "*.json"}
+	case ".toml":
+		filter = runtime.FileFilter{DisplayName: "TOML 文件", Pattern: "*.toml"}
+	}
+	filePath, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
+		Title:           "保存文件",
+		DefaultFilename: defaultName,
+		Filters:         []runtime.FileFilter{filter, {DisplayName: "所有文件", Pattern: "*.*"}},
+	})
+	if err != nil {
+		return "", fmt.Errorf("打开对话框失败: %v", err)
+	}
+	if filePath == "" {
+		return "", nil // 用户取消
+	}
+	if err := writeFileAtomic(filePath, []byte(content), 0644); err != nil {
+		return "", fmt.Errorf("保存文件失败: %v", err)
+	}
+	return filePath, nil
+}
+
 // ExportConfig 导出配置到指定路径（带文件选择对话框）
 func (a *App) ExportConfig(defaultName string) (string, error) {
 	// 打开保存文件对话框

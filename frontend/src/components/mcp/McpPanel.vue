@@ -19,6 +19,15 @@
           <FileJson />
           JSON 导入
         </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          :disabled="mcpStore.servers.length === 0"
+          @click="showExportModal = true"
+        >
+          <FileDown />
+          导出
+        </Button>
         <Button size="sm" variant="outline" @click="toggleMarket">
           <Store />
           市场
@@ -171,6 +180,11 @@
       v-model="showJsonImport"
       @imported="onServersImported"
     />
+
+    <McpExportModal
+      v-model="showExportModal"
+      :servers="mcpStore.servers"
+    />
   </AppModal>
 </template>
 
@@ -178,6 +192,7 @@
 import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import {
   Download,
+  FileDown,
   FileJson,
   LayoutGrid,
   List,
@@ -208,6 +223,7 @@ import McpStatusBadge from './McpStatusBadge.vue'
 import McpServerCard from './McpServerCard.vue'
 import McpEditModal from './McpEditModal.vue'
 import McpJsonImport from './McpJsonImport.vue'
+import McpExportModal from './McpExportModal.vue'
 
 type PlatformFilter = 'all' | 'claude-code' | 'codex' | 'antigravity' | 'opencode' | 'grok'
 
@@ -234,6 +250,7 @@ const isOpen = computed({
 
 const showEditModal = ref(false)
 const showJsonImport = ref(false)
+const showExportModal = ref(false)
 const editingServer = ref<MCPServer | null>(null)
 const editingIndex = ref<number | undefined>(undefined)
 const testingIndex = ref<number | null>(null)
