@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -139,16 +140,18 @@ type openaiStreamOptions struct {
 }
 
 type openaiRequest struct {
-	Model         string               `json:"model"`
-	Messages      []openaiMessage      `json:"messages"`
-	MaxTokens     *int                 `json:"max_tokens,omitempty"`
-	Temperature   *float64             `json:"temperature,omitempty"`
-	TopP          *float64             `json:"top_p,omitempty"`
-	Stop          []string             `json:"stop,omitempty"`
-	Tools         []openaiTool         `json:"tools,omitempty"`
-	ToolChoice    json.RawMessage      `json:"tool_choice,omitempty"`
-	Stream        bool                 `json:"stream,omitempty"`
-	StreamOptions *openaiStreamOptions `json:"stream_options,omitempty"`
+	Model     string          `json:"model"`
+	Messages  []openaiMessage `json:"messages"`
+	MaxTokens *int            `json:"max_tokens,omitempty"`
+	// MaxCompletionTokens OpenAI 推理模型（o 系列、gpt-5）只认这个字段，max_tokens 会 400
+	MaxCompletionTokens *int                 `json:"max_completion_tokens,omitempty"`
+	Temperature         *float64             `json:"temperature,omitempty"`
+	TopP                *float64             `json:"top_p,omitempty"`
+	Stop                []string             `json:"stop,omitempty"`
+	Tools               []openaiTool         `json:"tools,omitempty"`
+	ToolChoice          json.RawMessage      `json:"tool_choice,omitempty"`
+	Stream              bool                 `json:"stream,omitempty"`
+	StreamOptions       *openaiStreamOptions `json:"stream_options,omitempty"`
 }
 
 type openaiRespMessage struct {
@@ -525,7 +528,27 @@ func anthropicRequestToOpenAI(req anthropicRequest, model string) openaiRequest 
 	if out.Stream {
 		out.StreamOptions = &openaiStreamOptions{IncludeUsage: true}
 	}
+	adaptOpenAIRequestForModel(&out)
 	return out
+}
+
+// openAIReasoningModelPattern OpenAI 推理模型：o1 / o3-mini / o4-mini / gpt-5 / gpt-5.1-codex ...
+// （允许 openai/ 之类的前缀）
+var openAIReasoningModelPattern = regexp.MustCompile(`(?i)(^|/)(o\d+|gpt-5)([.-]|$)`)
+
+// adaptOpenAIRequestForModel 发往 OpenAI 推理模型时：max_tokens 会被拒绝（要求改用
+// max_completion_tokens），非默认的 temperature / top_p 同样 400。其它 OpenAI 兼容上游
+// （DeepSeek、GLM 等）不一定认识 max_completion_tokens，保持原样。
+func adaptOpenAIRequestForModel(req *openaiRequest) {
+	if req == nil || !openAIReasoningModelPattern.MatchString(strings.TrimSpace(req.Model)) {
+		return
+	}
+	if req.MaxTokens != nil {
+		req.MaxCompletionTokens = req.MaxTokens
+		req.MaxTokens = nil
+	}
+	req.Temperature = nil
+	req.TopP = nil
 }
 
 // ============ 请求转换：OpenAI → Anthropic ============
@@ -723,6 +746,9 @@ func openAIRequestToAnthropic(req openaiRequest, model string, defaultMaxTokens 
 	maxTokens := defaultMaxTokens
 	if req.MaxTokens != nil && *req.MaxTokens > 0 {
 		maxTokens = *req.MaxTokens
+	} else if req.MaxCompletionTokens != nil && *req.MaxCompletionTokens > 0 {
+		// 新版 OpenAI 客户端只发 max_completion_tokens
+		maxTokens = *req.MaxCompletionTokens
 	}
 	out.MaxTokens = maxTokens
 	out.Temperature = req.Temperature
