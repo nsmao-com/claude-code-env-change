@@ -34,7 +34,7 @@
       />
 
       <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div class="grid gap-1.5">
+        <div class="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-1.5">
           <FieldLabel label="给哪个 CLI 用" :hint="tips.client" />
           <Select :model-value="form.client" :disabled="isAutoRoute" @update:model-value="onClient">
             <SelectTrigger class="w-full">
@@ -47,10 +47,10 @@
             </SelectContent>
           </Select>
         </div>
-        <div class="grid gap-1.5">
+        <div class="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-1.5">
           <FieldLabel label="上游格式" :hint="tips.upstream" />
           <Select v-model="upstreamSelect">
-            <SelectTrigger class="w-full">
+            <SelectTrigger class="w-full min-w-0 overflow-hidden">
               <SelectValue placeholder="选择上游 API 格式" />
             </SelectTrigger>
             <SelectContent>

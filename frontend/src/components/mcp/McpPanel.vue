@@ -5,7 +5,7 @@
         <h1 class="text-[2.5rem] leading-none font-semibold tracking-tight">MCP</h1>
         <McpStatusBadge />
       </div>
-      <p class="mt-2 text-sm text-muted-foreground">刷新会检查 Claude / Codex / Antigravity / OpenCode / Grok 配置里是否已有这些服务器</p>
+      <p class="mt-2 text-sm text-muted-foreground">刷新会检查 Claude Code / Claude Desktop / Codex / Antigravity / OpenCode / Grok 配置里是否已有这些服务器</p>
     </template>
 
     <div class="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
