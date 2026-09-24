@@ -612,10 +612,19 @@ func parseSkillFrontmatter(content string) skillFrontmatter {
 	frontmatterLines := lines[start:i]
 
 	meta := skillFrontmatter{HasFrontmatter: true}
+	// 只认顶层键：metadata 等嵌套块里的 name/description 不是技能自己的字段
+	topIndent := -1
 	for idx := 0; idx < len(frontmatterLines); idx++ {
 		line := frontmatterLines[idx]
 		trimmed := strings.TrimSpace(line)
 		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+		indent := leadingIndent(line)
+		if topIndent < 0 {
+			topIndent = indent
+		}
+		if indent != topIndent {
 			continue
 		}
 		colon := strings.Index(trimmed, ":")
@@ -648,7 +657,7 @@ func parseSkillFrontmatter(content string) skillFrontmatter {
 						idx++
 						continue
 					}
-					if strings.HasPrefix(next, " ") || strings.HasPrefix(next, "\t") {
+					if leadingIndent(next) > topIndent {
 						block = append(block, strings.TrimSpace(next))
 						idx++
 						continue
@@ -663,4 +672,8 @@ func parseSkillFrontmatter(content string) skillFrontmatter {
 	}
 
 	return meta
+}
+
+func leadingIndent(line string) int {
+	return len(line) - len(strings.TrimLeft(line, " \t"))
 }
