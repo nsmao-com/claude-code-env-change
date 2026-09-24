@@ -376,7 +376,8 @@ func (p *trayPanel) onMessage(message string, _ *edge.ICoreWebView2, _ *edge.ICo
 			m.updateAvailable = info.Available
 			m.mu.Unlock()
 			if info.Available {
-				p.toastMsg("发现新版本 v"+info.LatestVersion+"，可在主窗口中更新", false)
+				// tag 本身带 v（v2.6.15），不再重复拼接
+				p.toastMsg("发现新版本 v"+strings.TrimPrefix(info.LatestVersion, "v")+"，可在主窗口中更新", false)
 			} else {
 				p.toastMsg("已是最新版本 v"+info.CurrentVersion, false)
 			}
