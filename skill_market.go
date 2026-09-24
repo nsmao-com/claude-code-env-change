@@ -791,8 +791,9 @@ func lookupGitHubSkill(id string) (SkillMarketItem, error) {
 	}, nil
 }
 
-var skillNameLine = regexp.MustCompile(`(?m)^name:\s*.+$`)
-var skillDescLine = regexp.MustCompile(`(?m)^description:\s*.+$`)
+// 用 [ \t]* 而不是 \s*：\s 能跨行，"name:" 值为空时会把下一行一起吞掉替换
+var skillNameLine = regexp.MustCompile(`(?m)^name:[ \t]*.*$`)
+var skillDescLine = regexp.MustCompile(`(?m)^description:[ \t]*.*$`)
 
 // splitSkillFrontmatter 把内容切成 frontmatter（含 --- 定界）与正文；没有 frontmatter 时 body 为空串返回
 func splitSkillFrontmatter(content string) (front, body string, ok bool) {
@@ -817,7 +818,8 @@ func splitSkillFrontmatter(content string) (front, body string, ok bool) {
 }
 
 func alignSkillFrontmatter(content, name, fallbackDesc string) string {
-	content = strings.TrimSpace(content)
+	// Windows 下编辑的 SKILL.md 常带 BOM，不去掉就识别不到 frontmatter，会再套一层
+	content = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(content), "\ufeff"))
 	if front, body, ok := splitSkillFrontmatter(content); ok {
 		// 只改 frontmatter 区间，正文里以 name:/description: 开头的行（如内嵌示例）不能动
 		if skillNameLine.MatchString(front) {
