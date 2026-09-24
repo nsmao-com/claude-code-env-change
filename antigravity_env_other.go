@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 )
@@ -92,15 +93,16 @@ func rewriteAntigravityEnvBlock(block string) error {
 			targets = append(targets, path)
 		}
 	}
-	if len(targets) == 0 {
-		if block == "" {
-			return nil
+	// 当前登录 shell 的配置文件不存在时新建：macOS 默认 zsh，全新账户往往一个 rc 都没有，
+	// 只有 .bashrc 的老账户切到 zsh 后也读不到，都得写进 .zshrc 才会生效
+	if block != "" {
+		preferred := filepath.Join(home, loginShellRCName(os.Getenv("SHELL"), runtime.GOOS))
+		if _, err := os.Stat(preferred); os.IsNotExist(err) {
+			if err := os.WriteFile(preferred, []byte(""), 0o644); err != nil {
+				return err
+			}
+			targets = append(targets, preferred)
 		}
-		path := filepath.Join(home, ".bashrc")
-		if err := os.WriteFile(path, []byte(""), 0o644); err != nil {
-			return err
-		}
-		targets = append(targets, path)
 	}
 	for _, path := range targets {
 		data, err := os.ReadFile(path)
@@ -127,9 +129,10 @@ func replaceManagedBlock(content, block string) string {
 		}
 		endRel := strings.Index(content[start:], antigravityEnvBlockEnd)
 		if endRel < 0 {
-			// 有头无尾：从块头开始的剩余内容一并视为旧块
-			content = strings.TrimRight(content[:start], "\n")
-			break
+			// 有头无尾（用户手动删掉了结束标记）：只去掉块头和紧随其后的托管 export 行，
+			// 后面是用户自己的配置，不能一并删掉
+			content = content[:start] + stripOrphanManagedLines(content[start:])
+			continue
 		}
 		after := content[start+endRel+len(antigravityEnvBlockEnd):]
 		content = strings.TrimRight(content[:start], "\n") + "\n" + strings.TrimLeft(after, "\n")
@@ -144,4 +147,38 @@ func replaceManagedBlock(content, block string) string {
 		content += "\n"
 	}
 	return content + block + "\n"
+}
+
+// stripOrphanManagedLines 去掉孤立的块头行，以及紧随其后、属于托管变量的 export 行
+func stripOrphanManagedLines(rest string) string {
+	lines := strings.SplitAfter(rest, "\n")
+	i := 1 // 第 0 行是块头
+	for ; i < len(lines); i++ {
+		line := strings.TrimSpace(lines[i])
+		managed := false
+		for _, name := range antigravityManagedEnvVars {
+			if strings.HasPrefix(line, "export "+name+"=") {
+				managed = true
+				break
+			}
+		}
+		if !managed {
+			break
+		}
+	}
+	return strings.Join(lines[i:], "")
+}
+
+// loginShellRCName 按登录 shell 选择需要新建的 rc 文件
+func loginShellRCName(shell, goos string) string {
+	switch filepath.Base(strings.TrimSpace(shell)) {
+	case "zsh":
+		return ".zshrc"
+	case "bash":
+		return ".bashrc"
+	}
+	if goos == "darwin" {
+		return ".zshrc"
+	}
+	return ".bashrc"
 }

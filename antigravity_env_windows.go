@@ -10,11 +10,6 @@ import (
 	"golang.org/x/sys/windows/registry"
 )
 
-// antigravityManagedEnvVars 本工具托管的 agy 环境变量。
-// agy 只从进程环境读取凭据和端点（官方明确不加载 .env，settings.json 也不存 key），
-// 因此应用配置时必须把它们写入用户级环境。
-var antigravityManagedEnvVars = []string{"GEMINI_API_KEY", "GOOGLE_GEMINI_BASE_URL"}
-
 // syncAntigravityUserEnv 声明式同步：让用户环境里的托管变量精确等于 state
 // （state 里的键写入，不在 state 里的托管键删除）。写入后需新开终端才会生效。
 func syncAntigravityUserEnv(state map[string]string) error {

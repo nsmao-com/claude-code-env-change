@@ -229,3 +229,41 @@ func TestMcpSyncAbortsOnCorruptPlatformFile(t *testing.T) {
 		t.Errorf("中止后原文件被改动: %q", string(after))
 	}
 }
+
+// 覆写保护：Gemini/Antigravity settings.json 带注释时按 JSON5 合并；
+// 实在解析不了时中止，不能用模板覆盖掉用户的全部设置
+func TestWriteGeminiStyleSettingsKeepsUserSettings(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "settings.json")
+	withComments := "{\n  // 用户注释\n  \"theme\": \"Dracula\",\n  \"ide\": {\"enabled\": false, \"port\": 1234},\n}\n"
+	if err := os.WriteFile(path, []byte(withComments), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	desired := map[string]any{"ide": map[string]any{"enabled": true}}
+	if err := writeGeminiStyleSettings(path, desired, nil); err != nil {
+		t.Fatalf("带注释的 settings.json 应能合并: %v", err)
+	}
+	var got map[string]any
+	data, _ := os.ReadFile(path)
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatalf("写回的不是合法 JSON: %v", err)
+	}
+	if got["theme"] != "Dracula" {
+		t.Fatalf("用户设置 theme 丢失: %v", got)
+	}
+	ide, _ := got["ide"].(map[string]any)
+	if ide["enabled"] != true || ide["port"] != float64(1234) {
+		t.Fatalf("ide 未正确合并: %v", ide)
+	}
+
+	broken := []byte(`{"theme": "Dracula", `)
+	if err := os.WriteFile(path, broken, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeGeminiStyleSettings(path, desired, nil); err == nil {
+		t.Fatal("无法解析时应中止写入")
+	}
+	if data, _ := os.ReadFile(path); string(data) != string(broken) {
+		t.Fatalf("原文件被改写: %s", data)
+	}
+}

@@ -1462,6 +1462,11 @@ func readCodexMcpServers(configFile string) map[string]map[string]any {
 	return payload.Servers
 }
 
+// antigravityManagedEnvVars 本工具托管的 agy 环境变量。
+// agy 只从进程环境读取凭据和端点（官方明确不加载 .env，settings.json 也不存 key），
+// 因此应用配置时必须把它们写入用户级环境（Windows 注册表 / shell 配置托管块）。
+var antigravityManagedEnvVars = []string{"GEMINI_API_KEY", "GOOGLE_GEMINI_BASE_URL"}
+
 // applyAntigravityEnv 应用 Antigravity CLI（原 Gemini CLI，命令 agy）配置
 func (a *App) applyAntigravityEnv(env *EnvConfig) (string, error) {
 	homeDir, err := os.UserHomeDir()
@@ -1500,7 +1505,8 @@ GEMINI_MODEL=%s
 	})
 
 	envFile := filepath.Join(geminiDir, ".env")
-	if err := writeFileAtomic(envFile, []byte(envContent), 0644); err != nil {
+	// .env 里有 API Key，仅本人可读
+	if err := writeFileAtomic(envFile, []byte(envContent), 0o600); err != nil {
 		return "", fmt.Errorf("写入 .env 失败: %v", err)
 	}
 
@@ -1613,9 +1619,15 @@ func removeJSONFileKeys(path string, keys ...string) error {
 // writeGeminiStyleSettings 将期望配置合并进现有 settings.json 并写回，保留用户已有的其他设置
 func writeGeminiStyleSettings(settingsFile string, desiredSettings map[string]any, vars map[string]string) error {
 	existingSettings := map[string]any{}
-	if data, err := os.ReadFile(settingsFile); err == nil && len(data) > 0 {
-		if err := json.Unmarshal(data, &existingSettings); err != nil {
-			existingSettings = map[string]any{}
+	if data, err := os.ReadFile(settingsFile); err == nil && len(strings.TrimSpace(string(data))) > 0 {
+		// Gemini CLI 的 settings.json 允许注释，按 JSON5 兜底；仍解析不了就中止，
+		// 否则会用模板覆盖掉用户的全部设置
+		parsed, parseErr := parseJSONLikeObject(data)
+		if parseErr != nil {
+			return fmt.Errorf("解析 %s 失败，为保护原文件已中止写入: %v", settingsFile, parseErr)
+		}
+		if parsed != nil { // 文件内容为 null 时保持空 map
+			existingSettings = parsed
 		}
 	} else if err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("读取 %s 失败: %v", settingsFile, err)
