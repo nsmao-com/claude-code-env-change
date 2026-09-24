@@ -225,7 +225,7 @@ func mergeWriteOpencodeConfig(configFile, incoming string, vars map[string]strin
 	if err != nil {
 		return fmt.Errorf("序列化 OpenCode 配置失败: %v", err)
 	}
-	return os.WriteFile(configFile, data, 0644)
+	return writeFileAtomic(configFile, data, 0644)
 }
 
 func opencodeProviderID(env *EnvConfig) string {
@@ -652,7 +652,7 @@ func (a *App) clearOpencodeSettingsLocked() error {
 		if err != nil {
 			return err
 		}
-		if err := os.WriteFile(configFile, out, 0644); err != nil {
+		if err := writeFileAtomic(configFile, out, 0644); err != nil {
 			return err
 		}
 	}
