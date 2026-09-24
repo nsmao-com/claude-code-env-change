@@ -2189,14 +2189,15 @@ func (a *App) loadConfig() error {
 	if _, err := os.Stat(a.configPath); os.IsNotExist(err) {
 		a.config = Config{
 			Environments: []EnvConfig{
+				// 示例只用 Claude Code 认识、编辑表单也读得到的变量；不写模型名，
+				// 交给 Claude Code 的默认模型，避免示例随模型下线而失效
 				{
 					Name:        "Development",
 					Description: "开发环境（示例，填入自己的 API Key 后使用）",
 					Provider:    "claude",
 					Variables: map[string]string{
-						"ANTHROPIC_API_KEY": "",
-						"CLAUDE_MODEL":      "claude-3-5-sonnet-20241022",
-						"API_BASE_URL":      "https://api.anthropic.com",
+						"ANTHROPIC_BASE_URL": "https://api.anthropic.com",
+						"ANTHROPIC_API_KEY":  "",
 					},
 				},
 				{
@@ -2204,10 +2205,8 @@ func (a *App) loadConfig() error {
 					Description: "生产环境（示例，填入自己的 API Key 后使用）",
 					Provider:    "claude",
 					Variables: map[string]string{
-						"ANTHROPIC_API_KEY": "",
-						"CLAUDE_MODEL":      "claude-3-5-sonnet-20241022",
-						"API_BASE_URL":      "https://api.anthropic.com",
-						"CLAUDE_MAX_TOKENS": "4096",
+						"ANTHROPIC_BASE_URL": "https://api.anthropic.com",
+						"ANTHROPIC_API_KEY":  "",
 					},
 				},
 			},
