@@ -456,3 +456,47 @@ func TestRouterGatewayUnknownRoute(t *testing.T) {
 		t.Errorf("未知路由应返回 404，实际 %d", recorder.Code)
 	}
 }
+
+// OpenAI 推理模型（o 系列、gpt-5）拒绝 max_tokens 与非默认 temperature；
+// 其它 OpenAI 兼容上游保持 max_tokens，避免不认识新字段
+func TestAnthropicToOpenAIReasoningModelTokens(t *testing.T) {
+	temp := 0.7
+	base := anthropicRequest{MaxTokens: 4096, Temperature: &temp, Messages: []anthropicMessage{{Role: "user", Content: jsonString("hi")}}}
+
+	for _, model := range []string{"gpt-5", "gpt-5.1-codex", "o3-mini", "o4-mini", "openai/gpt-5-codex"} {
+		out := anthropicRequestToOpenAI(base, model)
+		data, _ := json.Marshal(out)
+		body := string(data)
+		if strings.Contains(body, `"max_tokens"`) || !strings.Contains(body, `"max_completion_tokens":4096`) {
+			t.Errorf("%s 应只发 max_completion_tokens: %s", model, body)
+		}
+		if strings.Contains(body, `"temperature"`) {
+			t.Errorf("%s 不应带 temperature: %s", model, body)
+		}
+	}
+	for _, model := range []string{"deepseek-chat", "gpt-4o", "glm-4.6", "qwen3-coder-plus"} {
+		out := anthropicRequestToOpenAI(base, model)
+		data, _ := json.Marshal(out)
+		body := string(data)
+		if !strings.Contains(body, `"max_tokens":4096`) || strings.Contains(body, `max_completion_tokens`) {
+			t.Errorf("%s 应保持 max_tokens: %s", model, body)
+		}
+	}
+
+	resp := responsesRequestToOpenAI(responsesRequest{Input: jsonString("hi"), MaxOutputTokens: &base.MaxTokens}, "gpt-5-codex")
+	if resp.MaxTokens != nil || resp.MaxCompletionTokens == nil || *resp.MaxCompletionTokens != 4096 {
+		t.Errorf("Responses 转 Chat 发往 gpt-5 也应使用 max_completion_tokens: %+v", resp)
+	}
+}
+
+// 新版 OpenAI 客户端只发 max_completion_tokens，转 Anthropic 时不能丢
+func TestOpenAIToAnthropicMaxCompletionTokens(t *testing.T) {
+	var req openaiRequest
+	if err := json.Unmarshal([]byte(`{"model":"x","max_completion_tokens":777,"messages":[{"role":"user","content":"hi"}]}`), &req); err != nil {
+		t.Fatal(err)
+	}
+	out := openAIRequestToAnthropic(req, "claude-sonnet-5", defaultAnthropicMaxTokens)
+	if out.MaxTokens != 777 {
+		t.Fatalf("应沿用客户端的 max_completion_tokens=777，实际 %d", out.MaxTokens)
+	}
+}

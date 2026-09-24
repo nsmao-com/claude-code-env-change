@@ -188,6 +188,7 @@ func responsesRequestToOpenAI(req responsesRequest, model string) openaiRequest 
 	if out.Stream {
 		out.StreamOptions = &openaiStreamOptions{IncludeUsage: true}
 	}
+	adaptOpenAIRequestForModel(&out)
 	return out
 }
 
