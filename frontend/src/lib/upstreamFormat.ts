@@ -1,3 +1,4 @@
+import { useI18n } from '@/composables/useI18n'
 import type { Provider, UpstreamFormat } from '@/types'
 
 const PROVIDER_SHORT: Record<string, string> = {
@@ -22,15 +23,16 @@ export function nativeProtocolLabel(provider: string): string {
     case 'opencode':
       return 'Chat Completions'
     default:
-      return '原生'
+      return useI18n().t('ui.native')
   }
 }
 
 export function upstreamFormatOptions(provider: string): { value: string; label: string }[] {
-  const native = { value: 'native', label: `原生直连（${nativeProtocolLabel(provider)}）` }
-  const chat = { value: 'chat_completions', label: 'Chat Completions（需开路由，OpenAI 兼容）' }
-  const anthropic = { value: 'anthropic_messages', label: 'Anthropic Messages（需开路由，如 Claude）' }
-  const responses = { value: 'responses', label: 'Responses（需开路由，如 Codex）' }
+  const { t } = useI18n()
+  const native = { value: 'native', label: t('ui.upstreamNative', { protocol: nativeProtocolLabel(provider) }) }
+  const chat = { value: 'chat_completions', label: t('ui.upstreamChat') }
+  const anthropic = { value: 'anthropic_messages', label: t('ui.upstreamAnthropic') }
+  const responses = { value: 'responses', label: t('ui.upstreamResponses') }
 	// 六个平台最终都通过网关归一到三种公开协议，可互相转换。
   return [native, chat, anthropic, responses]
 }

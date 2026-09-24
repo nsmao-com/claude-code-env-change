@@ -11,17 +11,20 @@
       <Check v-if="configStore.currentFilter === item.id" class="size-3.5 text-brand" />
       <span v-else-if="item.id === 'all'" class="size-1.5 rounded-full bg-brand" />
       <BrandIcon v-else :provider="item.id" class="size-3.5" :class="iconColor(item.id)" />
-      {{ item.label }}
+      {{ item.id === 'all' ? t('ui.all') : item.label }}
     </button>
   </div>
 </template>
 
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n'
 import { Check } from '@lucide/vue'
 import type { Provider } from '@/types'
 import { WORKSPACE_TOOLS } from '@/lib/workspace'
 import { useConfigStore } from '@/stores/configStore'
 import BrandIcon from '@/components/common/BrandIcon.vue'
+
+const { t } = useI18n()
 
 const configStore = useConfigStore()
 

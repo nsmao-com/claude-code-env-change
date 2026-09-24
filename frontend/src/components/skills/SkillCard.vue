@@ -20,16 +20,16 @@
             </AppTooltip>
             <AppTooltip
               v-if="!skill.has_frontmatter || !skill.has_name || !skill.has_description"
-              content="SKILL.md frontmatter 可能不完整"
+              :content="t('skills.card.frontmatterTip')"
             >
-              <Badge variant="destructive" class="shrink-0">格式问题</Badge>
+              <Badge variant="destructive" class="shrink-0">{{ t('skills.card.formatIssue') }}</Badge>
             </AppTooltip>
           </div>
           <p
             v-if="!compact"
             class="mt-1 line-clamp-3 whitespace-pre-line text-xs text-muted-foreground"
           >
-            {{ skill.description || skill.frontmatter_error || '（未提供 description）' }}
+            {{ skill.description || skill.frontmatter_error || t('skills.card.noDescription') }}
           </p>
           <div :class="compact ? 'mt-1' : 'mt-3'">
             <PlatformChips
@@ -47,12 +47,12 @@
           compact ? 'opacity-100' : 'mt-3 justify-end',
         ]"
       >
-        <AppTooltip content="编辑">
+        <AppTooltip :content="t('skills.card.edit')">
           <Button variant="ghost" size="icon-sm" @click="$emit('edit')">
             <Pencil />
           </Button>
         </AppTooltip>
-        <AppTooltip content="删除">
+        <AppTooltip :content="t('skills.card.delete')">
           <Button variant="ghost" size="icon-sm" class="text-muted-foreground hover:text-destructive" @click="$emit('delete')">
             <Trash2 />
           </Button>
@@ -63,12 +63,15 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n'
 import { Layers, Pencil, Trash2 } from '@lucide/vue'
 import type { Skill } from '@/types'
 import AppTooltip from '@/components/common/AppTooltip.vue'
 import PlatformChips from '@/components/common/PlatformChips.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+
+const { t } = useI18n()
 
 defineProps<{
   skill: Skill

@@ -2,16 +2,16 @@
   <AppModal v-model="isOpen" size="xl" :plain="embedded" width="form" :close-on-overlay="false">
     <template #header>
       <div class="flex items-center gap-3">
-        <h1 class="text-[2.5rem] leading-none font-semibold tracking-tight">路由</h1>
+        <h1 class="text-[2.5rem] leading-none font-semibold tracking-tight">{{ t('nav.router') }}</h1>
         <Badge
           :class="isRunning
             ? 'border-transparent bg-green-500/10 text-green-600 uppercase'
             : 'border-transparent bg-red-500/10 text-red-600 uppercase'"
         >
-          {{ isRunning ? `运行中 :${port}` : '已停止' }}
+          {{ isRunning ? t('router.runningOn', { port }) : t('router.stopped') }}
         </Badge>
       </div>
-      <p class="mt-2 text-sm text-muted-foreground">这里只开关本机网关。上游协议在「配置」里选；打开对应模型商的开关后，才会把 CLI 指到本机这个端口。</p>
+      <p class="mt-2 text-sm text-muted-foreground">{{ t('router.panelHint') }}</p>
     </template>
 
     <Card class="mb-4">
@@ -19,7 +19,7 @@
         <div class="flex flex-wrap items-center justify-between gap-4">
           <div class="flex flex-wrap items-center gap-4">
             <div class="flex items-center gap-2">
-              <Label class="text-xs font-bold uppercase tracking-wide text-muted-foreground">端口</Label>
+              <Label class="text-xs font-bold uppercase tracking-wide text-muted-foreground">{{ t('router.port') }}</Label>
               <Input
                 :model-value="portInput"
                 type="number"
@@ -32,7 +32,7 @@
             </div>
             <div class="flex items-center gap-2">
               <Switch :checked="autoStartInput" @update:checked="onAutoStartChange" />
-              <Label class="cursor-pointer text-xs font-bold uppercase tracking-wide text-muted-foreground">随应用启动</Label>
+              <Label class="cursor-pointer text-xs font-bold uppercase tracking-wide text-muted-foreground">{{ t('router.autoStart') }}</Label>
             </div>
           </div>
           <div class="flex items-center gap-2">
@@ -45,12 +45,12 @@
             >
               <Loader2 v-if="routerStore.isToggling" class="animate-spin" />
               <Square v-else />
-              停止网关
+              {{ t('router.stop') }}
             </Button>
             <Button v-else size="sm" :disabled="routerStore.isToggling" @click="startGateway">
               <Loader2 v-if="routerStore.isToggling" class="animate-spin" />
               <Play v-else />
-              启动网关
+              {{ t('router.start') }}
             </Button>
           </div>
         </div>
@@ -60,9 +60,9 @@
     <Card class="mb-4">
       <CardContent>
         <div class="mb-3">
-          <Label class="text-xs font-bold uppercase tracking-wide text-muted-foreground">应用路由</Label>
+          <Label class="text-xs font-bold uppercase tracking-wide text-muted-foreground">{{ t('router.appRouting') }}</Label>
           <p class="mt-1 text-xs leading-relaxed text-muted-foreground">
-            每个模型商单独开关，共用上面的端口。开启后把该 CLI 指到本机网关；关闭则写回配置里的原地址。要转换协议，请先在配置里把上游格式改成非原生。
+            {{ t('router.appRoutingDesc') }}
           </p>
         </div>
         <div class="divide-y">
@@ -83,7 +83,7 @@
                   :disabled="!routeFor(item.id)"
                   @click="openFallbacks(item.id)"
                 >
-                  备用上游{{ fallbackCount(item.id) ? ` · ${fallbackCount(item.id)}` : '' }}
+                  {{ t('router.fallbacks') }}{{ fallbackCount(item.id) ? ` · ${fallbackCount(item.id)}` : '' }}
                 </Button>
               </AppTooltip>
               <Switch
@@ -100,15 +100,15 @@
 
     <div class="mt-4">
       <div class="mb-2 flex items-center justify-between gap-2">
-        <span class="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">最近请求</span>
+        <span class="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{{ t('router.recent') }}</span>
         <div class="flex items-center gap-1.5">
-          <Button variant="ghost" size="sm" @click="showLogsModal = true">查看全部</Button>
+          <Button variant="ghost" size="sm" @click="showLogsModal = true">{{ t('router.viewAll') }}</Button>
           <Button variant="ghost" size="icon-sm" @click="routerStore.refreshStatus()">
             <RefreshCw />
           </Button>
         </div>
       </div>
-      <p v-if="recentLogs.length === 0" class="text-xs text-muted-foreground">暂无请求。网关运行后会在此显示最近 10 条。</p>
+      <p v-if="recentLogs.length === 0" class="text-xs text-muted-foreground">{{ t('router.noRequests') }}</p>
       <div v-else class="overflow-hidden rounded-lg border">
         <Table class="font-mono text-[11px]">
           <TableBody>
@@ -144,6 +144,7 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n'
 import { ref, computed, watch, onUnmounted } from 'vue'
 import { Loader2, Play, RefreshCw, Square } from '@lucide/vue'
 import type { APIRoute, Provider } from '@/types'
@@ -161,6 +162,8 @@ import { Switch } from '@/components/ui/switch'
 import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table'
 import RouterLogsModal from './RouterLogsModal.vue'
 import RouteEditModal from './RouteEditModal.vue'
+
+const { t } = useI18n()
 
 interface Props {
   modelValue: boolean
@@ -199,11 +202,11 @@ function fallbackCount(provider: Provider): number {
 }
 
 function fallbackTooltip(provider: Provider): string {
-  if (!routeFor(provider)) return '先打开右侧开关并应用一次该模型商的配置，生成路由后才能设置备用上游'
+  if (!routeFor(provider)) return t('router.fallbackNeedsRoute')
   const count = fallbackCount(provider)
   return count
-    ? `已配置 ${count} 个备用上游：主上游限流、Key 失效或宕机时自动切换`
-    : '添加备用上游：主上游限流、Key 失效或宕机时自动切换'
+    ? t('router.fallbackConfigured', { count })
+    : t('router.fallbackAdd')
 }
 
 function openFallbacks(provider: Provider) {
@@ -266,14 +269,14 @@ function shortTime(value: string): string {
 }
 
 function appRoutingHint(id: Provider) {
-  if (!routerStore.isAppRoutingOn(id)) return '关闭时 CLI 直连配置里的地址'
-  return `已转到 127.0.0.1:${port.value}/${id}`
+  if (!routerStore.isAppRoutingOn(id)) return t('router.directHint')
+  return t('router.routedTo', { port: port.value, id })
 }
 
 async function saveGatewaySettings(kind: 'port' | 'autostart' = 'port') {
   const p = Number(portInput.value)
   if (!p || p < 1 || p > 65535) {
-    toast.error('端口必须在 1-65535 之间')
+    toast.error(t('router.portInvalid'))
     portInput.value = routerStore.config.port
     if (kind === 'autostart') throw new Error('invalid port')
     return
@@ -290,12 +293,12 @@ async function saveGatewaySettings(kind: 'port' | 'autostart' = 'port') {
       /* 没有已开启的应用路由时忽略 */
     }
     if (kind === 'autostart') {
-      toast.success(autoStartInput.value ? '已开启随应用启动' : '已关闭随应用启动')
+      toast.success(autoStartInput.value ? t('router.autoStartOn') : t('router.autoStartOff'))
     } else {
-      toast.success('网关设置已保存' + (isRunning.value ? '，已重启生效' : ''))
+      toast.success(isRunning.value ? t('router.settingsSavedRestarted') : t('router.settingsSaved'))
     }
   } catch (e: any) {
-    toast.error('保存失败: ' + (e?.message || String(e)))
+    toast.error(t('router.saveFailed', { error: e?.message || String(e) }))
     if (kind === 'autostart') throw e
   }
 }
@@ -314,7 +317,7 @@ async function onAppRouting(provider: Provider, enabled: boolean) {
   try {
     await routerStore.setAppRouting(provider, enabled)
     const label = appProviders.find(item => item.id === provider)?.label || provider
-    toast.success(enabled ? `已开启 ${label} 路由` : `已关闭 ${label} 路由`)
+    toast.success(enabled ? t('router.routingOn', { name: label }) : t('router.routingOff', { name: label }))
   } catch (e: any) {
     toast.error(e?.message || String(e))
   }
@@ -323,18 +326,18 @@ async function onAppRouting(provider: Provider, enabled: boolean) {
 async function startGateway() {
   try {
     await routerStore.start()
-    toast.success(`网关已启动，监听 127.0.0.1:${port.value}`)
+    toast.success(t('router.started', { port: port.value }))
   } catch (e: any) {
-    toast.error('启动失败: ' + (e?.message || String(e)))
+    toast.error(t('router.startFailed', { error: e?.message || String(e) }))
   }
 }
 
 async function stopGateway() {
   try {
     await routerStore.stop()
-    toast.success('网关已停止')
+    toast.success(t('router.stoppedToast'))
   } catch (e: any) {
-    toast.error('停止失败: ' + (e?.message || String(e)))
+    toast.error(t('router.stopFailed', { error: e?.message || String(e) }))
   }
 }
 </script>

@@ -1,0 +1,22 @@
+export const zhPrompt = {
+  panelHint: "编辑五个平台的自定义提示词，保存会直接覆盖对应本机文件；Claude Desktop 使用独立配置文件",
+  desktopNote: "Claude Desktop 没有独立的全局提示词文件。请在环境配置中编辑它的 configLibrary JSON；这里显示的是 Claude Code、Codex、Antigravity、OpenCode 和 Grok 的提示词文件。",
+  exists: "已存在",
+  notCreated: "未创建",
+  delete: "删除",
+  restartHint: "修改后需要重启 CLI 工具生效",
+  loadFailed: "加载失败: {error}",
+  notLoaded: "提示词文件尚未加载完成，请稍后再试",
+  verifyFailed: "保存后读取到的内容与编辑内容不一致",
+  saveFailed: "保存失败: {error}",
+  deleteTitle: "删除提示词",
+  deleteMsg: "确定要删除 {name} 的提示词文件吗？",
+  deleteFailed: "删除失败: {error}",
+  placeholder: {
+    claude: "# CLAUDE.md 示例\n\n## 项目规则\n- 使用 TypeScript 编写代码\n- 遵循 ESLint 规则\n- 不要创建测试文件\n\n## 代码风格\n- 使用函数式编程风格\n- 注释使用中文",
+    codex: "# AGENTS.md 示例\n\n## Agent 指令\n- 优先使用函数式编程模式\n- 注释使用中文\n- 代码风格遵循项目规范",
+    antigravity: "# GEMINI.md 示例\n\n## Gemini 指令\n- 回复使用中文\n- 代码风格遵循 Google Style Guide\n- 简洁明了地回答问题",
+    grok: "# GROK.md 示例\n\n## Grok 指令\n- 回复使用中文\n- 改代码前先看现有结构\n- 不要引入无关依赖",
+    opencode: "# AGENTS.md 示例\n\n## OpenCode 指令\n- 回复使用中文\n- 改代码前先看现有结构\n- 遵循项目现有的代码风格",
+  },
+}

@@ -11,23 +11,23 @@
         <div class="flex items-center gap-3">
           <div class="relative">
             <Search class="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input id="config-search" v-model="searchQuery" class="w-[200px] rounded-full bg-muted/70 pl-8" placeholder="搜索配置" />
+            <Input id="config-search" v-model="searchQuery" class="w-[200px] rounded-full bg-muted/70 pl-8" :placeholder="t('envList.search')" />
           </div>
           <Button variant="outline" size="sm" :disabled="importing" @click="$emit('import-local')">
             <Upload />
-            {{ importing ? '导入中...' : '导入本机' }}
+            {{ importing ? t('envList.importing') : t('envList.importLocal') }}
           </Button>
           <Button variant="outline" size="sm" @click="$emit('import-json')">
             <FileJson />
-            导入 JSON
+            {{ t('envList.importJson') }}
           </Button>
-          <Button variant="outline" size="sm" @click="$emit('import-clipboard')" title="读取剪贴板里的 JSON 配置">
+          <Button variant="outline" size="sm" @click="$emit('import-clipboard')" :title="t('envList.clipboardTip')">
             <ClipboardPaste />
-            从剪贴板
+            {{ t('envList.fromClipboard') }}
           </Button>
           <Button variant="outline" size="sm" :disabled="addingOfficial" @click="$emit('add-official')">
             <KeyRound />
-            {{ addingOfficial ? '添加中...' : '官方登录' }}
+            {{ addingOfficial ? t('envList.adding') : t('envList.officialLogin') }}
           </Button>
         </div>
         <div class="flex items-center gap-2">
@@ -35,7 +35,7 @@
             :model-value="viewMode"
             layout-id="env-view-pill"
             dense
-            :items="[{ value: 'list', label: '列表' }, { value: 'cards', label: '卡片' }]"
+            :items="[{ value: 'list', label: t('envList.viewList') }, { value: 'cards', label: t('envList.viewCards') }]"
             @update:model-value="onView"
           >
             <template #default="{ item }">
@@ -45,7 +45,7 @@
           </SegmentedPills>
           <Button size="sm" @click="$emit('add')">
             <Plus />
-            新建
+            {{ t('envList.new') }}
           </Button>
         </div>
       </div>
@@ -59,12 +59,12 @@
       >
         <Empty class="min-h-0 items-start border-0 p-0 text-left">
           <EmptyHeader class="items-start text-left">
-            <EmptyTitle>还没有环境</EmptyTitle>
-            <EmptyDescription>为 Claude、Codex、Antigravity、OpenCode 或 Grok 建一条配置，点应用后会写入对应 CLI。也可以把导出的 JSON 拖进窗口。</EmptyDescription>
+            <EmptyTitle>{{ t('envList.emptyTitle') }}</EmptyTitle>
+            <EmptyDescription>{{ t('envList.emptyDesc') }}</EmptyDescription>
           </EmptyHeader>
           <EmptyContent class="flex-row items-start">
-            <Button @click="$emit('add')">新建配置</Button>
-            <Button variant="outline" @click="$emit('import-json')">导入 JSON</Button>
+            <Button @click="$emit('add')">{{ t('envList.newConfig') }}</Button>
+            <Button variant="outline" @click="$emit('import-json')">{{ t('envList.importJson') }}</Button>
           </EmptyContent>
         </Empty>
       </motion.div>
@@ -78,13 +78,13 @@
       >
         <Empty class="min-h-0 items-start border-0 p-0 text-left">
           <EmptyHeader class="items-start text-left">
-            <EmptyTitle>{{ searchQuery.trim() ? '没有匹配的配置' : `没有 ${filterLabel} 配置` }}</EmptyTitle>
+            <EmptyTitle>{{ searchQuery.trim() ? t('envList.noMatch') : t('envList.noneFor', { name: filterLabel }) }}</EmptyTitle>
             <EmptyDescription>
-              {{ searchQuery.trim() ? `换个关键词，或清空搜索看全部 ${totalCount} 条。` : '当前筛选下是空的。可以新建一条，或切回全部。' }}
+              {{ searchQuery.trim() ? t('envList.noMatchDesc', { count: totalCount }) : t('envList.noneForDesc') }}
             </EmptyDescription>
           </EmptyHeader>
           <EmptyContent class="items-start">
-            <Button @click="$emit('add')">新建配置</Button>
+            <Button @click="$emit('add')">{{ t('envList.newConfig') }}</Button>
           </EmptyContent>
         </Empty>
       </motion.div>
@@ -104,7 +104,7 @@
             :index="index"
             :is-active="isEnvActive(config.name, config.provider)"
             @dblclick="$emit('apply', getOriginalIndex(config.name, config.provider))"
-            :title="config.name + '（双击应用，单击编辑）'"
+            :title="t('envList.itemTitle', { name: config.name })"
             @click="$emit('edit', getOriginalIndex(config.name, config.provider))"
             @apply="$emit('apply', getOriginalIndex(config.name, config.provider))"
             @duplicate="$emit('duplicate', getOriginalIndex(config.name, config.provider))"
@@ -134,6 +134,7 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n'
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { motion } from 'motion-v'
 import Sortable from 'sortablejs'
@@ -150,6 +151,8 @@ import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import SegmentedPills from '@/components/layout/SegmentedPills.vue'
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty'
+
+const { t } = useI18n()
 
 interface Props {
   configs: EnvConfig[]
@@ -184,14 +187,14 @@ const userPickedView = ref(false)
 const currentFilter = computed(() => configStore.currentFilter)
 const totalCount = computed(() => configStore.environments.length)
 const filterLabel = computed(() => {
-  if (currentFilter.value === 'all') return '全部'
+  if (currentFilter.value === 'all') return t('envList.all')
   if (currentFilter.value === 'claude') return 'Claude Code'
   if (currentFilter.value === 'claude_desktop') return 'Claude Desktop'
   if (currentFilter.value === 'codex') return 'Codex'
   if (currentFilter.value === 'antigravity') return 'Antigravity'
   if (currentFilter.value === 'opencode') return 'OpenCode'
   if (currentFilter.value === 'grok') return 'Grok'
-  return '全部'
+  return t('envList.all')
 })
 
 // 后端按 provider::name 定位配置（名称只在服务商内唯一）
@@ -267,7 +270,7 @@ function initSortable() {
         await applyReorder(evt)
       } catch (err) {
         // 失败必须回滚重渲染并提示，否则 DOM 顺序与 store 永久不一致
-        toast.error('保存排序失败：' + (err instanceof Error ? err.message : String(err)))
+        toast.error(t('envList.reorderFailed', { error: err instanceof Error ? err.message : String(err) }))
         await configStore.loadConfig()
       } finally {
         isReordering.value = false

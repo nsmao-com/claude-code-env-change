@@ -35,19 +35,19 @@
       <div class="col-span-12 rounded-3xl bg-[#161616] p-6 lg:col-span-8">
         <div class="flex items-start justify-between gap-3">
           <div>
-            <p class="text-[15px] font-semibold text-white">环境健康度</p>
-            <p class="mt-0.5 text-[11px] text-white/40">各平台配置数量与写入状态</p>
+            <p class="text-[15px] font-semibold text-white">{{ t('home.healthTitle') }}</p>
+            <p class="mt-0.5 text-[11px] text-white/40">{{ t('home.healthSub') }}</p>
           </div>
           <div class="flex items-center gap-2">
             <span class="hidden items-center gap-1.5 text-[10.5px] text-white/50 sm:inline-flex">
               <span class="size-2 rounded-full bg-brand" />
-              配置数
+              {{ t('home.configs') }}
             </span>
             <span class="hidden items-center gap-1.5 text-[10.5px] text-white/50 sm:inline-flex">
               <span class="size-2 rounded-full bg-emerald-400" />
-              已写入
+              {{ t('home.written') }}
             </span>
-            <span class="rounded-full bg-white/10 px-3 py-1 text-[10.5px] font-medium text-white/80">{{ weekdayCN }}</span>
+            <span class="rounded-full bg-white/10 px-3 py-1 text-[10.5px] font-medium text-white/80">{{ weekday }}</span>
           </div>
         </div>
 
@@ -121,16 +121,16 @@
             <p class="text-[11px] font-semibold text-white">{{ chartPoints[hoverIndex].label }}</p>
             <div class="mt-2 space-y-1.5">
               <div class="flex items-center justify-between gap-2 text-[10.5px]">
-                <span class="flex items-center gap-1.5 text-white/60"><span class="size-1.5 rounded-full bg-brand" />配置数</span>
+                <span class="flex items-center gap-1.5 text-white/60"><span class="size-1.5 rounded-full bg-brand" />{{ t('home.configs') }}</span>
                 <span class="font-semibold text-white tabular-nums">{{ chartPoints[hoverIndex].value }}</span>
               </div>
               <div class="flex items-center justify-between gap-2 text-[10.5px]">
-                <span class="flex items-center gap-1.5 text-white/60"><span class="size-1.5 rounded-full bg-emerald-400" />已写入</span>
+                <span class="flex items-center gap-1.5 text-white/60"><span class="size-1.5 rounded-full bg-emerald-400" />{{ t('home.written') }}</span>
                 <span class="font-semibold text-white tabular-nums">{{ chartPoints[hoverIndex].applied }}</span>
               </div>
               <div class="flex items-center justify-between gap-2 text-[10.5px]">
-                <span class="text-white/60">状态</span>
-                <span :class="chartPoints[hoverIndex].active ? 'text-emerald-400' : 'text-white/40'">{{ chartPoints[hoverIndex].active ? '已应用' : '未应用' }}</span>
+                <span class="text-white/60">{{ t('home.status') }}</span>
+                <span :class="chartPoints[hoverIndex].active ? 'text-emerald-400' : 'text-white/40'">{{ chartPoints[hoverIndex].active ? t('home.applied') : t('home.notApplied') }}</span>
               </div>
             </div>
           </div>
@@ -139,21 +139,21 @@
         <div class="mt-4 flex items-center justify-between gap-3 border-t border-white/[0.07] pt-4">
           <div class="flex gap-6">
             <div>
-              <p class="text-[9.5px] tracking-wide text-white/35 uppercase">峰值</p>
+              <p class="text-[9.5px] tracking-wide text-white/35 uppercase">{{ t('home.peak') }}</p>
               <p class="mt-0.5 text-sm font-semibold text-white tabular-nums">{{ chartMeta.peak }}</p>
             </div>
             <div>
-              <p class="text-[9.5px] tracking-wide text-white/35 uppercase">均值</p>
+              <p class="text-[9.5px] tracking-wide text-white/35 uppercase">{{ t('home.avg') }}</p>
               <p class="mt-0.5 text-sm font-semibold text-white tabular-nums">{{ chartMeta.avg }}</p>
             </div>
             <div>
-              <p class="text-[9.5px] tracking-wide text-white/35 uppercase">最活跃</p>
+              <p class="text-[9.5px] tracking-wide text-white/35 uppercase">{{ t('home.mostActive') }}</p>
               <p class="mt-0.5 text-sm font-semibold text-white">{{ chartMeta.top }}</p>
             </div>
           </div>
           <div class="hidden items-center gap-1.5 text-[10px] text-white/30 md:flex">
             <MousePointer2 class="size-3" />
-            悬浮查看详情
+            {{ t('home.hoverHint') }}
           </div>
         </div>
       </div>
@@ -162,8 +162,8 @@
       <div class="col-span-12 flex flex-col rounded-3xl bg-card p-6 shadow-[0_1px_2px_rgba(16,24,40,0.04)] lg:col-span-4">
         <div class="flex items-start justify-between">
           <div>
-            <p class="text-[15px] font-semibold text-foreground">平台分布</p>
-            <p class="mt-0.5 text-[11px] text-muted-foreground">配置在各平台的占比</p>
+            <p class="text-[15px] font-semibold text-foreground">{{ t('home.distTitle') }}</p>
+            <p class="mt-0.5 text-[11px] text-muted-foreground">{{ t('home.distSub') }}</p>
           </div>
         </div>
 
@@ -184,7 +184,7 @@
           </svg>
           <div class="absolute inset-0 flex flex-col items-center justify-center">
             <span class="text-[34px] leading-none font-bold tracking-tight tabular-nums">{{ totalCount }}</span>
-            <span class="mt-1 text-[10.5px] text-muted-foreground">个配置</span>
+            <span class="mt-1 text-[10.5px] text-muted-foreground">{{ t('home.configsUnit') }}</span>
           </div>
         </div>
 
@@ -202,14 +202,14 @@
       <!-- 深色平台列表 -->
       <div class="col-span-12 rounded-3xl bg-[#161616] p-5 lg:col-span-4">
         <div class="mb-3 flex items-center justify-between gap-2 px-1">
-          <p class="text-[13px] font-semibold text-white">平台状态</p>
-          <span class="text-[10px] text-white/35">点击筛选 · 状态 · 走势</span>
+          <p class="text-[13px] font-semibold text-white">{{ t('home.platformStatus') }}</p>
+          <span class="text-[10px] text-white/35">{{ t('home.platformStatusHint') }}</span>
         </div>
         <div class="space-y-2">
           <AppTooltip
             v-for="row in platformRows"
             :key="row.id"
-            :content="`筛选 ${row.label}`"
+            :content="t('home.filterBy', { name: row.label })"
             class="block w-full"
           >
           <button
@@ -223,9 +223,9 @@
             </span>
             <div class="min-w-0 flex-1">
               <p class="truncate text-[12.5px] font-medium text-white">{{ row.label }}</p>
-              <p class="text-[10px] text-white/40">{{ row.count }} 个配置 · {{ row.applied ? '已写入 CLI' : '未写入' }}</p>
+              <p class="text-[10px] text-white/40">{{ t('home.rowMeta', { count: row.count, state: row.applied ? t('home.writtenCli') : t('home.notWritten') }) }}</p>
             </div>
-            <AppTooltip content="打开终端（已注入该平台当前环境变量）">
+            <AppTooltip :content="t('home.openTerminal')">
               <span
                 class="shrink-0 rounded-lg p-1.5 text-white/45 transition-colors hover:bg-white/10 hover:text-white"
                 @click.stop="openTerminal(row.id)"
@@ -245,7 +245,7 @@
         <img src="/portal.png" alt="" class="pointer-events-none absolute inset-0 size-full object-cover opacity-25 mix-blend-luminosity">
         <div class="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#C94A0B]/60 via-transparent to-[#F26B1D]/20" />
         <div class="relative flex h-full flex-col p-6">
-          <p class="text-[26px] leading-[1.15] font-semibold text-white">多平台<br><span class="text-white/55">环境管理</span></p>
+          <p class="text-[26px] leading-[1.15] font-semibold text-white">{{ t('home.heroLine1') }}<br><span class="text-white/55">{{ t('home.heroLine2') }}</span></p>
           <div class="mt-auto">
             <div class="mb-4 space-y-2.5">
               <button v-for="p in heroPills" :key="p.label" type="button" class="group flex w-full items-center gap-2" @click="$emit('navigate', p.page)">
@@ -257,9 +257,9 @@
               </button>
             </div>
             <div class="flex items-end justify-between px-0.5 text-[8.5px] leading-none text-white/50">
-              <span v-for="t in dateTicks" :key="t" class="flex flex-col items-center gap-1">
-                <span class="w-px bg-white/30" :style="{ height: t === '11' ? '10px' : '5px' }" />
-                {{ t }}
+              <span v-for="tick in dateTicks" :key="tick" class="flex flex-col items-center gap-1">
+                <span class="w-px bg-white/30" :style="{ height: tick === '11' ? '10px' : '5px' }" />
+                {{ tick }}
               </span>
             </div>
           </div>
@@ -270,8 +270,8 @@
       <div class="col-span-12 flex flex-col rounded-3xl bg-card p-6 shadow-[0_1px_2px_rgba(16,24,40,0.04)] lg:col-span-4">
         <div class="flex items-start justify-between">
           <div>
-            <p class="text-[15px] font-semibold text-foreground">写入追踪</p>
-            <p class="mt-0.5 text-[11px] text-muted-foreground">Coverage · 目标 6 个平台全部写入</p>
+            <p class="text-[15px] font-semibold text-foreground">{{ t('home.trackTitle') }}</p>
+            <p class="mt-0.5 text-[11px] text-muted-foreground">{{ t('home.trackSub') }}</p>
           </div>
           <span class="inline-flex items-center gap-0.5 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400">
             <TrendingUp class="size-3" />
@@ -281,7 +281,7 @@
 
         <div class="mt-3 flex items-baseline gap-2">
           <span class="text-[34px] leading-none font-bold tracking-tight tabular-nums">{{ configuredCount }}<span class="text-muted-foreground/50">/6</span></span>
-          <span class="text-xs text-muted-foreground">平台已写入</span>
+          <span class="text-xs text-muted-foreground">{{ t('home.platformsWritten') }}</span>
         </div>
 
         <div class="mt-4 space-y-2.5">
@@ -297,13 +297,13 @@
         <div class="mt-auto space-y-2 pt-5">
           <div class="flex h-10 items-center gap-2 rounded-full border border-border px-3.5 text-xs text-foreground">
             <Check class="size-3.5 shrink-0 text-emerald-600" />
-            <span class="truncate">已应用 · {{ appliedPlatforms }}</span>
-            <span class="ml-auto shrink-0 text-[10px] text-muted-foreground">今日</span>
+            <span class="truncate">{{ t('home.appliedLine', { names: appliedPlatforms }) }}</span>
+            <span class="ml-auto shrink-0 text-[10px] text-muted-foreground">{{ t('home.today') }}</span>
           </div>
           <div class="flex h-10 items-center gap-2 rounded-full border border-border px-3.5 text-xs text-foreground">
             <Check class="size-3.5 shrink-0 text-emerald-600" />
-            <span class="truncate">路由网关 · {{ gatewayRunning ? '运行中' : '已停止' }} 127.0.0.1:{{ gatewayPort }}</span>
-            <span class="ml-auto shrink-0 text-[10px] text-muted-foreground">本地</span>
+            <span class="truncate">{{ t('home.gatewayLine', { state: gatewayRunning ? t('home.running') : t('home.stopped'), port: gatewayPort }) }}</span>
+            <span class="ml-auto shrink-0 text-[10px] text-muted-foreground">{{ t('home.local') }}</span>
           </div>
           <button
             type="button"
@@ -311,7 +311,7 @@
             @click="$emit('add')"
           >
             <Plus class="size-3.5 shrink-0" />
-            <span class="truncate">新建配置</span>
+            <span class="truncate">{{ t('home.newConfig') }}</span>
           </button>
         </div>
       </div>
@@ -320,6 +320,7 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n'
 import { useToast } from "@/composables/useToast"
 import { computed, onMounted, ref } from 'vue'
 import type { Component } from 'vue'
@@ -344,6 +345,8 @@ import { useRouterStore } from '@/stores/routerStore'
 import SparkLine from '@/components/common/SparkLine.vue'
 import AppTooltip from '@/components/common/AppTooltip.vue'
 
+const { t, locale } = useI18n()
+
 defineEmits<{
   add: []
   navigate: [page: AppPage]
@@ -353,7 +356,7 @@ const configStore = useConfigStore()
 const routerStore = useRouterStore()
 
 const totalCount = computed(() => configStore.environments.length)
-const weekdayCN = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][new Date().getDay()]
+const weekday = computed(() => new Date().toLocaleDateString(locale.value === 'en' ? 'en-US' : 'zh-CN', { weekday: 'short' }))
 
 const configuredCount = computed(() => {
   return [
@@ -381,7 +384,7 @@ const platformCols = computed(() => {
   ]
 })
 
-const appliedPlatforms = computed(() => platformCols.value.filter(c => c.applied).map(c => c.label).join(' ') || '暂无')
+const appliedPlatforms = computed(() => platformCols.value.filter(c => c.applied).map(c => c.label).join(' ') || t('home.none'))
 
 // ---------- KPI ----------
 function sparkFrom(values: number[]) {
@@ -399,9 +402,9 @@ const kpis = computed(() => {
   const appliedCount = platformCols.value.reduce((sum, c) => sum + (c.applied ? c.count : 0), 0)
   return [
     {
-      label: '配置总数',
+      label: t('home.kpi.total'),
       value: totalCount.value,
-      unit: '个',
+      unit: t('home.kpi.totalUnit'),
       icon: Database as Component,
       iconClass: 'bg-brand/10 text-brand',
       spark: countSpark.value,
@@ -409,10 +412,10 @@ const kpis = computed(() => {
       delta: `${appliedRate.value}%`,
       deltaIcon: TrendingUp as Component,
       deltaClass: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400',
-      hint: '覆盖率',
+      hint: t('home.kpi.totalHint'),
     },
     {
-      label: '已写入平台',
+      label: t('home.kpi.written'),
       value: configuredCount.value,
       unit: '/ 6',
       icon: CircleCheck as Component,
@@ -422,12 +425,12 @@ const kpis = computed(() => {
       delta: `${appliedCount}`,
       deltaIcon: TrendingUp as Component,
       deltaClass: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400',
-      hint: '个配置生效中',
+      hint: t('home.kpi.writtenHint'),
     },
     {
-      label: '待写入',
+      label: t('home.kpi.pending'),
       value: 6 - configuredCount.value,
-      unit: '个平台',
+      unit: t('home.kpi.pendingUnit'),
       icon: Layers as Component,
       iconClass: 'bg-violet-500/10 text-violet-600',
       spark: countSpark.value.slice().reverse(),
@@ -435,12 +438,12 @@ const kpis = computed(() => {
       delta: `${totalCount.value}`,
       deltaIcon: Minus as Component,
       deltaClass: 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400',
-      hint: '个配置可选',
+      hint: t('home.kpi.pendingHint'),
     },
     {
-      label: '路由网关',
+      label: t('home.kpi.gateway'),
       value: gatewayPort.value,
-      unit: gatewayRunning.value ? '运行中' : '已停止',
+      unit: gatewayRunning.value ? t('home.running') : t('home.stopped'),
       icon: HeartPulse as Component,
       iconClass: gatewayRunning.value ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-black/[0.06] text-muted-foreground dark:bg-white/[0.08]',
       spark: countSpark.value,
@@ -448,7 +451,7 @@ const kpis = computed(() => {
       delta: `${routerStore.config.routes?.length || 0}`,
       deltaIcon: Activity as Component,
       deltaClass: 'bg-black/[0.05] text-foreground/70 dark:bg-white/[0.06]',
-      hint: '条路由规则',
+      hint: t('home.kpi.gatewayHint'),
     },
   ]
 })
@@ -577,16 +580,16 @@ const platformRows = computed(() => platformCols.value.map(c => ({
 
 // ---------- 进度行 ----------
 const progressRows = computed(() => [
-  { label: '覆盖写入', pct: appliedRate.value, barClass: 'bg-brand', },
-  { label: '配置规模', pct: Math.min(Math.round((totalCount.value / Math.max(totalCount.value, 1)) * 100), 100), barClass: 'bg-violet-500' },
-  { label: '路由网关', pct: gatewayRunning.value ? 100 : 0, barClass: 'bg-sky-500' },
+  { label: t('home.progress.coverage'), pct: appliedRate.value, barClass: 'bg-brand', },
+  { label: t('home.progress.scale'), pct: Math.min(Math.round((totalCount.value / Math.max(totalCount.value, 1)) * 100), 100), barClass: 'bg-violet-500' },
+  { label: t('home.progress.gateway'), pct: gatewayRunning.value ? 100 : 0, barClass: 'bg-sky-500' },
 ])
 
-const heroPills: { label: string, page: AppPage }[] = [
-  { label: '环境配置', page: 'env' },
-  { label: 'MCP 管理', page: 'mcp' },
-  { label: '路由转换', page: 'router' },
-]
+const heroPills = computed<{ label: string, page: AppPage }[]>(() => [
+  { label: t('home.pill.env'), page: 'env' },
+  { label: t('home.pill.mcp'), page: 'mcp' },
+  { label: t('home.pill.router'), page: 'router' },
+])
 
 const dateTicks = ['01', '03', '05', '07', '09', '11']
 
@@ -605,7 +608,7 @@ async function openTerminal(id: Provider) {
   try {
     await configService.openProviderTerminal(id)
   } catch (e: any) {
-    toast.error('打开终端失败: ' + (e?.message ?? String(e)))
+    toast.error(t('home.openTerminalFailed', { error: e?.message ?? String(e) }))
   } finally {
     terminalBusy.value = null
   }

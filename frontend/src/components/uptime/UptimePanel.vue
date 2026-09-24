@@ -1,23 +1,23 @@
 <template>
   <AppModal v-model="isOpen" size="xl" :plain="embedded" width="form" :close-on-overlay="false">
     <template #header>
-      <h1 class="text-[2.5rem] leading-none font-semibold tracking-tight">监控</h1>
-      <p class="mt-2 text-sm text-muted-foreground">每隔一段时间检测可达性，并按轮换组自动切换配置</p>
+      <h1 class="text-[2.5rem] leading-none font-semibold tracking-tight">{{ t('nav.uptime') }}</h1>
+      <p class="mt-2 text-sm text-muted-foreground">{{ t('uptime.panelHint') }}</p>
     </template>
 
     <Card class="mb-4">
       <CardHeader>
         <div class="flex items-start justify-between gap-4">
           <div>
-            <CardTitle>Uptime 监控</CardTitle>
+            <CardTitle>{{ t('uptime.title') }}</CardTitle>
             <CardDescription>
-              {{ form.probe_auth ? '监控会带上各配置的 Key 请求列模型接口，Key 失效或余额不足也算失败' : '监控会对各配置的 Base URL 做 HTTP 可达性检测' }}，并保留最近 {{ uptimeStore.settings.keep_last }} 次记录。
+              {{ t(form.probe_auth ? 'uptime.descAuth' : 'uptime.descReach', { count: uptimeStore.settings.keep_last }) }}
             </CardDescription>
             <p
               v-if="uptimeStore.snapshot?.last_rotation_error"
               class="mt-2 rounded-md bg-destructive/10 px-2.5 py-1.5 text-xs text-destructive"
             >
-              自动轮换失败：{{ uptimeStore.snapshot.last_rotation_error }}
+              {{ t('uptime.rotationFailed', { error: uptimeStore.snapshot.last_rotation_error }) }}
             </p>
             <p
               v-else-if="uptimeStore.snapshot?.last_rotation"
@@ -29,58 +29,58 @@
           <Button variant="outline" size="sm" :disabled="uptimeStore.isRunning" @click="runNow">
             <Loader2 v-if="uptimeStore.isRunning" class="animate-spin" />
             <Zap v-else />
-            立即检测
+            {{ t('uptime.runNow') }}
           </Button>
         </div>
       </CardHeader>
       <CardContent class="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div class="grid gap-1.5">
-          <Label>启用监控</Label>
+          <Label>{{ t('uptime.enable') }}</Label>
           <div class="flex items-center gap-2">
             <Switch :checked="form.enabled" :disabled="isSavingSettings" @update:checked="onEnabledChange" />
-            <span class="text-xs text-muted-foreground">{{ form.enabled ? '已启用' : '未启用' }}</span>
+            <span class="text-xs text-muted-foreground">{{ form.enabled ? t('uptime.enabled') : t('uptime.disabled') }}</span>
           </div>
         </div>
         <div class="grid gap-1.5">
-          <Label>间隔（分钟）</Label>
+          <Label>{{ t('uptime.interval') }}</Label>
           <Input v-model="form.interval_minutes" type="number" min="1" max="1440" />
-          <p class="text-[11px] text-muted-foreground">默认 5 分钟</p>
+          <p class="text-[11px] text-muted-foreground">{{ t('uptime.intervalHint') }}</p>
         </div>
         <div class="grid gap-1.5">
-          <Label>超时（秒）</Label>
+          <Label>{{ t('uptime.timeout') }}</Label>
           <Input v-model="form.timeout_seconds" type="number" min="1" max="60" />
-          <p class="text-[11px] text-muted-foreground">建议 8-15 秒</p>
+          <p class="text-[11px] text-muted-foreground">{{ t('uptime.timeoutHint') }}</p>
         </div>
         <div class="grid gap-1.5 sm:col-span-3">
-          <Label>用 Key 验证</Label>
+          <Label>{{ t('uptime.probeAuth') }}</Label>
           <div class="flex items-center gap-2">
             <Switch :checked="form.probe_auth" :disabled="isSavingSettings" @update:checked="onProbeAuthChange" />
             <span class="text-xs text-muted-foreground">
-              {{ form.probe_auth ? '已开启：401 / 402 / 403 记为失败，可触发自动轮换' : '未开启：只检测地址能否连通，Key 失效时仍显示正常' }}
+              {{ form.probe_auth ? t('uptime.probeAuthOn') : t('uptime.probeAuthOff') }}
             </span>
           </div>
-          <p class="text-[11px] text-muted-foreground">请求的是列模型接口，不消耗 token；中转站没实现该接口时按在线处理。官方登录等没有 Key 的配置仍只检测连通性。</p>
+          <p class="text-[11px] text-muted-foreground">{{ t('uptime.probeAuthHint') }}</p>
         </div>
       </CardContent>
       <CardFooter class="justify-end">
         <Button size="sm" :disabled="isSavingSettings" @click="saveSettings">
           <Loader2 v-if="isSavingSettings" class="animate-spin" />
           <Save v-else />
-          保存设置
+          {{ t('uptime.saveSettings') }}
         </Button>
       </CardFooter>
     </Card>
 
     <div class="mb-4 flex items-center justify-between gap-4">
       <div>
-        <h4 class="text-sm font-medium">轮换组</h4>
+        <h4 class="text-sm font-medium">{{ t('uptime.groups') }}</h4>
         <p class="mt-1 text-xs text-muted-foreground">
-          当某组的“当前激活配置”连续失败达到阈值时，自动切换到组内下一个（优先挑选最近成功/未检测过的）。
+          {{ t('uptime.groupsDesc') }}
         </p>
       </div>
       <Button size="sm" @click="openCreate">
         <Plus />
-        新建轮换组
+        {{ t('uptime.newGroup') }}
       </Button>
     </div>
 
@@ -91,8 +91,8 @@
     <Empty v-else-if="uptimeStore.groups.length === 0" class="border border-dashed py-10">
       <EmptyHeader>
         <Shuffle class="size-8 text-muted-foreground" />
-        <EmptyTitle>暂无轮换组</EmptyTitle>
-        <EmptyDescription>点击“新建轮换组”开始配置</EmptyDescription>
+        <EmptyTitle>{{ t('uptime.emptyTitle') }}</EmptyTitle>
+        <EmptyDescription>{{ t('uptime.emptyDesc') }}</EmptyDescription>
       </EmptyHeader>
     </Empty>
 
@@ -111,11 +111,11 @@
                     {{ providerLabel(group.provider) }}
                   </Badge>
                   <Badge :variant="group.enabled ? 'default' : 'secondary'" class="shrink-0">
-                    {{ group.enabled ? 'Enabled' : 'Disabled' }}
+                    {{ group.enabled ? t('uptime.groupEnabled') : t('uptime.groupDisabled') }}
                   </Badge>
                 </div>
                 <CardDescription>
-                  连续失败阈值：<span class="font-mono">{{ group.failure_threshold }}</span>
+                  {{ t('uptime.threshold') }}<span class="font-mono">{{ group.failure_threshold }}</span>
                 </CardDescription>
                 <div class="mt-3 flex flex-wrap gap-2">
                   <AppTooltip v-for="name in group.env_names" :key="name" :content="name" wrap>
@@ -128,15 +128,15 @@
               <div class="flex shrink-0 gap-2">
                 <Button variant="outline" size="sm" @click="toggleGroup(group)">
                   <Power />
-                  {{ group.enabled ? '停用' : '启用' }}
+                  {{ group.enabled ? t('uptime.deactivate') : t('uptime.activate') }}
                 </Button>
                 <Button variant="outline" size="sm" @click="openEdit(group)">
                   <Pencil />
-                  编辑
+                  {{ t('uptime.edit') }}
                 </Button>
                 <Button variant="destructive" size="sm" @click="remove(group)">
                   <Trash2 />
-                  删除
+                  {{ t('uptime.delete') }}
                 </Button>
               </div>
             </div>
@@ -150,6 +150,7 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n'
 import { ref, computed, watch } from 'vue'
 import { Loader2, Pencil, Plus, Power, Save, Shuffle, Trash2, Zap } from '@lucide/vue'
 import type { RotationGroup } from '@/types'
@@ -169,6 +170,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Switch } from '@/components/ui/switch'
+
+const { t } = useI18n()
 
 interface Props {
   modelValue: boolean
@@ -226,7 +229,7 @@ async function persistSettings(successMessage: string) {
     })
     toast.success(successMessage)
   } catch (e: any) {
-    toast.error('保存失败: ' + (e?.message || String(e)))
+    toast.error(t('uptime.saveFailed', { error: e?.message || String(e) }))
     throw e
   } finally {
     isSavingSettings.value = false
@@ -237,7 +240,7 @@ async function onEnabledChange(value: boolean) {
   const prev = form.value.enabled
   form.value.enabled = value
   try {
-    await persistSettings(value ? '已开启监控' : '已关闭监控')
+    await persistSettings(value ? t('uptime.monitorOn') : t('uptime.monitorOff'))
   } catch {
     form.value.enabled = prev
   }
@@ -247,7 +250,7 @@ async function onProbeAuthChange(value: boolean) {
   const prev = form.value.probe_auth
   form.value.probe_auth = value
   try {
-    await persistSettings(value ? '已开启 Key 验证' : '已改为只检测连通性')
+    await persistSettings(value ? t('uptime.probeOnToast') : t('uptime.probeOffToast'))
   } catch {
     form.value.probe_auth = prev
   }
@@ -255,7 +258,7 @@ async function onProbeAuthChange(value: boolean) {
 
 async function saveSettings() {
   try {
-    await persistSettings('设置已保存')
+    await persistSettings(t('uptime.settingsSaved'))
   } catch {
     /* persistSettings 已提示 */
   }
@@ -264,9 +267,9 @@ async function saveSettings() {
 async function runNow() {
   try {
     await uptimeStore.runOnce()
-    toast.success('检测已完成')
+    toast.success(t('uptime.runDone'))
   } catch (e: any) {
-    toast.error('检测失败: ' + (e?.message || String(e)))
+    toast.error(t('uptime.runFailed', { error: e?.message || String(e) }))
   }
 }
 
@@ -291,25 +294,25 @@ function openEdit(group: RotationGroup) {
 async function toggleGroup(group: RotationGroup) {
   try {
     await uptimeStore.saveGroup({ ...group, enabled: !group.enabled } as RotationGroup)
-    toast.success(group.enabled ? '已停用' : '已启用')
+    toast.success(group.enabled ? t('uptime.toggledOff') : t('uptime.toggledOn'))
   } catch (e: any) {
-    toast.error('操作失败: ' + (e?.message || String(e)))
+    toast.error(t('uptime.opFailed', { error: e?.message || String(e) }))
   }
 }
 
 async function remove(group: RotationGroup) {
   const ok = await confirm.show(
-    '删除轮换组',
-    `确定要删除 “${group.name}” 吗？`,
+    t('uptime.deleteTitle'),
+    t('uptime.deleteMsg', { name: group.name }),
     'danger'
   )
   if (!ok) return
 
   try {
     await uptimeStore.deleteGroup(group.name)
-    toast.success('轮换组已删除')
+    toast.success(t('uptime.deleted'))
   } catch (e: any) {
-    toast.error('删除失败: ' + (e?.message || String(e)))
+    toast.error(t('uptime.deleteFailed', { error: e?.message || String(e) }))
   }
 }
 

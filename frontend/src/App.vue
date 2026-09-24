@@ -193,7 +193,7 @@ function onSettingsShortcut(e: KeyboardEvent) {
   if (e.key === 'F5') {
     e.preventDefault()
     void configStore.loadConfig()
-    toast.success('已刷新')
+    toast.success(t('app.refreshed'))
   }
   if ((e.ctrlKey || e.metaKey) && /^[1-8]$/.test(e.key)) {
     const idx = Number(e.key) - 1
@@ -245,18 +245,18 @@ onMounted(async () => {
     if (typeof message === 'string' && message) toast.success(message)
   })
   EventsOn('cloud:pull-failed', (message: string) => {
-    toast.error(`启动时从云端拉取失败：${message || '未知错误'}`)
+    toast.error(t('app.cloudPullFailed', { error: message || t('app.unknownError') }))
   })
 
   try {
     await configStore.loadConfig()
     const drift = await callApp<string[]>('GetConfigDrift')
     if (Array.isArray(drift) && drift.length > 0) {
-      const sync = await confirm.show('发现本机配置差异', `${drift.join('、')} 的当前配置与软件中激活的配置不同，是否立即同步？选择取消将保留本机配置。`, 'info')
+      const sync = await confirm.show(t('app.driftTitle'), t('app.driftMsg', { names: drift.join(t('app.listSep')) }), 'info')
       if (sync) {
         const result = await callApp<string>('ApplyCurrentEnv')
         if (result.includes('⚠')) toast.error(result)
-        else toast.success('已同步当前配置')
+        else toast.success(t('app.driftSynced'))
       }
     }
   } catch {
@@ -266,7 +266,7 @@ onMounted(async () => {
   try {
     const lastError = await updateService.lastUpdateError()
     if (lastError) {
-      toast.error(`上次在线更新失败：${lastError}。请到 GitHub 下载安装包手动更新`)
+      toast.error(t('app.lastUpdateFailed', { error: lastError }))
     }
   } catch {
     /* 忽略 */
@@ -359,9 +359,9 @@ async function addOfficialLogin() {
   try {
     const filter = configStore.currentFilter
     const added = await configStore.addOfficialLoginEnvs(filter === 'all' ? 'all' : filter)
-    toast.success(`已添加 ${added.length} 条官方登录配置`)
+    toast.success(t('app.officialAdded', { count: added.length }))
   } catch (e: any) {
-    toast.error(e?.message || String(e) || '添加官方登录配置失败')
+    toast.error(e?.message || String(e) || t('app.officialAddFailed'))
   } finally {
     addingOfficialLogin.value = false
   }
@@ -370,13 +370,13 @@ async function addOfficialLogin() {
 async function duplicateConfig(index: number) {
   const config = configStore.filteredEnvironments[index]
   if (!config) {
-    toast.error(t('toast.copyFailed', { error: '找不到这条配置' }))
+    toast.error(t('toast.copyFailed', { error: t('app.configNotFound') }))
     return
   }
-  let newName = config.name + ' - 副本'
+  let newName = config.name + t('app.copySuffix')
   let suffix = 1
   while (configStore.environments.some(c => c.name === newName && c.provider === config.provider)) {
-    newName = config.name + ' - 副本 ' + suffix
+    newName = config.name + t('app.copySuffix') + ' ' + suffix
     suffix++
   }
   try {
@@ -390,7 +390,7 @@ async function duplicateConfig(index: number) {
 async function deleteConfig(index: number) {
   const config = configStore.filteredEnvironments[index]
   if (!config) {
-    toast.error(t('toast.deleteFailed', { error: '找不到这条配置' }))
+    toast.error(t('toast.deleteFailed', { error: t('app.configNotFound') }))
     return
   }
   if (!(await confirm.show(t('confirm.deleteConfig'), t('confirm.deleteConfigMsg'), 'danger'))) return
@@ -472,7 +472,7 @@ async function onWinDrop(event: DragEvent) {
     const text = await file.text()
     openImportGuarded({ name: file.name, text })
   } catch (e) {
-    toast.error('读取拖入文件失败: ' + (e instanceof Error ? e.message : String(e)))
+    toast.error(t('app.readDropFailed', { error: e instanceof Error ? e.message : String(e) }))
   }
 }
 
@@ -511,12 +511,12 @@ async function importFromClipboard() {
     const text = await navigator.clipboard.readText()
     const trimmed = (text || '').trim()
     if (!trimmed) {
-      toast.error('剪贴板是空的，先复制一段配置 JSON 再试')
+      toast.error(t('app.clipboardEmpty'))
       return
     }
-    openImportGuarded({ name: '剪贴板配置.json', text: trimmed })
+    openImportGuarded({ name: t('app.clipboardFileName'), text: trimmed })
   } catch (e) {
-    toast.error('读取剪贴板失败: ' + (e instanceof Error ? e.message : String(e)))
+    toast.error(t('app.readClipboardFailed', { error: e instanceof Error ? e.message : String(e) }))
   }
 }
 
@@ -531,13 +531,13 @@ async function clearClaude() {
 }
 
 async function clearClaudeDesktop() {
-  if (!(await confirm.show('清除 Claude Desktop 配置', '将删除当前生效的 Claude Desktop 网关配置，并保留其它配置条目与 MCP 设置。是否继续？', 'warning'))) return
+  if (!(await confirm.show(t('app.clearDesktopTitle'), t('app.clearDesktopMsg'), 'warning'))) return
   try {
     await callApp('ClearClaudeDesktopSettings')
     await configStore.loadConfig()
-    toast.success('Claude Desktop 配置已清除')
+    toast.success(t('app.clearedDesktop'))
   } catch (e: any) {
-    toast.error('清除 Claude Desktop 失败: ' + (e?.message || String(e)))
+    toast.error(t('app.clearDesktopFailed', { error: e?.message || String(e) }))
   }
 }
 

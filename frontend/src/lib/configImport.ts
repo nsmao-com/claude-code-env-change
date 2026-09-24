@@ -1,3 +1,4 @@
+import { useI18n } from '@/composables/useI18n'
 export interface ImportPreviewItem {
   name: string
   provider: string
@@ -38,23 +39,24 @@ export function classifyImportPayload(text: string): 'config' | 'mcp' | 'unknown
 
 export function parseConfigExport(text: string): { preview: ImportPreview | null, error: string } {
   const raw = text.replace(/^\uFEFF/, '').trim()
-  if (!raw) return { preview: null, error: '文件是空的' }
+  const { t } = useI18n()
+  if (!raw) return { preview: null, error: t('ui.importEmpty') }
   try {
     const parsed = JSON.parse(raw) as {
       environments?: Array<{ name?: string, provider?: string, icon?: string, description?: string }>
     }
     const list = parsed.environments || []
     if (list.length === 0) {
-      return { preview: null, error: '这个 JSON 里没有 environments 配置。如果是 MCP，请到 MCP 页用 JSON 导入。' }
+      return { preview: null, error: t('ui.importNoEnvs') }
     }
     const items: ImportPreviewItem[] = list.map(item => ({
-      name: (item.name || '未命名').trim() || '未命名',
+      name: (item.name || t('ui.untitled')).trim() || t('ui.untitled'),
       provider: (item.provider || 'claude').toLowerCase(),
       icon: item.icon || '⌘',
       description: (item.description || '').trim(),
     }))
     return { preview: { items, total: items.length }, error: '' }
   } catch {
-    return { preview: null, error: '不是有效的 JSON 文件' }
+    return { preview: null, error: t('ui.importInvalid') }
   }
 }

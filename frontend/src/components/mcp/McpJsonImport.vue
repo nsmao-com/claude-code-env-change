@@ -1,27 +1,27 @@
 <template>
-  <AppModal v-model="isOpen" title="导入 MCP 服务器" size="lg">
+  <AppModal v-model="isOpen" :title="t('mcp.importModal.title')" size="lg">
     <div class="space-y-4">
       <p class="text-sm text-muted-foreground">
-        拖拽 JSON 文件，或粘贴 MCP 配置。支持 Claude / Codex / Antigravity 格式。
+        {{ t('mcp.importModal.desc') }}
       </p>
 
       <FileDropZone
         compact
-        title="拖拽 MCP JSON 到这里"
-        hint="支持 .json，也可点击选择文件"
+        :title="t('mcp.importModal.dropTitle')"
+        :hint="t('mcp.importModal.dropHint')"
         @file="onDropFile"
         @clear="jsonInput = ''"
         @error="onDropError"
       />
 
       <div class="rounded-xl bg-muted/40 p-3 font-mono text-xs text-muted-foreground">
-        <p>• mcpServers 对象: {"mcpServers": {...}}</p>
-        <p>• 服务器列表对象: {"server1": {...}, "server2": {...}}</p>
-        <p>• 单个服务器: {"command": "npx", "args": [...]}</p>
+        <p>{{ t('mcp.importModal.fmtMcpServers') }}</p>
+        <p>{{ t('mcp.importModal.fmtMap') }}</p>
+        <p>{{ t('mcp.importModal.fmtSingle') }}</p>
       </div>
 
       <div class="grid gap-1.5">
-        <Label>导入到平台</Label>
+        <Label>{{ t('mcp.importModal.platforms') }}</Label>
         <ToggleGroup
           type="multiple"
           :model-value="selectedPlatformKeys"
@@ -64,7 +64,7 @@
       </div>
 
       <div class="grid gap-1.5">
-        <Label>JSON 内容</Label>
+        <Label>{{ t('mcp.importModal.content') }}</Label>
         <CodeEditor
           v-model="jsonInput"
           language="json"
@@ -77,7 +77,7 @@
 
     <template #footer>
       <Button type="button" variant="outline" @click="isOpen = false">
-        取消
+        {{ t('common.cancel') }}
       </Button>
       <Button
         type="button"
@@ -85,13 +85,14 @@
         @click="handleImport"
       >
         <Loader2 v-if="isImporting" class="animate-spin" />
-        导入
+        {{ t('mcp.import') }}
       </Button>
     </template>
   </AppModal>
 </template>
 
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n'
 import { ref, computed, watch } from 'vue'
 import { Check, Loader2 } from '@lucide/vue'
 import { useMcpStore } from '@/stores/mcpStore'
@@ -104,6 +105,8 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import CodeEditor from '@/components/common/CodeEditor.vue'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+
+const { t } = useI18n()
 
 interface Props {
   modelValue: boolean
@@ -187,12 +190,12 @@ watch(isOpen, (open) => {
 
 async function handleImport() {
   if (!jsonInput.value.trim()) {
-    toast.error('请输入 JSON 内容')
+    toast.error(t('mcp.importModal.jsonRequired'))
     return
   }
 
   if (!hasSelectedPlatform.value) {
-    toast.error('请至少选择一个平台')
+    toast.error(t('mcp.importModal.platformRequired'))
     return
   }
 
@@ -200,7 +203,7 @@ async function handleImport() {
   try {
     const servers = await mcpStore.importFromJSON(jsonInput.value)
     if (!servers || servers.length === 0) {
-      toast.error('没有找到有效的服务器配置')
+      toast.error(t('mcp.importModal.noServers'))
       return
     }
 
@@ -217,11 +220,11 @@ async function handleImport() {
     })
 
     await mcpStore.addServers(servers)
-    toast.success(`成功导入 ${servers.length} 个 MCP 服务器`)
+    toast.success(t('mcp.importModal.success', { count: servers.length }))
     isOpen.value = false
     emit('imported')
   } catch (e: any) {
-    toast.error('导入失败: ' + e.message)
+    toast.error(t('mcp.importFailed', { error: e?.message || String(e) }))
   } finally {
     isImporting.value = false
   }

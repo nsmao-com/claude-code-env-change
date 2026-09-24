@@ -3,8 +3,6 @@ import type { MCPServer } from '@/types'
 export interface McpExportTarget {
   id: string
   label: string
-  /** 目标配置文件位置提示 */
-  pathHint: string
   /** 保存对话框默认文件名 */
   fileName: string
   language: 'json' | 'toml'
@@ -82,7 +80,6 @@ export const MCP_EXPORT_TARGETS: McpExportTarget[] = [
   {
     id: 'claude',
     label: 'Claude Code',
-    pathHint: '~/.claude.json（合并到顶层 mcpServers 字段）',
     fileName: 'mcp.json',
     language: 'json',
     build: servers => toJson(servers, ['mcpServers'], { includeType: true, headerKey: 'headers' }),
@@ -90,7 +87,6 @@ export const MCP_EXPORT_TARGETS: McpExportTarget[] = [
   {
     id: 'cursor',
     label: 'Cursor',
-    pathHint: '~/.cursor/mcp.json（整个文件直接覆盖）',
     fileName: 'mcp.json',
     language: 'json',
     build: servers => toJson(servers, ['mcpServers'], { includeType: false, headerKey: 'headers' }),
@@ -98,7 +94,6 @@ export const MCP_EXPORT_TARGETS: McpExportTarget[] = [
   {
     id: 'trae',
     label: 'Trae',
-    pathHint: '~/.trae/mcp.json（整个文件直接覆盖）',
     fileName: 'mcp.json',
     language: 'json',
     build: servers => toJson(servers, ['mcpServers'], { includeType: false, headerKey: 'headers' }),
@@ -106,7 +101,6 @@ export const MCP_EXPORT_TARGETS: McpExportTarget[] = [
   {
     id: 'zcode',
     label: 'ZCode',
-    pathHint: '~/.zcode/cli/config.json（合并到 mcp.servers 字段）',
     fileName: 'mcp.json',
     language: 'json',
     build: servers => toJson(servers, ['mcp', 'servers'], { includeType: true, headerKey: 'headers' }),
@@ -114,7 +108,6 @@ export const MCP_EXPORT_TARGETS: McpExportTarget[] = [
   {
     id: 'workbuddy',
     label: 'WorkBuddy',
-    pathHint: '~/.workbuddy/mcp.json（整个文件直接覆盖）。注意：远程服务器官方需用 mcp-remote 桥接',
     fileName: 'mcp.json',
     language: 'json',
     build: servers => toJson(servers, ['mcpServers'], { includeType: false, headerKey: 'headers' }),
@@ -122,7 +115,6 @@ export const MCP_EXPORT_TARGETS: McpExportTarget[] = [
   {
     id: 'vscode',
     label: 'VS Code',
-    pathHint: '工作区 .vscode/mcp.json（合并到 servers 字段）',
     fileName: 'mcp.json',
     language: 'json',
     build: servers => toJson(servers, ['servers'], { includeType: true, headerKey: 'headers' }),
@@ -130,15 +122,13 @@ export const MCP_EXPORT_TARGETS: McpExportTarget[] = [
   {
     id: 'codex',
     label: 'Codex',
-    pathHint: '~/.codex/config.toml（合并 [mcp_servers.*] 段）',
     fileName: 'config.toml',
     language: 'toml',
     build: toToml,
   },
   {
     id: 'generic',
-    label: '通用 JSON',
-    pathHint: 'mcpServers 是事实标准，适用于大多数未列出的工具',
+    label: 'Generic JSON',
     fileName: 'mcp.json',
     language: 'json',
     build: servers => toJson(servers, ['mcpServers'], { includeType: true, headerKey: 'headers' }),

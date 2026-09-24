@@ -1,0 +1,18 @@
+export const zhUpdate = {
+  title: "软件更新",
+  desc: "从 GitHub Releases 检查版本，可直接在软件内下载安装。",
+  checkFailed: "检查更新失败",
+  current: "当前版本",
+  latest: "GitHub 最新",
+  available: "有新版本",
+  upToDate: "已是最新",
+  notes: "更新说明",
+  later: "稍后",
+  openRelease: "打开发布页",
+  updating: "正在更新",
+  updateNow: "立即更新",
+  preparing: "准备下载…",
+  starting: "开始下载…",
+  restarting: "即将重启…",
+  failed: "更新失败",
+}

@@ -6,13 +6,13 @@
         <AlertDialogDescription>{{ message }}</AlertDialogDescription>
       </AlertDialogHeader>
       <AlertDialogFooter>
-        <Button type="button" variant="outline" @click="cancel">取消</Button>
+        <Button type="button" variant="outline" @click="cancel">{{ t('common.cancel') }}</Button>
         <Button
           type="button"
           :variant="confirmType === 'danger' ? 'destructive' : 'default'"
           @click="confirm"
         >
-          确定
+          {{ t('common.confirm') }}
         </Button>
       </AlertDialogFooter>
     </AlertDialogContent>
@@ -20,6 +20,7 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n'
 import { useConfirm } from '@/composables/useConfirm'
 import { Button } from '@/components/ui/button'
 import {
@@ -30,6 +31,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+
+const { t } = useI18n()
 
 const { isOpen, title, message, confirmType, confirm, cancel } = useConfirm()
 

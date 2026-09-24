@@ -37,15 +37,15 @@
         <AppTooltip :content="config.name" wrap class="flex h-full min-w-0 flex-1 items-center">
           <span class="block w-full truncate text-sm font-medium leading-5">{{ config.name }}</span>
         </AppTooltip>
-        <Badge v-if="config.official_login" variant="outline" class="shrink-0 border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">官方登录</Badge>
-        <Badge v-if="needsRoute" class="shrink-0">需路由</Badge>
+        <Badge v-if="config.official_login" variant="outline" class="shrink-0 border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">{{ t('envList.officialLogin') }}</Badge>
+        <Badge v-if="needsRoute" class="shrink-0">{{ t('envList.needsRoute') }}</Badge>
         <Badge v-if="needsRoute && conversionLabel" variant="outline" class="hidden shrink-0 border-brand/30 bg-brand/10 text-brand sm:inline-flex">{{ conversionLabel }}</Badge>
         <Badge v-if="isActive" class="gap-1">
           <Check class="size-3" />
-          使用中
+          {{ t('envList.inUse') }}
         </Badge>
       </div>
-      <p class="truncate text-xs leading-4 text-muted-foreground">{{ config.description?.trim() || '暂无描述' }}</p>
+      <p class="truncate text-xs leading-4 text-muted-foreground">{{ config.description?.trim() || t('envList.noDescription') }}</p>
     </div>
     <span class="flex h-8 w-[88px] shrink-0 items-center gap-1 text-xs text-muted-foreground">
       <BrandIcon :provider="config.provider || 'claude'" class="size-3 shrink-0" />
@@ -67,23 +67,23 @@
     <div class="flex h-8 shrink-0 items-center gap-1.5">
       <Button size="sm" @click.stop="$emit('apply')">{{ applyLabel }}</Button>
       <span v-if="latencyLabel" class="shrink-0 text-right text-[11px] tabular-nums text-muted-foreground">{{ latencyLabel }}</span>
-      <AppTooltip content="测速">
+      <AppTooltip :content="t('envList.testLatency')">
         <Button variant="ghost" size="icon-sm" :disabled="testing" @pointerdown.stop @click.stop="onTestLatency">
           <Loader2 v-if="testing" class="animate-spin" />
           <Gauge v-else />
         </Button>
       </AppTooltip>
-      <AppTooltip content="复制">
+      <AppTooltip :content="t('envList.duplicate')">
         <Button variant="ghost" size="icon-sm" @click.stop="$emit('duplicate')">
           <Copy />
         </Button>
       </AppTooltip>
-      <AppTooltip content="编辑">
+      <AppTooltip :content="t('envList.edit')">
         <Button variant="ghost" size="icon-sm" @click.stop="$emit('edit')">
           <Pencil />
         </Button>
       </AppTooltip>
-      <AppTooltip content="删除">
+      <AppTooltip :content="t('envList.delete')">
         <Button variant="ghost" size="icon-sm" @click.stop="$emit('delete')">
           <Trash2 class="text-destructive" />
         </Button>
@@ -93,6 +93,7 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n'
 import { computed } from 'vue'
 import { motion } from 'motion-v'
 import { Check, Copy, Gauge, GripVertical, Loader2, Pencil, Trash2 } from '@lucide/vue'
@@ -107,6 +108,8 @@ import BrandIcon from '@/components/common/BrandIcon.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 
+const { t } = useI18n()
+
 const props = defineProps<{
   config: EnvConfig
   isActive?: boolean
@@ -115,7 +118,7 @@ const props = defineProps<{
 }>()
 
 const enter = computed(() => listEnter(props.index ?? 0))
-const applyLabel = computed(() => props.isActive && props.config.provider === 'opencode' ? '停用' : '应用')
+const applyLabel = computed(() => props.isActive && props.config.provider === 'opencode' ? t('envList.deactivate') : t('envList.apply'))
 
 defineEmits<{
   click: []
@@ -169,7 +172,7 @@ const latestCheck = computed(() => uptimeHistory.value.at(-1) ?? null)
 const uptimeBadgeText = computed(() => {
   if (!baseUrlValue.value?.trim()) return '-'
   const last = latestCheck.value
-  if (!last) return '未测'
-  return last.success ? `${last.latency_ms}ms` : '失败'
+  if (!last) return t('envList.untested')
+  return last.success ? `${last.latency_ms}ms` : t('envList.failed')
 })
 </script>

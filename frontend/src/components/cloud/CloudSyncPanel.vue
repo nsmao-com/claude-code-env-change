@@ -1,17 +1,17 @@
 <template>
   <AppModal v-model="isOpen" size="lg" :plain="embedded" width="form" :close-on-overlay="false">
     <template #header>
-      <h1 class="text-[2.5rem] leading-none font-semibold tracking-tight">云同步</h1>
-      <p class="mt-2 text-sm text-muted-foreground">把配置自动备份到 S3 / 阿里云 OSS，换电脑后凭同一套凭证拉取</p>
+      <h1 class="text-[2.5rem] leading-none font-semibold tracking-tight">{{ t('nav.cloud') }}</h1>
+      <p class="mt-2 text-sm text-muted-foreground">{{ t('cloud.panelHint') }}</p>
     </template>
 
     <Card class="mb-4">
       <CardHeader>
-        <CardTitle>状态</CardTitle>
-        <CardDescription>备份到对象存储，换电脑用同一套凭证拉取</CardDescription>
+        <CardTitle>{{ t('cloud.status') }}</CardTitle>
+        <CardDescription>{{ t('cloud.statusDesc') }}</CardDescription>
         <CardAction>
           <div class="flex items-center gap-2">
-            <span class="text-xs text-muted-foreground">{{ form.enabled ? '已启用' : '未启用' }}</span>
+            <span class="text-xs text-muted-foreground">{{ form.enabled ? t('cloud.enabled') : t('cloud.disabled') }}</span>
             <Switch :checked="form.enabled" :disabled="busy" @update:checked="onFlag('enabled', $event)" />
           </div>
         </CardAction>
@@ -19,12 +19,12 @@
       <CardContent>
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div class="rounded-lg bg-muted/60 px-3 py-2.5">
-            <p class="text-[11px] text-muted-foreground">上次上传</p>
-            <p class="mt-0.5 text-sm font-medium">{{ status?.last_push_at ? formatTime(status.last_push_at) : '尚未上传' }}</p>
+            <p class="text-[11px] text-muted-foreground">{{ t('cloud.lastPush') }}</p>
+            <p class="mt-0.5 text-sm font-medium">{{ status?.last_push_at ? formatTime(status.last_push_at) : t('cloud.neverPushed') }}</p>
           </div>
           <div class="rounded-lg bg-muted/60 px-3 py-2.5">
-            <p class="text-[11px] text-muted-foreground">上次拉取</p>
-            <p class="mt-0.5 text-sm font-medium">{{ status?.last_pull_at ? formatTime(status.last_pull_at) : '尚未拉取' }}</p>
+            <p class="text-[11px] text-muted-foreground">{{ t('cloud.lastPull') }}</p>
+            <p class="mt-0.5 text-sm font-medium">{{ status?.last_pull_at ? formatTime(status.last_pull_at) : t('cloud.neverPulled') }}</p>
           </div>
         </div>
         <p v-if="status?.last_error" class="mt-3 text-[11px] text-destructive">{{ status.last_error }}</p>
@@ -34,52 +34,51 @@
     <div class="space-y-5">
       <div class="grid grid-cols-2 gap-3">
         <div class="grid gap-1.5">
-          <Label>服务商</Label>
+          <Label>{{ t('cloud.provider') }}</Label>
           <Select :model-value="form.provider" @update:model-value="onProviderSelect">
             <SelectTrigger class="w-full">
-              <SelectValue placeholder="选择服务商" />
+              <SelectValue :placeholder="t('cloud.providerPlaceholder')" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="aliyun">阿里云 OSS</SelectItem>
+              <SelectItem value="aliyun">{{ t('cloud.aliyun') }}</SelectItem>
               <SelectItem value="s3">AWS S3</SelectItem>
-              <SelectItem value="tencent">腾讯云 COS</SelectItem>
+              <SelectItem value="tencent">{{ t('cloud.tencent') }}</SelectItem>
               <SelectItem value="r2">Cloudflare R2</SelectItem>
               <SelectItem value="minio">MinIO</SelectItem>
-              <SelectItem value="custom">自定义 S3 兼容</SelectItem>
+              <SelectItem value="custom">{{ t('cloud.custom') }}</SelectItem>
             </SelectContent>
           </Select>
         </div>
         <AppInput v-model="form.region" label="Region" :placeholder="regionPlaceholder" />
       </div>
 
-      <AppInput v-model="form.endpoint" label="Endpoint" :placeholder="endpointPlaceholder" hint="可不含 https://。阿里云示例：oss-cn-hangzhou.aliyuncs.com" />
+      <AppInput v-model="form.endpoint" label="Endpoint" :placeholder="endpointPlaceholder" :hint="t('cloud.endpointHint')" />
       <AppInput v-model="form.bucket" label="Bucket" placeholder="bucket-name" />
-      <AppInput v-model="form.object_key" label="对象 Key" placeholder="claude-env-switcher/backup.bin" />
+      <AppInput v-model="form.object_key" :label="t('cloud.objectKey')" placeholder="claude-env-switcher/backup.bin" />
       <AppInput v-model="form.access_key" label="Access Key" placeholder="AccessKeyId" />
-      <AppInput v-model="form.secret_key" label="Secret Key" type="password" placeholder="留空则保持原值" />
+      <AppInput v-model="form.secret_key" label="Secret Key" type="password" :placeholder="t('cloud.secretPlaceholder')" />
       <AppInput
         v-model="form.passphrase"
-        label="加密口令（推荐）"
+        :label="t('cloud.passphrase')"
         type="password"
-        hint="填写后整包 AES-GCM 加密再上传。换电脑拉取时必须使用同一口令。上游 API Key 仍明文存在本机 router.json / mcp.json，与现有做法一致。"
+        :hint="t('cloud.passphraseHint')"
       />
 
       <div class="flex items-center gap-2">
         <Switch :checked="form.path_style" :disabled="busy" @update:checked="onFlag('path_style', $event)" />
-        <Label>Path-style 访问（MinIO / 部分私有化 S3 需要）</Label>
+        <Label>{{ t('cloud.pathStyle') }}</Label>
       </div>
       <div class="flex items-center gap-2">
         <Switch :checked="form.auto_push" :disabled="busy" @update:checked="onFlag('auto_push', $event)" />
-        <Label>本地配置变更后自动上传</Label>
+        <Label>{{ t('cloud.autoPush') }}</Label>
       </div>
       <div class="flex items-center gap-2">
         <Switch :checked="form.auto_pull_on_start" :disabled="busy" @update:checked="onFlag('auto_pull_on_start', $event)" />
-        <Label>启动时自动从云端拉取（覆盖本地）</Label>
+        <Label>{{ t('cloud.autoPull') }}</Label>
       </div>
 
       <p class="text-[11px] leading-relaxed text-muted-foreground">
-        换电脑：先在本机填写同样的 OSS 凭证（或设置环境变量 CLAUDIA_OSS_BUCKET / ACCESS_KEY / SECRET_KEY），点「从云端拉取」。
-        同步内容包括环境配置、MCP、API 路由、Skills、监控轮换。OSS 凭证本身只保存在本机 cloud.json，不会写进备份包。
+        {{ t('cloud.note') }}
       </p>
     </div>
 
@@ -89,26 +88,27 @@
           <Button type="button" variant="outline" size="sm" :disabled="busy" @click="testConn">
             <Loader2 v-if="testing" class="animate-spin" />
             <Unplug v-else />
-            测试连接
+            {{ t('cloud.test') }}
           </Button>
           <Button type="button" variant="outline" size="sm" :disabled="busy" @click="upload">
             <Loader2 v-if="uploading" class="animate-spin" />
             <Upload v-else />
-            立即上传
+            {{ t('cloud.upload') }}
           </Button>
           <Button type="button" variant="outline" size="sm" :disabled="busy" @click="download">
             <Loader2 v-if="downloading" class="animate-spin" />
             <Download v-else />
-            从云端拉取
+            {{ t('cloud.download') }}
           </Button>
         </div>
-        <Button type="button" :disabled="busy" @click="save">保存设置</Button>
+        <Button type="button" :disabled="busy" @click="save">{{ t('cloud.save') }}</Button>
       </div>
     </template>
   </AppModal>
 </template>
 
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n'
 import { computed, reactive, ref, watch } from 'vue'
 import { Download, Loader2, Unplug, Upload } from '@lucide/vue'
 import type { CloudConfig, CloudProvider } from '@/types'
@@ -124,6 +124,8 @@ import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle }
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
+
+const { t } = useI18n()
 
 interface Props {
   modelValue: boolean
@@ -167,19 +169,14 @@ const downloading = ref(false)
 const saving = ref(false)
 const busy = computed(() => testing.value || uploading.value || downloading.value || saving.value)
 
-const flagLabels: Record<'enabled' | 'path_style' | 'auto_push' | 'auto_pull_on_start', string> = {
-  enabled: '云同步',
-  path_style: 'Path-style 访问',
-  auto_push: '变更后自动上传',
-  auto_pull_on_start: '启动时自动拉取',
-}
+type FlagKey = 'enabled' | 'path_style' | 'auto_push' | 'auto_pull_on_start'
 
 const endpointPlaceholder = computed(() => {
   switch (form.provider) {
     case 'aliyun':
       return 'oss-cn-hangzhou.aliyuncs.com'
     case 's3':
-      return '留空则使用官方 s3.{region}.amazonaws.com'
+      return t('cloud.s3EndpointPlaceholder')
     case 'tencent':
       return 'cos.ap-guangzhou.myqcloud.com'
     case 'r2':
@@ -244,18 +241,19 @@ async function persist(successMessage: string) {
     await cloudStore.save({ ...form })
     toast.success(successMessage)
   } catch (e: any) {
-    toast.error('保存失败: ' + (e?.message || String(e)))
+    toast.error(t('cloud.saveFailed', { error: e?.message || String(e) }))
     throw e
   } finally {
     saving.value = false
   }
 }
 
-async function onFlag(key: keyof typeof flagLabels, value: boolean) {
+async function onFlag(key: FlagKey, value: boolean) {
   const prev = form[key]
   form[key] = value
   try {
-    await persist(value ? `已开启「${flagLabels[key]}」` : `已关闭「${flagLabels[key]}」`)
+    const name = t(`cloud.flag.${key}`)
+    await persist(value ? t('cloud.flagOn', { name }) : t('cloud.flagOff', { name }))
   } catch {
     form[key] = prev
   }
@@ -263,7 +261,7 @@ async function onFlag(key: keyof typeof flagLabels, value: boolean) {
 
 async function save() {
   try {
-    await persist('云同步设置已保存')
+    await persist(t('cloud.saved'))
   } catch {
     /* persist 已提示 */
   }
@@ -278,7 +276,7 @@ async function testConn() {
     else toast.error(result.message)
     await cloudStore.refreshStatus()
   } catch (e: any) {
-    toast.error('测试失败: ' + (e?.message || String(e)))
+    toast.error(t('cloud.testFailed', { error: e?.message || String(e) }))
   } finally {
     testing.value = false
   }
@@ -293,7 +291,7 @@ async function upload() {
     else toast.error(result.message)
     await cloudStore.refreshStatus()
   } catch (e: any) {
-    toast.error('上传失败: ' + (e?.message || String(e)))
+    toast.error(t('cloud.uploadFailed', { error: e?.message || String(e) }))
   } finally {
     uploading.value = false
   }
@@ -301,8 +299,8 @@ async function upload() {
 
 async function download() {
   const ok = await confirm.show(
-    '从云端拉取',
-    '将用云端备份覆盖本机的环境 / MCP / 路由 / Skills / 监控配置。OSS 凭证不会被覆盖。确定继续？',
+    t('cloud.pullTitle'),
+    t('cloud.pullMsg'),
     'warning'
   )
   if (!ok) return
@@ -318,7 +316,7 @@ async function download() {
     }
     await cloudStore.refreshStatus()
   } catch (e: any) {
-    toast.error('拉取失败: ' + (e?.message || String(e)))
+    toast.error(t('cloud.pullFailed', { error: e?.message || String(e) }))
   } finally {
     downloading.value = false
   }

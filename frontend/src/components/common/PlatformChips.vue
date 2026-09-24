@@ -3,7 +3,7 @@
     <AppTooltip
       v-for="item in items"
       :key="item.key"
-      :content="on.has(item.key) ? `从 ${item.label} 移除` : `加入 ${item.label}`"
+      :content="on.has(item.key) ? t('ui.removeFrom', { name: item.label }) : t('ui.addTo', { name: item.label })"
     >
       <button
         type="button"
@@ -24,10 +24,14 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n'
 import { computed } from 'vue'
 import { PLATFORM_ITEMS, type PlatformItem } from '@/lib/platforms'
 import AppTooltip from '@/components/common/AppTooltip.vue'
 import BrandIcon from '@/components/common/BrandIcon.vue'
+
+const { t } = useI18n()
+
 
 const props = withDefaults(defineProps<{
   enabled: string[]

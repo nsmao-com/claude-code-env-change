@@ -1,8 +1,8 @@
 <template>
-  <AppModal v-model="isOpen" :title="isEditing ? '编辑轮换组' : '新建轮换组'" size="xl" :close-on-overlay="false">
+  <AppModal v-model="isOpen" :title="isEditing ? t('uptime.groupForm.titleEdit') : t('uptime.groupForm.titleNew')" size="xl" :close-on-overlay="false">
     <form class="space-y-4" @submit.prevent="handleSubmit">
-      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <AppInput v-model="form.name" label="组名称" placeholder="例如：claude-failover" />
+      <div class="grid grid-cols-1 gap-4">
+        <AppInput v-model="form.name" :label="t('uptime.groupForm.name')" :placeholder="t('uptime.groupForm.namePlaceholder')" />
         <div class="grid gap-1.5">
           <Label>Provider</Label>
           <ToggleGroup
@@ -22,32 +22,32 @@
 
       <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div class="grid gap-1.5">
-          <Label>启用</Label>
+          <Label>{{ t('uptime.groupForm.enable') }}</Label>
           <div class="flex items-center gap-2">
             <Switch :checked="form.enabled" @update:checked="onEnabledChange" />
-            <span class="text-xs text-muted-foreground">{{ form.enabled ? '已启用轮换' : '未启用轮换' }}</span>
+            <span class="text-xs text-muted-foreground">{{ form.enabled ? t('uptime.groupForm.rotationOn') : t('uptime.groupForm.rotationOff') }}</span>
           </div>
         </div>
         <div class="grid gap-1.5">
-          <Label>失败阈值</Label>
+          <Label>{{ t('uptime.groupForm.threshold') }}</Label>
           <Input v-model="form.failure_threshold" type="number" min="1" max="20" />
-          <p class="text-[11px] text-muted-foreground">连续失败达到该次数才会切换到下一个配置</p>
+          <p class="text-[11px] text-muted-foreground">{{ t('uptime.groupForm.thresholdHint') }}</p>
         </div>
         <p class="text-xs leading-relaxed text-muted-foreground">
-          轮换组只在 <span class="font-mono">监控失败</span> 连续达到阈值时触发；切换后会执行一次配置应用。
+          {{ t('uptime.groupForm.noteBefore') }} <span class="font-mono">{{ t('uptime.groupForm.noteTag') }}</span> {{ t('uptime.groupForm.noteAfter') }}
         </p>
       </div>
 
       <div class="border-t pt-4">
         <div class="mb-2 flex items-center justify-between gap-2">
-          <h4 class="text-sm font-medium">组内配置（顺序）</h4>
-          <span class="text-xs text-muted-foreground">共 {{ form.env_names.length }} 个</span>
+          <h4 class="text-sm font-medium">{{ t('uptime.groupForm.members') }}</h4>
+          <span class="text-xs text-muted-foreground">{{ t('uptime.groupForm.count', { count: form.env_names.length }) }}</span>
         </div>
 
         <Empty v-if="form.env_names.length === 0" class="border border-dashed py-4">
           <EmptyHeader>
-            <EmptyTitle class="text-sm">还没有添加配置</EmptyTitle>
-            <EmptyDescription>点击下方可用配置来加入轮换组。</EmptyDescription>
+            <EmptyTitle class="text-sm">{{ t('uptime.groupForm.emptyTitle') }}</EmptyTitle>
+            <EmptyDescription>{{ t('uptime.groupForm.emptyDesc') }}</EmptyDescription>
           </EmptyHeader>
         </Empty>
 
@@ -62,13 +62,13 @@
               <div class="truncate text-[11px] text-muted-foreground">{{ envDesc(name) }}</div>
             </div>
             <div class="flex shrink-0 gap-1">
-              <Button type="button" variant="ghost" size="icon-sm" title="上移" :disabled="idx === 0" @click="moveUp(idx)">
+              <Button type="button" variant="ghost" size="icon-sm" :title="t('uptime.groupForm.moveUp')" :disabled="idx === 0" @click="moveUp(idx)">
                 <ArrowUp />
               </Button>
-              <Button type="button" variant="ghost" size="icon-sm" title="下移" :disabled="idx === form.env_names.length - 1" @click="moveDown(idx)">
+              <Button type="button" variant="ghost" size="icon-sm" :title="t('uptime.groupForm.moveDown')" :disabled="idx === form.env_names.length - 1" @click="moveDown(idx)">
                 <ArrowDown />
               </Button>
-              <Button type="button" variant="ghost" size="icon-sm" title="移除" @click="removeAt(idx)">
+              <Button type="button" variant="ghost" size="icon-sm" :title="t('uptime.groupForm.remove')" @click="removeAt(idx)">
                 <X />
               </Button>
             </div>
@@ -77,8 +77,8 @@
 
         <div class="mt-4">
           <div class="mb-2 flex items-center justify-between gap-2">
-            <h4 class="text-sm font-medium">可用配置</h4>
-            <span class="text-xs text-muted-foreground">{{ availableEnvs.length }} 个</span>
+            <h4 class="text-sm font-medium">{{ t('uptime.groupForm.available') }}</h4>
+            <span class="text-xs text-muted-foreground">{{ t('uptime.groupForm.availableCount', { count: availableEnvs.length }) }}</span>
           </div>
           <div class="flex flex-wrap gap-2">
             <Button
@@ -99,17 +99,18 @@
     </form>
 
     <template #footer>
-      <p class="mr-auto text-xs text-muted-foreground">轮换依据：监控结果（HTTP 可达性）</p>
-      <Button variant="secondary" @click="isOpen = false">取消</Button>
+      <p class="mr-auto text-xs text-muted-foreground">{{ t('uptime.groupForm.basis') }}</p>
+      <Button variant="secondary" @click="isOpen = false">{{ t('common.cancel') }}</Button>
       <Button :disabled="isSaving" @click="handleSubmit">
         <Loader2 v-if="isSaving" class="animate-spin" />
-        {{ isSaving ? '保存中...' : '保存' }}
+        {{ isSaving ? t('uptime.groupForm.saving') : t('common.save') }}
       </Button>
     </template>
   </AppModal>
 </template>
 
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n'
 import { ref, computed, watch } from 'vue'
 import { ArrowDown, ArrowUp, Loader2, X } from '@lucide/vue'
 import type { EnvConfig, RotationGroup, Provider } from '@/types'
@@ -125,6 +126,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+
+const { t } = useI18n()
 
 interface Props {
   modelValue: boolean
@@ -254,19 +257,19 @@ async function handleSubmit() {
 
   const name = form.value.name.trim()
   if (!name) {
-    toast.error('请输入轮换组名称')
+    toast.error(t('uptime.groupForm.nameRequired'))
     return
   }
   if (!form.value.provider) {
-    toast.error('请选择 Provider')
+    toast.error(t('uptime.groupForm.providerRequired'))
     return
   }
   if (!form.value.env_names || form.value.env_names.length === 0) {
-    toast.error('请至少添加 1 个配置')
+    toast.error(t('uptime.groupForm.envRequired'))
     return
   }
   if (!form.value.failure_threshold || form.value.failure_threshold < 1) {
-    toast.error('失败阈值必须 >= 1')
+    toast.error(t('uptime.groupForm.thresholdInvalid'))
     return
   }
 
@@ -279,11 +282,11 @@ async function handleSubmit() {
       enabled: !!form.value.enabled,
       failure_threshold: form.value.failure_threshold
     })
-    toast.success('轮换组已保存')
+    toast.success(t('uptime.groupForm.saved'))
     isOpen.value = false
     emit('saved')
   } catch (e: any) {
-    toast.error('保存失败: ' + (e?.message || String(e)))
+    toast.error(t('uptime.saveFailed', { error: e?.message || String(e) }))
   } finally {
     isSaving.value = false
   }

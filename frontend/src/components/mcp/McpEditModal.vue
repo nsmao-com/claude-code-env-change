@@ -1,23 +1,23 @@
 <template>
-  <AppModal v-model="isOpen" :title="isEditing ? '编辑 MCP 服务器' : '添加 MCP 服务器'" size="lg">
+  <AppModal v-model="isOpen" :title="isEditing ? t('mcp.edit.titleEdit') : t('mcp.edit.titleAdd')" size="lg">
     <div class="space-y-4">
       <SegmentedPills
         :model-value="editorMode"
         layout-id="mcp-editor-mode"
         dense
-        :items="[{ value: 'form', label: '表单' }, { value: 'json', label: 'JSON' }]"
+        :items="[{ value: 'form', label: t('mcp.edit.form') }, { value: 'json', label: 'JSON' }]"
         @update:model-value="onEditorMode"
       />
 
       <form v-show="editorMode === 'form'" class="space-y-4" @submit.prevent="handleSubmit">
         <AppInput
           v-model="form.name"
-          label="服务器名称"
-          placeholder="输入服务器名称"
+          :label="t('mcp.edit.name')"
+          :placeholder="t('mcp.edit.namePlaceholder')"
         />
 
         <div class="grid gap-1.5">
-          <Label>类型</Label>
+          <Label>{{ t('mcp.edit.type') }}</Label>
           <SegmentedPills
             :model-value="form.type"
             layout-id="mcp-type-pill"
@@ -41,7 +41,7 @@
             placeholder="npx"
           />
           <div class="grid gap-1.5">
-            <Label>Args (每行一个)</Label>
+            <Label>{{ t('mcp.edit.args') }}</Label>
             <Textarea
               v-model="form.args"
               class="min-h-24 font-mono text-xs"
@@ -49,7 +49,7 @@
             />
           </div>
           <div class="grid gap-1.5">
-            <Label>环境变量 (KEY=VALUE)</Label>
+            <Label>{{ t('mcp.edit.env') }}</Label>
             <Textarea
               v-model="form.env"
               class="min-h-24 font-mono text-xs"
@@ -65,7 +65,7 @@
             placeholder="http://localhost:3000"
           />
           <div class="grid gap-1.5">
-            <Label>Headers (KEY=VALUE，可选)</Label>
+            <Label>{{ t('mcp.edit.headers') }}</Label>
             <Textarea
               v-model="form.headers"
               class="min-h-24 font-mono text-xs"
@@ -77,17 +77,17 @@
         <div class="space-y-4 border-t border-border pt-4">
           <AppInput
             v-model="form.website"
-            label="官网 (可选)"
+            :label="t('mcp.edit.website')"
             placeholder="https://..."
           />
           <AppInput
             v-model="form.tips"
-            label="备注 (可选)"
-            placeholder="服务器说明..."
+            :label="t('mcp.edit.tips')"
+            :placeholder="t('mcp.edit.tipsPlaceholder')"
           />
 
           <div class="grid gap-1.5">
-            <Label>启用平台</Label>
+            <Label>{{ t('mcp.edit.platforms') }}</Label>
             <ToggleGroup
               type="multiple"
               :model-value="selectedPlatformKeys"
@@ -141,23 +141,24 @@
           placeholder='{"name":"filesystem","type":"stdio","command":"npx","args":["-y","@modelcontextprotocol/server-filesystem"]}'
         />
         <p class="text-xs text-muted-foreground">
-          支持完整对象，或 Claude 的 <span class="font-mono">mcpServers</span> 格式。HTTP 可写 headers。
+          {{ t('mcp.edit.jsonHintBefore') }} <span class="font-mono">mcpServers</span> {{ t('mcp.edit.jsonHintAfter') }}
         </p>
       </div>
     </div>
 
     <template #footer>
       <Button type="button" variant="outline" @click="isOpen = false">
-        取消
+        {{ t('common.cancel') }}
       </Button>
       <Button type="button" @click="handleSubmit">
-        {{ isEditing ? '保存' : '添加' }}
+        {{ isEditing ? t('common.save') : t('mcp.edit.add') }}
       </Button>
     </template>
   </AppModal>
 </template>
 
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n'
 import { ref, computed, watch } from 'vue'
 import { Check, Globe, Terminal } from '@lucide/vue'
 import type { MCPServer } from '@/types'
@@ -174,6 +175,8 @@ import { Textarea } from '@/components/ui/textarea'
 import CodeEditor from '@/components/common/CodeEditor.vue'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import SegmentedPills from '@/components/layout/SegmentedPills.vue'
+
+const { t } = useI18n()
 
 interface Props {
   modelValue: boolean
@@ -324,15 +327,15 @@ function fillFormFromServer(server: MCPServer) {
 
 function serverFromForm(): MCPServer | string {
   const name = form.value.name.trim()
-  if (!name) return '请输入服务器名称'
+  if (!name) return t('mcp.edit.nameRequired')
 
   const exists = mcpStore.servers.some(
     (s, i) => s.name === name && i !== props.editIndex
   )
-  if (exists) return '服务器名称已存在'
+  if (exists) return t('mcp.edit.nameExists')
 
-  if (form.value.type === 'http' && !form.value.url.trim()) return '请输入 URL'
-  if (form.value.type === 'stdio' && !form.value.command.trim()) return '请输入 Command'
+  if (form.value.type === 'http' && !form.value.url.trim()) return t('mcp.edit.urlRequired')
+  if (form.value.type === 'stdio' && !form.value.command.trim()) return t('mcp.edit.commandRequired')
 
   const args = form.value.args.trim()
     ? form.value.args.split('\n').map(s => s.trim()).filter(s => s)
@@ -388,12 +391,12 @@ function serializeJson(): string {
 
 function applyJsonToForm(text: string): string | null {
   const raw = text.trim()
-  if (!raw) return 'JSON 内容为空'
+  if (!raw) return t('mcp.edit.jsonEmpty')
   let parsed: unknown
   try {
     parsed = JSON.parse(raw)
   } catch {
-    return 'JSON 无法解析'
+    return t('mcp.edit.jsonInvalid')
   }
 
   let name = form.value.name
@@ -407,7 +410,7 @@ function applyJsonToForm(text: string): string | null {
     if (servers && typeof servers === 'object' && !Array.isArray(servers)) {
       const map = servers as Record<string, unknown>
       const keys = Object.keys(map)
-      if (keys.length === 0) return 'mcpServers 为空'
+      if (keys.length === 0) return t('mcp.edit.mcpServersEmpty')
       const key = keys.includes(name) ? name : keys[0]
       name = key
       entry = (map[key] && typeof map[key] === 'object') ? map[key] as Record<string, unknown> : null
@@ -417,7 +420,7 @@ function applyJsonToForm(text: string): string | null {
     }
   }
 
-  if (!entry) return '无法识别的 JSON 结构'
+  if (!entry) return t('mcp.edit.jsonUnknown')
 
   if (typeof entry.name === 'string' && entry.name.trim()) name = entry.name.trim()
   form.value.name = name
@@ -514,11 +517,11 @@ async function handleSubmit() {
     } else {
       await mcpStore.addServer(built)
     }
-    toast.success('MCP 服务器已保存')
+    toast.success(t('mcp.edit.saved'))
     isOpen.value = false
     emit('saved')
   } catch (e: unknown) {
-    toast.error('保存失败: ' + errorMessage(e))
+    toast.error(t('mcp.edit.saveFailed', { error: errorMessage(e) }))
   }
 }
 </script>

@@ -6,17 +6,20 @@
   >
     <Loader2 v-if="isLoading" class="animate-spin" />
     <template v-else>
-      <span v-if="availableCount > 0" class="text-green-500">{{ availableCount }} 可用</span>
-      <span v-if="failedCount > 0" class="text-red-500">{{ failedCount > 0 && availableCount > 0 ? ' / ' : '' }}{{ failedCount }} 失败</span>
+      <span v-if="availableCount > 0" class="text-green-500">{{ t('mcp.badge.available', { count: availableCount }) }}</span>
+      <span v-if="failedCount > 0" class="text-red-500">{{ failedCount > 0 && availableCount > 0 ? ' / ' : '' }}{{ t('mcp.badge.failed', { count: failedCount }) }}</span>
     </template>
   </Badge>
 </template>
 
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n'
 import { computed } from 'vue'
 import { Loader2 } from '@lucide/vue'
 import { useMcpStore } from '@/stores/mcpStore'
 import { Badge } from '@/components/ui/badge'
+
+const { t } = useI18n()
 
 const mcpStore = useMcpStore()
 
