@@ -238,7 +238,7 @@ func (a *App) officialLoginClaude() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("序列化配置失败: %v", err)
 	}
-	if err := os.WriteFile(settingsFile, content, 0644); err != nil {
+	if err := writeFileAtomic(settingsFile, content, 0644); err != nil {
 		return "", fmt.Errorf("写入 settings.json 失败: %v", err)
 	}
 	return "已切换到 Claude 官方登录；如未登录过请运行 claude 按提示登录", nil
@@ -305,7 +305,7 @@ func (a *App) officialLoginClaudeDesktop() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("序列化 Claude Desktop 配置失败: %v", err)
 	}
-	if err := os.WriteFile(settingsFile, content, 0o600); err != nil {
+	if err := writeFileAtomic(settingsFile, content, 0o600); err != nil {
 		return "", fmt.Errorf("写入 Claude Desktop 配置失败: %v", err)
 	}
 	return "已切换到 Claude Desktop 官方登录；重启 Claude Desktop 生效", nil
@@ -332,7 +332,7 @@ func (a *App) officialLoginCodex() (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("序列化 config.toml 失败: %v", err)
 		}
-		if err := os.WriteFile(configFile, out, 0644); err != nil {
+		if err := writeFileAtomic(configFile, out, 0644); err != nil {
 			return "", fmt.Errorf("写入 config.toml 失败: %v", err)
 		}
 	} else if readErr != nil && !os.IsNotExist(readErr) {
@@ -357,7 +357,7 @@ func (a *App) officialLoginCodex() (string, error) {
 			if err != nil {
 				return "", fmt.Errorf("序列化 auth.json 失败: %v", err)
 			}
-			if err := os.WriteFile(authFile, out, 0600); err != nil {
+			if err := writeFileAtomic(authFile, out, 0600); err != nil {
 				return "", fmt.Errorf("写入 auth.json 失败: %v", err)
 			}
 		}
@@ -396,7 +396,7 @@ func (a *App) officialLoginAntigravity() (string, error) {
 				return "", fmt.Errorf("清理 .env 失败: %v", err)
 			}
 		} else {
-			if err := os.WriteFile(envFile, []byte(content+"\n"), 0644); err != nil {
+			if err := writeFileAtomic(envFile, []byte(content+"\n"), 0644); err != nil {
 				return "", fmt.Errorf("写入 .env 失败: %v", err)
 			}
 		}
@@ -477,7 +477,7 @@ func clearGeminiAuthSelection(path string) error {
 	if err != nil {
 		return fmt.Errorf("序列化 %s 失败: %v", path, err)
 	}
-	if err := os.WriteFile(path, out, 0644); err != nil {
+	if err := writeFileAtomic(path, out, 0644); err != nil {
 		return fmt.Errorf("写入 %s 失败: %v", path, err)
 	}
 	return nil
@@ -532,7 +532,7 @@ func (a *App) officialLoginOpencode(env *EnvConfig) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("序列化 OpenCode 配置失败: %v", err)
 	}
-	if err := os.WriteFile(configFile, out, 0644); err != nil {
+	if err := writeFileAtomic(configFile, out, 0644); err != nil {
 		return "", fmt.Errorf("写入 OpenCode 配置失败: %v", err)
 	}
 	a.setOpencodeOfficialCurrent(env)
@@ -589,7 +589,7 @@ func (a *App) officialLoginGrok(env *EnvConfig) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("序列化 Grok config.toml 失败: %v", err)
 	}
-	if err := os.WriteFile(configFile, out, 0644); err != nil {
+	if err := writeFileAtomic(configFile, out, 0644); err != nil {
 		return "", fmt.Errorf("写入 Grok config.toml 失败: %v", err)
 	}
 	return "已切换到 Grok 官方登录；如未登录过请运行 grok 按提示登录", nil

@@ -477,7 +477,7 @@ func (ss *SkillService) writeSkillFiles(name string, entry rawSkill, removeDisab
 			if err := os.MkdirAll(dir, 0o755); err != nil {
 				return err
 			}
-			if err := os.WriteFile(file, []byte(entry.Content), 0o644); err != nil {
+			if err := writeFileAtomic(file, []byte(entry.Content), 0o644); err != nil {
 				return err
 			}
 			continue

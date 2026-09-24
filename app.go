@@ -1168,7 +1168,7 @@ func (a *App) applyClaudeDesktopEnv(env *EnvConfig) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("序列化 Claude Desktop 配置失败: %v", err)
 	}
-	if err := os.WriteFile(settingsFile, content, 0o600); err != nil {
+	if err := writeFileAtomic(settingsFile, content, 0o600); err != nil {
 		return "", fmt.Errorf("写入 Claude Desktop 配置失败: %v", err)
 	}
 	if isThirdParty {
@@ -1247,7 +1247,7 @@ func writeClaudeDesktopMeta(configFile string) error {
 	if err != nil {
 		return fmt.Errorf("序列化 Claude Desktop 索引失败: %v", err)
 	}
-	if err := os.WriteFile(metaPath, data, 0o600); err != nil {
+	if err := writeFileAtomic(metaPath, data, 0o600); err != nil {
 		return fmt.Errorf("写入 Claude Desktop 索引失败: %v", err)
 	}
 	return nil
@@ -1295,7 +1295,7 @@ func removeClaudeDesktopMetaEntry(dir, id string) error {
 	if len(kept) == 0 && len(meta) == 0 {
 		return os.Remove(metaPath)
 	}
-	return os.WriteFile(metaPath, updated, 0o600)
+	return writeFileAtomic(metaPath, updated, 0o600)
 }
 
 func updateClaudeDesktopModels(raw any, model string) []map[string]string {
@@ -1500,7 +1500,7 @@ GEMINI_MODEL=%s
 	})
 
 	envFile := filepath.Join(geminiDir, ".env")
-	if err := os.WriteFile(envFile, []byte(envContent), 0644); err != nil {
+	if err := writeFileAtomic(envFile, []byte(envContent), 0644); err != nil {
 		return "", fmt.Errorf("写入 .env 失败: %v", err)
 	}
 
@@ -1628,7 +1628,7 @@ func writeGeminiStyleSettings(settingsFile string, desiredSettings map[string]an
 		return fmt.Errorf("序列化 %s 失败: %v", settingsFile, err)
 	}
 
-	if err := os.WriteFile(settingsFile, settingsContent, 0644); err != nil {
+	if err := writeFileAtomic(settingsFile, settingsContent, 0644); err != nil {
 		return fmt.Errorf("写入 %s 失败: %v", settingsFile, err)
 	}
 	return nil
@@ -2403,7 +2403,7 @@ func (a *App) SavePromptFile(provider, content string) error {
 	}
 
 	// 写入文件
-	if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
+	if err := writeFileAtomic(filePath, []byte(content), 0644); err != nil {
 		return fmt.Errorf("写入文件失败: %v", err)
 	}
 	// 读回校验，避免权限、同步软件或文件映射导致界面显示已保存但磁盘内容未覆盖。
