@@ -364,6 +364,10 @@ func (rs *RouterService) upsertAutoRoute(route APIRoute) error {
 	replaced := false
 	for i := range config.Routes {
 		if strings.EqualFold(config.Routes[i].Name, route.Name) {
+			// 备用上游是用户在路由页手动配的，重新应用配置时不能丢
+			if len(route.Fallbacks) == 0 {
+				route.Fallbacks = config.Routes[i].Fallbacks
+			}
 			config.Routes[i] = route
 			replaced = true
 			break

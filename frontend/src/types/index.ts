@@ -126,6 +126,13 @@ export interface APIRoute {
   model_mapping?: Record<string, string>
   default_model?: string
   enabled: boolean
+  // 备用上游：主上游失败时按顺序切换
+  fallbacks?: RouteUpstream[]
+}
+
+export interface RouteUpstream {
+  base_url: string
+  api_key?: string
 }
 
 export interface RouterConfig {
@@ -138,6 +145,7 @@ export interface RouterConfig {
 export interface RouteStats {
   total_requests: number
   failed_requests: number
+  failover_count?: number
   last_error?: string
   last_request_at?: number
 }
@@ -150,6 +158,8 @@ export interface RouterLogEntry {
   status_code: number
   duration_ms: number
   error?: string
+  upstream?: string
+  failover?: string
 }
 
 export interface RouterLogQuery {

@@ -67,17 +67,16 @@ func (rs *RouterService) serveResponsesEndpoint(w http.ResponseWriter, r *http.R
 		if mappedModel != "" {
 			payload["model"] = mappedModel
 		}
-		upstream, err := rs.newUpstreamRequest(route, r.Method, "/v1/responses", payload)
+		resp, err := rs.doWithFailover(r, route, func(rt APIRoute) (*http.Request, error) {
+			req, err := rs.newUpstreamRequest(rt, r.Method, "/v1/responses", payload)
+			if err == nil {
+				copyClientHeaders(req, r)
+			}
+			return req, err
+		})
 		if err != nil {
 			rs.finishRequest(w, route, r, start, http.StatusBadGateway, inboundModel, err, true)
 			writeOpenAIError(w, http.StatusBadGateway, "api_error", err.Error())
-			return
-		}
-		copyClientHeaders(upstream, r)
-		resp, err := rs.client.Do(upstream)
-		if err != nil {
-			rs.finishRequest(w, route, r, start, http.StatusBadGateway, inboundModel, err, true)
-			writeOpenAIError(w, http.StatusBadGateway, "api_error", fmt.Sprintf("上游请求失败: %v", err))
 			return
 		}
 		defer resp.Body.Close()
@@ -92,16 +91,12 @@ func (rs *RouterService) serveResponsesEndpoint(w http.ResponseWriter, r *http.R
 	converted := responsesRequestToOpenAI(req, mappedModel)
 
 	if target == "openai" {
-		upstream, err := rs.newUpstreamRequest(route, http.MethodPost, "/v1/chat/completions", converted)
+		resp, err := rs.doWithFailover(r, route, func(rt APIRoute) (*http.Request, error) {
+			return rs.newUpstreamRequest(rt, http.MethodPost, "/v1/chat/completions", converted)
+		})
 		if err != nil {
 			rs.finishRequest(w, route, r, start, http.StatusBadGateway, inboundModel, err, true)
 			writeOpenAIError(w, http.StatusBadGateway, "api_error", err.Error())
-			return
-		}
-		resp, err := rs.client.Do(upstream)
-		if err != nil {
-			rs.finishRequest(w, route, r, start, http.StatusBadGateway, inboundModel, err, true)
-			writeOpenAIError(w, http.StatusBadGateway, "api_error", fmt.Sprintf("上游请求失败: %v", err))
 			return
 		}
 		defer resp.Body.Close()
@@ -136,16 +131,12 @@ func (rs *RouterService) serveResponsesEndpoint(w http.ResponseWriter, r *http.R
 	}
 
 	anthropicReq := openAIRequestToAnthropic(converted, mappedModel, defaultAnthropicMaxTokens)
-	upstream, err := rs.newUpstreamRequest(route, http.MethodPost, "/v1/messages", anthropicReq)
+	resp, err := rs.doWithFailover(r, route, func(rt APIRoute) (*http.Request, error) {
+		return rs.newUpstreamRequest(rt, http.MethodPost, "/v1/messages", anthropicReq)
+	})
 	if err != nil {
 		rs.finishRequest(w, route, r, start, http.StatusBadGateway, inboundModel, err, true)
 		writeOpenAIError(w, http.StatusBadGateway, "api_error", err.Error())
-		return
-	}
-	resp, err := rs.client.Do(upstream)
-	if err != nil {
-		rs.finishRequest(w, route, r, start, http.StatusBadGateway, inboundModel, err, true)
-		writeOpenAIError(w, http.StatusBadGateway, "api_error", fmt.Sprintf("上游请求失败: %v", err))
 		return
 	}
 	defer resp.Body.Close()

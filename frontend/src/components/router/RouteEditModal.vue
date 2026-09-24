@@ -66,6 +66,38 @@
       <AppInput v-model="form.api_key" label="上游 API Key" placeholder="sk-..." type="password" :tooltip="tips.apiKey" />
       <AppInput v-model="form.default_model" label="默认模型（可选）" placeholder="未命中映射时使用" :tooltip="tips.model" />
 
+      <div class="space-y-2">
+        <div class="flex items-center justify-between gap-2">
+          <FieldLabel label="备用上游（可选）" :hint="tips.fallbacks" />
+          <div class="flex items-center gap-1">
+            <Select v-if="importableEnvs.length > 0" :model-value="''" @update:model-value="importFallbackFromEnv">
+              <SelectTrigger size="sm" class="h-7 w-auto gap-1 text-xs">
+                <SelectValue placeholder="从配置导入" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="env in importableEnvs" :key="env.name" :value="env.name">
+                  {{ env.name }}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <Button type="button" variant="link" size="sm" @click="addFallbackRow">添加备用</Button>
+          </div>
+        </div>
+        <p v-if="fallbackRows.length === 0" class="text-xs text-muted-foreground">
+          主上游限流、Key 失效或宕机时，自动按顺序切到备用上游重发请求。
+        </p>
+        <div v-for="(row, i) in fallbackRows" :key="i" class="flex items-center gap-2">
+          <span class="w-5 shrink-0 text-center text-xs text-muted-foreground">{{ i + 1 }}</span>
+          <Input v-model="row.base_url" class="flex-[3] font-mono text-xs" placeholder="备用 Base URL" />
+          <Input v-model="row.api_key" type="password" class="flex-[2] font-mono text-xs" placeholder="备用 API Key" />
+          <AppTooltip content="删除这个备用上游">
+            <Button type="button" variant="ghost" size="icon-sm" @click="removeFallbackRow(i)">
+              <X />
+            </Button>
+          </AppTooltip>
+        </div>
+      </div>
+
       <div class="space-y-3 border-t pt-3">
         <Button type="button" variant="ghost" size="sm" @click="showAdvanced = !showAdvanced">
           {{ showAdvanced ? '收起高级选项' : '高级选项' }}
@@ -114,7 +146,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { X } from '@lucide/vue'
-import type { APIRoute, APIFormat, Provider } from '@/types'
+import type { APIRoute, APIFormat, EnvConfig, Provider } from '@/types'
 import { useRouterStore } from '@/stores/routerStore'
 import { useConfigStore } from '@/stores/configStore'
 import { useToast } from '@/composables/useToast'
@@ -171,6 +203,7 @@ const tips = {
   apiKey: '转发给上游时使用的密钥。CLI 里可以随便填占位。',
   model: '请求没带模型名，或映射没命中时使用。',
   mapping: '把 CLI 发出的模型名换成上游认识的名字。* 为兜底。',
+  fallbacks: '与主上游同一种接口格式、同一套模型名。遇到网络错误、429、401/402/403 或 5xx 时按顺序换下一个；失败过的上游冷却 60 秒内排到最后。400 等请求本身的错误不会重试。',
 }
 
 interface Preset {
@@ -225,6 +258,57 @@ const defaultForm = () => ({
 
 const form = ref(defaultForm())
 const mappingRows = ref<{ source: string; target: string }[]>([{ source: '', target: '' }])
+const fallbackRows = ref<{ base_url: string; api_key: string }[]>([])
+
+function addFallbackRow() {
+  fallbackRows.value.push({ base_url: '', api_key: '' })
+}
+
+function removeFallbackRow(index: number) {
+  fallbackRows.value.splice(index, 1)
+}
+
+// upstreamOfEnv 取配置的真实上游地址与 Key（与后端 upstreamVarsForEnv 一致）
+function upstreamOfEnv(env: EnvConfig): { base_url: string; api_key: string } {
+  const v = env.variables || {}
+  switch (env.provider) {
+    case 'claude':
+    case 'claude_desktop':
+      return { base_url: v.ANTHROPIC_BASE_URL || '', api_key: v.ANTHROPIC_AUTH_TOKEN || v.ANTHROPIC_API_KEY || '' }
+    case 'codex':
+      return { base_url: v.base_url || '', api_key: v.OPENAI_API_KEY || '' }
+    case 'antigravity':
+      return { base_url: v.GOOGLE_GEMINI_BASE_URL || '', api_key: v.GEMINI_API_KEY || v.GOOGLE_API_KEY || '' }
+    case 'opencode':
+      return { base_url: v.OPENCODE_BASE_URL || '', api_key: v.OPENCODE_API_KEY || '' }
+    case 'grok':
+      return { base_url: v.XAI_BASE_URL || '', api_key: v.XAI_API_KEY || '' }
+    default:
+      return { base_url: '', api_key: '' }
+  }
+}
+
+// 同一模型商下、带有地址的其它配置都可以一键设为备用（Claude Code 与 Desktop 协议相同，互通）
+const importableEnvs = computed(() => {
+  const client = form.value.client
+  const sameFamily = (p: Provider) => p === client || ((client === 'claude' || client === 'claude_desktop') && (p === 'claude' || p === 'claude_desktop'))
+  return configStore.environments.filter(env =>
+    sameFamily(env.provider) && !env.official_login && /^https?:\/\//i.test(upstreamOfEnv(env).base_url.trim()),
+  )
+})
+
+function importFallbackFromEnv(value: unknown) {
+  const env = importableEnvs.value.find(item => item.name === value)
+  if (!env) return
+  const up = upstreamOfEnv(env)
+  const base = up.base_url.trim().replace(/\/+$/, '')
+  const exists = fallbackRows.value.some(row => row.base_url.trim().replace(/\/+$/, '') === base && row.api_key.trim() === up.api_key.trim())
+  if (exists || (base === form.value.base_url.trim().replace(/\/+$/, '') && up.api_key.trim() === form.value.api_key.trim())) {
+    toast.info(`「${env.name}」已在上游列表里`)
+    return
+  }
+  fallbackRows.value.push({ base_url: base, api_key: up.api_key.trim() })
+}
 
 const isAutoRoute = computed(() => {
   const name = (props.editRoute?.name || '').toLowerCase()
@@ -352,6 +436,7 @@ watch(
     if (!open) {
       form.value = defaultForm()
       mappingRows.value = [{ source: '', target: '' }]
+      fallbackRows.value = []
       showAdvanced.value = false
       return
     }
@@ -368,10 +453,12 @@ watch(
         enabled: route.enabled !== false,
       }
       mappingRows.value = mappingFromRecord(route.model_mapping)
+      fallbackRows.value = (route.fallbacks || []).map(fb => ({ base_url: fb.base_url || '', api_key: fb.api_key || '' }))
       showAdvanced.value = Object.keys(route.model_mapping || {}).length > 0
     } else {
       form.value = defaultForm()
       mappingRows.value = [{ source: '', target: '' }]
+      fallbackRows.value = []
       showAdvanced.value = false
     }
   },
@@ -409,6 +496,13 @@ async function handleSubmit() {
     toast.error('请输入上游 Base URL')
     return
   }
+  const fallbacks = fallbackRows.value
+    .map(row => ({ base_url: row.base_url.trim(), api_key: row.api_key.trim() || undefined }))
+    .filter(row => row.base_url)
+  if (fallbacks.some(row => !/^https?:\/\//i.test(row.base_url))) {
+    toast.error('备用上游的 Base URL 必须以 http:// 或 https:// 开头')
+    return
+  }
 
   const duplicate = routerStore.config.routes.some(
     route => route.name.toLowerCase() === name.toLowerCase() && route.name !== props.editRoute?.name,
@@ -428,6 +522,7 @@ async function handleSubmit() {
     default_model: form.value.default_model.trim() || undefined,
     model_mapping: mappingToRecord(),
     enabled: form.value.enabled,
+    fallbacks: fallbacks.length > 0 ? fallbacks : undefined,
   }
 
   const routes = [...routerStore.config.routes]

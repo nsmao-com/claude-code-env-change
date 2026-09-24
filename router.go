@@ -45,6 +45,8 @@ type APIRoute struct {
 	ModelMapping map[string]string `json:"model_mapping,omitempty"` // 源模型名 -> 上游模型名，"*" 为兜底
 	DefaultModel string            `json:"default_model,omitempty"`
 	Enabled      bool              `json:"enabled"`
+	// Fallbacks 备用上游（与主上游同协议）：主上游网络错误、限流、鉴权/额度失败或 5xx 时依次切换
+	Fallbacks []RouteUpstream `json:"fallbacks,omitempty"`
 }
 
 // RouterConfig 网关配置
@@ -59,6 +61,7 @@ type RouterConfig struct {
 type RouteStats struct {
 	TotalRequests  int64  `json:"total_requests"`
 	FailedRequests int64  `json:"failed_requests"`
+	FailoverCount  int64  `json:"failover_count"` // 发生过上游切换的请求数
 	LastError      string `json:"last_error,omitempty"`
 	LastRequestAt  int64  `json:"last_request_at,omitempty"` // unix 毫秒
 }
@@ -72,6 +75,8 @@ type RouterLogEntry struct {
 	StatusCode int    `json:"status_code"`
 	DurationMs int64  `json:"duration_ms"`
 	Error      string `json:"error,omitempty"`
+	Upstream   string `json:"upstream,omitempty"` // 实际响应的上游 host
+	Failover   string `json:"failover,omitempty"` // 被跳过的上游及原因
 }
 
 // RouterLogQuery 完整日志查询
@@ -283,6 +288,19 @@ func (rs *RouterService) SaveRouterConfig(config RouterConfig) error {
 		if !strings.HasPrefix(route.BaseURL, "http://") && !strings.HasPrefix(route.BaseURL, "https://") {
 			return fmt.Errorf("路由 %s 的 Base URL 必须以 http:// 或 https:// 开头", route.Name)
 		}
+		fallbacks := make([]RouteUpstream, 0, len(route.Fallbacks))
+		for i, fb := range route.Fallbacks {
+			fb.BaseURL = strings.TrimSpace(fb.BaseURL)
+			fb.APIKey = strings.TrimSpace(fb.APIKey)
+			if fb.BaseURL == "" {
+				continue
+			}
+			if !strings.HasPrefix(fb.BaseURL, "http://") && !strings.HasPrefix(fb.BaseURL, "https://") {
+				return fmt.Errorf("路由 %s 的备用上游 %d 必须以 http:// 或 https:// 开头", route.Name, i+1)
+			}
+			fallbacks = append(fallbacks, fb)
+		}
+		route.Fallbacks = fallbacks
 	}
 
 	path, err := rs.configPath()
@@ -450,7 +468,7 @@ func (rs *RouterService) GetRouterLogs(query RouterLogQuery) RouterLogPage {
 			continue
 		}
 		if keyword != "" {
-			blob := strings.ToLower(entry.Route + " " + entry.Path + " " + entry.Model + " " + entry.Error)
+			blob := strings.ToLower(entry.Route + " " + entry.Path + " " + entry.Model + " " + entry.Error + " " + entry.Upstream + " " + entry.Failover)
 			if !strings.Contains(blob, keyword) {
 				continue
 			}
@@ -494,13 +512,12 @@ func (rs *RouterService) ClearRouterLogs() error {
 
 // TestRoute 对路由做一次最小化连通性测试（非流式）
 func (rs *RouterService) TestRoute(name string) RouterTestResult {
-	start := time.Now()
-
 	rs.mu.Lock()
 	var route *APIRoute
 	for i := range rs.config.Routes {
 		if strings.EqualFold(strings.TrimSpace(rs.config.Routes[i].Name), strings.TrimSpace(name)) {
-			route = &rs.config.Routes[i]
+			copied := rs.config.Routes[i]
+			route = &copied
 			break
 		}
 	}
@@ -509,6 +526,30 @@ func (rs *RouterService) TestRoute(name string) RouterTestResult {
 	if route == nil {
 		return RouterTestResult{Success: false, Message: fmt.Sprintf("路由 %q 不存在", name)}
 	}
+
+	upstreams := route.upstreams()
+	primary := rs.testUpstream(*route)
+	if len(upstreams) == 1 {
+		return primary
+	}
+
+	// 有备用上游时逐个测：只要有一个不通，就提示用户（故障转移时会用到它）
+	result := RouterTestResult{Success: primary.Success, Latency: primary.Latency}
+	parts := []string{"主上游：" + primary.Message}
+	for i, up := range upstreams[1:] {
+		r := rs.testUpstream(route.withUpstream(up))
+		if !r.Success {
+			result.Success = false
+		}
+		parts = append(parts, fmt.Sprintf("备用 %d（%s）：%s", i+1, upstreamHost(up.BaseURL), r.Message))
+	}
+	result.Message = strings.Join(parts, "；")
+	return result
+}
+
+// testUpstream 向单个上游发一个最小请求，验证地址、Key 与模型是否可用
+func (rs *RouterService) testUpstream(route APIRoute) RouterTestResult {
+	start := time.Now()
 
 	model := route.DefaultModel
 	if model == "" {
@@ -539,7 +580,7 @@ func (rs *RouterService) TestRoute(name string) RouterTestResult {
 			"max_tokens": 16,
 			"messages":   []map[string]string{{"role": "user", "content": "ping"}},
 		}
-		req, err = rs.newUpstreamRequest(*route, "POST", "/v1/messages", payload)
+		req, err = rs.newUpstreamRequest(route, "POST", "/v1/messages", payload)
 	case "responses":
 		if model == "" {
 			model = "gpt-4o-mini"
@@ -549,7 +590,7 @@ func (rs *RouterService) TestRoute(name string) RouterTestResult {
 			"input":             "ping",
 			"max_output_tokens": 16,
 		}
-		req, err = rs.newUpstreamRequest(*route, "POST", "/v1/responses", payload)
+		req, err = rs.newUpstreamRequest(route, "POST", "/v1/responses", payload)
 	default:
 		if model == "" {
 			model = "gpt-4o-mini"
@@ -559,7 +600,7 @@ func (rs *RouterService) TestRoute(name string) RouterTestResult {
 			"max_tokens": 16,
 			"messages":   []map[string]string{{"role": "user", "content": "ping"}},
 		}
-		req, err = rs.newUpstreamRequest(*route, "POST", "/v1/chat/completions", payload)
+		req, err = rs.newUpstreamRequest(route, "POST", "/v1/chat/completions", payload)
 	}
 	if err != nil {
 		return RouterTestResult{Success: false, Message: err.Error(), Latency: time.Since(start).Milliseconds()}
@@ -632,6 +673,7 @@ func isLoopbackHost(hostport string) bool {
 }
 
 func (rs *RouterService) handleRoot(w http.ResponseWriter, r *http.Request) {
+	r = withGatewayTrace(r)
 	path := strings.Trim(r.URL.Path, "/")
 	parts := strings.Split(path, "/")
 	if len(parts) == 0 || parts[0] == "" {
@@ -709,17 +751,16 @@ func (rs *RouterService) serveAnthropicEndpoint(w http.ResponseWriter, r *http.R
 		payload := map[string]any{}
 		_ = json.Unmarshal(body, &payload)
 		payload["model"] = mappedModel
-		upstream, err := rs.newUpstreamRequest(route, r.Method, "/v1/messages", payload)
+		resp, err := rs.doWithFailover(r, route, func(rt APIRoute) (*http.Request, error) {
+			req, err := rs.newUpstreamRequest(rt, r.Method, "/v1/messages", payload)
+			if err == nil {
+				copyClientHeaders(req, r)
+			}
+			return req, err
+		})
 		if err != nil {
 			rs.finishRequest(w, route, r, start, http.StatusBadGateway, inboundModel, err, true)
 			writeAnthropicError(w, http.StatusBadGateway, "api_error", err.Error())
-			return
-		}
-		copyClientHeaders(upstream, r)
-		resp, err := rs.client.Do(upstream)
-		if err != nil {
-			rs.finishRequest(w, route, r, start, http.StatusBadGateway, inboundModel, err, true)
-			writeAnthropicError(w, http.StatusBadGateway, "api_error", fmt.Sprintf("上游请求失败: %v", err))
 			return
 		}
 		defer resp.Body.Close()
@@ -739,17 +780,12 @@ func (rs *RouterService) serveAnthropicEndpoint(w http.ResponseWriter, r *http.R
 		converted.StreamOptions = &openaiStreamOptions{IncludeUsage: true}
 	}
 
-	upstream, err := rs.newUpstreamRequest(route, http.MethodPost, endpoint, converted)
+	resp, err := rs.doWithFailover(r, route, func(rt APIRoute) (*http.Request, error) {
+		return rs.newUpstreamRequest(rt, http.MethodPost, endpoint, converted)
+	})
 	if err != nil {
 		rs.finishRequest(w, route, r, start, http.StatusBadGateway, inboundModel, err, true)
 		writeAnthropicError(w, http.StatusBadGateway, "api_error", err.Error())
-		return
-	}
-
-	resp, err := rs.client.Do(upstream)
-	if err != nil {
-		rs.finishRequest(w, route, r, start, http.StatusBadGateway, inboundModel, err, true)
-		writeAnthropicError(w, http.StatusBadGateway, "api_error", fmt.Sprintf("上游请求失败: %v", err))
 		return
 	}
 	defer resp.Body.Close()
@@ -814,17 +850,16 @@ func (rs *RouterService) serveOpenAIEndpoint(w http.ResponseWriter, r *http.Requ
 		payload := map[string]any{}
 		_ = json.Unmarshal(body, &payload)
 		payload["model"] = mappedModel
-		upstream, err := rs.newUpstreamRequest(route, r.Method, "/v1/chat/completions", payload)
+		resp, err := rs.doWithFailover(r, route, func(rt APIRoute) (*http.Request, error) {
+			req, err := rs.newUpstreamRequest(rt, r.Method, "/v1/chat/completions", payload)
+			if err == nil {
+				copyClientHeaders(req, r)
+			}
+			return req, err
+		})
 		if err != nil {
 			rs.finishRequest(w, route, r, start, http.StatusBadGateway, inboundModel, err, true)
 			writeOpenAIError(w, http.StatusBadGateway, "api_error", err.Error())
-			return
-		}
-		copyClientHeaders(upstream, r)
-		resp, err := rs.client.Do(upstream)
-		if err != nil {
-			rs.finishRequest(w, route, r, start, http.StatusBadGateway, inboundModel, err, true)
-			writeOpenAIError(w, http.StatusBadGateway, "api_error", fmt.Sprintf("上游请求失败: %v", err))
 			return
 		}
 		defer resp.Body.Close()
@@ -839,17 +874,12 @@ func (rs *RouterService) serveOpenAIEndpoint(w http.ResponseWriter, r *http.Requ
 	// OpenAI → Anthropic 转换
 	converted := openAIRequestToAnthropic(req, mappedModel, defaultAnthropicMaxTokens)
 
-	upstream, err := rs.newUpstreamRequest(route, http.MethodPost, "/v1/messages", converted)
+	resp, err := rs.doWithFailover(r, route, func(rt APIRoute) (*http.Request, error) {
+		return rs.newUpstreamRequest(rt, http.MethodPost, "/v1/messages", converted)
+	})
 	if err != nil {
 		rs.finishRequest(w, route, r, start, http.StatusBadGateway, inboundModel, err, true)
 		writeOpenAIError(w, http.StatusBadGateway, "api_error", err.Error())
-		return
-	}
-
-	resp, err := rs.client.Do(upstream)
-	if err != nil {
-		rs.finishRequest(w, route, r, start, http.StatusBadGateway, inboundModel, err, true)
-		writeOpenAIError(w, http.StatusBadGateway, "api_error", fmt.Sprintf("上游请求失败: %v", err))
 		return
 	}
 	defer resp.Body.Close()
@@ -996,8 +1026,18 @@ func (rt *APIRoute) mapModel(model string) string {
 	return model
 }
 
+// versionSuffixPattern 匹配以 API 版本段结尾的 Base URL，如 /v1、/v4、/v1beta
+var versionSuffixPattern = regexp.MustCompile(`(?i)/v\d+[a-z]*\d*$`)
+
+// joinUpstreamURL 拼接上游地址。Base URL 常按客户端习惯带着版本段
+// （Codex 的 https://api.openai.com/v1、智谱的 .../api/paas/v4），
+// 此时不能再追加 endpoint 自带的 /v1，否则会请求到 /v1/v1/responses。
 func joinUpstreamURL(baseURL, endpoint string) string {
-	return strings.TrimRight(baseURL, "/") + endpoint
+	base := strings.TrimRight(strings.TrimSpace(baseURL), "/")
+	if versionSuffixPattern.MatchString(base) && strings.HasPrefix(endpoint, "/v1/") {
+		endpoint = endpoint[len("/v1"):]
+	}
+	return base + endpoint
 }
 
 func (rs *RouterService) newUpstreamRequest(route APIRoute, method, endpoint string, payload any) (*http.Request, error) {
@@ -1083,10 +1123,6 @@ var hopByHopHeaders = map[string]bool{
 
 func (rs *RouterService) servePassthrough(w http.ResponseWriter, r *http.Request, route APIRoute, rest string) {
 	start := time.Now()
-	targetURL := strings.TrimRight(route.BaseURL, "/") + "/" + strings.TrimLeft(rest, "/")
-	if r.URL.RawQuery != "" {
-		targetURL += "?" + r.URL.RawQuery
-	}
 
 	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxGatewayBodyBytes))
 	if err != nil {
@@ -1095,31 +1131,34 @@ func (rs *RouterService) servePassthrough(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	upstream, err := http.NewRequest(r.Method, targetURL, strings.NewReader(string(body)))
+	resp, err := rs.doWithFailover(r, route, func(rt APIRoute) (*http.Request, error) {
+		targetURL := joinUpstreamURL(rt.BaseURL, "/"+strings.TrimLeft(rest, "/"))
+		if r.URL.RawQuery != "" {
+			targetURL += "?" + r.URL.RawQuery
+		}
+		upstream, err := http.NewRequest(r.Method, targetURL, strings.NewReader(string(body)))
+		if err != nil {
+			return nil, err
+		}
+		for key, values := range r.Header {
+			if hopByHopHeaders[http.CanonicalHeaderKey(key)] {
+				continue
+			}
+			if strings.EqualFold(key, "Host") || strings.EqualFold(key, "Content-Length") {
+				continue
+			}
+			upstream.Header[key] = append([]string(nil), values...)
+		}
+		// 客户端带来的占位 Authorization 会让路由配置的 key 静默失效，摘掉后由路由注入
+		upstream.Header.Del("Authorization")
+		upstream.Header.Del("X-Api-Key")
+		upstream.Header.Del("X-Goog-Api-Key")
+		applyRouteAuth(upstream, rt)
+		return upstream, nil
+	})
 	if err != nil {
 		rs.finishRequest(w, route, r, start, http.StatusBadGateway, "", err, true)
 		writeJSONError(w, http.StatusBadGateway, err.Error())
-		return
-	}
-	for key, values := range r.Header {
-		if hopByHopHeaders[http.CanonicalHeaderKey(key)] {
-			continue
-		}
-		if strings.EqualFold(key, "Host") || strings.EqualFold(key, "Content-Length") {
-			continue
-		}
-		upstream.Header[key] = append([]string(nil), values...)
-	}
-	// 客户端带来的占位 Authorization 会让路由配置的 key 静默失效，摘掉后由路由注入
-	upstream.Header.Del("Authorization")
-	upstream.Header.Del("X-Api-Key")
-	upstream.Header.Del("X-Goog-Api-Key")
-	applyRouteAuth(upstream, route)
-
-	resp, err := rs.client.Do(upstream)
-	if err != nil {
-		rs.finishRequest(w, route, r, start, http.StatusBadGateway, "", err, true)
-		writeJSONError(w, http.StatusBadGateway, fmt.Sprintf("上游请求失败: %v", err))
 		return
 	}
 	defer resp.Body.Close()
@@ -1170,6 +1209,10 @@ func (rs *RouterService) finishRequest(_ http.ResponseWriter, route APIRoute, r 
 	if reqErr != nil {
 		entry.Error = reqErr.Error()
 	}
+	if trace := gatewayTraceFrom(r); trace != nil {
+		entry.Upstream = trace.upstream
+		entry.Failover = strings.Join(trace.skipped, "；")
+	}
 
 	rs.statsMu.Lock()
 
@@ -1180,6 +1223,9 @@ func (rs *RouterService) finishRequest(_ http.ResponseWriter, route APIRoute, r 
 	}
 	stats.TotalRequests++
 	stats.LastRequestAt = time.Now().UnixMilli()
+	if entry.Failover != "" {
+		stats.FailoverCount++
+	}
 	if failed {
 		stats.FailedRequests++
 		if reqErr != nil {

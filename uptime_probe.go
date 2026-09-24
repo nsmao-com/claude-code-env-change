@@ -104,11 +104,10 @@ func authProbeProtocol(env *EnvConfig, provider string) string {
 	}
 }
 
-// joinModelsURL 拼出列模型地址：Base URL 已带版本段（/v1、/v1beta）时不再重复
+// joinModelsURL 拼出列模型地址：Base URL 已带版本段（/v1、/v4、/v1beta）时不再重复
 func joinModelsURL(baseURL, versionedPath string) string {
 	base := strings.TrimRight(strings.TrimSpace(baseURL), "/")
-	version := versionedPath[:strings.LastIndex(versionedPath, "/")]
-	if strings.HasSuffix(strings.ToLower(base), strings.ToLower(version)) {
+	if versionSuffixPattern.MatchString(base) {
 		return base + "/models"
 	}
 	return base + versionedPath
