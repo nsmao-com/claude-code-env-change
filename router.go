@@ -573,7 +573,8 @@ func (rs *RouterService) testUpstream(route APIRoute) RouterTestResult {
 	switch target {
 	case "anthropic":
 		if model == "" {
-			model = "claude-3-5-haiku-latest"
+			// 未配置模型时用当前在售的最便宜型号（Haiku 3.5 已下线，会被上游当成模型不存在）
+			model = "claude-haiku-4-5"
 		}
 		payload := map[string]any{
 			"model":      model,

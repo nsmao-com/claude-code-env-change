@@ -91,7 +91,7 @@
           </template>
         </AppInput>
         <AppInput v-model="form.claude.authToken" label="Auth Token" placeholder="可选" :tooltip="tips.authToken" />
-        <AppInput v-model="form.claude.model" label="Model" placeholder="claude-sonnet-4-20250514" :tooltip="tips.modelClaude" />
+        <AppInput v-model="form.claude.model" label="Model" placeholder="claude-sonnet-5" :tooltip="tips.modelClaude" />
         <AppInput
           v-model="form.claude.apiKey"
           label="API Key"
@@ -725,7 +725,7 @@ const tips = {
   baseUrlClaude: 'API 根地址。官方是 https://api.anthropic.com。中转/聚合填对方给的地址，一般不要再拼 /v1/messages。右侧闪电图标可测延迟。写入 ANTHROPIC_BASE_URL。',
   upstreamAdvanced: '中转站实际协议。和 CLI 原生一致选「原生直连」。Claude 接 Codex/GPT 选 Responses；Codex 接 Claude 选 Anthropic Messages。改完后打开左上角对应模型商的路由开关。',
   authToken: '部分中转用 Token 而不是 API Key。对应 ANTHROPIC_AUTH_TOKEN。通常与 API Key 二选一即可。',
-  modelClaude: '主模型 ID，例如 claude-sonnet-4-20250514 或中转文档里的名称。写入 ANTHROPIC_MODEL。',
+  modelClaude: '主模型 ID，例如 claude-sonnet-5 或中转文档里的名称。留空则使用 Claude Code 的默认模型。写入 ANTHROPIC_MODEL。',
   apiKeyClaude: '密钥。官方以 sk-ant- 开头，中转按对方格式。写入 ANTHROPIC_API_KEY。',
   attributionHeader: '是否发送 Claude Code 归因头。1 开启，0 关闭。选「不设置」则沿用 CLI 默认。',
   disableNonessential: '1 会禁止遥测等非必要网络请求。选「不设置」则不改这项。',

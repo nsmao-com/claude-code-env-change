@@ -674,17 +674,20 @@ function formatCost(cost: number): string {
   return cost.toFixed(4)
 }
 
+// 按 Claude 模型 ID 的命名规则解析：claude-opus-4-8、claude-sonnet-4-5-20250929、
+// claude-fable-5-1，以及旧式的 claude-3-5-sonnet-20241022。末尾的 8 位日期不是版本号。
+function formatClaudeModelName(model: string): string | null {
+  const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
+  const current = model.match(/claude-(opus|sonnet|haiku|fable|mythos)-(\d+)(?:-(\d{1,2}))?(?!\d)/)
+  if (current) return `${cap(current[1])} ${current[2]}${current[3] ? `.${current[3]}` : ''}`
+  const legacy = model.match(/claude-(\d+)(?:-(\d+))?-(opus|sonnet|haiku)/)
+  if (legacy) return `${cap(legacy[3])} ${legacy[1]}${legacy[2] ? `.${legacy[2]}` : ''}`
+  return null
+}
+
 function formatModelName(model: string): string {
-  if (model.includes('opus-4-5')) return 'Opus 4.5'
-  if (model.includes('opus-4-1')) return 'Opus 4.1'
-  if (model.includes('opus-4')) return 'Opus 4'
-  if (model.includes('opus')) return 'Opus'
-  if (model.includes('sonnet-4-5')) return 'Sonnet 4.5'
-  if (model.includes('sonnet-4')) return 'Sonnet 4'
-  if (model.includes('3-7-sonnet')) return 'Sonnet 3.7'
-  if (model.includes('3-5-sonnet')) return 'Sonnet 3.5'
-  if (model.includes('3-5-haiku')) return 'Haiku 3.5'
-  if (model.includes('haiku')) return 'Haiku'
+  const claude = formatClaudeModelName(model)
+  if (claude) return claude
   if (model.includes('gpt-4o-mini')) return 'GPT-4o Mini'
   if (model.includes('gpt-4o')) return 'GPT-4o'
   if (model.includes('gpt-4-turbo')) return 'GPT-4 Turbo'
