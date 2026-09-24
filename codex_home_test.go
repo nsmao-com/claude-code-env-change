@@ -63,3 +63,20 @@ func TestSkillSyncWritesToCodexHome(t *testing.T) {
 		t.Fatalf("设置 CODEX_HOME 后不应再写入 ~/.codex/skills")
 	}
 }
+
+// 云端备份等外部来源里的技能名不能借 ../ 写到 skills 目录之外
+func TestSkillWriteRejectsPathTraversal(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	t.Setenv("CODEX_HOME", "")
+	ss := NewSkillService()
+	for _, name := range []string{"../evil", "..", `a\b`, "a/b", "c:x"} {
+		if err := ss.writeSkillFiles(name, rawSkill{Content: "x", EnablePlatform: []string{platClaudeCode}}, false); err == nil {
+			t.Fatalf("应拒绝技能名 %q", name)
+		}
+	}
+	if fileExists(filepath.Join(home, ".claude", "evil", "SKILL.md")) {
+		t.Fatalf("写到了 skills 目录之外")
+	}
+}

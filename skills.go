@@ -422,16 +422,25 @@ func (ss *SkillService) applyStoreToPlatforms() error {
 	if err != nil {
 		return err
 	}
+	// 单个 Skill 失败不影响其它 Skill 写回，最后汇总报告
+	var failed []string
 	for name, entry := range config {
 		if err := ss.writeSkillFiles(name, entry, false); err != nil {
-			return fmt.Errorf("%s: %v", name, err)
+			failed = append(failed, fmt.Sprintf("%s: %v", name, err))
 		}
+	}
+	if len(failed) > 0 {
+		sort.Strings(failed)
+		return fmt.Errorf("%s", strings.Join(failed, "；"))
 	}
 	return nil
 }
 
 // writeSkillFiles 把 SKILL.md 写到启用的平台；removeDisabled 时从未启用的平台卸载
 func (ss *SkillService) writeSkillFiles(name string, entry rawSkill, removeDisabled bool) error {
+	if !isSafeSkillDirName(name) {
+		return fmt.Errorf("技能名称 %q 不能作为目录名", name)
+	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return err
@@ -487,7 +496,18 @@ func (ss *SkillService) writeSkillFiles(name string, entry rawSkill, removeDisab
 	return nil
 }
 
+// isSafeSkillDirName 名称会直接拼进各平台的 skills 目录：云端备份、导入文件里
+// 带 ../ 或路径分隔符的名字会写到 skills 目录之外，必须拒绝
+func isSafeSkillDirName(name string) bool {
+	name = strings.TrimSpace(name)
+	return name != "" && name != "." && name != ".." &&
+		!strings.ContainsAny(name, `/\:`) && filepath.Base(name) == name
+}
+
 func (ss *SkillService) removeSkillFromAllPlatforms(name string) error {
+	if !isSafeSkillDirName(name) {
+		return fmt.Errorf("技能名称 %q 不能作为目录名", name)
+	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return err
