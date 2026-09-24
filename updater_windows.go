@@ -164,7 +164,9 @@ func buildReplaceScript(pid int, src, dst string) string {
 	b.WriteString("$lastErr = ''\n")
 	b.WriteString("for ($i = 0; $i -lt 20; $i++) {\n")
 	b.WriteString("  try {\n")
-	b.WriteString("    Copy-Item -LiteralPath $src -Destination $dst -Force\n")
+	// 脚本整体是 Continue，文件被占用等错误默认不会抛出；必须 Stop 才能进 catch 重试，
+	// 否则复制失败也会记成 OK 并删掉下载好的新版本
+	b.WriteString("    Copy-Item -LiteralPath $src -Destination $dst -Force -ErrorAction Stop\n")
 	b.WriteString("    $copied = $true\n")
 	b.WriteString("    break\n")
 	b.WriteString("  } catch {\n")
