@@ -148,3 +148,21 @@ func TestCloudRestoreWritesBackToPlatforms(t *testing.T) {
 		t.Fatalf("重新加载后 Skill 的平台标记丢失: %+v", skills)
 	}
 }
+
+// 对象 Key 按 SigV4 UriEncode 编码，且实际请求路径与签名用的 canonical URI 一致
+func TestOSSKeyEncodingMatchesCanonicalURI(t *testing.T) {
+	if got := encodeOSSPath("dir one/backup+v2@home=1.bin"); got != "dir%20one/backup%2Bv2%40home%3D1.bin" {
+		t.Fatalf("编码不符合 SigV4 UriEncode: %s", got)
+	}
+	if got := encodeOSSPath("备份/a~b_c-d.bin"); got != "%E5%A4%87%E4%BB%BD/a~b_c-d.bin" {
+		t.Fatalf("非 ASCII 与保留字符编码不正确: %s", got)
+	}
+	c := newOSSObjectClient(CloudConfig{Provider: "s3", Region: "us-east-1", Bucket: "b", AccessKey: "ak", SecretKey: "sk"}, nil)
+	req, err := c.newRequest("GET", "k+1.bin", nil, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := req.URL.EscapedPath(); got != "/k%2B1.bin" {
+		t.Fatalf("实际发送的路径应与签名一致，得到 %s", got)
+	}
+}
