@@ -1,7 +1,7 @@
 <template>
   <div class="flex flex-wrap items-center gap-1.5">
     <AppTooltip
-      v-for="item in PLATFORM_ITEMS"
+      v-for="item in items"
       :key="item.key"
       :content="on.has(item.key) ? `从 ${item.label} 移除` : `加入 ${item.label}`"
     >
@@ -25,15 +25,18 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { PLATFORM_ITEMS } from '@/lib/platforms'
+import { PLATFORM_ITEMS, type PlatformItem } from '@/lib/platforms'
 import AppTooltip from '@/components/common/AppTooltip.vue'
 import BrandIcon from '@/components/common/BrandIcon.vue'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   enabled: string[]
   compact?: boolean
   disabled?: boolean
-}>()
+  items?: readonly PlatformItem[]
+}>(), {
+  items: () => PLATFORM_ITEMS,
+})
 
 defineEmits<{
   toggle: [platform: string]

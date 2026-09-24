@@ -47,6 +47,7 @@ export interface MCPServer {
   enabled_in_antigravity: boolean
   enabled_in_opencode?: boolean
   enabled_in_grok?: boolean
+  enabled_in_claude_desktop?: boolean
   missing_placeholders: string[]
 }
 

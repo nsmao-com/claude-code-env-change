@@ -24,6 +24,7 @@
           <div class="mt-1 flex min-w-0 flex-wrap items-center gap-2">
             <PlatformChips
               :enabled="platforms"
+              :items="MCP_PLATFORM_ITEMS"
               :compact="compact"
               @toggle="$emit('toggle-platform', $event)"
             />
@@ -120,6 +121,7 @@ import { Check, ExternalLink, Globe, Loader2, Pencil, Terminal, Trash2, Triangle
 import type { MCPServer, MCPTestResult } from '@/types'
 import AppTooltip from '@/components/common/AppTooltip.vue'
 import PlatformChips from '@/components/common/PlatformChips.vue'
+import { MCP_PLATFORM_ITEMS } from '@/lib/platforms'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 

@@ -463,6 +463,7 @@ export namespace main {
 	    enabled_in_antigravity: boolean;
 	    enabled_in_opencode: boolean;
 	    enabled_in_grok: boolean;
+	    enabled_in_claude_desktop: boolean;
 	    missing_placeholders: string[];
 	
 	    static createFrom(source: any = {}) {
@@ -486,6 +487,7 @@ export namespace main {
 	        this.enabled_in_antigravity = source["enabled_in_antigravity"];
 	        this.enabled_in_opencode = source["enabled_in_opencode"];
 	        this.enabled_in_grok = source["enabled_in_grok"];
+	        this.enabled_in_claude_desktop = source["enabled_in_claude_desktop"];
 	        this.missing_placeholders = source["missing_placeholders"];
 	    }
 	}

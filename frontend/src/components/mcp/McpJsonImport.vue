@@ -35,6 +35,11 @@
             Claude
             <Check v-if="selectedPlatforms.claude" />
           </ToggleGroupItem>
+          <ToggleGroupItem value="claude-desktop" class="flex-1">
+            <BrandIcon provider="claude_desktop" />
+            Claude Desktop
+            <Check v-if="selectedPlatforms.claudeDesktop" />
+          </ToggleGroupItem>
           <ToggleGroupItem value="codex" class="flex-1">
             <BrandIcon provider="codex" />
             Codex
@@ -119,6 +124,7 @@ function platformsFromFilter() {
   const tool = configStore.currentFilter
   return {
     claude: tool === 'all' || tool === 'claude',
+    claudeDesktop: tool === 'claude_desktop',
     codex: tool === 'codex',
     antigravity: tool === 'antigravity',
     opencode: tool === 'opencode',
@@ -136,12 +142,13 @@ const isImporting = ref(false)
 const selectedPlatforms = ref(platformsFromFilter())
 
 const hasSelectedPlatform = computed(() => {
-  return selectedPlatforms.value.claude || selectedPlatforms.value.codex || selectedPlatforms.value.antigravity || selectedPlatforms.value.opencode || selectedPlatforms.value.grok
+  return selectedPlatforms.value.claude || selectedPlatforms.value.claudeDesktop || selectedPlatforms.value.codex || selectedPlatforms.value.antigravity || selectedPlatforms.value.opencode || selectedPlatforms.value.grok
 })
 
 const selectedPlatformKeys = computed(() => {
   const keys: string[] = []
   if (selectedPlatforms.value.claude) keys.push('claude')
+  if (selectedPlatforms.value.claudeDesktop) keys.push('claude-desktop')
   if (selectedPlatforms.value.codex) keys.push('codex')
   if (selectedPlatforms.value.antigravity) keys.push('antigravity')
   if (selectedPlatforms.value.opencode) keys.push('opencode')
@@ -161,6 +168,7 @@ function onPlatforms(value: unknown) {
   const keys = Array.isArray(value) ? value : []
   selectedPlatforms.value = {
     claude: keys.includes('claude'),
+    claudeDesktop: keys.includes('claude-desktop'),
     codex: keys.includes('codex'),
     antigravity: keys.includes('antigravity'),
     opencode: keys.includes('opencode'),
@@ -198,6 +206,7 @@ async function handleImport() {
 
     const platforms: string[] = []
     if (selectedPlatforms.value.claude) platforms.push('claude-code')
+    if (selectedPlatforms.value.claudeDesktop) platforms.push('claude-desktop')
     if (selectedPlatforms.value.codex) platforms.push('codex')
     if (selectedPlatforms.value.antigravity) platforms.push('antigravity')
     if (selectedPlatforms.value.opencode) platforms.push('opencode')

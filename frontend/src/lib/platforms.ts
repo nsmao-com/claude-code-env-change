@@ -8,6 +8,13 @@ export const PLATFORM_ITEMS = [
 
 export type PlatformKey = (typeof PLATFORM_ITEMS)[number]['key']
 
+export type PlatformItem = (typeof PLATFORM_ITEMS)[number] | typeof CLAUDE_DESKTOP_PLATFORM_ITEM
+
+const CLAUDE_DESKTOP_PLATFORM_ITEM = { key: 'claude-desktop', brand: 'claude_desktop', label: 'Claude Desktop', onClass: 'border-orange-500/30 bg-orange-500/15 text-orange-600 dark:text-orange-400', offClass: 'border-border bg-muted/40 text-muted-foreground' } as const
+
+// MCP 额外支持 Claude Desktop（claude_desktop_config.json）；Skills 没有对应目录，仍用 PLATFORM_ITEMS
+export const MCP_PLATFORM_ITEMS: readonly PlatformItem[] = [PLATFORM_ITEMS[0], CLAUDE_DESKTOP_PLATFORM_ITEM, ...PLATFORM_ITEMS.slice(1)]
+
 export function togglePlatformList(list: string[] | undefined, key: string): string[] {
   const current = list || []
   return current.includes(key) ? current.filter(item => item !== key) : [...current, key]
