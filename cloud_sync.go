@@ -17,12 +17,15 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"golang.org/x/crypto/scrypt"
 )
 
 const (
 	cloudStoreFile     = "cloud.json"
 	cloudBackupVersion = 1
-	cloudMagic         = "CEB1"
+	cloudMagic         = "CEB2"
+	cloudMagicLegacy   = "CEB1"
 	cloudDebounce      = 2 * time.Second
 	defaultCloudKey    = "claude-env-switcher/backup.bin"
 )
@@ -195,7 +198,8 @@ func (cs *CloudSyncService) persistLocked() error {
 	if err != nil {
 		return err
 	}
-	return writeFileAtomic(path, data, 0o644)
+	// cloud.json 含对象存储 SecretKey 与加密口令，仅本人可读
+	return writeFileAtomic(path, data, 0o600)
 }
 
 func (cs *CloudSyncService) isConfiguredLocked() bool {
@@ -509,7 +513,7 @@ func (cs *CloudSyncService) applyBundle(bundle cloudBundle) (int, error) {
 		var pretty any
 		if json.Unmarshal(raw, &pretty) != nil {
 			backupFile(path)
-			return writeFileAtomic(path, raw, 0o644)
+			return writeFileAtomic(path, raw, 0o600)
 		}
 		data, err := json.MarshalIndent(pretty, "", "  ")
 		if err != nil {
@@ -518,9 +522,10 @@ func (cs *CloudSyncService) applyBundle(bundle cloudBundle) (int, error) {
 		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 			return err
 		}
-		// 云端内容即将覆盖本地文件，覆盖前留一份 .bak 作为最后防线
+		// 云端内容即将覆盖本地文件，覆盖前留一份 .bak 作为最后防线；
+		// 恢复出来的配置都可能含 API Key，仅本人可读
 		backupFile(path)
-		return writeFileAtomic(path, data, 0o644)
+		return writeFileAtomic(path, data, 0o600)
 	}
 
 	for name, raw := range bundle.Files {
@@ -554,12 +559,17 @@ func (cs *CloudSyncService) applyBundle(bundle cloudBundle) (int, error) {
 	return n, nil
 }
 
+// 备份密文格式：magic(4) | salt(16) | nonce(12) | AES-256-GCM 密文。
+// CEB2 用 scrypt 派生密钥；CEB1 是早期版本的 2 万轮 SHA-256 迭代，只保留解密兼容。
 func encryptCloudPayload(plain []byte, passphrase string) ([]byte, error) {
 	salt := make([]byte, 16)
 	if _, err := rand.Read(salt); err != nil {
 		return nil, err
 	}
-	key := deriveCloudKey([]byte(passphrase), salt)
+	key, err := deriveCloudKey([]byte(passphrase), salt)
+	if err != nil {
+		return nil, err
+	}
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
@@ -572,7 +582,8 @@ func encryptCloudPayload(plain []byte, passphrase string) ([]byte, error) {
 	if _, err := rand.Read(nonce); err != nil {
 		return nil, err
 	}
-	sealed := gcm.Seal(nil, nonce, plain, nil)
+	// magic 作为附加认证数据：篡改版本号把新密文降级成旧 KDF 解析会直接认证失败
+	sealed := gcm.Seal(nil, nonce, plain, []byte(cloudMagic))
 	out := make([]byte, 0, 4+len(salt)+len(nonce)+len(sealed))
 	out = append(out, []byte(cloudMagic)...)
 	out = append(out, salt...)
@@ -585,17 +596,40 @@ func decryptCloudPayload(raw []byte, passphrase string) ([]byte, error) {
 	if len(raw) == 0 {
 		return nil, fmt.Errorf("云端备份为空")
 	}
+	hasPassphrase := strings.TrimSpace(passphrase) != ""
 	if raw[0] == '{' {
+		// 本机设了口令却拉到明文：可能是有人拿到了存储桶写权限，塞进一份
+		// 改过 Base URL 的明文备份来截获 Key。宁可拒绝，也不静默套用。
+		if hasPassphrase {
+			return nil, fmt.Errorf("云端备份未加密，但本机设置了加密口令；为防篡改已拒绝恢复。确认备份可信时，请先清空口令再拉取")
+		}
 		return raw, nil
 	}
-	if len(raw) < 4+16+12+16 || string(raw[:4]) != cloudMagic {
+	if len(raw) < 4+16+12+16 {
 		return nil, fmt.Errorf("不是本工具的备份格式")
 	}
-	if strings.TrimSpace(passphrase) == "" {
+	magic := string(raw[:4])
+	if magic != cloudMagic && magic != cloudMagicLegacy {
+		return nil, fmt.Errorf("不是本工具的备份格式")
+	}
+	if !hasPassphrase {
 		return nil, fmt.Errorf("该备份已加密，请填写同样的加密口令")
 	}
 	salt := raw[4:20]
-	key := deriveCloudKey([]byte(passphrase), salt)
+	var (
+		key []byte
+		aad []byte
+		err error
+	)
+	if magic == cloudMagic {
+		key, err = deriveCloudKey([]byte(passphrase), salt)
+		if err != nil {
+			return nil, err
+		}
+		aad = []byte(cloudMagic)
+	} else {
+		key = deriveLegacyCloudKey([]byte(passphrase), salt)
+	}
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
@@ -610,14 +644,21 @@ func decryptCloudPayload(raw []byte, passphrase string) ([]byte, error) {
 	}
 	nonce := raw[20 : 20+nonceSize]
 	sealed := raw[20+nonceSize:]
-	plain, err := gcm.Open(nil, nonce, sealed, nil)
+	plain, err := gcm.Open(nil, nonce, sealed, aad)
 	if err != nil {
 		return nil, fmt.Errorf("解密失败，请确认加密口令")
 	}
 	return plain, nil
 }
 
-func deriveCloudKey(passphrase, salt []byte) []byte {
+// deriveCloudKey 用 scrypt（N=2^15, r=8, p=1）从口令派生 AES-256 密钥，
+// 单次约 32MB 内存，显著抬高离线暴力破解口令的成本。
+func deriveCloudKey(passphrase, salt []byte) ([]byte, error) {
+	return scrypt.Key(passphrase, salt, 1<<15, 8, 1, 32)
+}
+
+// deriveLegacyCloudKey CEB1 备份使用的旧 KDF，只用于解密旧备份
+func deriveLegacyCloudKey(passphrase, salt []byte) []byte {
 	key := passphrase
 	for i := 0; i < 20000; i++ {
 		h := sha256.New()

@@ -2287,7 +2287,8 @@ func (a *App) saveConfig() error {
 		os.Remove(tmpName)
 		return fmt.Errorf("保存配置文件失败 (%s): %v", a.configPath, err)
 	}
-	if err := os.Chmod(tmpName, 0o644); err != nil {
+	// config.json 存着各平台的 API Key，仅本人可读
+	if err := os.Chmod(tmpName, 0o600); err != nil {
 		os.Remove(tmpName)
 		return fmt.Errorf("保存配置文件失败 (%s): %v", a.configPath, err)
 	}
