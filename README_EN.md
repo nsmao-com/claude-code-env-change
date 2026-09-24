@@ -40,11 +40,11 @@ The current version is the latest version listed in [GitHub Releases](https://gi
 | Module | What it does |
 | --- | --- |
 | Environments | Multiple profiles, per-tool filter, drag reorder, one-click apply, latency probe, drag-and-drop JSON import |
-| MCP | stdio / HTTP servers, sync into Claude / Codex / Antigravity / OpenCode / Grok |
+| MCP | stdio / HTTP servers, sync into Claude Code / Claude Desktop / Codex / Antigravity / OpenCode / Grok (remote servers reach Claude Desktop through an `npx mcp-remote` bridge, which needs Node.js) |
 | Skills | Edit `SKILL.md`, import from online marketplaces or the bundled library, enable per platform |
-| API router | Local gateway port and per-vendor switches; all five CLIs can convert between Anthropic Messages, Chat Completions, and Responses |
-| Uptime | Periodic Base URL checks and rotation groups |
-| Cloud sync | S3 / Aliyun OSS / compatible endpoints, AES-GCM encrypted objects |
+| API router | Local gateway port and per-vendor switches; all five CLIs can convert between Anthropic Messages, Chat Completions, and Responses; each route can list backup upstreams that take over on rate limits, dead keys, or outages |
+| Uptime | Periodic Base URL checks, optional key verification that catches expired keys or exhausted credit, and rotation groups |
+| Cloud sync | S3 / Aliyun OSS / compatible endpoints, scrypt + AES-GCM encrypted objects |
 | Prompts | Custom system prompts per CLI |
 | Stats | Requests, tokens, cost estimate, model mix, activity heatmap |
 | Settings | Language, theme, accent, outbound proxy |
@@ -103,7 +103,8 @@ Files written into each CLI:
 | Tool | Path |
 | --- | --- |
 | Claude Code | `~/.claude/settings.json` |
-| Codex | `~/.codex/config.toml`, `~/.codex/auth.json` |
+| Codex | `~/.codex/config.toml`, `~/.codex/auth.json` (`CODEX_HOME`) |
+| Claude Desktop (MCP) | `claude_desktop_config.json` in `%APPDATA%\\Claude` (Microsoft Store build: `%LOCALAPPDATA%\\Packages\\Claude_*\\LocalCache\\Roaming\\Claude`) or `~/Library/Application Support/Claude` |
 | Antigravity CLI | `~/.gemini/antigravity-cli/settings.json`, `~/.gemini/config/mcp_config.json`; API key & endpoint are written to user environment variables (agy only reads env vars) |
 | OpenCode | `~/.config/opencode/opencode.json` (`OPENCODE_CONFIG_DIR` / `OPENCODE_CONFIG`) |
 | Grok | `~/.grok/config.toml` (`GROK_HOME`) |
@@ -140,7 +141,9 @@ The local gateway translates Anthropic Messages, OpenAI Chat Completions, and Op
 ## Security
 
 - Default path is local disk only.
-- Cloud sync uses credentials you supply; objects are encrypted with a passphrase-derived AES-GCM key.
+- Cloud sync uses credentials you supply; objects are encrypted with AES-GCM under a scrypt-derived key. With a passphrase set, an unencrypted backup in the bucket is refused rather than restored.
+- The local router gateway only accepts non-browser requests addressed to 127.0.0.1 / localhost, so web pages cannot spend your API keys through it.
+- On macOS / Linux, local files that hold keys (`config.json`, `mcp.json`, `cloud.json`, …) are written with mode 600.
 - API keys are masked in lists and shown in full only in the editor.
 - Do not commit `config.json` or exported backups.
 

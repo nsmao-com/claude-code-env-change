@@ -40,11 +40,11 @@
 | 模块 | 说明 |
 | --- | --- |
 | 环境 | 多配置、按平台筛选、拖拽排序、一键写入对应 CLI、延迟测速、JSON 拖拽导入 |
-| MCP | 管理 stdio / HTTP 服务器，同步到 Claude Code / Claude Desktop / Codex / Antigravity / OpenCode / Grok |
+| MCP | 管理 stdio / HTTP 服务器，同步到 Claude Code / Claude Desktop / Codex / Antigravity / OpenCode / Grok（Claude Desktop 的远程服务器通过 `npx mcp-remote` 桥接，需本机有 Node.js） |
 | Skills | 编辑 `SKILL.md`，从在线市场 / 内置库导入，按平台启用 |
-| API 路由 | 本机网关端口与按厂商开关；各平台可在 Anthropic Messages、Chat Completions、Responses 之间转换 |
-| 监控 | 定时探测 Base URL，按轮换组自动切配置 |
-| 云同步 | S3 / 阿里云 OSS / 兼容端点，AES-GCM 加密后上传 |
+| API 路由 | 本机网关端口与按厂商开关；各平台可在 Anthropic Messages、Chat Completions、Responses 之间转换；每条路由可配备用上游，限流、Key 失效或宕机时自动切换 |
+| 监控 | 定时探测 Base URL，可选「用 Key 验证」发现 Key 失效 / 余额不足，按轮换组自动切配置 |
+| 云同步 | S3 / 阿里云 OSS / 兼容端点，scrypt + AES-GCM 加密后上传 |
 | 提示词 | 编辑各平台自定义系统提示词 |
 | 统计 | 请求量、Token、花费估算、模型分布、活动热力图 |
 | 设置 | 语言、主题、强调色、出站代理 |
@@ -105,8 +105,8 @@ wails build -platform windows/amd64 -nsis -webview2 download
 | 平台 | 路径 |
 | --- | --- |
 | Claude Code | `~/.claude/settings.json` |
-| Claude Desktop | 新版 3P：Windows `%LOCALAPPDATA%\\Claude-3p\\configLibrary\\<id>.json`（当前配置见同目录 `_meta.json`）；旧版 MCP：`%APPDATA%\\Claude\\claude_desktop_config.json`；macOS 旧版：`~/Library/Application Support/Claude/claude_desktop_config.json` |
-| Codex | `~/.codex/config.toml`、`~/.codex/auth.json` |
+| Claude Desktop | 新版 3P：Windows `%LOCALAPPDATA%\\Claude-3p\\configLibrary\\<id>.json`（当前配置见同目录 `_meta.json`）；旧版与 MCP：`%APPDATA%\\Claude\\claude_desktop_config.json`（微软商店版在 `%LOCALAPPDATA%\\Packages\\Claude_*\\LocalCache\\Roaming\\Claude\\`）；macOS：`~/Library/Application Support/Claude/claude_desktop_config.json` |
+| Codex | `~/.codex/config.toml`、`~/.codex/auth.json`（可用 `CODEX_HOME` 覆盖） |
 | Antigravity CLI | `~/.gemini/antigravity-cli/settings.json`、`~/.gemini/config/mcp_config.json`；密钥/端点写入用户环境变量（agy 只认环境变量） |
 | OpenCode | `~/.config/opencode/opencode.json`（可用 `OPENCODE_CONFIG_DIR` / `OPENCODE_CONFIG` 覆盖） |
 | Grok | `~/.grok/config.toml`（可用 `GROK_HOME` 覆盖） |
@@ -143,7 +143,9 @@ wails build -platform windows/amd64 -nsis -webview2 download
 ## 安全
 
 - 配置默认只写本机磁盘，不上传任何服务。
-- 云同步需要你自己提供对象存储凭证；对象内容使用口令派生的 AES-GCM 加密。
+- 云同步需要你自己提供对象存储凭证；对象内容用 scrypt 从口令派生密钥后 AES-GCM 加密。设置了口令时，拉到未加密的备份会拒绝恢复，防止存储桶被人篡改。
+- 本机路由网关只接受 127.0.0.1 / localhost 的非浏览器请求，网页无法借它盗用你的 API Key。
+- 存有 Key 的本地文件（`config.json`、`mcp.json`、`cloud.json` 等）在 macOS / Linux 上权限为 600，只对当前用户可读。
 - 列表里的 API Key 会做掩码；完整值只在编辑表单中出现。
 - 不要把 `config.json` 或导出的备份提交到 Git。
 
