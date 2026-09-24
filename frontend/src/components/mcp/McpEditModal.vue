@@ -101,6 +101,11 @@
                 Claude
                 <Check v-if="form.platforms.claude" />
               </ToggleGroupItem>
+              <ToggleGroupItem value="claude-desktop" class="flex-1">
+                <BrandIcon provider="claude_desktop" />
+                Claude Desktop
+                <Check v-if="form.platforms.claudeDesktop" />
+              </ToggleGroupItem>
               <ToggleGroupItem value="codex" class="flex-1">
                 <BrandIcon provider="codex" />
                 Codex
@@ -200,6 +205,7 @@ function platformsFromFilter() {
   const tool = configStore.currentFilter
   return {
     claude: tool === 'all' || tool === 'claude',
+    claudeDesktop: tool === 'claude_desktop',
     codex: tool === 'codex',
     antigravity: tool === 'antigravity',
     opencode: tool === 'opencode',
@@ -225,6 +231,7 @@ const form = ref(defaultForm())
 const selectedPlatformKeys = computed(() => {
   const keys: string[] = []
   if (form.value.platforms.claude) keys.push('claude')
+  if (form.value.platforms.claudeDesktop) keys.push('claude-desktop')
   if (form.value.platforms.codex) keys.push('codex')
   if (form.value.platforms.antigravity) keys.push('antigravity')
   if (form.value.platforms.opencode) keys.push('opencode')
@@ -241,6 +248,7 @@ function onType(value: string) {
 function onPlatforms(value: unknown) {
   const keys = Array.isArray(value) ? value : []
   form.value.platforms.claude = keys.includes('claude')
+  form.value.platforms.claudeDesktop = keys.includes('claude-desktop')
   form.value.platforms.codex = keys.includes('codex')
   form.value.platforms.antigravity = keys.includes('antigravity')
   form.value.platforms.opencode = keys.includes('opencode')
@@ -283,6 +291,7 @@ function formatKv(map?: Record<string, string>): string {
 function platformsFromForm(): string[] {
   const enablePlatform: string[] = []
   if (form.value.platforms.claude) enablePlatform.push('claude-code')
+  if (form.value.platforms.claudeDesktop) enablePlatform.push('claude-desktop')
   if (form.value.platforms.codex) enablePlatform.push('codex')
   if (form.value.platforms.antigravity) enablePlatform.push('antigravity')
   if (form.value.platforms.opencode) enablePlatform.push('opencode')
@@ -293,6 +302,7 @@ function platformsFromForm(): string[] {
 function applyPlatforms(list?: string[]) {
   const platforms = list || []
   form.value.platforms.claude = platforms.includes('claude-code')
+  form.value.platforms.claudeDesktop = platforms.includes('claude-desktop')
   form.value.platforms.codex = platforms.includes('codex')
   form.value.platforms.antigravity = platforms.includes('antigravity')
   form.value.platforms.opencode = platforms.includes('opencode')

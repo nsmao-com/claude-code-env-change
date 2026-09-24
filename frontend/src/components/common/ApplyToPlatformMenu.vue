@@ -10,7 +10,7 @@
     <DropdownMenuContent align="start" class="w-44">
       <DropdownMenuLabel>加入到哪个平台</DropdownMenuLabel>
       <DropdownMenuItem
-        v-for="item in PLATFORM_ITEMS"
+        v-for="item in items"
         :key="item.key"
         @click="$emit('apply', item.key)"
       >
@@ -23,7 +23,7 @@
 
 <script setup lang="ts">
 import { Loader2, Plus } from '@lucide/vue'
-import { PLATFORM_ITEMS, type PlatformKey } from '@/lib/platforms'
+import { PLATFORM_ITEMS, type PlatformItem } from '@/lib/platforms'
 import BrandIcon from '@/components/common/BrandIcon.vue'
 import { Button } from '@/components/ui/button'
 import {
@@ -34,12 +34,15 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 
-defineProps<{
+withDefaults(defineProps<{
   disabled?: boolean
   applying?: boolean
-}>()
+  items?: readonly PlatformItem[]
+}>(), {
+  items: () => PLATFORM_ITEMS,
+})
 
 defineEmits<{
-  apply: [platform: PlatformKey]
+  apply: [platform: PlatformItem['key']]
 }>()
 </script>

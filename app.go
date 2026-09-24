@@ -1080,6 +1080,15 @@ func (a *App) applyClaudeDesktopEnv(env *EnvConfig) (string, error) {
 		if settings == nil {
 			return "", fmt.Errorf("Claude Desktop 配置模板必须是 JSON 对象")
 		}
+		// MCP 服务器由 MCP 页面管理：模板是导入时的快照，不能用它盖掉当前的 mcpServers
+		if data, readErr := os.ReadFile(settingsFile); readErr == nil && len(data) > 0 {
+			var current map[string]any
+			if json.Unmarshal(data, &current) == nil {
+				if servers, ok := current["mcpServers"]; ok {
+					settings["mcpServers"] = servers
+				}
+			}
+		}
 	} else if data, readErr := os.ReadFile(settingsFile); readErr == nil && len(data) > 0 {
 		if err := json.Unmarshal(data, &settings); err != nil {
 			return "", fmt.Errorf("解析 %s 失败，为保护原文件已中止写入: %v", settingsFile, err)
@@ -1752,9 +1761,14 @@ func (a *App) clearClaudeDesktopSettingsLocked() error {
 		}
 		return a.saveConfig()
 	}
+	// 旧版 claude_desktop_config.json 里还有 MCP 服务器与应用偏好：只摘掉本工具写入的 env，
+	// 整个删掉会连带清空 MCP 页面同步过去的服务器
 	backupFile(path)
-	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+	if err := removeJSONFileKeys(path, "env"); err != nil {
 		return err
+	}
+	if data, err := os.ReadFile(path); err == nil && strings.TrimSpace(string(data)) == "{}" {
+		_ = os.Remove(path)
 	}
 	oldName := a.config.CurrentEnvClaudeDesktop
 	a.config.CurrentEnvClaudeDesktop = ""

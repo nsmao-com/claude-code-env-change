@@ -33,6 +33,7 @@
           市场
         </Button>
         <ApplyToPlatformMenu
+          :items="MCP_PLATFORM_ITEMS"
           :disabled="mcpStore.servers.length === 0"
           :applying="isApplying"
           @apply="applyToPlatform"
@@ -213,6 +214,7 @@ import { useToast } from '@/composables/useToast'
 import AppModal from '@/components/common/AppModal.vue'
 import AppTooltip from '@/components/common/AppTooltip.vue'
 import ApplyToPlatformMenu from '@/components/common/ApplyToPlatformMenu.vue'
+import { MCP_PLATFORM_ITEMS } from '@/lib/platforms'
 import { Button } from '@/components/ui/button'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -225,7 +227,7 @@ import McpEditModal from './McpEditModal.vue'
 import McpJsonImport from './McpJsonImport.vue'
 import McpExportModal from './McpExportModal.vue'
 
-type PlatformFilter = 'all' | 'claude-code' | 'codex' | 'antigravity' | 'opencode' | 'grok'
+type PlatformFilter = 'all' | 'claude-code' | 'claude-desktop' | 'codex' | 'antigravity' | 'opencode' | 'grok'
 
 interface Props {
   modelValue: boolean
@@ -289,6 +291,7 @@ const filteredServerItems = computed(() => {
 
 function syncTool(tool: string) {
   if (tool === 'claude') currentPlatform.value = 'claude-code'
+  else if (tool === 'claude_desktop') currentPlatform.value = 'claude-desktop'
   else if (tool === 'codex' || tool === 'antigravity' || tool === 'opencode' || tool === 'grok') currentPlatform.value = tool
   else currentPlatform.value = 'all'
 }
@@ -494,6 +497,7 @@ async function togglePlatform(server: MCPServer, platform: string) {
 
 function platformLabel(platform: string) {
   if (platform === 'claude-code') return 'Claude Code'
+  if (platform === 'claude-desktop') return 'Claude Desktop'
   if (platform === 'codex') return 'Codex'
   if (platform === 'antigravity') return 'Antigravity'
   if (platform === 'opencode') return 'OpenCode'
