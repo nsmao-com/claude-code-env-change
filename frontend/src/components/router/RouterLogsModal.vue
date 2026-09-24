@@ -6,42 +6,42 @@
           <List class="size-4 text-primary" />
         </div>
         <div>
-          <DialogTitle class="text-lg font-semibold">请求日志</DialogTitle>
-          <p class="text-xs text-muted-foreground">保留最近 1000 条，便于排查协议转换与上游错误</p>
+          <DialogTitle class="text-lg font-semibold">{{ t('router.logs.title') }}</DialogTitle>
+          <p class="text-xs text-muted-foreground">{{ t('router.logs.subtitle') }}</p>
         </div>
       </div>
     </template>
 
     <div class="mb-4 flex flex-wrap items-end">
       <div class="mb-2 mr-3 grid gap-1.5">
-        <Label>路由</Label>
+        <Label>{{ t('router.logs.route') }}</Label>
         <Select :model-value="routeFilter || '__all__'" @update:model-value="onRouteFilter">
           <SelectTrigger class="w-40 text-xs">
-            <SelectValue placeholder="全部" />
+            <SelectValue :placeholder="t('router.logs.all')" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="__all__">全部</SelectItem>
+            <SelectItem value="__all__">{{ t('router.logs.all') }}</SelectItem>
             <SelectItem v-for="name in routeNames" :key="name" :value="name">{{ name }}</SelectItem>
           </SelectContent>
         </Select>
       </div>
       <div class="mb-2 mr-3 grid min-w-[180px] flex-1 gap-1.5">
-        <Label>关键词</Label>
+        <Label>{{ t('router.logs.keyword') }}</Label>
         <Input
           v-model="keyword"
           class="text-xs"
-          placeholder="路径 / 模型 / 错误信息"
+          :placeholder="t('router.logs.keywordPlaceholder')"
           @keyup.enter="reload(true)"
         />
       </div>
       <div class="mb-2 mr-3 flex h-9 items-center gap-2">
         <Switch :checked="onlyErrors" size="sm" @update:checked="onOnlyErrorsChange" />
-        <Label class="cursor-pointer text-xs">只看失败</Label>
+        <Label class="cursor-pointer text-xs">{{ t('router.logs.onlyErrors') }}</Label>
       </div>
       <Button variant="outline" size="sm" class="mb-2" @click="reload(true)">
         <Loader2 v-if="loading" class="animate-spin" />
         <Search v-else />
-        查询
+        {{ t('router.logs.query') }}
       </Button>
     </div>
 
@@ -49,19 +49,19 @@
       <Table class="font-mono text-[11px]">
         <TableHeader class="sticky top-0 bg-card">
           <TableRow>
-            <TableHead>时间</TableHead>
-            <TableHead>路由</TableHead>
-            <TableHead>路径</TableHead>
-            <TableHead>模型</TableHead>
-            <TableHead>上游</TableHead>
-            <TableHead>状态</TableHead>
-            <TableHead class="text-right">耗时</TableHead>
-            <TableHead>错误</TableHead>
+            <TableHead>{{ t('router.logs.time') }}</TableHead>
+            <TableHead>{{ t('router.logs.route') }}</TableHead>
+            <TableHead>{{ t('router.logs.path') }}</TableHead>
+            <TableHead>{{ t('router.logs.model') }}</TableHead>
+            <TableHead>{{ t('router.logs.upstream') }}</TableHead>
+            <TableHead>{{ t('router.logs.status') }}</TableHead>
+            <TableHead class="text-right">{{ t('router.logs.duration') }}</TableHead>
+            <TableHead>{{ t('router.logs.error') }}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           <TableEmpty v-if="!loading && items.length === 0" :colspan="8" class="text-muted-foreground">
-            没有匹配的日志
+            {{ t('router.logs.empty') }}
           </TableEmpty>
           <TableRow v-for="(log, i) in items" :key="i + log.time + log.path">
             <TableCell class="text-muted-foreground">{{ log.time }}</TableCell>
@@ -78,12 +78,12 @@
             </TableCell>
             <TableCell class="max-w-[180px] text-muted-foreground">
               <AppTooltip
-                :content="log.failover ? `已跳过：${log.failover}` : (log.upstream || '')"
+                :content="log.failover ? t('router.logs.skipped', { list: log.failover }) : (log.upstream || '')"
                 wrap
                 :disabled="!log.upstream && !log.failover"
               >
                 <span class="flex items-center gap-1 truncate">
-                  <span v-if="log.failover" class="shrink-0 rounded bg-amber-500/15 px-1 text-amber-600 dark:text-amber-400">切换</span>
+                  <span v-if="log.failover" class="shrink-0 rounded bg-amber-500/15 px-1 text-amber-600 dark:text-amber-400">{{ t('router.logs.switched') }}</span>
                   <span class="truncate">{{ log.upstream }}</span>
                 </span>
               </AppTooltip>
@@ -103,23 +103,24 @@
     </div>
 
     <div class="mt-3 flex items-center justify-between gap-3 text-xs text-muted-foreground">
-      <span>共 {{ total }} 条 · 第 {{ page }} / {{ pageCount }} 页</span>
+      <span>{{ t('router.logs.pager', { total, page, pages: pageCount }) }}</span>
       <div class="flex items-center gap-2">
-        <Button variant="outline" size="sm" :disabled="offset <= 0" @click="prevPage">上一页</Button>
-        <Button variant="outline" size="sm" :disabled="offset + pageSize >= total" @click="nextPage">下一页</Button>
+        <Button variant="outline" size="sm" :disabled="offset <= 0" @click="prevPage">{{ t('router.logs.prev') }}</Button>
+        <Button variant="outline" size="sm" :disabled="offset + pageSize >= total" @click="nextPage">{{ t('router.logs.next') }}</Button>
       </div>
     </div>
 
     <template #footer>
       <div class="flex justify-between gap-3">
-        <Button type="button" variant="destructive" @click="clearLogs">清空日志</Button>
-        <Button type="button" variant="secondary" @click="isOpen = false">关闭</Button>
+        <Button type="button" variant="destructive" @click="clearLogs">{{ t('router.logs.clear') }}</Button>
+        <Button type="button" variant="secondary" @click="isOpen = false">{{ t('router.logs.close') }}</Button>
       </div>
     </template>
   </AppModal>
 </template>
 
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n'
 import { computed, ref, watch } from 'vue'
 import { List, Loader2, Search } from '@lucide/vue'
 import type { RouterLogEntry } from '@/types'
@@ -136,6 +137,8 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Table, TableBody, TableEmpty, TableHead, TableHeader, TableRow, TableCell } from '@/components/ui/table'
+
+const { t } = useI18n()
 
 interface Props {
   modelValue: boolean
@@ -182,7 +185,7 @@ function onRouteFilter(value: unknown) {
 
 function onOnlyErrorsChange(checked: boolean) {
   onlyErrors.value = checked
-  toast.info(checked ? '只显示失败请求' : '显示全部请求')
+  toast.info(checked ? t('router.logs.showErrors') : t('router.logs.showAll'))
   reload(true)
 }
 
@@ -200,7 +203,7 @@ async function reload(resetOffset: boolean) {
     items.value = pageData.items || []
     total.value = pageData.total || 0
   } catch (e: any) {
-    toast.error('加载日志失败: ' + (e?.message || String(e)))
+    toast.error(t('router.logs.loadFailed', { error: e?.message || String(e) }))
   } finally {
     loading.value = false
   }
@@ -217,15 +220,15 @@ function nextPage() {
 }
 
 async function clearLogs() {
-  const ok = await confirm.show('清空日志', '确定清空全部请求日志吗？此操作不可撤销。', 'danger')
+  const ok = await confirm.show(t('router.logs.clearTitle'), t('router.logs.clearMsg'), 'danger')
   if (!ok) return
   try {
     await routerService.clearLogs()
-    toast.success('日志已清空')
+    toast.success(t('router.logs.cleared'))
     await reload(true)
     await routerStore.refreshStatus()
   } catch (e: any) {
-    toast.error('清空失败: ' + (e?.message || String(e)))
+    toast.error(t('router.logs.clearFailed', { error: e?.message || String(e) }))
   }
 }
 </script>

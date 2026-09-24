@@ -1,3 +1,16 @@
+import { enUpdate } from './en/update'
+import { enStats } from './en/stats'
+import { enPrompt } from './en/prompt'
+import { enCloud } from './en/cloud'
+import { enUptime } from './en/uptime'
+import { enRouter } from './en/router'
+import { enSkills } from './en/skills'
+import { enMcp } from './en/mcp'
+import { enEnvForm } from './en/envForm'
+import { enEnvList } from './en/envList'
+import { enHome } from './en/home'
+import { enUi } from './en/ui'
+import { enApp } from './en/app'
 export const en = {
   nav: {
     home: 'Home',
@@ -225,4 +238,17 @@ export const en = {
     clearAll: 'Clear all',
     clearAllMsg: 'Clear config files for every platform?',
   },
+  app: enApp,
+  ui: enUi,
+  home: enHome,
+  envList: enEnvList,
+  envForm: enEnvForm,
+  mcp: enMcp,
+  skills: enSkills,
+  router: enRouter,
+  uptime: enUptime,
+  cloud: enCloud,
+  prompt: enPrompt,
+  stats: enStats,
+  update: enUpdate,
 } as const

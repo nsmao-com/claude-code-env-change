@@ -2,7 +2,7 @@
   <Dialog :open="show" @update:open="onOpen">
     <DialogContent class="gap-3 p-3 sm:max-w-[360px]" :show-close-button="false">
       <DialogHeader>
-        <DialogTitle>选择图标</DialogTitle>
+        <DialogTitle>{{ t('ui.pickIcon') }}</DialogTitle>
       </DialogHeader>
       <SegmentedPills
         :model-value="kind"
@@ -22,7 +22,7 @@
           class="h-7 px-2 text-xs"
           @click="activeGroup = group.id"
         >
-          {{ group.label }}
+          {{ t(`ui.iconGroup.${group.id}`) }}
         </Button>
       </div>
       <div class="grid max-h-64 grid-cols-6 gap-1 overflow-y-auto">
@@ -58,6 +58,7 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n'
 import { computed, ref, watch } from 'vue'
 import { EMOJI_GROUPS } from '@/lib/emojis'
 import { LUCIDE_GROUPS, LUCIDE_ICON_MAP, isLucideIcon, lucideIconValue } from '@/lib/configIcons'
@@ -69,6 +70,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   show: boolean

@@ -6,7 +6,7 @@
       @click="expanded = !expanded"
     >
       <div class="flex min-w-0 items-center gap-2">
-        <span class="text-xs font-medium text-muted-foreground">目前在用</span>
+        <span class="text-xs font-medium text-muted-foreground">{{ t('envList.currentlyUsing') }}</span>
         <div v-if="!expanded" class="flex min-w-0 items-center gap-2">
           <template v-if="appliedConfigs.length">
             <span
@@ -18,7 +18,7 @@
               <span class="max-w-[120px] truncate font-medium">{{ config.name }}</span>
             </span>
           </template>
-          <span v-else class="text-xs text-muted-foreground">暂无</span>
+          <span v-else class="text-xs text-muted-foreground">{{ t('envList.none') }}</span>
         </div>
       </div>
       <ChevronDown :class="['size-3.5 shrink-0 text-muted-foreground transition-transform', expanded && 'rotate-180']" />
@@ -37,19 +37,22 @@
         @delete="$emit('delete', config.name, config.provider)"
       />
       <p v-if="appliedConfigs.length === 0" class="px-4 py-3 text-xs text-muted-foreground">
-        当前筛选下还没有已应用的配置
+        {{ t('envList.noAppliedInFilter') }}
       </p>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n'
 import { computed, ref } from 'vue'
 import { ChevronDown } from '@lucide/vue'
 import type { EnvConfig, Provider } from '@/types'
 import { useConfigStore } from '@/stores/configStore'
 import BrandIcon from '@/components/common/BrandIcon.vue'
 import ConfigListItem from './ConfigListItem.vue'
+
+const { t } = useI18n()
 
 defineEmits<{
   edit: [name: string, provider: string]

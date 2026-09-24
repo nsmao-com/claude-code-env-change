@@ -5,7 +5,7 @@
         <h1 class="text-[2.5rem] leading-none font-semibold tracking-tight">MCP</h1>
         <McpStatusBadge />
       </div>
-      <p class="mt-2 text-sm text-muted-foreground">刷新会检查 Claude Code / Claude Desktop / Codex / Antigravity / OpenCode / Grok 配置里是否已有这些服务器</p>
+      <p class="mt-2 text-sm text-muted-foreground">{{ t('mcp.panelHint') }}</p>
     </template>
 
     <div class="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
@@ -13,11 +13,11 @@
       <div class="flex items-center gap-2">
         <Button size="sm" @click="showAddModal">
           <Plus />
-          添加
+          {{ t('mcp.add') }}
         </Button>
         <Button size="sm" variant="outline" @click="showJsonImport = true">
           <FileJson />
-          JSON 导入
+          {{ t('mcp.jsonImport') }}
         </Button>
         <Button
           size="sm"
@@ -26,11 +26,11 @@
           @click="showExportModal = true"
         >
           <FileDown />
-          导出
+          {{ t('mcp.export') }}
         </Button>
         <Button size="sm" variant="outline" @click="toggleMarket">
           <Store />
-          市场
+          {{ t('mcp.market') }}
         </Button>
         <ApplyToPlatformMenu
           :items="MCP_PLATFORM_ITEMS"
@@ -44,7 +44,7 @@
           :model-value="viewMode"
           layout-id="mcp-view-pill"
           dense
-          :items="[{ value: 'list', label: '列表' }, { value: 'cards', label: '卡片' }]"
+          :items="[{ value: 'list', label: t('mcp.viewList') }, { value: 'cards', label: t('mcp.viewCards') }]"
           @update:model-value="onView"
         >
           <template #default="{ item }">
@@ -60,7 +60,7 @@
         >
           <Loader2 v-if="isRefreshing" class="animate-spin" />
           <RefreshCw v-else />
-          {{ isRefreshing ? '刷新中...' : '刷新' }}
+          {{ isRefreshing ? t('mcp.refreshing') : t('mcp.refresh') }}
         </Button>
         <Button
           size="sm"
@@ -70,7 +70,7 @@
         >
           <Loader2 v-if="isSyncing" class="animate-spin" />
           <RotateCw v-else />
-          {{ isSyncing ? '同步中...' : '同步到平台' }}
+          {{ isSyncing ? t('mcp.syncing') : t('mcp.syncToPlatforms') }}
         </Button>
         <Button
           size="sm"
@@ -80,23 +80,23 @@
         >
           <Loader2 v-if="mcpStore.isTestingAll" class="animate-spin" />
           <Zap v-else />
-          {{ mcpStore.isTestingAll ? '检测中...' : '全部检测' }}
+          {{ mcpStore.isTestingAll ? t('mcp.testing') : t('mcp.testAll') }}
         </Button>
       </div>
     </div>
 
     <div v-if="showMarket" class="mb-4 flex max-h-[36vh] min-h-0 shrink-0 flex-col overflow-hidden rounded-xl border border-dashed border-border bg-secondary/20 p-4">
       <div class="mb-3 flex shrink-0 flex-wrap items-center justify-between gap-3">
-        <span class="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">MCP 在线市场</span>
-        <Input v-model="marketQuery" class="w-[220px]" placeholder="搜索官方 Registry" />
+        <span class="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{{ t('mcp.marketTitle') }}</span>
+        <Input v-model="marketQuery" class="w-[220px]" :placeholder="t('mcp.marketSearch')" />
       </div>
       <p class="mb-3 shrink-0 text-[10px] text-muted-foreground">
-        来自 registry.modelcontextprotocol.io，导入会写入当前筛选的平台
+        {{ t('mcp.marketSource') }}
         <span v-if="marketWarning"> · {{ marketWarning }}</span>
       </p>
       <Empty v-if="marketItems.length === 0 && !marketLoading" class="min-h-0 border-0 py-3">
         <EmptyHeader>
-          <EmptyTitle>{{ marketError || '暂无结果' }}</EmptyTitle>
+          <EmptyTitle>{{ marketError || t('mcp.noResults') }}</EmptyTitle>
         </EmptyHeader>
       </Empty>
       <div v-else-if="marketLoading && marketItems.length === 0" class="flex justify-center py-6">
@@ -116,7 +116,7 @@
                 <Button variant="outline" size="sm" class="shrink-0" :disabled="importingId === item.id" @click="importMarketItem(item)">
                   <Loader2 v-if="importingId === item.id" class="animate-spin" />
                   <Download v-else />
-                  导入
+                  {{ t('mcp.import') }}
                 </Button>
               </div>
             </CardHeader>
@@ -124,7 +124,7 @@
         </div>
         <div v-if="marketNext" class="mt-3 flex justify-center">
           <Button variant="outline" size="sm" :disabled="marketLoading" @click="loadMarket(true)">
-            {{ marketLoading ? '加载中...' : '更多' }}
+            {{ marketLoading ? t('mcp.loading') : t('mcp.more') }}
           </Button>
         </div>
       </div>
@@ -136,13 +136,13 @@
     >
       <EmptyHeader>
         <Server class="size-10 text-muted-foreground" />
-        <EmptyTitle>{{ mcpStore.servers.length === 0 ? '暂无 MCP 服务器' : '该平台暂无 MCP 服务器' }}</EmptyTitle>
-        <EmptyDescription>点击「添加」或「JSON 导入」添加服务器</EmptyDescription>
+        <EmptyTitle>{{ mcpStore.servers.length === 0 ? t('mcp.emptyAll') : t('mcp.emptyPlatform') }}</EmptyTitle>
+        <EmptyDescription>{{ t('mcp.emptyDesc') }}</EmptyDescription>
       </EmptyHeader>
       <EmptyContent>
         <Button size="sm" @click="showAddModal">
           <Plus />
-          添加
+          {{ t('mcp.add') }}
         </Button>
       </EmptyContent>
     </Empty>
@@ -190,6 +190,7 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n'
 import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import {
   Download,
@@ -226,6 +227,8 @@ import McpServerCard from './McpServerCard.vue'
 import McpEditModal from './McpEditModal.vue'
 import McpJsonImport from './McpJsonImport.vue'
 import McpExportModal from './McpExportModal.vue'
+
+const { t } = useI18n()
 
 type PlatformFilter = 'all' | 'claude-code' | 'claude-desktop' | 'codex' | 'antigravity' | 'opencode' | 'grok'
 
@@ -348,7 +351,7 @@ async function loadMarket(more: boolean) {
     marketWarning.value = page.warning || ''
   } catch (e: any) {
     if (!more) marketItems.value = []
-    marketError.value = e?.message || '加载市场失败'
+    marketError.value = e?.message || t('mcp.marketLoadFailed')
   } finally {
     marketLoading.value = false
   }
@@ -359,9 +362,9 @@ async function importMarketItem(item: McpMarketItem) {
   try {
     await mcpService.importMarketplace(item.id, importPlatforms())
     await mcpStore.loadServers()
-    toast.success(`已导入 ${item.title || item.name}`)
+    toast.success(t('mcp.imported', { name: item.title || item.name }))
   } catch (e: any) {
-    toast.error('导入失败: ' + (e?.message || String(e)))
+    toast.error(t('mcp.importFailed', { error: e?.message || String(e) }))
   } finally {
     importingId.value = ''
   }
@@ -398,17 +401,17 @@ async function deleteServer(index: number) {
   const key = server.name
 
   const confirmed = await confirm.show(
-    '删除 MCP 服务器',
-    `确定要删除 "${server.name}" 吗？`,
+    t('mcp.deleteTitle'),
+    t('mcp.deleteMsg', { name: server.name }),
     'danger'
   )
   if (!confirmed) return
 
   try {
     await mcpStore.deleteServerByKey(key)
-    toast.success('MCP 服务器已删除')
+    toast.success(t('mcp.deleted'))
   } catch (e: any) {
-    toast.error('删除失败: ' + (e?.message || String(e)))
+    toast.error(t('mcp.deleteFailed', { error: e?.message || String(e) }))
   }
 }
 
@@ -423,7 +426,7 @@ async function testSingle(index: number) {
       toast.error(`${server.name}: ${result.message}`)
     }
   } catch (e: any) {
-    toast.error('测试失败: ' + e.message)
+    toast.error(t('mcp.testFailed', { error: e?.message || String(e) }))
   } finally {
     testingIndex.value = null
   }
@@ -437,9 +440,9 @@ async function refreshServers() {
   isRefreshing.value = true
   try {
     await mcpStore.loadServers()
-    toast.success('已检查五个平台配置里是否存在这些 MCP')
+    toast.success(t('mcp.refreshed'))
   } catch (e: any) {
-    toast.error('刷新失败: ' + e.message)
+    toast.error(t('mcp.refreshFailed', { error: e?.message || String(e) }))
   } finally {
     isRefreshing.value = false
   }
@@ -449,9 +452,9 @@ async function syncToPlatforms() {
   isSyncing.value = true
   try {
     await mcpStore.syncToPlatforms()
-    toast.success('已重新同步到 Claude / Codex / Antigravity / OpenCode / Grok')
+    toast.success(t('mcp.synced'))
   } catch (e: any) {
-    toast.error('同步失败: ' + (e?.message || String(e)))
+    toast.error(t('mcp.syncFailed', { error: e?.message || String(e) }))
   } finally {
     isSyncing.value = false
   }
@@ -472,10 +475,10 @@ async function applyToPlatform(platform: string) {
   try {
     const added = await mcpStore.applyToPlatform(platform)
     const label = platformLabel(platform)
-    if (added > 0) toast.success(`已把 ${added} 个 MCP 加入 ${label}`)
-    else toast.success(`已经都在 ${label} 里了`)
+    if (added > 0) toast.success(t('mcp.appliedCount', { count: added, platform: label }))
+    else toast.success(t('mcp.alreadyIn', { platform: label }))
   } catch (e: any) {
-    toast.error('加入失败: ' + (e?.message || String(e)))
+    toast.error(t('mcp.applyFailed', { error: e?.message || String(e) }))
   } finally {
     isApplying.value = false
   }
@@ -483,15 +486,15 @@ async function applyToPlatform(platform: string) {
 
 async function togglePlatform(server: MCPServer, platform: string) {
   if (server.missing_placeholders?.length) {
-    toast.error('请先补全占位符再启用平台')
+    toast.error(t('mcp.fillPlaceholders'))
     return
   }
   try {
     await mcpStore.togglePlatform(server.name, platform)
     const on = (mcpStore.servers.find(item => item.name === server.name)?.enable_platform || []).includes(platform)
-    toast.success(on ? `已加入 ${platformLabel(platform)}` : `已从 ${platformLabel(platform)} 移除`)
+    toast.success(on ? t('mcp.addedTo', { platform: platformLabel(platform) }) : t('mcp.removedFrom', { platform: platformLabel(platform) }))
   } catch (e: any) {
-    toast.error('切换失败: ' + (e?.message || String(e)))
+    toast.error(t('mcp.toggleFailed', { error: e?.message || String(e) }))
   }
 }
 

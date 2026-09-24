@@ -1,3 +1,4 @@
+import { useI18n } from '@/composables/useI18n'
 import type { Provider } from '@/types'
 
 export type WorkspaceTool = Provider | 'all'
@@ -13,7 +14,8 @@ export const WORKSPACE_TOOLS: { id: WorkspaceTool; label: string }[] = [
 ]
 
 export function toolLabel(tool: WorkspaceTool) {
-  return WORKSPACE_TOOLS.find(item => item.id === tool)?.label || '全部'
+  if (tool === 'all') return useI18n().t('ui.all')
+  return WORKSPACE_TOOLS.find(item => item.id === tool)?.label || useI18n().t('ui.all')
 }
 
 export function toolToPlatform(tool: WorkspaceTool): string {

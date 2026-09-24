@@ -2,8 +2,8 @@
   <AppModal v-model="isOpen" size="xl" :plain="embedded">
     <template #header>
       <div>
-        <h1 class="text-[2.5rem] leading-none font-semibold tracking-tight">统计</h1>
-        <p class="mt-2 text-sm text-muted-foreground">查看各平台请求量、Token 消耗与花费估算。</p>
+        <h1 class="text-[2.5rem] leading-none font-semibold tracking-tight">{{ t('nav.stats') }}</h1>
+        <p class="mt-2 text-sm text-muted-foreground">{{ t('stats.panelHint') }}</p>
       </div>
     </template>
     <template #actions>
@@ -21,7 +21,7 @@
       </Select>
       <span v-if="loading" class="flex items-center gap-1.5 text-xs text-muted-foreground">
         <Loader2 class="size-3.5 animate-spin" />
-        加载中
+        {{ t('stats.loading') }}
       </span>
       <Button variant="ghost" size="icon-sm" class="rounded-full" :disabled="loading" @click="refresh">
         <RefreshCw :class="['size-3.5', loading && 'animate-spin']" />
@@ -34,7 +34,7 @@
         class="sticky top-0 z-20 mb-3 flex items-center gap-2 rounded-xl border bg-background/95 px-3 py-2 text-sm text-muted-foreground shadow-sm backdrop-blur"
       >
         <Loader2 class="size-4 animate-spin" />
-        正在加载统计数据...
+        {{ t('stats.loadingData') }}
       </div>
 
       <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -54,14 +54,14 @@
       <div class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader class="px-5">
-            <CardTitle>用量分布</CardTitle>
+            <CardTitle>{{ t('stats.distribution') }}</CardTitle>
           </CardHeader>
           <CardContent class="px-5 pb-5">
             <div v-if="doughnutSlices.length" class="flex flex-col items-center gap-4">
               <div class="relative size-56">
                 <Doughnut class="size-full" :data="doughnutData" :options="doughnutOptions" />
                 <div class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                  <span class="text-xs text-muted-foreground">总 Tokens</span>
+                  <span class="text-xs text-muted-foreground">{{ t('stats.totalTokens') }}</span>
                   <span class="text-2xl font-semibold">{{ formatNumber(totalTokens) }}</span>
                 </div>
               </div>
@@ -75,7 +75,7 @@
             <Empty v-else class="h-48 border-0">
               <EmptyHeader>
                 <ChartLine class="size-8 text-muted-foreground" />
-                <EmptyTitle>暂无数据</EmptyTitle>
+                <EmptyTitle>{{ t('stats.noData') }}</EmptyTitle>
               </EmptyHeader>
             </Empty>
           </CardContent>
@@ -84,7 +84,7 @@
         <Card>
           <CardHeader class="px-5">
             <div class="flex items-center justify-between gap-2">
-              <CardTitle>按模型</CardTitle>
+              <CardTitle>{{ t('stats.byModel') }}</CardTitle>
               <div v-if="modelPages > 1" class="flex items-center gap-1 text-xs text-muted-foreground">
                 <Button variant="ghost" size="icon-xs" :disabled="modelPage <= 0" @click="modelPage -= 1">
                   <ChevronLeft />
@@ -107,14 +107,14 @@
                 <span class="text-xs text-muted-foreground">{{ item.percent }}</span>
               </div>
               <div class="mt-2 flex gap-6 text-xs text-muted-foreground">
-                <span>请求 <span class="font-medium text-foreground">{{ formatNumber(item.stats.requests) }}</span></span>
+                <span>{{ t('stats.requests') }} <span class="font-medium text-foreground">{{ formatNumber(item.stats.requests) }}</span></span>
                 <span>Tokens <span class="font-medium text-foreground">{{ formatNumber(item.stats.tokens) }}</span></span>
               </div>
               <Progress :model-value="item.bar" class="mt-2.5 h-1.5" :color="item.color" />
             </div>
             <Empty v-if="pagedModels.length === 0" class="h-40 border-0">
               <EmptyHeader>
-                <EmptyTitle>暂无模型数据</EmptyTitle>
+                <EmptyTitle>{{ t('stats.noModelData') }}</EmptyTitle>
               </EmptyHeader>
             </Empty>
           </CardContent>
@@ -124,8 +124,8 @@
       <div class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader class="px-5">
-            <CardTitle>请求趋势</CardTitle>
-            <CardDescription>按小时的请求量</CardDescription>
+            <CardTitle>{{ t('stats.requestTrend') }}</CardTitle>
+            <CardDescription>{{ t('stats.requestTrendDesc') }}</CardDescription>
           </CardHeader>
           <CardContent class="px-5 pb-5">
             <div v-if="lineLabels.length" class="h-56">
@@ -133,15 +133,15 @@
             </div>
             <Empty v-else class="h-48 border-0">
               <EmptyHeader>
-                <EmptyTitle>暂无趋势数据</EmptyTitle>
+                <EmptyTitle>{{ t('stats.noTrend') }}</EmptyTitle>
               </EmptyHeader>
             </Empty>
           </CardContent>
         </Card>
         <Card>
           <CardHeader class="px-5">
-            <CardTitle>花费趋势</CardTitle>
-            <CardDescription>按小时估算花费（USD）</CardDescription>
+            <CardTitle>{{ t('stats.costTrend') }}</CardTitle>
+            <CardDescription>{{ t('stats.costTrendDesc') }}</CardDescription>
           </CardHeader>
           <CardContent class="px-5 pb-5">
             <div v-if="lineLabels.length" class="h-56">
@@ -149,15 +149,15 @@
             </div>
             <Empty v-else class="h-48 border-0">
               <EmptyHeader>
-                <EmptyTitle>暂无花费数据</EmptyTitle>
+                <EmptyTitle>{{ t('stats.noCost') }}</EmptyTitle>
               </EmptyHeader>
             </Empty>
           </CardContent>
         </Card>
         <Card>
           <CardHeader class="px-5">
-            <CardTitle>输入 / 输出 Tokens</CardTitle>
-            <CardDescription>按小时堆叠对比</CardDescription>
+            <CardTitle>{{ t('stats.ioTokens') }}</CardTitle>
+            <CardDescription>{{ t('stats.ioTokensDesc') }}</CardDescription>
           </CardHeader>
           <CardContent class="px-5 pb-5">
             <div v-if="lineLabels.length" class="h-56">
@@ -165,15 +165,15 @@
             </div>
             <Empty v-else class="h-48 border-0">
               <EmptyHeader>
-                <EmptyTitle>暂无 Token 数据</EmptyTitle>
+                <EmptyTitle>{{ t('stats.noTokens') }}</EmptyTitle>
               </EmptyHeader>
             </Empty>
           </CardContent>
         </Card>
         <Card>
           <CardHeader class="px-5">
-            <CardTitle>模型花费</CardTitle>
-            <CardDescription>各模型估算花费</CardDescription>
+            <CardTitle>{{ t('stats.modelCost') }}</CardTitle>
+            <CardDescription>{{ t('stats.modelCostDesc') }}</CardDescription>
           </CardHeader>
           <CardContent class="px-5 pb-5">
             <div v-if="modelCostBars.labels.length" class="h-56">
@@ -181,15 +181,15 @@
             </div>
             <Empty v-else class="h-48 border-0">
               <EmptyHeader>
-                <EmptyTitle>暂无模型花费</EmptyTitle>
+                <EmptyTitle>{{ t('stats.noModelCost') }}</EmptyTitle>
               </EmptyHeader>
             </Empty>
           </CardContent>
         </Card>
         <Card>
           <CardHeader class="px-5">
-            <CardTitle>配置用量</CardTitle>
-            <CardDescription>按环境配置归因的请求量</CardDescription>
+            <CardTitle>{{ t('stats.envUsage') }}</CardTitle>
+            <CardDescription>{{ t('stats.envUsageDesc') }}</CardDescription>
           </CardHeader>
           <CardContent class="px-5 pb-5">
             <div v-if="envBarData.labels.length" class="h-56">
@@ -197,14 +197,14 @@
             </div>
             <Empty v-else class="h-48 border-0">
               <EmptyHeader>
-                <EmptyTitle>暂无配置用量</EmptyTitle>
+                <EmptyTitle>{{ t('stats.noEnvUsage') }}</EmptyTitle>
               </EmptyHeader>
             </Empty>
           </CardContent>
         </Card>
         <Card>
           <CardHeader class="px-5">
-            <CardTitle>缓存命中</CardTitle>
+            <CardTitle>{{ t('stats.cacheHit') }}</CardTitle>
             <CardDescription>Cache Read vs Cache Write</CardDescription>
           </CardHeader>
           <CardContent class="px-5 pb-5">
@@ -213,7 +213,7 @@
             </div>
             <Empty v-else class="h-48 border-0">
               <EmptyHeader>
-                <EmptyTitle>暂无缓存数据</EmptyTitle>
+                <EmptyTitle>{{ t('stats.noCache') }}</EmptyTitle>
               </EmptyHeader>
             </Empty>
           </CardContent>
@@ -223,8 +223,8 @@
       <Card class="mt-4">
         <CardHeader class="px-5">
           <CardTitle>
-            活动热力图
-            <span class="text-xs font-normal text-muted-foreground">(最近 {{ heatmapWeeks }} 周)</span>
+            {{ t('stats.heatmap') }}
+            <span class="text-xs font-normal text-muted-foreground">{{ t('stats.heatmapRange', { weeks: heatmapWeeks }) }}</span>
           </CardTitle>
         </CardHeader>
         <CardContent class="px-5 pb-5">
@@ -243,11 +243,11 @@
         <div class="flex w-full gap-1">
           <div class="flex w-5 shrink-0 flex-col gap-0.5 pt-0 text-[9px] text-muted-foreground">
             <span class="flex aspect-square items-center" />
-            <span class="flex aspect-square items-center">一</span>
+            <span class="flex aspect-square items-center">{{ t('stats.mon') }}</span>
             <span class="flex aspect-square items-center" />
-            <span class="flex aspect-square items-center">三</span>
+            <span class="flex aspect-square items-center">{{ t('stats.wed') }}</span>
             <span class="flex aspect-square items-center" />
-            <span class="flex aspect-square items-center">五</span>
+            <span class="flex aspect-square items-center">{{ t('stats.fri') }}</span>
             <span class="flex aspect-square items-center" />
           </div>
           <div class="flex min-w-0 flex-1 gap-0.5">
@@ -255,7 +255,7 @@
               <AppTooltip
                 v-for="(day, dayIdx) in week"
                 :key="dayIdx"
-                :content="day.date ? `${day.date}: ${day.requests} 次请求, ${formatNumber(day.tokens)} tokens, $${formatCost(day.cost)}` : ''"
+                :content="day.date ? t('stats.heatmapTip', { date: day.date, requests: day.requests, tokens: formatNumber(day.tokens), cost: formatCost(day.cost) }) : ''"
                 :disabled="!day.date"
                 wrap
                 class="block w-full"
@@ -270,7 +270,7 @@
           </div>
         </div>
         <div class="mt-2.5 flex items-center justify-end gap-1.5">
-          <span class="text-xs text-muted-foreground">少</span>
+          <span class="text-xs text-muted-foreground">{{ t('stats.less') }}</span>
           <div class="flex gap-0.5">
             <div class="size-[11px] rounded-[2px]" :style="{ backgroundColor: getHeatmapColor(0) }" />
             <div class="size-[11px] rounded-[2px]" :style="{ backgroundColor: getHeatmapColor(3) }" />
@@ -278,7 +278,7 @@
             <div class="size-[11px] rounded-[2px]" :style="{ backgroundColor: getHeatmapColor(25) }" />
             <div class="size-[11px] rounded-[2px]" :style="{ backgroundColor: getHeatmapColor(50) }" />
           </div>
-          <span class="text-xs text-muted-foreground">多</span>
+          <span class="text-xs text-muted-foreground">{{ t('stats.more') }}</span>
         </div>
         </CardContent>
       </Card>
@@ -286,19 +286,20 @@
       <div class="mt-4 rounded-2xl bg-muted/50 p-3">
         <div class="flex items-center gap-2 text-xs text-muted-foreground">
           <FolderOpen class="size-3.5" />
-          <span>数据来源:</span>
-          <code class="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px]">{{ logDirectory || '未检测到' }}</code>
+          <span>{{ t('stats.source') }}</span>
+          <code class="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px]">{{ logDirectory || t('stats.notDetected') }}</code>
         </div>
       </div>
     </div>
 
     <template v-if="!embedded" #footer>
-      <Button variant="secondary" @click="isOpen = false">关闭</Button>
+      <Button variant="secondary" @click="isOpen = false">{{ t('stats.close') }}</Button>
     </template>
   </AppModal>
 </template>
 
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n'
 import { ref, computed, watch } from 'vue'
 import { motion } from 'motion-v'
 import { Activity, Calendar, ChartLine, ChevronLeft, ChevronRight, Coins, Database, FolderOpen, Loader2, RefreshCw } from '@lucide/vue'
@@ -328,15 +329,17 @@ import { getStatsOverview, getUsageStats, getHeatmapData, getLogDirectory, getEn
 import { useConfigStore } from '@/stores/configStore'
 import { useToast } from '@/composables/useToast'
 
+const { t, locale } = useI18n()
+
 ChartJS.register(ArcElement, BarElement, CategoryScale, Filler, Legend, LinearScale, LineElement, PointElement, Tooltip)
 
 const CHART_COLORS = ['#8B7CF6', '#5B9CF6', '#F472B6', '#F5C16C', '#2DD4BF', '#C4B5FD', '#94A3B8']
-const dayTabs = [
-  { value: '1', label: '今天' },
-  { value: '7', label: '近 7 天' },
-  { value: '30', label: '近 30 天' },
-  { value: '0', label: '全部' },
-]
+const dayTabs = computed(() => [
+  { value: '1', label: t('stats.today') },
+  { value: '7', label: t('stats.last7') },
+  { value: '30', label: t('stats.last30') },
+  { value: '0', label: t('stats.all') },
+])
 
 interface Props {
   modelValue: boolean
@@ -380,12 +383,12 @@ const kpiItems = computed(() => {
   const input = stats.value?.total_input_tokens || 0
   const output = stats.value?.total_output_tokens || 0
   return [
-    { label: '总请求', value: formatNumber(requests), icon: Activity },
-    { label: '总 Tokens', value: formatNumber(totalTokens.value), icon: ChartLine },
-    { label: '总花费', value: `$${formatCost(cost)}`, icon: Coins },
-    { label: '均次花费', value: `$${formatCost(requests ? cost / requests : 0)}`, icon: Coins },
-    { label: '输入 Tokens', value: formatNumber(input), icon: ChartLine },
-    { label: '输出 Tokens', value: formatNumber(output), icon: ChartLine },
+    { label: t('stats.kpi.requests'), value: formatNumber(requests), icon: Activity },
+    { label: t('stats.kpi.tokens'), value: formatNumber(totalTokens.value), icon: ChartLine },
+    { label: t('stats.kpi.cost'), value: `$${formatCost(cost)}`, icon: Coins },
+    { label: t('stats.kpi.avgCost'), value: `$${formatCost(requests ? cost / requests : 0)}`, icon: Coins },
+    { label: t('stats.kpi.input'), value: formatNumber(input), icon: ChartLine },
+    { label: t('stats.kpi.output'), value: formatNumber(output), icon: ChartLine },
     { label: 'Cache Read', value: formatNumber(cacheRead), icon: Database },
     { label: 'Cache Write', value: formatNumber(cacheWrite), icon: Database },
   ]
@@ -428,7 +431,7 @@ const doughnutSlices = computed(() => {
   }))
   if (restTokens > 0) {
     const percent = totalTokens.value > 0 ? ((restTokens / totalTokens.value) * 100).toFixed(1) : '0.0'
-    slices.push({ label: '其他', value: restTokens, color: CHART_COLORS[6], percent: `${percent}%` })
+    slices.push({ label: t('stats.other'), value: restTokens, color: CHART_COLORS[6], percent: `${percent}%` })
   }
   return slices
 })
@@ -448,7 +451,7 @@ const lineLabels = computed(() => (stats.value?.series || []).map(item => item.h
 const requestLineData = computed(() => ({
   labels: lineLabels.value,
   datasets: [{
-    label: '请求',
+    label: t('stats.requests'),
     data: (stats.value?.series || []).map(item => item.requests),
     borderColor: CHART_COLORS[0],
     backgroundColor: 'rgba(139, 124, 246, 0.15)',
@@ -463,7 +466,7 @@ const requestLineData = computed(() => ({
 const costLineData = computed(() => ({
   labels: lineLabels.value,
   datasets: [{
-    label: '花费',
+    label: t('stats.cost'),
     data: (stats.value?.series || []).map(item => Number(item.cost.toFixed(4))),
     borderColor: CHART_COLORS[3],
     backgroundColor: 'rgba(245, 193, 108, 0.18)',
@@ -479,13 +482,13 @@ const tokenBarData = computed(() => ({
   labels: lineLabels.value,
   datasets: [
     {
-      label: '输入',
+      label: t('stats.input'),
       data: (stats.value?.series || []).map(item => item.input_tokens),
       backgroundColor: CHART_COLORS[1],
       stack: 'tokens',
     },
     {
-      label: '输出',
+      label: t('stats.output'),
       data: (stats.value?.series || []).map(item => item.output_tokens),
       backgroundColor: CHART_COLORS[2],
       stack: 'tokens',
@@ -498,7 +501,7 @@ const modelCostBars = computed(() => {
   return {
     labels: top.map(item => formatModelName(item.name)),
     datasets: [{
-      label: '花费',
+      label: t('stats.cost'),
       data: top.map(item => Number(item.stats.cost.toFixed(4))),
       backgroundColor: top.map(item => item.color),
     }],
@@ -510,7 +513,7 @@ const envBarData = computed(() => {
   return {
     labels: entries.map(([name]) => name),
     datasets: [{
-      label: '请求',
+      label: t('stats.requests'),
       data: entries.map(([, item]) => item.requests),
       backgroundColor: CHART_COLORS[0],
     }],
@@ -652,9 +655,9 @@ const monthLabels = computed(() => {
   for (let week = 0; week < heatmapWeeks; week++) {
     const month = currentDate.getMonth()
     if (month !== lastMonth) {
-      const monthNames = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月']
       const leftPercent = (week / heatmapWeeks) * 100
-      labels.push({ name: monthNames[month], left: `${leftPercent}%` })
+      const name = new Date(2000, month, 1).toLocaleDateString(locale.value === 'en' ? 'en-US' : 'zh-CN', { month: 'short' })
+      labels.push({ name, left: `${leftPercent}%` })
       lastMonth = month
     }
     currentDate.setDate(currentDate.getDate() + 7)
@@ -772,11 +775,11 @@ async function loadData() {
       ])
       if (statsData?.series) statsData.series = compactSeries(statsData.series)
       stats.value = statsData
-      heatmap.value = heatmapData
+      heatmap.value = heatmapData || []
       logDirectory.value = await getLogDirectory().catch(() => '')
       envSummary.value = await getEnvUsageSummary(days.value).catch(() => ({}))
     } catch (err) {
-      toastError(`统计数据加载失败: ${err instanceof Error ? err.message : String(err)}`)
+      toastError(t('stats.loadFailed', { error: err instanceof Error ? err.message : String(err) }))
     }
   } finally {
     loading.value = false

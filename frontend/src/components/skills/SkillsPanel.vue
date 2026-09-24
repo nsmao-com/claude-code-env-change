@@ -2,7 +2,7 @@
   <AppModal v-model="isOpen" size="xl" :plain="embedded" :tool-filter="embedded" width="wide" :close-on-overlay="false">
     <template #header>
       <h1 class="text-[2.5rem] leading-none font-semibold tracking-tight">Skills</h1>
-      <p class="mt-2 text-sm text-muted-foreground">刷新会检查 Claude / Codex / Antigravity / OpenCode / Grok 目录里是否已有这些 Skill</p>
+      <p class="mt-2 text-sm text-muted-foreground">{{ t('skills.panelHint') }}</p>
     </template>
 
     <div class="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
@@ -10,16 +10,16 @@
       <div class="flex items-center gap-2">
         <Button size="sm" @click="openCreate">
           <Plus />
-          新建
+          {{ t('skills.new') }}
         </Button>
         <Button variant="outline" size="sm" @click="toggleMarket">
           <Store />
-          技能库
+          {{ t('skills.library') }}
         </Button>
         <Button variant="outline" size="sm" :disabled="isRefreshing" @click="refreshSkills">
           <Loader2 v-if="isRefreshing" class="animate-spin" />
           <RefreshCw v-else />
-          {{ isRefreshing ? '刷新中...' : '刷新' }}
+          {{ isRefreshing ? t('skills.refreshing') : t('skills.refresh') }}
         </Button>
         <ApplyToPlatformMenu
           :disabled="skillStore.skillCount === 0"
@@ -32,7 +32,7 @@
           :model-value="viewMode"
           layout-id="skills-view-pill"
           dense
-          :items="[{ value: 'list', label: '列表' }, { value: 'cards', label: '卡片' }]"
+          :items="[{ value: 'list', label: t('skills.viewList') }, { value: 'cards', label: t('skills.viewCards') }]"
           @update:model-value="onView"
         >
           <template #default="{ item }">
@@ -41,7 +41,7 @@
           </template>
         </SegmentedPills>
         <span class="text-xs text-muted-foreground">
-          共 {{ skillStore.skillCount }} 个
+          {{ t('skills.total', { count: skillStore.skillCount }) }}
         </span>
       </div>
     </div>
@@ -55,12 +55,12 @@
           :items="marketSources"
           @update:model-value="onMarketSource"
         />
-        <Input v-model="marketQuery" class="w-[200px]" placeholder="搜索技能" />
+        <Input v-model="marketQuery" class="w-[200px]" :placeholder="t('skills.search')" />
       </div>
-      <p class="mb-3 shrink-0 text-[10px] text-muted-foreground">热门来自 skills.sh，中文含宝玉技能和 SkillsMP，工程来自公开仓库，全网可搜索</p>
+      <p class="mb-3 shrink-0 text-[10px] text-muted-foreground">{{ t('skills.marketSourceHint') }}</p>
       <Empty v-if="marketItems.length === 0 && !isLoadingPresets" class="min-h-0 border-0 py-3">
         <EmptyHeader>
-          <EmptyTitle>{{ marketError || '暂无技能' }}</EmptyTitle>
+          <EmptyTitle>{{ marketError || t('skills.noSkills') }}</EmptyTitle>
         </EmptyHeader>
       </Empty>
       <div v-else-if="isLoadingPresets" class="flex justify-center py-6">
@@ -76,14 +76,14 @@
                     <AppTooltip :content="item.name" wrap class="min-w-0 flex-1">
                       <CardTitle>{{ item.name }}</CardTitle>
                     </AppTooltip>
-                    <Badge v-if="installedNames.has(item.name)" variant="secondary" class="shrink-0">已导入</Badge>
+                    <Badge v-if="installedNames.has(item.name)" variant="secondary" class="shrink-0">{{ t('skills.installed') }}</Badge>
                   </div>
                   <CardDescription class="line-clamp-2">{{ item.description }}</CardDescription>
                 </div>
                 <Button variant="outline" size="sm" class="shrink-0" :disabled="importingId === item.id" @click="importMarketItem(item)">
                   <Loader2 v-if="importingId === item.id" class="animate-spin" />
                   <Download v-else />
-                  导入
+                  {{ t('skills.import') }}
                 </Button>
               </div>
             </CardHeader>
@@ -100,8 +100,8 @@
         <EmptyMedia variant="icon">
           <Layers />
         </EmptyMedia>
-        <EmptyTitle>{{ skillStore.skillCount === 0 ? '暂无 Skills' : '该平台暂无 Skills' }}</EmptyTitle>
-        <EmptyDescription>点击“新建”添加一个自定义 Skill</EmptyDescription>
+        <EmptyTitle>{{ skillStore.skillCount === 0 ? t('skills.emptyAll') : t('skills.emptyPlatform') }}</EmptyTitle>
+        <EmptyDescription>{{ t('skills.emptyDesc') }}</EmptyDescription>
       </EmptyHeader>
     </Empty>
 
@@ -129,6 +129,7 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n'
 import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import { Download, Layers, LayoutGrid, List, Loader2, Plus, RefreshCw, Store } from '@lucide/vue'
 import type { Skill, SkillMarketItem } from '@/types'
@@ -150,6 +151,8 @@ import { Input } from '@/components/ui/input'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { useConfigStore } from '@/stores/configStore'
 import { toolToPlatform } from '@/lib/workspace'
+
+const { t } = useI18n()
 
 type PlatformFilter = 'all' | 'claude-code' | 'codex' | 'antigravity' | 'opencode' | 'grok'
 
@@ -220,23 +223,23 @@ const marketSource = ref('builtin')
 const marketQuery = ref('')
 const marketError = ref('')
 const importingId = ref('')
-const marketSources = [
-  { value: 'builtin', label: '内置' },
-  { value: 'online', label: '热门' },
-  { value: 'baoyu', label: '中文' },
-  { value: 'engineering', label: '工程' },
+const marketSources = computed(() => [
+  { value: 'builtin', label: t('skills.source.builtin') },
+  { value: 'online', label: t('skills.source.online') },
+  { value: 'baoyu', label: t('skills.source.baoyu') },
+  { value: 'engineering', label: t('skills.source.engineering') },
   { value: 'anthropic', label: 'Anthropic' },
   { value: 'vercel', label: 'Vercel' },
-  { value: 'skillsmp', label: '全网' },
-]
+  { value: 'skillsmp', label: t('skills.source.skillsmp') },
+])
 
 async function refreshSkills() {
   isRefreshing.value = true
   try {
     await skillStore.loadSkills()
-    toast.success('已检查五个平台配置里是否存在这些 Skill')
+    toast.success(t('skills.refreshed'))
   } catch (e: any) {
-    toast.error('刷新失败: ' + (e?.message || String(e)))
+    toast.error(t('skills.refreshFailed', { error: e?.message || String(e) }))
   } finally {
     isRefreshing.value = false
   }
@@ -270,7 +273,7 @@ async function loadMarket() {
     marketItems.value = await skillService.searchMarketplace(marketSource.value, marketQuery.value.trim())
   } catch (e: any) {
     marketItems.value = []
-    marketError.value = e?.message || '加载市场失败'
+    marketError.value = e?.message || t('skills.marketLoadFailed')
   } finally {
     isLoadingPresets.value = false
   }
@@ -286,7 +289,7 @@ async function importMarketItem(item: SkillMarketItem) {
     }
     showEditModal.value = true
   } catch (e: any) {
-    toast.error('导入失败: ' + (e?.message || String(e)))
+    toast.error(t('skills.importFailed', { error: e?.message || String(e) }))
   } finally {
     importingId.value = ''
   }
@@ -312,16 +315,16 @@ function openEdit(skill: Skill) {
 
 async function remove(skill: Skill) {
   const ok = await confirm.show(
-    '删除 Skill',
-    `确定要删除 “${skill.name}” 吗？将从已安装的平台移除 SKILL.md（不会强制删除目录内的其他文件）。`,
+    t('skills.deleteTitle'),
+    t('skills.deleteMsg', { name: skill.name }),
     'danger'
   )
   if (!ok) return
   try {
     await skillStore.deleteSkill(skill.name)
-    toast.success('Skill 已删除')
+    toast.success(t('skills.deleted'))
   } catch (e: any) {
-    toast.error('删除失败: ' + (e?.message || String(e)))
+    toast.error(t('skills.deleteFailed', { error: e?.message || String(e) }))
   }
 }
 
@@ -334,10 +337,10 @@ async function applyToPlatform(platform: string) {
   try {
     const added = await skillStore.applyToPlatform(platform)
     const label = platformLabel(platform)
-    if (added > 0) toast.success(`已把 ${added} 个 Skill 加入 ${label}`)
-    else toast.success(`已经都在 ${label} 里了`)
+    if (added > 0) toast.success(t('skills.appliedCount', { count: added, platform: label }))
+    else toast.success(t('skills.alreadyIn', { platform: label }))
   } catch (e: any) {
-    toast.error('加入失败: ' + (e?.message || String(e)))
+    toast.error(t('skills.applyFailed', { error: e?.message || String(e) }))
   } finally {
     isApplying.value = false
   }
@@ -347,9 +350,9 @@ async function togglePlatform(skill: Skill, platform: string) {
   try {
     const wasOn = skill.enable_platform?.includes(platform)
     await skillStore.togglePlatform(skill, platform)
-    toast.success(wasOn ? `已从 ${platformLabel(platform)} 移除` : `已加入 ${platformLabel(platform)}`)
+    toast.success(wasOn ? t('skills.removedFrom', { platform: platformLabel(platform) }) : t('skills.addedTo', { platform: platformLabel(platform) }))
   } catch (e: any) {
-    toast.error('切换失败: ' + (e?.message || String(e)))
+    toast.error(t('skills.toggleFailed', { error: e?.message || String(e) }))
   }
 }
 

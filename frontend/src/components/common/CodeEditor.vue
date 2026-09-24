@@ -11,6 +11,7 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n'
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { EditorState, Compartment } from '@codemirror/state'
 import {
@@ -38,6 +39,9 @@ import { toml } from '@codemirror/legacy-modes/mode/toml'
 import { properties } from '@codemirror/legacy-modes/mode/properties'
 import { tags } from '@lezer/highlight'
 import { cn } from '@/lib/utils'
+
+const { t } = useI18n()
+
 
 export type CodeLanguage = 'json' | 'toml' | 'env' | 'text'
 
@@ -130,7 +134,7 @@ function jsonTemplateLinter() {
       JSON.parse(sanitized)
       return []
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'JSON 无效'
+      const message = err instanceof Error ? err.message : t('ui.invalidJson')
       const match = message.match(/position\s+(\d+)/i)
       const pos = match ? Math.min(Number(match[1]), Math.max(0, text.length - 1)) : 0
       return [{ from: pos, to: Math.min(pos + 1, text.length), severity: 'error', message }]

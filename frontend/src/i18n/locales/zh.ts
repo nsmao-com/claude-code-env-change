@@ -1,3 +1,16 @@
+import { zhUpdate } from './zh/update'
+import { zhStats } from './zh/stats'
+import { zhPrompt } from './zh/prompt'
+import { zhCloud } from './zh/cloud'
+import { zhUptime } from './zh/uptime'
+import { zhRouter } from './zh/router'
+import { zhSkills } from './zh/skills'
+import { zhMcp } from './zh/mcp'
+import { zhEnvForm } from './zh/envForm'
+import { zhEnvList } from './zh/envList'
+import { zhHome } from './zh/home'
+import { zhUi } from './zh/ui'
+import { zhApp } from './zh/app'
 export const zh = {
   nav: {
     home: '首页',
@@ -225,4 +238,17 @@ export const zh = {
     clearAll: '清除全部配置',
     clearAllMsg: '确定清除所有平台的配置文件？',
   },
+  app: zhApp,
+  ui: zhUi,
+  home: zhHome,
+  envList: zhEnvList,
+  envForm: zhEnvForm,
+  mcp: zhMcp,
+  skills: zhSkills,
+  router: zhRouter,
+  uptime: zhUptime,
+  cloud: zhCloud,
+  prompt: zhPrompt,
+  stats: zhStats,
+  update: zhUpdate,
 } as const

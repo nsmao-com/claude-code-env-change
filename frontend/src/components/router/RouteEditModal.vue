@@ -1,12 +1,12 @@
 <template>
-  <AppModal v-model="isOpen" :title="isEditing ? '编辑路由' : '添加路由'" size="md">
+  <AppModal v-model="isOpen" :title="isEditing ? t('router.edit.titleEdit') : t('router.edit.titleAdd')" size="md">
     <form class="space-y-4" @submit.prevent="handleSubmit">
       <p v-if="isAutoRoute" class="rounded-lg border bg-muted/40 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
-        这是左上角应用路由自动生成的条目。日常改配置里的「上游格式」并开关对应模型商即可；这里只建议改地址、密钥或模型映射。
+        {{ t('router.edit.autoNote') }}
       </p>
 
       <div v-if="!isEditing" class="space-y-2">
-        <FieldLabel label="快捷场景" hint="先选场景会填好「给哪个 CLI」和「上游格式」，再补地址和密钥。" />
+        <FieldLabel :label="t('router.edit.presets')" :hint="t('router.edit.presetsHint')" />
         <div class="space-y-2">
           <Button
             v-for="preset in presets"
@@ -27,18 +27,18 @@
 
       <AppInput
         v-model="form.name"
-        label="路由名称"
-        placeholder="如 glm-claude（用在本机 URL 路径）"
+        :label="t('router.edit.name')"
+        :placeholder="t('router.edit.namePlaceholder')"
         :tooltip="tips.name"
         :disabled="isAutoRoute"
       />
 
       <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div class="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-1.5">
-          <FieldLabel label="给哪个 CLI 用" :hint="tips.client" />
+          <FieldLabel :label="t('router.edit.client')" :hint="tips.client" />
           <Select :model-value="form.client" :disabled="isAutoRoute" @update:model-value="onClient">
             <SelectTrigger class="w-full">
-              <SelectValue placeholder="选择 CLI" />
+              <SelectValue :placeholder="t('router.edit.clientPlaceholder')" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem v-for="item in clients" :key="item.value" :value="item.value">
@@ -48,10 +48,10 @@
           </Select>
         </div>
         <div class="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-1.5">
-          <FieldLabel label="上游格式" :hint="tips.upstream" />
+          <FieldLabel :label="t('router.edit.upstream')" :hint="tips.upstream" />
           <Select v-model="upstreamSelect">
             <SelectTrigger class="w-full min-w-0 overflow-hidden">
-              <SelectValue placeholder="选择上游 API 格式" />
+              <SelectValue :placeholder="t('router.edit.upstreamPlaceholder')" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem v-for="opt in upstreamOptions" :key="opt.value" :value="opt.value">
@@ -62,17 +62,17 @@
         </div>
       </div>
 
-      <AppInput v-model="form.base_url" label="上游 Base URL" placeholder="https://api.example.com" :tooltip="tips.baseUrl" />
-      <AppInput v-model="form.api_key" label="上游 API Key" placeholder="sk-..." type="password" :tooltip="tips.apiKey" />
-      <AppInput v-model="form.default_model" label="默认模型（可选）" placeholder="未命中映射时使用" :tooltip="tips.model" />
+      <AppInput v-model="form.base_url" :label="t('router.edit.baseUrl')" placeholder="https://api.example.com" :tooltip="tips.baseUrl" />
+      <AppInput v-model="form.api_key" :label="t('router.edit.apiKey')" placeholder="sk-..." type="password" :tooltip="tips.apiKey" />
+      <AppInput v-model="form.default_model" :label="t('router.edit.defaultModel')" :placeholder="t('router.edit.defaultModelPlaceholder')" :tooltip="tips.model" />
 
       <div class="space-y-2">
         <div class="flex items-center justify-between gap-2">
-          <FieldLabel label="备用上游（可选）" :hint="tips.fallbacks" />
+          <FieldLabel :label="t('router.edit.fallbacks')" :hint="tips.fallbacks" />
           <div class="flex items-center gap-1">
             <Select v-if="importableEnvs.length > 0" :model-value="''" @update:model-value="importFallbackFromEnv">
               <SelectTrigger size="sm" class="h-7 w-auto gap-1 text-xs">
-                <SelectValue placeholder="从配置导入" />
+                <SelectValue :placeholder="t('router.edit.importFromConfig')" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem v-for="env in importableEnvs" :key="env.name" :value="env.name">
@@ -80,17 +80,17 @@
                 </SelectItem>
               </SelectContent>
             </Select>
-            <Button type="button" variant="link" size="sm" @click="addFallbackRow">添加备用</Button>
+            <Button type="button" variant="link" size="sm" @click="addFallbackRow">{{ t('router.edit.addFallback') }}</Button>
           </div>
         </div>
         <p v-if="fallbackRows.length === 0" class="text-xs text-muted-foreground">
-          主上游限流、Key 失效或宕机时，自动按顺序切到备用上游重发请求。
+          {{ t('router.edit.fallbackEmpty') }}
         </p>
         <div v-for="(row, i) in fallbackRows" :key="i" class="flex items-center gap-2">
           <span class="w-5 shrink-0 text-center text-xs text-muted-foreground">{{ i + 1 }}</span>
-          <Input v-model="row.base_url" class="flex-[3] font-mono text-xs" placeholder="备用 Base URL" />
-          <Input v-model="row.api_key" type="password" class="flex-[2] font-mono text-xs" placeholder="备用 API Key" />
-          <AppTooltip content="删除这个备用上游">
+          <Input v-model="row.base_url" class="flex-[3] font-mono text-xs" :placeholder="t('router.edit.fallbackBaseUrl')" />
+          <Input v-model="row.api_key" type="password" class="flex-[2] font-mono text-xs" :placeholder="t('router.edit.fallbackApiKey')" />
+          <AppTooltip :content="t('router.edit.removeFallback')">
             <Button type="button" variant="ghost" size="icon-sm" @click="removeFallbackRow(i)">
               <X />
             </Button>
@@ -100,20 +100,20 @@
 
       <div class="space-y-3 border-t pt-3">
         <Button type="button" variant="ghost" size="sm" @click="showAdvanced = !showAdvanced">
-          {{ showAdvanced ? '收起高级选项' : '高级选项' }}
+          {{ showAdvanced ? t('router.edit.advancedCollapse') : t('router.edit.advanced') }}
         </Button>
         <div v-if="showAdvanced" class="space-y-3">
           <div>
             <div class="mb-1.5 flex items-center justify-between">
-              <FieldLabel label="模型映射" :hint="tips.mapping" />
-              <Button type="button" variant="link" size="sm" @click="addMappingRow">添加一行</Button>
+              <FieldLabel :label="t('router.edit.mapping')" :hint="tips.mapping" />
+              <Button type="button" variant="link" size="sm" @click="addMappingRow">{{ t('router.edit.addRow') }}</Button>
             </div>
             <div class="space-y-2">
               <div v-for="(row, i) in mappingRows" :key="i" class="flex items-center">
-                <Input v-model="row.source" class="flex-1 font-mono text-xs" placeholder="源模型，如 claude-sonnet-4 或 *" />
+                <Input v-model="row.source" class="flex-1 font-mono text-xs" :placeholder="t('router.edit.sourceModel')" />
                 <span class="shrink-0 px-2 text-xs text-muted-foreground">→</span>
-                <Input v-model="row.target" class="flex-1 font-mono text-xs" placeholder="上游模型" />
-                <AppTooltip content="删除这一行">
+                <Input v-model="row.target" class="flex-1 font-mono text-xs" :placeholder="t('router.edit.targetModel')" />
+                <AppTooltip :content="t('router.edit.removeRow')">
                   <Button type="button" variant="ghost" size="icon-sm" @click="removeMappingRow(i)">
                     <X />
                   </Button>
@@ -126,24 +126,25 @@
 
       <div class="flex items-center">
         <Switch :checked="form.enabled" @update:checked="onEnabledChange" />
-        <Label class="ml-2 cursor-pointer">启用此路由</Label>
+        <Label class="ml-2 cursor-pointer">{{ t('router.edit.enabled') }}</Label>
       </div>
 
       <div v-if="form.name.trim()" class="space-y-1.5 rounded-lg border bg-muted/40 p-3 text-xs leading-relaxed text-muted-foreground">
-        <p class="font-medium text-foreground">怎么接</p>
-        <p v-if="isProviderRoute">打开左上角「{{ clientLabel }}」路由开关后，会自动把该 CLI 指到 <span class="font-mono text-foreground">{{ routeUrl }}</span>。</p>
-        <p v-else>自定义路由不会自动改 CLI。把对应工具的 Base URL 指到 <span class="font-mono text-foreground">{{ accessUrl }}</span> 即可。</p>
+        <p class="font-medium text-foreground">{{ t('router.edit.howTo') }}</p>
+        <p v-if="isProviderRoute">{{ t('router.edit.howToProviderBefore', { name: clientLabel }) }} <span class="font-mono text-foreground">{{ routeUrl }}</span> {{ t('router.edit.howToProviderAfter') }}</p>
+        <p v-else>{{ t('router.edit.howToCustomBefore') }} <span class="font-mono text-foreground">{{ accessUrl }}</span> {{ t('router.edit.howToCustomAfter') }}</p>
       </div>
     </form>
 
     <template #footer>
-      <Button type="button" variant="secondary" @click="isOpen = false">取消</Button>
-      <Button type="button" @click="handleSubmit">{{ isEditing ? '保存' : '添加' }}</Button>
+      <Button type="button" variant="secondary" @click="isOpen = false">{{ t('common.cancel') }}</Button>
+      <Button type="button" @click="handleSubmit">{{ isEditing ? t('common.save') : t('router.edit.add') }}</Button>
     </template>
   </AppModal>
 </template>
 
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n'
 import { ref, computed, watch } from 'vue'
 import { X } from '@lucide/vue'
 import type { APIRoute, APIFormat, EnvConfig, Provider } from '@/types'
@@ -160,6 +161,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
+
+const { t } = useI18n()
 
 const AUTO_PROVIDERS: Provider[] = ['claude', 'claude_desktop', 'codex', 'antigravity', 'opencode', 'grok']
 
@@ -195,16 +198,16 @@ const clients: { value: Provider; label: string }[] = [
   { value: 'grok', label: 'Grok' },
 ]
 
-const tips = {
-  name: '会出现在本机网关路径里，例如 http://127.0.0.1:端口/名称。应用路由自动生成的条目名称就是模型商 id。',
-  client: '谁来连本机网关。Claude Code 和 Claude Desktop 说 Anthropic；其它客户端按自身协议接入。',
-  upstream: '上游实际返回的协议。和配置里高级选项的「上游格式」同一套：原生可透传，其它格式由网关转换。',
-  baseUrl: '真实上游地址，一般填到域名或 /v1 之前。',
-  apiKey: '转发给上游时使用的密钥。CLI 里可以随便填占位。',
-  model: '请求没带模型名，或映射没命中时使用。',
-  mapping: '把 CLI 发出的模型名换成上游认识的名字。* 为兜底。',
-  fallbacks: '与主上游同一种接口格式、同一套模型名。遇到网络错误、429、401/402/403 或 5xx 时按顺序换下一个；失败过的上游冷却 60 秒内排到最后。400 等请求本身的错误不会重试。',
-}
+const tips = computed(() => ({
+  name: t('router.edit.tips.name'),
+  client: t('router.edit.tips.client'),
+  upstream: t('router.edit.tips.upstream'),
+  baseUrl: t('router.edit.tips.baseUrl'),
+  apiKey: t('router.edit.tips.apiKey'),
+  model: t('router.edit.tips.model'),
+  mapping: t('router.edit.tips.mapping'),
+  fallbacks: t('router.edit.tips.fallbacks'),
+}))
 
 interface Preset {
   label: string
@@ -213,32 +216,32 @@ interface Preset {
   upstream: string
 }
 
-const presets: Preset[] = [
+const presets = computed<Preset[]>(() => [
   {
     label: 'Claude ← Chat Completions',
-    hint: '上游是 OpenAI Chat。打开 Claude 路由开关后即可转换。',
+    hint: t('router.edit.presetHint.claudeChat'),
     client: 'claude',
     upstream: 'chat_completions',
   },
   {
     label: 'Codex ← Chat Completions',
-    hint: '上游只有 Chat，没有 Responses。打开 Codex 路由开关后转换。',
+    hint: t('router.edit.presetHint.codexChat'),
     client: 'codex',
     upstream: 'chat_completions',
   },
   {
     label: 'Codex ← Anthropic Messages',
-    hint: '上游是 Anthropic 协议，给 Codex 用。',
+    hint: t('router.edit.presetHint.codexAnthropic'),
     client: 'codex',
     upstream: 'anthropic_messages',
   },
   {
-    label: '同协议透传',
-    hint: '上游就是该 CLI 的原生格式，只做转发或模型改名。',
+    label: t('router.edit.passthrough'),
+    hint: t('router.edit.presetHint.passthrough'),
     client: 'claude',
     upstream: 'native',
   },
-]
+])
 
 function clientFromFilter(): Provider {
   const filter = configStore.currentFilter
@@ -304,7 +307,7 @@ function importFallbackFromEnv(value: unknown) {
   const base = up.base_url.trim().replace(/\/+$/, '')
   const exists = fallbackRows.value.some(row => row.base_url.trim().replace(/\/+$/, '') === base && row.api_key.trim() === up.api_key.trim())
   if (exists || (base === form.value.base_url.trim().replace(/\/+$/, '') && up.api_key.trim() === form.value.api_key.trim())) {
-    toast.info(`「${env.name}」已在上游列表里`)
+    toast.info(t('router.edit.alreadyInList', { name: env.name }))
     return
   }
   fallbackRows.value.push({ base_url: base, api_key: up.api_key.trim() })
@@ -313,6 +316,7 @@ function importFallbackFromEnv(value: unknown) {
 const isAutoRoute = computed(() => {
   const name = (props.editRoute?.name || '').toLowerCase()
   const desc = props.editRoute?.description || ''
+  // 描述由后端写入（中文固定文案），这里只是识别标记，不随界面语言变化
   return AUTO_PROVIDERS.includes(name as Provider) || desc.includes('应用路由')
 })
 
@@ -320,39 +324,41 @@ const isProviderRoute = computed(() => AUTO_PROVIDERS.includes(form.value.name.t
 const clientLabel = computed(() => clients.find(item => item.value === form.value.client)?.label || form.value.client)
 
 const upstreamOptions = computed(() => {
+  const native = (name: string) => t('router.edit.nativeOpt', { name })
+  const routed = (name: string) => t('router.edit.routedOpt', { name })
   const extra: Record<Provider, { value: string; label: string }[]> = {
     claude_desktop: [
-      { value: 'native', label: 'Anthropic Messages（原生）' },
-      { value: 'chat_completions', label: 'Chat Completions（需开启路由）' },
-      { value: 'responses', label: 'Responses（需开启路由）' },
+      { value: 'native', label: native('Anthropic Messages') },
+      { value: 'chat_completions', label: routed('Chat Completions') },
+      { value: 'responses', label: routed('Responses') },
     ],
     claude: [
-      { value: 'native', label: 'Anthropic Messages（原生）' },
-      { value: 'chat_completions', label: 'Chat Completions（需开启路由）' },
-      { value: 'responses', label: 'Responses（需开启路由）' },
+      { value: 'native', label: native('Anthropic Messages') },
+      { value: 'chat_completions', label: routed('Chat Completions') },
+      { value: 'responses', label: routed('Responses') },
     ],
     codex: [
-      { value: 'native', label: 'Responses（原生）' },
-      { value: 'chat_completions', label: 'Chat Completions（需开启路由）' },
-      { value: 'anthropic_messages', label: 'Anthropic Messages（需开启路由）' },
-      { value: 'responses', label: 'Responses（需开启路由）' },
+      { value: 'native', label: native('Responses') },
+      { value: 'chat_completions', label: routed('Chat Completions') },
+      { value: 'anthropic_messages', label: routed('Anthropic Messages') },
+      { value: 'responses', label: routed('Responses') },
     ],
     antigravity: [
-      { value: 'native', label: 'Antigravity（原生）' },
-      { value: 'chat_completions', label: 'Chat Completions（需开启路由）' },
-      { value: 'anthropic_messages', label: 'Anthropic Messages（需开启路由）' },
-      { value: 'responses', label: 'Responses（需开启路由）' },
+      { value: 'native', label: native('Antigravity') },
+      { value: 'chat_completions', label: routed('Chat Completions') },
+      { value: 'anthropic_messages', label: routed('Anthropic Messages') },
+      { value: 'responses', label: routed('Responses') },
     ],
     opencode: [
-      { value: 'native', label: 'Chat Completions（原生）' },
-      { value: 'anthropic_messages', label: 'Anthropic Messages（需开启路由）' },
-      { value: 'responses', label: 'Responses（需开启路由）' },
+      { value: 'native', label: native('Chat Completions') },
+      { value: 'anthropic_messages', label: routed('Anthropic Messages') },
+      { value: 'responses', label: routed('Responses') },
     ],
     grok: [
-      { value: 'native', label: 'Responses（原生）' },
-      { value: 'chat_completions', label: 'Chat Completions（需开启路由）' },
-      { value: 'anthropic_messages', label: 'Anthropic Messages（需开启路由）' },
-      { value: 'responses', label: 'Responses（需开启路由）' },
+      { value: 'native', label: native('Responses') },
+      { value: 'chat_completions', label: routed('Chat Completions') },
+      { value: 'anthropic_messages', label: routed('Anthropic Messages') },
+      { value: 'responses', label: routed('Responses') },
     ],
   }
   return extra[form.value.client] || extra.claude
@@ -485,22 +491,22 @@ function onEnabledChange(checked: boolean) {
 async function handleSubmit() {
   const name = form.value.name.trim()
   if (!name) {
-    toast.error('请输入路由名称')
+    toast.error(t('router.edit.nameRequired'))
     return
   }
   if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}$/.test(name)) {
-    toast.error('路由名称仅允许字母/数字/连字符/下划线')
+    toast.error(t('router.edit.nameInvalid'))
     return
   }
   if (!form.value.base_url.trim()) {
-    toast.error('请输入上游 Base URL')
+    toast.error(t('router.edit.baseUrlRequired'))
     return
   }
   const fallbacks = fallbackRows.value
     .map(row => ({ base_url: row.base_url.trim(), api_key: row.api_key.trim() || undefined }))
     .filter(row => row.base_url)
   if (fallbacks.some(row => !/^https?:\/\//i.test(row.base_url))) {
-    toast.error('备用上游的 Base URL 必须以 http:// 或 https:// 开头')
+    toast.error(t('router.edit.fallbackUrlInvalid'))
     return
   }
 
@@ -508,7 +514,7 @@ async function handleSubmit() {
     route => route.name.toLowerCase() === name.toLowerCase() && route.name !== props.editRoute?.name,
   )
   if (duplicate) {
-    toast.error('路由名称已存在')
+    toast.error(t('router.edit.nameExists'))
     return
   }
 
@@ -532,11 +538,11 @@ async function handleSubmit() {
 
   try {
     await routerStore.saveConfig({ ...routerStore.config, routes })
-    toast.success(isEditing.value ? '路由已保存' : '路由已添加')
+    toast.success(isEditing.value ? t('router.edit.saved') : t('router.edit.added'))
     isOpen.value = false
     emit('saved')
   } catch (e: unknown) {
-    toast.error('保存失败: ' + (e instanceof Error ? e.message : String(e)))
+    toast.error(t('router.edit.saveFailed', { error: e instanceof Error ? e.message : String(e) }))
   }
 }
 </script>

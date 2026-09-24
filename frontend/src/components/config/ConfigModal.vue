@@ -1,12 +1,12 @@
 <template>
-  <AppModal v-model="isOpen" :title="isEditing ? '编辑配置' : '新建配置'" size="lg" :close-on-overlay="false">
+  <AppModal v-model="isOpen" :title="isEditing ? t('envForm.titleEdit') : t('envForm.titleNew')" size="lg" :close-on-overlay="false">
     <form class="space-y-4" @submit.prevent="handleSubmit">
       <div class="grid grid-cols-2 gap-4">
         <div class="col-span-2 sm:col-span-1">
-          <AppInput v-model="form.name" label="配置名称" placeholder="输入配置名称" :tooltip="tips.name" />
+          <AppInput v-model="form.name" :label="t('envForm.name')" :placeholder="t('envForm.namePlaceholder')" :tooltip="tips.name" />
         </div>
         <div class="col-span-2 sm:col-span-1">
-          <FieldLabel label="图标" :hint="tips.icon" />
+          <FieldLabel :label="t('envForm.icon')" :hint="tips.icon" />
           <div class="relative mt-1.5">
             <Button type="button" variant="outline" size="icon" class="text-xl" @click="showEmojiPicker = !showEmojiPicker">
               <ConfigIcon :value="form.icon" class="size-5" />
@@ -15,7 +15,7 @@
           </div>
         </div>
         <div class="col-span-2">
-          <AppInput v-model="form.description" label="描述" placeholder="可选的配置描述" :tooltip="tips.description" />
+          <AppInput v-model="form.description" :label="t('envForm.description')" :placeholder="t('envForm.descriptionPlaceholder')" :tooltip="tips.description" />
         </div>
       </div>
 
@@ -37,22 +37,21 @@
         v-if="officialLogin"
         class="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs leading-relaxed text-emerald-700 dark:text-emerald-400"
       >
-        这是一条<b>官方登录</b>配置。应用时只会清掉本机的第三方 Base URL 和密钥，让 CLI 回落到自带的账号登录，不会写入任何接入信息。
-        一旦在下面填了 Base URL 或密钥，保存后就变成普通的第三方配置。
+        {{ t('envForm.officialNote.before') }}<b>{{ t('envForm.officialNote.bold') }}</b>{{ t('envForm.officialNote.after') }}
       </div>
 
       <div class="flex flex-wrap items-center gap-2 rounded-xl bg-muted/40 px-3 py-2">
-        <span class="text-xs text-muted-foreground">快捷填入：</span>
+        <span class="text-xs text-muted-foreground">{{ t('envForm.quickFill') }}</span>
         <Button v-for="preset in providerPresets" :key="preset.label" type="button" size="sm" variant="outline" @click="applyPreset(preset)">
           {{ preset.label }}
         </Button>
       </div>
 
       <div class="grid gap-1.5">
-        <FieldLabel label="上游格式" :hint="tips.upstreamAdvanced" />
+        <FieldLabel :label="t('envForm.upstreamFormat')" :hint="tips.upstreamAdvanced" />
         <Select v-model="upstreamSelect">
           <SelectTrigger class="w-full">
-            <SelectValue placeholder="选择上游 API 格式" />
+            <SelectValue :placeholder="t('envForm.upstreamPlaceholder')" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem v-for="opt in upstreamOptions" :key="opt.value" :value="opt.value">
@@ -65,7 +64,7 @@
 
       <div v-if="form.provider === 'claude' || form.provider === 'claude_desktop'" class="space-y-4">
         <div v-if="!isEditing && vendorPresets.length" class="space-y-1.5">
-          <p class="text-xs font-medium tracking-wide text-muted-foreground uppercase">从供应商模板填充</p>
+          <p class="text-xs font-medium tracking-wide text-muted-foreground uppercase">{{ t('envForm.vendorPresets') }}</p>
           <div class="flex flex-wrap gap-1.5">
             <Button
               v-for="preset in vendorPresets"
@@ -90,7 +89,7 @@
             </Button>
           </template>
         </AppInput>
-        <AppInput v-model="form.claude.authToken" label="Auth Token" placeholder="可选" :tooltip="tips.authToken" />
+        <AppInput v-model="form.claude.authToken" label="Auth Token" :placeholder="t('envForm.optional')" :tooltip="tips.authToken" />
         <AppInput v-model="form.claude.model" label="Model" placeholder="claude-sonnet-5" :tooltip="tips.modelClaude" />
         <AppInput
           v-model="form.claude.apiKey"
@@ -108,7 +107,7 @@
         </AppInput>
 
         <div v-if="form.provider === 'claude'" class="space-y-3 border-t pt-3">
-          <p class="text-xs font-medium tracking-wide text-muted-foreground uppercase">Claude Code 环境变量</p>
+          <p class="text-xs font-medium tracking-wide text-muted-foreground uppercase">{{ t('envForm.claudeEnvVars') }}</p>
           <div class="flex items-center justify-between gap-3">
             <div>
               <FieldLabel label="Attribution Header" :hint="tips.attributionHeader" />
@@ -135,21 +134,21 @@
               @update:model-value="v => form.claude.disableNonessentialTraffic = fromTri(v)"
             />
           </div>
-          <AppInput v-model="form.claude.smallFastModel" label="Small Fast Model（压缩上下文）" placeholder="ANTHROPIC_SMALL_FAST_MODEL" :tooltip="tips.smallFastModel" />
+          <AppInput v-model="form.claude.smallFastModel" :label="t('envForm.smallFastModel')" placeholder="ANTHROPIC_SMALL_FAST_MODEL" :tooltip="tips.smallFastModel" />
           <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <AppInput v-model="form.claude.defaultHaiku" label="Default Haiku" placeholder="ANTHROPIC_DEFAULT_HAIKU_MODEL" :tooltip="tips.defaultHaiku" />
             <AppInput v-model="form.claude.defaultSonnet" label="Default Sonnet" placeholder="ANTHROPIC_DEFAULT_SONNET_MODEL" :tooltip="tips.defaultSonnet" />
             <AppInput v-model="form.claude.defaultOpus" label="Default Opus" placeholder="ANTHROPIC_DEFAULT_OPUS_MODEL" :tooltip="tips.defaultOpus" />
           </div>
           <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <AppInput v-model="form.claude.maxOutputTokens" label="最大输出 Tokens" placeholder="CLAUDE_CODE_MAX_OUTPUT_TOKENS" :tooltip="tips.maxOutputClaude" />
-            <AppInput v-model="form.claude.autocompactPct" label="自动压缩阈值 %" placeholder="CLAUDE_AUTOCOMPACT_PCT_OVERRIDE" :tooltip="tips.autocompactPct" />
+            <AppInput v-model="form.claude.maxOutputTokens" :label="t('envForm.maxOutputTokens')" placeholder="CLAUDE_CODE_MAX_OUTPUT_TOKENS" :tooltip="tips.maxOutputClaude" />
+            <AppInput v-model="form.claude.autocompactPct" :label="t('envForm.autocompactPct')" placeholder="CLAUDE_AUTOCOMPACT_PCT_OVERRIDE" :tooltip="tips.autocompactPct" />
           </div>
           <div class="space-y-3 rounded-xl bg-muted/40 p-3">
-            <p class="text-xs font-medium tracking-wide text-muted-foreground uppercase">思维链</p>
+            <p class="text-xs font-medium tracking-wide text-muted-foreground uppercase">{{ t('envForm.thinking') }}</p>
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div class="grid gap-1.5">
-                <FieldLabel label="推理强度" :hint="tips.claudeEffort" />
+                <FieldLabel :label="t('envForm.effort')" :hint="tips.claudeEffort" />
                 <Select v-model="form.claude.effortLevel">
                   <SelectTrigger class="w-full">
                     <SelectValue placeholder="CLAUDE_CODE_EFFORT_LEVEL" />
@@ -160,11 +159,11 @@
                 </Select>
                 <p class="font-mono text-[11px] text-muted-foreground">CLAUDE_CODE_EFFORT_LEVEL</p>
               </div>
-              <AppInput v-model="form.claude.maxThinkingTokens" label="思考 Tokens（旧模型）" placeholder="MAX_THINKING_TOKENS，0 关闭" :tooltip="tips.maxThinking" />
+              <AppInput v-model="form.claude.maxThinkingTokens" :label="t('envForm.maxThinkingTokens')" :placeholder="t('envForm.maxThinkingPlaceholder')" :tooltip="tips.maxThinking" />
             </div>
             <div class="flex items-center justify-between gap-3">
               <div>
-                <FieldLabel label="禁用自适应思考" :hint="tips.disableAdaptiveThinking" />
+                <FieldLabel :label="t('envForm.disableAdaptiveThinking')" :hint="tips.disableAdaptiveThinking" />
                 <div class="font-mono text-[11px] text-muted-foreground">CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING</div>
               </div>
               <SegmentedPills
@@ -178,7 +177,7 @@
           </div>
           <div class="flex items-center justify-between gap-3">
             <div>
-              <FieldLabel label="禁用自动压缩" :hint="tips.disableAutocompact" />
+              <FieldLabel :label="t('envForm.disableAutocompact')" :hint="tips.disableAutocompact" />
               <div class="font-mono text-[11px] text-muted-foreground">DISABLE_AUTOCOMPACT</div>
             </div>
             <SegmentedPills
@@ -191,28 +190,28 @@
           </div>
         </div>
         <div v-if="form.provider === 'claude_desktop'" class="space-y-3 rounded-xl border border-border/70 bg-muted/30 p-3">
-          <p class="text-sm font-medium">Claude Desktop 配置</p>
+          <p class="text-sm font-medium">{{ t('envForm.desktopTitle') }}</p>
           <p class="text-xs leading-relaxed text-muted-foreground">
-            Claude Desktop 使用独立的 configLibrary 配置文件。保存时会保留导入文件里的 MCP 和其它字段，只更新网关、密钥与模型。
+            {{ t('envForm.desktopNote') }}
           </p>
           <div class="grid gap-1.5">
-            <FieldLabel label="配置模板（可选）" hint="编辑已导入的 JSON 时会保留完整结构；留空则直接合并到本机当前文件。" />
-            <CodeEditor v-if="form.provider === 'claude_desktop'" v-model="form.claude.desktopTemplate" language="json" placeholder="Claude Desktop JSON 模板..." class="min-h-32" />
+            <FieldLabel :label="t('envForm.desktopTemplate')" :hint="t('envForm.desktopTemplateHint')" />
+            <CodeEditor v-if="form.provider === 'claude_desktop'" v-model="form.claude.desktopTemplate" language="json" :placeholder="t('envForm.desktopTemplatePlaceholder')" class="min-h-32" />
           </div>
         </div>
 
         <Button v-if="form.provider === 'claude'" type="button" variant="ghost" size="sm" @click="showMore = !showMore">
-          {{ showMore ? '收起更多配置' : '更多配置' }}
+          {{ showMore ? t('envForm.moreCollapse') : t('envForm.more') }}
         </Button>
         <div v-if="form.provider === 'claude' && showMore" class="space-y-3 border-t pt-3">
           <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <AppInput v-model="form.claude.httpProxy" label="HTTP_PROXY" placeholder="http://127.0.0.1:7890" :tooltip="tips.httpProxy" />
             <AppInput v-model="form.claude.httpsProxy" label="HTTPS_PROXY" placeholder="http://127.0.0.1:7890" :tooltip="tips.httpsProxy" />
-            <AppInput v-model="form.claude.bashDefaultTimeout" label="Bash 默认超时 ms" placeholder="BASH_DEFAULT_TIMEOUT_MS" :tooltip="tips.bashDefaultTimeout" />
-            <AppInput v-model="form.claude.bashMaxTimeout" label="Bash 最大超时 ms" placeholder="BASH_MAX_TIMEOUT_MS" :tooltip="tips.bashMaxTimeout" />
-            <AppInput v-model="form.claude.bashMaxOutput" label="Bash 最大输出长度" placeholder="BASH_MAX_OUTPUT_LENGTH" :tooltip="tips.bashMaxOutput" />
-            <AppInput v-model="form.claude.maxMcpOutputTokens" label="MCP 最大输出 Tokens" placeholder="MAX_MCP_OUTPUT_TOKENS" :tooltip="tips.maxMcpOutput" />
-            <AppInput v-model="form.claude.mcpTimeout" label="MCP 超时 ms" placeholder="MCP_TIMEOUT" :tooltip="tips.mcpTimeout" />
+            <AppInput v-model="form.claude.bashDefaultTimeout" :label="t('envForm.bashDefaultTimeout')" placeholder="BASH_DEFAULT_TIMEOUT_MS" :tooltip="tips.bashDefaultTimeout" />
+            <AppInput v-model="form.claude.bashMaxTimeout" :label="t('envForm.bashMaxTimeout')" placeholder="BASH_MAX_TIMEOUT_MS" :tooltip="tips.bashMaxTimeout" />
+            <AppInput v-model="form.claude.bashMaxOutput" :label="t('envForm.bashMaxOutput')" placeholder="BASH_MAX_OUTPUT_LENGTH" :tooltip="tips.bashMaxOutput" />
+            <AppInput v-model="form.claude.maxMcpOutputTokens" :label="t('envForm.maxMcpOutput')" placeholder="MAX_MCP_OUTPUT_TOKENS" :tooltip="tips.maxMcpOutput" />
+            <AppInput v-model="form.claude.mcpTimeout" :label="t('envForm.mcpTimeout')" placeholder="MCP_TIMEOUT" :tooltip="tips.mcpTimeout" />
           </div>
           <div class="flex items-center justify-between gap-3">
             <div>
@@ -242,7 +241,7 @@
           </div>
           <div class="flex items-center justify-between gap-3">
             <div>
-              <FieldLabel label="强制发送 effort" :hint="tips.alwaysEnableEffort" />
+              <FieldLabel :label="t('envForm.alwaysEnableEffort')" :hint="tips.alwaysEnableEffort" />
               <div class="font-mono text-[11px] text-muted-foreground">CLAUDE_CODE_ALWAYS_ENABLE_EFFORT</div>
             </div>
             <SegmentedPills
@@ -281,14 +280,14 @@
         </AppInput>
         <AppInput v-model="form.codex.model" label="Model" placeholder="gpt-5.4" :tooltip="tips.modelCodex" />
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <AppInput v-model="form.codex.contextWindow" label="上下文窗口" placeholder="model_context_window" :tooltip="tips.contextWindowCodex" />
-          <AppInput v-model="form.codex.maxOutputTokens" label="最大输出 Tokens" placeholder="model_max_output_tokens" :tooltip="tips.maxOutputCodex" />
+          <AppInput v-model="form.codex.contextWindow" :label="t('envForm.contextWindow')" placeholder="model_context_window" :tooltip="tips.contextWindowCodex" />
+          <AppInput v-model="form.codex.maxOutputTokens" :label="t('envForm.maxOutputTokens')" placeholder="model_max_output_tokens" :tooltip="tips.maxOutputCodex" />
         </div>
         <div class="space-y-3 rounded-xl bg-muted/40 p-3">
-          <p class="text-xs font-medium tracking-wide text-muted-foreground uppercase">思维链</p>
+          <p class="text-xs font-medium tracking-wide text-muted-foreground uppercase">{{ t('envForm.thinking') }}</p>
           <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div class="grid gap-1.5">
-              <FieldLabel label="推理强度" :hint="tips.reasoningEffort" />
+              <FieldLabel :label="t('envForm.effort')" :hint="tips.reasoningEffort" />
               <Select v-model="form.codex.reasoningEffort">
                 <SelectTrigger class="w-full">
                   <SelectValue placeholder="model_reasoning_effort" />
@@ -299,7 +298,7 @@
               </Select>
             </div>
             <div class="grid gap-1.5">
-              <FieldLabel label="Plan 模式推理" :hint="tips.planReasoningEffort" />
+              <FieldLabel :label="t('envForm.planEffort')" :hint="tips.planReasoningEffort" />
               <Select v-model="form.codex.planReasoningEffort">
                 <SelectTrigger class="w-full">
                   <SelectValue placeholder="plan_mode_reasoning_effort" />
@@ -310,7 +309,7 @@
               </Select>
             </div>
             <div class="grid gap-1.5">
-              <FieldLabel label="推理摘要" :hint="tips.reasoningSummary" />
+              <FieldLabel :label="t('envForm.reasoningSummary')" :hint="tips.reasoningSummary" />
               <Select v-model="form.codex.reasoningSummary">
                 <SelectTrigger class="w-full">
                   <SelectValue placeholder="model_reasoning_summary" />
@@ -321,13 +320,13 @@
               </Select>
             </div>
             <div class="grid gap-1.5">
-              <FieldLabel label="回复详细度" :hint="tips.modelVerbosity" />
+              <FieldLabel :label="t('envForm.verbosity')" :hint="tips.modelVerbosity" />
               <Select v-model="form.codex.verbosity">
                 <SelectTrigger class="w-full">
                   <SelectValue placeholder="model_verbosity" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="unset">不设置</SelectItem>
+                  <SelectItem value="unset">{{ t('envForm.unset') }}</SelectItem>
                   <SelectItem value="low">low</SelectItem>
                   <SelectItem value="medium">medium</SelectItem>
                   <SelectItem value="high">high</SelectItem>
@@ -338,13 +337,13 @@
         </div>
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div class="grid gap-1.5">
-            <FieldLabel label="审批策略" :hint="tips.approvalPolicy" />
+            <FieldLabel :label="t('envForm.approvalPolicy')" :hint="tips.approvalPolicy" />
             <Select v-model="form.codex.approvalPolicy">
               <SelectTrigger class="w-full">
                 <SelectValue placeholder="approval_policy" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="unset">不设置</SelectItem>
+                <SelectItem value="unset">{{ t('envForm.unset') }}</SelectItem>
                 <SelectItem value="untrusted">untrusted</SelectItem>
                 <SelectItem value="on-failure">on-failure</SelectItem>
                 <SelectItem value="on-request">on-request</SelectItem>
@@ -353,13 +352,13 @@
             </Select>
           </div>
           <div class="grid gap-1.5">
-            <FieldLabel label="沙箱" :hint="tips.sandboxCodex" />
+            <FieldLabel :label="t('envForm.sandbox')" :hint="tips.sandboxCodex" />
             <Select v-model="form.codex.sandboxMode">
               <SelectTrigger class="w-full">
                 <SelectValue placeholder="sandbox_mode" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="unset">不设置</SelectItem>
+                <SelectItem value="unset">{{ t('envForm.unset') }}</SelectItem>
                 <SelectItem value="read-only">read-only</SelectItem>
                 <SelectItem value="workspace-write">workspace-write</SelectItem>
                 <SelectItem value="danger-full-access">danger-full-access</SelectItem>
@@ -368,12 +367,12 @@
           </div>
         </div>
         <div class="grid gap-1.5">
-          <FieldLabel label="config.toml 模板" :hint="tips.codexToml" />
-          <CodeEditor v-model="form.codex.configTemplate" language="toml" placeholder="TOML 配置模板..." class="min-h-32" />
+          <FieldLabel :label="t('envForm.configTomlTemplate')" :hint="tips.codexToml" />
+          <CodeEditor v-model="form.codex.configTemplate" language="toml" :placeholder="t('envForm.tomlPlaceholder')" class="min-h-32" />
         </div>
         <div class="grid gap-1.5">
-          <FieldLabel label="auth.json 模板" :hint="tips.codexAuth" />
-          <CodeEditor v-model="form.codex.authTemplate" language="json" placeholder="JSON 认证模板..." class="min-h-24" />
+          <FieldLabel :label="t('envForm.authJsonTemplate')" :hint="tips.codexAuth" />
+          <CodeEditor v-model="form.codex.authTemplate" language="json" :placeholder="t('envForm.authPlaceholder')" class="min-h-24" />
         </div>
       </div>
 
@@ -402,10 +401,10 @@
         </AppInput>
         <AppInput v-model="form.antigravity.model" label="Model" placeholder="gemini-3.1-pro-preview" :tooltip="tips.modelGemini" />
         <div class="space-y-3 rounded-xl bg-muted/40 p-3">
-          <p class="text-xs font-medium tracking-wide text-muted-foreground uppercase">思维链</p>
+          <p class="text-xs font-medium tracking-wide text-muted-foreground uppercase">{{ t('envForm.thinking') }}</p>
           <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div class="grid gap-1.5">
-              <FieldLabel label="思维等级（Gemini 3+）" :hint="tips.geminiThinkingLevel" />
+              <FieldLabel :label="t('envForm.geminiLevel')" :hint="tips.geminiThinkingLevel" />
               <Select v-model="form.antigravity.thinkingLevel">
                 <SelectTrigger class="w-full">
                   <SelectValue placeholder="thinkingLevel" />
@@ -415,35 +414,33 @@
                 </SelectContent>
               </Select>
             </div>
-            <AppInput v-model="form.antigravity.thinkingBudget" label="思考预算（Gemini 2.5）" placeholder="-1 动态 / 0 关闭 / token 数" :tooltip="tips.geminiThinkingBudget" />
+            <AppInput v-model="form.antigravity.thinkingBudget" :label="t('envForm.geminiBudget')" :placeholder="t('envForm.geminiBudgetPlaceholder')" :tooltip="tips.geminiThinkingBudget" />
           </div>
         </div>
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <AppInput v-model="form.antigravity.project" label="Google Cloud Project" placeholder="GOOGLE_CLOUD_PROJECT" :tooltip="tips.geminiProject" />
           <AppInput v-model="form.antigravity.location" label="Location" placeholder="GOOGLE_CLOUD_LOCATION" :tooltip="tips.geminiLocation" />
-          <AppInput v-model="form.antigravity.useVertex" label="使用 Vertex AI" placeholder="GOOGLE_GENAI_USE_VERTEXAI，true/false" :tooltip="tips.geminiVertex" />
+          <AppInput v-model="form.antigravity.useVertex" :label="t('envForm.useVertex')" :placeholder="t('envForm.useVertexPlaceholder')" :tooltip="tips.geminiVertex" />
           <AppInput v-model="form.antigravity.sandbox" label="Sandbox" placeholder="GEMINI_SANDBOX" :tooltip="tips.geminiSandbox" />
-          <AppInput v-model="form.antigravity.maxSessionTurns" label="会话最大轮次" placeholder="maxSessionTurns" :tooltip="tips.geminiTurns" />
-          <AppInput v-model="form.antigravity.compressionThreshold" label="上下文压缩阈值" placeholder="0.7" :tooltip="tips.geminiCompress" />
+          <AppInput v-model="form.antigravity.maxSessionTurns" :label="t('envForm.maxSessionTurns')" placeholder="maxSessionTurns" :tooltip="tips.geminiTurns" />
+          <AppInput v-model="form.antigravity.compressionThreshold" :label="t('envForm.compressionThreshold')" placeholder="0.7" :tooltip="tips.geminiCompress" />
         </div>
         <div class="grid gap-1.5">
-          <FieldLabel label=".env 模板" :hint="tips.geminiEnv" />
-          <CodeEditor v-model="form.antigravity.envTemplate" language="env" placeholder="环境变量模板..." class="min-h-24" />
+          <FieldLabel :label="t('envForm.envTemplate')" :hint="tips.geminiEnv" />
+          <CodeEditor v-model="form.antigravity.envTemplate" language="env" :placeholder="t('envForm.envPlaceholder')" class="min-h-24" />
         </div>
         <div class="grid gap-1.5">
-          <FieldLabel label="settings.json 模板" :hint="tips.geminiSettings" />
-          <CodeEditor v-model="form.antigravity.settingsTemplate" language="json" placeholder="JSON 设置模板..." class="min-h-24" />
+          <FieldLabel :label="t('envForm.settingsTemplate')" :hint="tips.geminiSettings" />
+          <CodeEditor v-model="form.antigravity.settingsTemplate" language="json" :placeholder="t('envForm.settingsPlaceholder')" class="min-h-24" />
         </div>
       </div>
 
       <div v-if="form.provider === 'opencode'" class="space-y-4">
         <div class="rounded-lg border bg-muted/40 p-3">
           <p class="text-xs leading-relaxed text-muted-foreground">
-            OpenCode 配置默认写入
-            <span class="font-mono">~/.config/opencode/opencode.json</span>，
-            并支持 <span class="font-mono">OPENCODE_CONFIG_DIR / OPENCODE_CONFIG</span> 覆盖路径。
-            填了 Base URL 时会以 OpenAI 兼容自定义 provider 接入网关。
-            OpenCode 比较特殊：多套配置可以同时点「应用」，会合并进同一个 opencode.json，互不覆盖；再点一次「停用」只拿掉这一套。
+            {{ t('envForm.opencodeNote.before') }}
+            <span class="font-mono">~/.config/opencode/opencode.json</span>{{ t('envForm.opencodeNote.mid') }}
+            <span class="font-mono">OPENCODE_CONFIG_DIR / OPENCODE_CONFIG</span>{{ t('envForm.opencodeNote.after') }}
           </p>
         </div>
         <AppInput v-model="form.opencode.baseUrl" label="Base URL" placeholder="https://your-gateway/v1" :tooltip="tips.baseUrlOpencode">
@@ -458,7 +455,7 @@
           v-model="form.opencode.apiKey"
           label="API Key"
           :type="showApiKey.opencode ? 'text' : 'password'"
-          placeholder="可选"
+          :placeholder="t('envForm.optional')"
           :tooltip="tips.apiKeyOpencode"
         >
           <template #suffix>
@@ -470,10 +467,10 @@
         </AppInput>
         <AppInput v-model="form.opencode.model" label="Model" placeholder="anthropic/claude-sonnet-4" :tooltip="tips.modelOpencode" />
         <div class="space-y-3 rounded-xl bg-muted/40 p-3">
-          <p class="text-xs font-medium tracking-wide text-muted-foreground uppercase">思维链</p>
+          <p class="text-xs font-medium tracking-wide text-muted-foreground uppercase">{{ t('envForm.thinking') }}</p>
           <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div class="grid gap-1.5">
-              <FieldLabel label="推理强度" :hint="tips.opencodeEffort" />
+              <FieldLabel :label="t('envForm.effort')" :hint="tips.opencodeEffort" />
               <Select v-model="form.opencode.reasoningEffort">
                 <SelectTrigger class="w-full">
                   <SelectValue placeholder="reasoningEffort" />
@@ -483,9 +480,9 @@
                 </SelectContent>
               </Select>
             </div>
-            <AppInput v-model="form.opencode.thinkingBudget" label="思考预算（Anthropic）" placeholder="budgetTokens，如 16000" :tooltip="tips.opencodeThinkingBudget" />
+            <AppInput v-model="form.opencode.thinkingBudget" :label="t('envForm.anthropicBudget')" :placeholder="t('envForm.anthropicBudgetPlaceholder')" :tooltip="tips.opencodeThinkingBudget" />
             <div class="grid gap-1.5">
-              <FieldLabel label="推理摘要" :hint="tips.opencodeReasoningSummary" />
+              <FieldLabel :label="t('envForm.reasoningSummary')" :hint="tips.opencodeReasoningSummary" />
               <Select v-model="form.opencode.reasoningSummary">
                 <SelectTrigger class="w-full">
                   <SelectValue placeholder="reasoningSummary" />
@@ -498,30 +495,30 @@
           </div>
         </div>
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <AppInput v-model="form.opencode.smallModel" label="Small Model（摘要/压缩）" placeholder="openai/gpt-4.1-nano" :tooltip="tips.opencodeSmall" />
-          <AppInput v-model="form.opencode.username" label="Username" placeholder="显示名" :tooltip="tips.opencodeUser" />
+          <AppInput v-model="form.opencode.smallModel" :label="t('envForm.smallModel')" placeholder="openai/gpt-4.1-nano" :tooltip="tips.opencodeSmall" />
+          <AppInput v-model="form.opencode.username" label="Username" :placeholder="t('envForm.displayName')" :tooltip="tips.opencodeUser" />
           <AppInput v-model="form.opencode.share" label="Share" placeholder="manual / auto / disabled" :tooltip="tips.opencodeShare" />
           <AppInput v-model="form.opencode.autoupdate" label="Autoupdate" placeholder="true / false" :tooltip="tips.opencodeAutoupdate" />
           <AppInput v-model="form.opencode.snapshot" label="Snapshot" placeholder="true / false" :tooltip="tips.opencodeSnapshot" />
         </div>
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <AppInput v-model="form.opencode.configDir" label="OPENCODE_CONFIG_DIR（可选）" placeholder="~/.config/opencode" :tooltip="tips.opencodeDir" />
-          <AppInput v-model="form.opencode.configPath" label="OPENCODE_CONFIG（可选）" placeholder="~/.config/opencode/opencode.json" :tooltip="tips.opencodePath" />
+          <AppInput v-model="form.opencode.configDir" :label="t('envForm.configDirOptional')" placeholder="~/.config/opencode" :tooltip="tips.opencodeDir" />
+          <AppInput v-model="form.opencode.configPath" :label="t('envForm.configPathOptional')" placeholder="~/.config/opencode/opencode.json" :tooltip="tips.opencodePath" />
         </div>
         <div class="grid gap-1.5">
-          <FieldLabel label="opencode.json 模板（可选）" :hint="tips.opencodeJson" />
-          <CodeEditor v-model="form.opencode.configTemplate" language="json" placeholder="JSON 模板，支持 {{OPENCODE_MODEL}} / {{OPENCODE_BASE_URL}} / {{OPENCODE_API_KEY}} 占位符..." class="min-h-32" />
+          <FieldLabel :label="t('envForm.opencodeJsonOptional')" :hint="tips.opencodeJson" />
+          <CodeEditor v-model="form.opencode.configTemplate" language="json" :placeholder="t('envForm.opencodeJsonPlaceholder')" class="min-h-32" />
         </div>
       </div>
 
       <div v-if="form.provider === 'grok'" class="space-y-4">
         <div class="rounded-lg border bg-muted/40 p-3">
           <p class="text-xs leading-relaxed text-muted-foreground">
-            Grok 配置写入
+            {{ t('envForm.grokNote.a') }}
             <span class="font-mono">~/.grok/config.toml</span>
-            （保留已有 MCP / Skills 段）。CLI 读取
+            {{ t('envForm.grokNote.b') }}
             <span class="font-mono">XAI_API_KEY</span>
-            和模型的 <span class="font-mono">api_key</span>。
+            {{ t('envForm.grokNote.c') }} <span class="font-mono">api_key</span>{{ t('envForm.grokNote.d') }}
           </p>
         </div>
         <AppInput v-model="form.grok.baseUrl" label="Base URL" placeholder="https://api.x.ai/v1" :tooltip="tips.baseUrlGrok">
@@ -548,9 +545,9 @@
         </AppInput>
         <AppInput v-model="form.grok.model" label="Model" placeholder="grok-4.6" :tooltip="tips.modelGrok" />
         <div class="space-y-3 rounded-xl bg-muted/40 p-3">
-          <p class="text-xs font-medium tracking-wide text-muted-foreground uppercase">思维链</p>
+          <p class="text-xs font-medium tracking-wide text-muted-foreground uppercase">{{ t('envForm.thinking') }}</p>
           <div class="grid gap-1.5">
-            <FieldLabel label="推理强度" :hint="tips.grokEffort" />
+            <FieldLabel :label="t('envForm.effort')" :hint="tips.grokEffort" />
             <Select v-model="form.grok.reasoningEffort">
               <SelectTrigger class="w-full">
                 <SelectValue placeholder="reasoning_effort" />
@@ -562,9 +559,9 @@
           </div>
         </div>
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <AppInput v-model="form.grok.modelName" label="显示名" placeholder="Grok" :tooltip="tips.grokName" />
-          <AppInput v-model="form.grok.contextWindow" label="上下文窗口" placeholder="131072" :tooltip="tips.grokContext" />
-          <AppInput v-model="form.grok.maxTokens" label="最大输出 Tokens" placeholder="8192" :tooltip="tips.grokMaxTokens" />
+          <AppInput v-model="form.grok.modelName" :label="t('envForm.displayName')" placeholder="Grok" :tooltip="tips.grokName" />
+          <AppInput v-model="form.grok.contextWindow" :label="t('envForm.contextWindow')" placeholder="131072" :tooltip="tips.grokContext" />
+          <AppInput v-model="form.grok.maxTokens" :label="t('envForm.maxOutputTokens')" placeholder="8192" :tooltip="tips.grokMaxTokens" />
           <AppInput v-model="form.grok.temperature" label="Temperature" placeholder="0.7" :tooltip="tips.grokTemp" />
         </div>
         <div class="grid gap-1.5">
@@ -578,10 +575,10 @@
             @update:model-value="v => { if (v === 'responses' || v === 'chat_completions' || v === 'messages') form.grok.apiBackend = v }"
           />
         </div>
-        <AppInput v-model="form.grok.homeDir" label="GROK_HOME（可选）" placeholder="~/.grok" :tooltip="tips.grokHome" />
+        <AppInput v-model="form.grok.homeDir" :label="t('envForm.grokHomeOptional')" placeholder="~/.grok" :tooltip="tips.grokHome" />
         <div class="grid gap-1.5">
-          <FieldLabel label="config.toml 模板（可选）" :hint="tips.grokToml" />
-          <CodeEditor v-model="form.grok.configTemplate" language="toml" placeholder="留空则按上面的字段生成" class="min-h-32" />
+          <FieldLabel :label="t('envForm.grokTomlOptional')" :hint="tips.grokToml" />
+          <CodeEditor v-model="form.grok.configTemplate" language="toml" :placeholder="t('envForm.grokTomlPlaceholder')" class="min-h-32" />
         </div>
       </div>
 
@@ -592,18 +589,19 @@
         type="button"
         variant="ghost"
         :disabled="submitting"
-        title="把当前表单内容复制为 JSON，可发给别人或拖回本窗口导入（包含完整密钥，注意保密）"
+        :title="t('envForm.copyJsonTip')"
         @click="copyAsJSON"
       >
-        {{ copied ? '已复制' : '复制 JSON' }}
+        {{ copied ? t('envForm.copied') : t('envForm.copyJson') }}
       </Button>
-      <Button type="button" variant="secondary" :disabled="submitting" @click="isOpen = false">取消</Button>
-      <Button type="button" :disabled="submitting" @click="handleSubmit">{{ submitting ? '保存中...' : (isEditing ? '保存' : '创建') }}</Button>
+      <Button type="button" variant="secondary" :disabled="submitting" @click="isOpen = false">{{ t('common.cancel') }}</Button>
+      <Button type="button" :disabled="submitting" @click="handleSubmit">{{ submitting ? t('envForm.saving') : (isEditing ? t('common.save') : t('envForm.create')) }}</Button>
     </template>
   </AppModal>
 </template>
 
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n'
 import { ref, computed, watch, onMounted } from 'vue'
 import { Eye, EyeOff, Loader2, Zap } from '@lucide/vue'
 import type { EnvConfig, Provider, UpstreamFormat, ProviderPreset } from '@/types'
@@ -622,6 +620,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import SegmentedPills from '@/components/layout/SegmentedPills.vue'
 import { errorMessage, formatLatency, withDefaultBaseUrl } from '@/lib/configUrl'
 import { asUpstreamFormat, conversionTagLabel, upstreamFormatOptions } from '@/lib/upstreamFormat'
+import { zhEnvForm } from '@/i18n/locales/zh/envForm'
+
+const { t } = useI18n()
 
 interface Props {
   modelValue: boolean
@@ -680,7 +681,7 @@ const providers: { value: Provider; label: string }[] = [
   { value: 'grok', label: 'Grok' },
 ]
 const providerPresets = computed(() => {
-  const common = [{ label: '官方', url: officialUrl(form.value.provider) }, { label: 'AIHubo', url: 'https://www.aihubo.com/api/v1' }]
+  const common = [{ label: t('envForm.official'), url: officialUrl(form.value.provider) }, { label: 'AIHubo', url: 'https://www.aihubo.com/api/v1' }]
   return common
 })
 function officialUrl(provider: Provider) {
@@ -718,89 +719,11 @@ const grokBackends = [
   { value: 'messages', label: 'Messages' },
 ]
 
-const tips = {
-  name: '本软件里的显示名称，不能和其他配置重名。不会写入 CLI。',
-  icon: '列表里显示的图标。可用滑块切换 Emoji 或 Lucide，再按分类挑选。',
-  description: '可选备注，只在本软件显示，不写入 CLI。',
-  baseUrlClaude: 'API 根地址。官方是 https://api.anthropic.com。中转/聚合填对方给的地址，一般不要再拼 /v1/messages。右侧闪电图标可测延迟。写入 ANTHROPIC_BASE_URL。',
-  upstreamAdvanced: '中转站实际协议。和 CLI 原生一致选「原生直连」。Claude 接 Codex/GPT 选 Responses；Codex 接 Claude 选 Anthropic Messages。改完后打开左上角对应模型商的路由开关。',
-  authToken: '部分中转用 Token 而不是 API Key。对应 ANTHROPIC_AUTH_TOKEN。通常与 API Key 二选一即可。',
-  modelClaude: '主模型 ID，例如 claude-sonnet-5 或中转文档里的名称。留空则使用 Claude Code 的默认模型。写入 ANTHROPIC_MODEL。',
-  apiKeyClaude: '密钥。官方以 sk-ant- 开头，中转按对方格式。写入 ANTHROPIC_API_KEY。',
-  attributionHeader: '是否发送 Claude Code 归因头。1 开启，0 关闭。选「不设置」则沿用 CLI 默认。',
-  disableNonessential: '1 会禁止遥测等非必要网络请求。选「不设置」则不改这项。',
-  smallFastModel: '用来压缩长上下文的小模型 ID。空则用 CLI 默认。对应 ANTHROPIC_SMALL_FAST_MODEL。',
-  defaultHaiku: 'Haiku 档默认模型 ID。对应 ANTHROPIC_DEFAULT_HAIKU_MODEL。',
-  defaultSonnet: 'Sonnet 档默认模型 ID。对应 ANTHROPIC_DEFAULT_SONNET_MODEL。',
-  defaultOpus: 'Opus 档默认模型 ID。对应 ANTHROPIC_DEFAULT_OPUS_MODEL。',
-  maxOutputClaude: '单次回复最大输出 token。对应 CLAUDE_CODE_MAX_OUTPUT_TOKENS。',
-  claudeEffort: '新模型（Opus 4.6 / Sonnet 4.6 / Claude 5 等）用自适应思考，靠 effort 控制深浅：low / medium / high / xhigh / max。auto 用模型默认。对应 CLAUDE_CODE_EFFORT_LEVEL。',
-  maxThinking: '旧模型（Opus/Sonnet 4.5 及更早）的固定思考预算。填 0 可关掉思考。新模型默认忽略此项；要在 4.6 上继续用预算，请打开「禁用自适应思考」。对应 MAX_THINKING_TOKENS。',
-  disableAdaptiveThinking: '仅对 Opus 4.6 / Sonnet 4.6 有效：设为 1 后改回 MAX_THINKING_TOKENS 固定预算。Opus 4.7、Claude 5 等始终走自适应思考，此项无效。',
-  alwaysEnableEffort: '中转/自定义模型 ID 不被识别时，设为 1 仍在请求里带上 effort。官方模型一般不用改。对应 CLAUDE_CODE_ALWAYS_ENABLE_EFFORT。',
-  autocompactPct: '上下文占用到这个百分比时自动压缩，填 0–100 的数字。对应 CLAUDE_AUTOCOMPACT_PCT_OVERRIDE。',
-  disableAutocompact: '1 关闭自动压缩上下文。0 开启。不设置则沿用默认。',
-  httpProxy: 'Claude Code 进程的 HTTP 代理，例如 http://127.0.0.1:7890。',
-  httpsProxy: 'Claude Code 进程的 HTTPS 代理，例如 http://127.0.0.1:7890。',
-  bashDefaultTimeout: 'Bash 工具默认超时，单位毫秒。对应 BASH_DEFAULT_TIMEOUT_MS。',
-  bashMaxTimeout: 'Bash 工具允许的最大超时，单位毫秒。对应 BASH_MAX_TIMEOUT_MS。',
-  bashMaxOutput: 'Bash 捕获输出的最大字符数。对应 BASH_MAX_OUTPUT_LENGTH。',
-  maxMcpOutput: 'MCP 工具返回内容的最大 token。对应 MAX_MCP_OUTPUT_TOKENS。',
-  mcpTimeout: 'MCP 调用超时，单位毫秒。对应 MCP_TIMEOUT。',
-  disableTelemetry: '1 关闭遥测上报。不设置则沿用 CLI 默认。',
-  disableErrorReporting: '1 关闭错误上报。不设置则沿用 CLI 默认。',
-  baseUrlCodex: 'OpenAI 兼容 API 根地址，官方是 https://api.openai.com/v1。写入 config.toml 的 base_url。',
-  apiKeyCodex: '写入 auth.json 的 OPENAI_API_KEY。官方以 sk- 开头，中转按对方格式。',
-  modelCodex: '模型 ID，例如 gpt-5 或中转文档里的名称。写入 config.toml 的 model。',
-  contextWindowCodex: '模型上下文窗口大小，填数字。对应 model_context_window。',
-  maxOutputCodex: '最大输出 token，填数字。对应 model_max_output_tokens。',
-  reasoningEffort: 'GPT-5 / Codex 推理强度。新模型支持 xhigh / max / ultra，旧模型常用 minimal / low / medium / high。越高越慢、越费 token。对应 model_reasoning_effort。',
-  planReasoningEffort: 'Plan 模式单独的推理强度，可与默认不同。对应 plan_mode_reasoning_effort。',
-  approvalPolicy: '命令执行要不要确认。never 最省事，on-request 每次问，untrusted 更严。',
-  sandboxCodex: '文件访问范围。read-only 最安全，workspace-write 可改当前项目，danger-full-access 不限制。',
-  reasoningSummary: '推理摘要：auto / concise / detailed / none。对应 model_reasoning_summary。',
-  modelVerbosity: 'GPT-5 文本详细度：low / medium / high。对应 model_verbosity。',
-  codexToml: '写入 ~/.codex/config.toml。可用 {{model}}、{{base_url}} 占位符，应用时替换成上面的值。',
-  codexAuth: '写入 ~/.codex/auth.json。可用 {{OPENAI_API_KEY}} 占位符。',
-  baseUrlGemini: 'Gemini API 根地址。官方是 https://generativelanguage.googleapis.com。应用时会作为 GOOGLE_GEMINI_BASE_URL 写入用户环境变量（agy 只认环境变量，不读 .env）。',
-  apiKeyGemini: 'Gemini API Key。应用时写入用户环境变量 GEMINI_API_KEY 并在 settings.json 标记 modelProvider，之后需新开终端运行 agy。留空则移除标记，走 Google 账号登录。',
-  modelGemini: '模型 ID，例如 gemini-3.1-pro-preview 或 gemini-2.5-pro。写入 GEMINI_MODEL。',
-  geminiThinkingLevel: 'Gemini 3 及以后用思维等级：minimal / low / medium / high。不要和思考预算同时填。写入 settings.json 的 thinkingLevel。',
-  geminiThinkingBudget: 'Gemini 2.5 用 token 预算。-1 动态，0 关闭，或填具体数字（如 8192）。3.x 建议改用左侧等级。写入 thinkingBudget。',
-  geminiProject: '走 Vertex AI 时需要的 GCP 项目 ID。对应 GOOGLE_CLOUD_PROJECT。',
-  geminiLocation: 'Vertex 区域，例如 us-central1。对应 GOOGLE_CLOUD_LOCATION。',
-  geminiVertex: '填 true 使用 Vertex AI，false 使用 AI Studio。对应 GOOGLE_GENAI_USE_VERTEXAI。',
-  geminiSandbox: '是否启用沙箱。按 Antigravity CLI 文档填。对应 GEMINI_SANDBOX。',
-  geminiTurns: '单次会话最多轮数，填数字。对应 maxSessionTurns。',
-  geminiCompress: '上下文占用到该比例时压缩，填 0–1，例如 0.7。',
-  geminiEnv: '写入 ~/.gemini/.env。可用 {{GOOGLE_GEMINI_BASE_URL}}、{{GEMINI_API_KEY}}、{{GEMINI_MODEL}}。',
-  geminiSettings: '写入 ~/.gemini/antigravity-cli/settings.json（以及旧版 ~/.gemini/settings.json）的额外 JSON。留空则只用上面的字段。',
-  baseUrlOpencode: 'OpenAI 兼容网关地址，例如 https://xxx/v1。填了会作为自定义 provider 写入 opencode.json。',
-  apiKeyOpencode: '网关密钥。对应 OPENCODE_API_KEY，模板里可用 {{OPENCODE_API_KEY}}。',
-  modelOpencode: '完整模型名，格式 provider/model，例如 anthropic/claude-sonnet-4。',
-  opencodeEffort: '写入当前 provider 模型的 options.reasoningEffort。OpenAI 系用 none～ultra，Google 常用 low/high。',
-  opencodeThinkingBudget: 'Anthropic 旧模型的 thinking.budgetTokens。新 Claude 5 请用左侧推理强度，不要只填预算。',
-  opencodeReasoningSummary: 'OpenAI 系推理摘要：auto / concise / detailed / none。',
-  opencodeSmall: '摘要/压缩用的小模型，同样用 provider/model。',
-  opencodeUser: 'OpenCode 界面显示名。',
-  opencodeShare: '会话分享：manual 手动、auto 自动、disabled 关闭。',
-  opencodeAutoupdate: '是否自动更新 CLI，填 true 或 false。',
-  opencodeSnapshot: '是否启用快照，填 true 或 false。',
-  opencodeDir: '配置目录，默认 ~/.config/opencode。对应 OPENCODE_CONFIG_DIR。',
-  opencodePath: '配置文件完整路径。对应 OPENCODE_CONFIG。一般只改其中一个。',
-  opencodeJson: '可选。覆盖生成的 opencode.json。支持 {{OPENCODE_MODEL}} / {{OPENCODE_BASE_URL}} / {{OPENCODE_API_KEY}}。',
-  baseUrlGrok: 'xAI API 地址，官方是 https://api.x.ai/v1。写入 config.toml。',
-  apiKeyGrok: '密钥，一般以 xai- 开头。同时写入 XAI_API_KEY 和模型的 api_key。',
-  modelGrok: '模型 ID，例如 grok-4.6。',
-  grokName: '在 Grok CLI 里显示的名称，可不填。',
-  grokContext: '上下文窗口，填数字，例如 131072。',
-  grokMaxTokens: '单次最大输出 token，填数字。',
-  grokTemp: '采样温度 0–2，越大越随机。例如 0.7。',
-  grokEffort: 'Grok 4.5 支持 low / medium / high；4.6 另加 xhigh。默认 high，不能关掉思考。写入 [models] default_reasoning_effort。',
-  grokBackend: 'Grok CLI 自己发出的协议。官方用 Responses。这和上面的「上游格式」不是一回事：上游格式管中转站，需要转换时才改。',
-  grokHome: '配置目录，默认 ~/.grok。对应 GROK_HOME。',
-  grokToml: '可选。覆盖生成的 ~/.grok/config.toml。留空则按上面的字段写入。',
-}
+// 字段提示随界面语言切换；键与语言包 envForm.tips 一一对应
+const TIP_KEYS = Object.keys(zhEnvForm.tips) as (keyof typeof zhEnvForm.tips)[]
+const tips = computed(() => Object.fromEntries(
+  TIP_KEYS.map(key => [key, t(`envForm.tips.${key}`)]),
+) as Record<keyof typeof zhEnvForm.tips, string>)
 
 function onProvider(value: unknown) {
   if (value === 'claude' || value === 'claude_desktop' || value === 'codex' || value === 'antigravity' || value === 'opencode' || value === 'grok') {
@@ -825,10 +748,10 @@ const upstreamSelect = computed({
 const upstreamHint = computed(() => {
   const name = providers.find(item => item.value === form.value.provider)?.label || form.value.provider
   if (!form.value.upstreamFormat) {
-    return `${name} 会直连你填的 Base URL，不经过本机路由。中转站协议和 CLI 不一致时再改这一项。`
+    return t('envForm.upstreamDirect', { name })
   }
   const conv = conversionTagLabel(form.value.provider, form.value.upstreamFormat)
-  return `卡片会标「需路由 · ${conv}」。打开左上角「${name}」路由开关后，请求先到本机网关再转到上游。`
+  return t('envForm.upstreamRouted', { name, conv })
 })
 
 function triValue(value: string) {
@@ -840,24 +763,24 @@ function fromTri(value: unknown) {
   return ''
 }
 
-const triItems = [
-  { value: 'unset', label: '不设置' },
+const effortUnset = computed(() => ({ value: 'unset', label: t('envForm.unset') }))
+const triItems = computed(() => [
+  effortUnset.value,
   { value: '0', label: '0' },
   { value: '1', label: '1' },
-]
+])
 
-const effortUnset = { value: 'unset', label: '不设置' }
-const claudeEffortItems = [
-  effortUnset,
-  { value: 'auto', label: 'auto（模型默认）' },
+const claudeEffortItems = computed(() => [
+  effortUnset.value,
+  { value: 'auto', label: t('envForm.autoDefault') },
   { value: 'low', label: 'low' },
   { value: 'medium', label: 'medium' },
   { value: 'high', label: 'high' },
   { value: 'xhigh', label: 'xhigh' },
   { value: 'max', label: 'max' },
-]
-const openaiEffortItems = [
-  effortUnset,
+])
+const openaiEffortItems = computed(() => [
+  effortUnset.value,
   { value: 'none', label: 'none' },
   { value: 'minimal', label: 'minimal' },
   { value: 'low', label: 'low' },
@@ -866,9 +789,9 @@ const openaiEffortItems = [
   { value: 'xhigh', label: 'xhigh' },
   { value: 'max', label: 'max' },
   { value: 'ultra', label: 'ultra' },
-]
-const grokEffortItems = [
-  effortUnset,
+])
+const grokEffortItems = computed(() => [
+  effortUnset.value,
   { value: 'none', label: 'none' },
   { value: 'minimal', label: 'minimal' },
   { value: 'low', label: 'low' },
@@ -876,21 +799,21 @@ const grokEffortItems = [
   { value: 'high', label: 'high' },
   { value: 'xhigh', label: 'xhigh' },
   { value: 'max', label: 'max' },
-]
-const geminiLevelItems = [
-  effortUnset,
+])
+const geminiLevelItems = computed(() => [
+  effortUnset.value,
   { value: 'minimal', label: 'minimal' },
   { value: 'low', label: 'low' },
   { value: 'medium', label: 'medium' },
   { value: 'high', label: 'high' },
-]
-const reasoningSummaryItems = [
-  effortUnset,
+])
+const reasoningSummaryItems = computed(() => [
+  effortUnset.value,
   { value: 'auto', label: 'auto' },
   { value: 'concise', label: 'concise' },
   { value: 'detailed', label: 'detailed' },
   { value: 'none', label: 'none' },
-]
+])
 
 function selectOrUnset(value: string) {
   return value === 'unset' ? '' : value
@@ -1165,18 +1088,18 @@ async function testLatency(url: string) {
   if (latencyTesting.value) return
   const target = withDefaultBaseUrl(form.value.provider, url)
   if (!target) {
-    toast.error('Base URL 为空')
+    toast.error(t('envForm.emptyBaseUrl'))
     return
   }
   latencyTesting.value = true
   try {
     const ms = await configStore.testLatency(target)
     const label = formatLatency(ms)
-    if (ms > 1000) toast.error(`延迟 ${label}`)
-    else if (ms > 300) toast.info(`延迟 ${label}`)
-    else toast.success(`延迟 ${label}`)
+    if (ms > 1000) toast.error(t('envForm.latency', { value: label }))
+    else if (ms > 300) toast.info(t('envForm.latency', { value: label }))
+    else toast.success(t('envForm.latency', { value: label }))
   } catch (e: unknown) {
-    toast.error('测速失败: ' + errorMessage(e))
+    toast.error(t('envForm.latencyFailed', { error: errorMessage(e) }))
   } finally {
     latencyTesting.value = false
   }
@@ -1188,7 +1111,7 @@ async function handleSubmit() {
   if (submitting.value) return
   const name = form.value.name.trim()
   if (!name) {
-    toast.error('请输入配置名称')
+    toast.error(t('envForm.nameRequired'))
     return
   }
 
@@ -1200,7 +1123,7 @@ async function handleSubmit() {
       && !(isEditing.value && c.name === originalName.value && c.provider === props.editConfig?.provider)
   )
   if (exists) {
-    toast.error('配置名称已存在')
+    toast.error(t('envForm.nameExists'))
     return
   }
 
@@ -1214,11 +1137,11 @@ async function handleSubmit() {
     } else {
       await configStore.addEnv(configData)
     }
-    toast.success('配置已保存')
+    toast.success(t('envForm.saved'))
     isOpen.value = false
     emit('saved')
   } catch (e: any) {
-    toast.error('保存失败: ' + (e?.message ?? String(e)))
+    toast.error(t('envForm.saveFailed', { error: e?.message ?? String(e) }))
   } finally {
     submitting.value = false
   }
@@ -1373,10 +1296,10 @@ async function copyAsJSON() {
   try {
     await navigator.clipboard.writeText(JSON.stringify(payload, null, 2))
     copied.value = true
-    toast.success('已复制到剪贴板（包含完整密钥，注意保密）')
+    toast.success(t('envForm.copiedWithSecrets'))
     setTimeout(() => { copied.value = false }, 2000)
   } catch (e: any) {
-    toast.error('复制失败: ' + (e?.message ?? String(e)))
+    toast.error(t('envForm.copyFailed', { error: e?.message ?? String(e) }))
   }
 }
 </script>

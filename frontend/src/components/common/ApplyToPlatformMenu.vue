@@ -4,11 +4,11 @@
       <Button size="sm" variant="outline" :disabled="disabled || applying">
         <Loader2 v-if="applying" class="animate-spin" />
         <Plus v-else />
-        {{ applying ? '加入中...' : '一键加入' }}
+        {{ applying ? t('ui.applying') : t('ui.applyAll') }}
       </Button>
     </DropdownMenuTrigger>
     <DropdownMenuContent align="start" class="w-44">
-      <DropdownMenuLabel>加入到哪个平台</DropdownMenuLabel>
+      <DropdownMenuLabel>{{ t('ui.applyToWhich') }}</DropdownMenuLabel>
       <DropdownMenuItem
         v-for="item in items"
         :key="item.key"
@@ -22,6 +22,7 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n'
 import { Loader2, Plus } from '@lucide/vue'
 import { PLATFORM_ITEMS, type PlatformItem } from '@/lib/platforms'
 import BrandIcon from '@/components/common/BrandIcon.vue'
@@ -33,6 +34,8 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+
+const { t } = useI18n()
 
 withDefaults(defineProps<{
   disabled?: boolean

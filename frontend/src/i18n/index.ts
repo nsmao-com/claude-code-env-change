@@ -1,10 +1,9 @@
 import { zh } from './locales/zh'
 import { en } from './locales/en'
 
+import type { DeepString } from './types'
+
 export type Locale = 'zh' | 'en'
-type DeepString<T> = {
-  [K in keyof T]: T[K] extends string ? string : DeepString<T[K]>
-}
 export type MessageTree = DeepString<typeof zh>
 
 export const messages: Record<Locale, MessageTree> = {

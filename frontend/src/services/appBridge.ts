@@ -1,3 +1,5 @@
+import { useI18n } from '@/composables/useI18n'
+
 function readAppMethod(name: string): ((...args: unknown[]) => Promise<unknown>) | undefined {
   const fn = (window as unknown as {
     go?: { main?: { App?: Record<string, unknown> } }
@@ -76,5 +78,5 @@ export async function callApp<T>(name: string, ...args: unknown[]): Promise<T> {
     if (fn) return fn(...args) as Promise<T>
     await new Promise(resolve => setTimeout(resolve, 100))
   }
-  throw new Error(`后端尚未加载 ${name}，请关掉窗口重新打开软件`)
+  throw new Error(useI18n().t('ui.backendNotReady', { name }))
 }

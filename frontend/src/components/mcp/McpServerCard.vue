@@ -28,9 +28,9 @@
               :compact="compact"
               @toggle="$emit('toggle-platform', $event)"
             />
-            <AppTooltip v-if="testResult && !testResult.success" :content="testResult.message || '检测失败'" wrap>
+            <AppTooltip v-if="testResult && !testResult.success" :content="testResult.message || t('mcp.card.checkFailed')" wrap>
               <Badge variant="outline" :class="testResultClass">
-                失败
+                {{ t('mcp.card.failed') }}
               </Badge>
             </AppTooltip>
             <Badge
@@ -61,7 +61,7 @@
           compact ? 'opacity-100' : 'opacity-0 group-hover:opacity-100',
         ]"
       >
-        <AppTooltip content="测试连接">
+        <AppTooltip :content="t('mcp.card.testConnection')">
         <Button
           variant="ghost"
           size="icon-sm"
@@ -72,7 +72,7 @@
           <Zap v-else />
         </Button>
         </AppTooltip>
-        <AppTooltip v-if="server.website" content="官网">
+        <AppTooltip v-if="server.website" :content="t('mcp.card.website')">
         <Button
           as="a"
           :href="server.website"
@@ -83,7 +83,7 @@
           <ExternalLink />
         </Button>
         </AppTooltip>
-        <AppTooltip content="编辑">
+        <AppTooltip :content="t('mcp.card.edit')">
         <Button
           variant="ghost"
           size="icon-sm"
@@ -92,7 +92,7 @@
           <Pencil />
         </Button>
         </AppTooltip>
-        <AppTooltip content="删除">
+        <AppTooltip :content="t('mcp.card.delete')">
         <Button
           variant="ghost"
           size="icon-sm"
@@ -110,12 +110,13 @@
       class="mt-2 flex items-start gap-1.5 rounded-lg border border-yellow-500/20 bg-yellow-500/10 p-2 text-xs text-yellow-600"
     >
       <TriangleAlert class="mt-0.5 size-3.5 shrink-0" />
-      存在未填写的占位符: {{ server.missing_placeholders.join(', ') }}
+      {{ t('mcp.card.missingPlaceholders', { names: server.missing_placeholders.join(', ') }) }}
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n'
 import { computed } from 'vue'
 import { Check, ExternalLink, Globe, Loader2, Pencil, Terminal, Trash2, TriangleAlert, Zap } from '@lucide/vue'
 import type { MCPServer, MCPTestResult } from '@/types'
@@ -124,6 +125,8 @@ import PlatformChips from '@/components/common/PlatformChips.vue'
 import { MCP_PLATFORM_ITEMS } from '@/lib/platforms'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+
+const { t } = useI18n()
 
 interface Props {
   server: MCPServer

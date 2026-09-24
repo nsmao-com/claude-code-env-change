@@ -1,3 +1,4 @@
+import { useI18n } from '@/composables/useI18n'
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { MCPServer, MCPTestResult } from '@/types'
@@ -33,7 +34,7 @@ export const useMcpStore = defineStore('mcp', () => {
 
   const testStatusText = computed(() => {
     if (isTestingAll.value) {
-      return '检测中...'
+      return useI18n().t('ui.mcpTesting')
     }
     if (testedCount.value === 0) {
       return ''
@@ -41,9 +42,9 @@ export const useMcpStore = defineStore('mcp', () => {
     const available = availableCount.value
     const failed = failedCount.value
     if (failed === 0) {
-      return `${available} 可用`
+      return useI18n().t('ui.mcpAvailable', { count: available })
     }
-    return `${available} 可用 / ${failed} 失败`
+    return useI18n().t('ui.mcpAvailableFailed', { count: available, failed })
   })
 
   // Actions
@@ -80,7 +81,7 @@ export const useMcpStore = defineStore('mcp', () => {
       } catch (e) {
         testResults.value.set(server.name, {
           success: false,
-          message: '测试失败',
+          message: useI18n().t('ui.testFailed'),
           latency: 0
         })
       }

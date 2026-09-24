@@ -37,32 +37,32 @@
           </div>
         </div>
         <div class="flex shrink-0 items-center gap-1.5">
-          <Badge v-if="config.official_login" variant="outline" class="shrink-0 border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">官方登录</Badge>
-          <Badge v-if="needsRoute" class="shrink-0">需路由</Badge>
+          <Badge v-if="config.official_login" variant="outline" class="shrink-0 border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">{{ t('envList.officialLogin') }}</Badge>
+          <Badge v-if="needsRoute" class="shrink-0">{{ t('envList.needsRoute') }}</Badge>
           <Badge v-if="needsRoute && conversionLabel" variant="outline" class="shrink-0 border-brand/30 bg-brand/10 text-brand">{{ conversionLabel }}</Badge>
           <Badge v-if="isActive" class="gap-1">
             <Check class="size-3" />
-            使用中
+            {{ t('envList.inUse') }}
           </Badge>
         </div>
       </div>
     </CardHeader>
     <CardContent class="space-y-3">
-      <p class="line-clamp-2 break-words text-xs text-muted-foreground">{{ config.description?.trim() || '暂无描述' }}</p>
+      <p class="line-clamp-2 break-words text-xs text-muted-foreground">{{ config.description?.trim() || t('envList.noDescription') }}</p>
       <div class="space-y-1 text-xs">
         <div class="flex justify-between gap-3">
-          <span class="shrink-0 text-muted-foreground">模型</span>
+          <span class="shrink-0 text-muted-foreground">{{ t('envList.model') }}</span>
           <span class="min-w-0 truncate font-mono">{{ modelValue || '-' }}</span>
         </div>
         <div class="flex justify-between gap-3">
-          <span class="shrink-0 text-muted-foreground">地址</span>
+          <span class="shrink-0 text-muted-foreground">{{ t('envList.address') }}</span>
           <AppTooltip :content="baseUrlValue" wrap :disabled="!baseUrlValue">
             <span class="min-w-0 truncate font-mono">{{ baseUrlValue || '-' }}</span>
           </AppTooltip>
         </div>
         <div class="flex justify-between gap-3">
-          <span class="shrink-0 text-muted-foreground">延迟</span>
-          <span class="min-w-0 truncate tabular-nums">{{ latencyLabel || '未测' }}</span>
+          <span class="shrink-0 text-muted-foreground">{{ t('envList.latency') }}</span>
+          <span class="min-w-0 truncate tabular-nums">{{ latencyLabel || t('envList.untested') }}</span>
         </div>
       </div>
       <div v-if="isUptimeEnabled" class="flex items-center justify-between gap-2">
@@ -71,23 +71,23 @@
     </CardContent>
     <CardFooter class="gap-1.5">
       <Button size="sm" class="flex-1" @click.stop="$emit('apply')">{{ applyLabel }}</Button>
-      <AppTooltip content="测速">
+      <AppTooltip :content="t('envList.testLatency')">
         <Button variant="ghost" size="icon-sm" :disabled="testing" @pointerdown.stop @click.stop="onTestLatency">
           <Loader2 v-if="testing" class="animate-spin" />
           <Gauge v-else />
         </Button>
       </AppTooltip>
-      <AppTooltip content="复制">
+      <AppTooltip :content="t('envList.duplicate')">
         <Button variant="ghost" size="icon-sm" @click.stop="$emit('duplicate')">
           <Copy />
         </Button>
       </AppTooltip>
-      <AppTooltip content="编辑">
+      <AppTooltip :content="t('envList.edit')">
         <Button variant="ghost" size="icon-sm" @click.stop="$emit('edit')">
           <Pencil />
         </Button>
       </AppTooltip>
-      <AppTooltip content="删除">
+      <AppTooltip :content="t('envList.delete')">
         <Button variant="ghost" size="icon-sm" @click.stop="$emit('delete')">
           <Trash2 class="text-destructive" />
         </Button>
@@ -98,6 +98,7 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n'
 import { computed } from 'vue'
 import { motion } from 'motion-v'
 import { Check, Copy, Gauge, Loader2, Pencil, Trash2 } from '@lucide/vue'
@@ -113,6 +114,8 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 
+const { t } = useI18n()
+
 const props = defineProps<{
   config: EnvConfig
   isActive?: boolean
@@ -120,7 +123,7 @@ const props = defineProps<{
 }>()
 
 const enter = computed(() => listEnter(props.index ?? 0))
-const applyLabel = computed(() => props.isActive && props.config.provider === 'opencode' ? '停用' : '应用')
+const applyLabel = computed(() => props.isActive && props.config.provider === 'opencode' ? t('envList.deactivate') : t('envList.apply'))
 
 defineEmits<{
   click: []
@@ -172,9 +175,9 @@ const isUptimeEnabled = computed(() => !!uptimeStore.settings.enabled)
 const uptimeHistory = computed<UptimeCheck[]>(() => uptimeStore.getHistory(`${String(props.config.provider || '').toLowerCase()}/${props.config.name}`))
 const latestCheck = computed(() => uptimeHistory.value.at(-1) ?? null)
 const uptimeBadgeText = computed(() => {
-  if (!baseUrlValue.value?.trim()) return '无地址'
+  if (!baseUrlValue.value?.trim()) return t('envList.noAddress')
   const last = latestCheck.value
-  if (!last) return '未测'
-  return last.success ? `${last.latency_ms}ms` : '失败'
+  if (!last) return t('envList.untested')
+  return last.success ? `${last.latency_ms}ms` : t('envList.failed')
 })
 </script>

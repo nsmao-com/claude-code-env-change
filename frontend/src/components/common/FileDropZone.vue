@@ -36,7 +36,7 @@
         {{ heading }}
       </p>
       <p class="text-xs text-muted-foreground">
-        {{ fileName ? metaLabel : hint }}
+        {{ fileName ? metaLabel : (hint || t('ui.dropHint')) }}
       </p>
     </div>
     <div class="flex flex-wrap items-center justify-center gap-2">
@@ -67,8 +67,8 @@ const props = withDefaults(defineProps<{
   maxBytes?: number
 }>(), {
   accept: '.json,application/json,text/plain',
-  title: '拖拽文件到这里',
-  hint: '或点击选择 JSON 文件',
+  title: '',
+  hint: '',
   compact: false,
   maxBytes: 8 * 1024 * 1024,
 })
@@ -86,7 +86,7 @@ const inputRef = ref<HTMLInputElement | null>(null)
 
 const heading = computed(() => {
   if (dragging.value) return t('importModal.release')
-  return fileName.value || props.title
+  return fileName.value || props.title || t('ui.dropTitle')
 })
 
 const metaLabel = computed(() => formatSize(fileSize.value))

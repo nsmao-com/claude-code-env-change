@@ -1,3 +1,4 @@
+import { useI18n } from '@/composables/useI18n'
 import type { EnvConfig, Provider } from '@/types'
 
 const URL_KEYS: Record<string, string[]> = {
@@ -26,7 +27,7 @@ export function withDefaultBaseUrl(provider: string, url: string): string {
 }
 
 export function formatLatency(ms: number): string {
-  if (!Number.isFinite(ms) || ms < 0) return '失败'
+  if (!Number.isFinite(ms) || ms < 0) return useI18n().t('ui.failed')
   if (ms > 1000) return `${(ms / 1000).toFixed(1)}s`
   return `${Math.round(ms)}ms`
 }
@@ -38,7 +39,7 @@ export function errorMessage(e: unknown): string {
     const msg = String((e as { message?: unknown }).message ?? '')
     if (msg.trim()) return msg
   }
-  return '未知错误'
+  return useI18n().t('ui.unknownError')
 }
 
 function firstVar(vars: Record<string, string> | undefined, keys: string[]): string {

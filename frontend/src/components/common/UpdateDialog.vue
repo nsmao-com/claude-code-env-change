@@ -2,9 +2,9 @@
   <Dialog :open="open" @update:open="onOpen">
     <DialogContent class="sm:max-w-lg" :show-close-button="!applying">
       <DialogHeader>
-        <DialogTitle>软件更新</DialogTitle>
+        <DialogTitle>{{ t('update.title') }}</DialogTitle>
         <DialogDescription>
-          从 GitHub Releases 检查版本，可直接在软件内下载安装。
+          {{ t('update.desc') }}
         </DialogDescription>
       </DialogHeader>
 
@@ -17,7 +17,7 @@
         <div v-else-if="status === 'error'" class="rounded-xl border border-destructive/20 bg-destructive/5 p-4">
           <div class="flex items-start gap-2 text-sm text-destructive">
             <CircleAlert class="mt-0.5 size-4 shrink-0" />
-            <span>{{ error || '检查更新失败' }}</span>
+            <span>{{ error || t('update.checkFailed') }}</span>
           </div>
         </div>
 
@@ -25,13 +25,13 @@
           <div class="grid grid-cols-2 gap-3">
             <Card size="sm">
               <CardHeader class="px-4 py-3">
-                <CardDescription>当前版本</CardDescription>
+                <CardDescription>{{ t('update.current') }}</CardDescription>
                 <CardTitle class="font-mono text-lg">v{{ info?.current_version || '—' }}</CardTitle>
               </CardHeader>
             </Card>
             <Card size="sm">
               <CardHeader class="px-4 py-3">
-                <CardDescription>GitHub 最新</CardDescription>
+                <CardDescription>{{ t('update.latest') }}</CardDescription>
                 <CardTitle class="font-mono text-lg">{{ latestLabel }}</CardTitle>
               </CardHeader>
             </Card>
@@ -39,7 +39,7 @@
 
           <div class="flex items-center gap-2">
             <Badge :variant="info?.available ? 'default' : 'secondary'">
-              {{ info?.available ? '有新版本' : '已是最新' }}
+              {{ info?.available ? t('update.available') : t('update.upToDate') }}
             </Badge>
             <span v-if="info?.published_at" class="text-xs text-muted-foreground">{{ publishedLabel }}</span>
           </div>
@@ -47,7 +47,7 @@
           <p v-if="info?.message" class="text-sm text-muted-foreground">{{ info.message }}</p>
 
           <div v-if="info?.release_notes" class="space-y-1.5">
-            <p class="text-xs font-medium tracking-wide text-muted-foreground uppercase">更新说明</p>
+            <p class="text-xs font-medium tracking-wide text-muted-foreground uppercase">{{ t('update.notes') }}</p>
             <ScrollArea class="h-32 rounded-xl border bg-muted/40 p-3">
               <pre class="whitespace-pre-wrap font-sans text-xs leading-relaxed text-foreground/90">{{ info.release_notes }}</pre>
             </ScrollArea>
@@ -69,10 +69,10 @@
       </div>
 
       <DialogFooter>
-        <Button variant="secondary" :disabled="applying" @click="open = false">稍后</Button>
+        <Button variant="secondary" :disabled="applying" @click="open = false">{{ t('update.later') }}</Button>
         <Button variant="outline" :disabled="applying || status === 'checking'" @click="openRelease">
           <ExternalLink />
-          打开发布页
+          {{ t('update.openRelease') }}
         </Button>
         <Button
           v-if="info?.available && info.can_apply"
@@ -81,7 +81,7 @@
         >
           <Loader2 v-if="applying" class="animate-spin" />
           <Download v-else />
-          {{ applying ? '正在更新' : '立即更新' }}
+          {{ applying ? t('update.updating') : t('update.updateNow') }}
         </Button>
       </DialogFooter>
     </DialogContent>
@@ -89,6 +89,7 @@
 </template>
 
 <script setup lang="ts">
+import { useI18n } from '@/composables/useI18n'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { CircleAlert, Download, ExternalLink, Loader2 } from '@lucide/vue'
 import type { UpdateInfo } from '@/types'
@@ -109,6 +110,8 @@ import { Progress } from '@/components/ui/progress'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
 
+const { t } = useI18n()
+
 const open = defineModel<boolean>({ default: false })
 const emit = defineEmits<{
   available: []
@@ -121,7 +124,7 @@ const info = ref<UpdateInfo | null>(null)
 const error = ref('')
 const applying = ref(false)
 const progress = ref(0)
-const progressMessage = ref('准备下载…')
+const progressMessage = ref(t('update.preparing'))
 let lastCheckAt = 0
 let offProgress: (() => void) | null = null
 let silentTimer = 0
@@ -163,7 +166,7 @@ async function check() {
     if (data.available) emit('available')
   } catch (e: any) {
     status.value = 'error'
-    error.value = e?.message || String(e) || '检查更新失败'
+    error.value = e?.message || String(e) || t('update.checkFailed')
   }
 }
 
@@ -171,14 +174,14 @@ async function apply() {
   if (!info.value?.can_apply || applying.value) return
   applying.value = true
   progress.value = 0
-  progressMessage.value = '开始下载…'
+  progressMessage.value = t('update.starting')
   try {
     await updateService.apply()
-    progressMessage.value = '即将重启…'
+    progressMessage.value = t('update.restarting')
   } catch (e: any) {
     applying.value = false
     status.value = 'error'
-    error.value = e?.message || String(e) || '更新失败'
+    error.value = e?.message || String(e) || t('update.failed')
   }
 }
 
@@ -204,7 +207,7 @@ onMounted(() => {
     if (p.phase === 'error') {
       applying.value = false
       status.value = 'error'
-      error.value = p.message || '更新失败'
+      error.value = p.message || t('update.failed')
     }
   })
 
