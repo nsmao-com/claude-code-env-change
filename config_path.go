@@ -10,6 +10,17 @@ import (
 
 const mainConfigFile = "config.json"
 
+// resolveCodexHome 返回 Codex 配置目录。Codex 以 CODEX_HOME 覆盖默认的 ~/.codex，
+// 写配置、同步 MCP / Skills、读提示词都必须指向同一个目录，否则设置了
+// CODEX_HOME 的用户会看到"写入成功但 Codex 没生效"。
+func resolveCodexHome(homeDir string) string {
+	defaultHome := filepath.Join(homeDir, ".codex")
+	if v := strings.TrimSpace(os.Getenv("CODEX_HOME")); v != "" {
+		return expandAndNormalizePath(v, homeDir, defaultHome)
+	}
+	return defaultHome
+}
+
 // resolveMainConfigPath 解析主配置文件路径：
 // 1) 若当前工作目录存在可写的 config.json，则继续使用（兼容旧版本/便携用法）
 // 2) 若存在但不可写（例如 macOS 安装到 /Applications 后的 .app 目录），则迁移到用户目录并使用之

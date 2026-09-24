@@ -142,7 +142,7 @@ func localOfficialLoginDetected(provider string) bool {
 		path, err := claudeDesktopConfigPath()
 		return err == nil && fileExistsFile(path)
 	case "codex":
-		return dirExistsPath(filepath.Join(home, ".codex"))
+		return dirExistsPath(resolveCodexHome(home))
 	case "antigravity":
 		return dirExistsPath(filepath.Join(home, ".gemini"))
 	case "opencode":
@@ -316,7 +316,7 @@ func (a *App) officialLoginCodex() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("获取用户目录失败: %v", err)
 	}
-	codexDir := filepath.Join(homeDir, ".codex")
+	codexDir := resolveCodexHome(homeDir)
 
 	// config.toml：摘掉自定义模型供应商，保留 mcp_servers 等用户设置
 	configFile := filepath.Join(codexDir, "config.toml")

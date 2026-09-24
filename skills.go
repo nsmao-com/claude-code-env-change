@@ -88,7 +88,7 @@ func (ss *SkillService) ListSkills() ([]Skill, error) {
 			Content:              content,
 			EnablePlatform:       entry.EnablePlatform,
 			EnabledInClaude:      fileExists(filepath.Join(home, ".claude", "skills", name, "SKILL.md")),
-			EnabledInCodex:       fileExists(filepath.Join(home, ".codex", "skills", name, "SKILL.md")),
+			EnabledInCodex:       fileExists(filepath.Join(resolveCodexHome(home), "skills", name, "SKILL.md")),
 			EnabledInAntigravity: antigravitySkillExists(home, name),
 			EnabledInOpencode:    opencodeRoot != "" && fileExists(filepath.Join(opencodeRoot, name, "SKILL.md")),
 			EnabledInGrok:        grokRoot != "" && fileExists(filepath.Join(grokRoot, name, "SKILL.md")),
@@ -299,7 +299,7 @@ func (ss *SkillService) loadConfigWithImport() (map[string]rawSkill, bool, error
 		root     string
 	}{
 		{platform: platClaudeCode, root: filepath.Join(home, ".claude", "skills")},
-		{platform: platCodex, root: filepath.Join(home, ".codex", "skills")},
+		{platform: platCodex, root: filepath.Join(resolveCodexHome(home), "skills")},
 		{platform: platAntigravity, root: antigravitySkillsScanRoot(home)},
 	}
 	if opencodeRoot := opencodeSkillsRoot(); opencodeRoot != "" {
@@ -422,7 +422,7 @@ func (ss *SkillService) syncSkill(name string, entry rawSkill) error {
 		root     string
 	}{
 		{platform: platClaudeCode, root: filepath.Join(home, ".claude", "skills")},
-		{platform: platCodex, root: filepath.Join(home, ".codex", "skills")},
+		{platform: platCodex, root: filepath.Join(resolveCodexHome(home), "skills")},
 		{platform: platAntigravity, root: antigravitySkillsScanRoot(home)},
 	}
 	if opencodeRoot := opencodeSkillsRoot(); opencodeRoot != "" {
@@ -470,7 +470,7 @@ func (ss *SkillService) removeSkillFromAllPlatforms(name string) error {
 
 	roots := []string{
 		filepath.Join(home, ".claude", "skills"),
-		filepath.Join(home, ".codex", "skills"),
+		filepath.Join(resolveCodexHome(home), "skills"),
 		filepath.Join(home, ".gemini", "antigravity-cli", "skills"),
 		filepath.Join(home, ".gemini", "skills"),
 	}

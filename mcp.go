@@ -23,7 +23,6 @@ const (
 	mcpStoreDir      = ".claude-env-switcher"
 	mcpStoreFile     = "mcp.json"
 	claudeMcpFile    = ".claude.json"
-	codexDirName     = ".codex"
 	codexConfigFile  = "config.toml"
 	geminiDirName    = ".gemini"
 	geminiConfigFile = "settings.json"
@@ -1280,7 +1279,7 @@ func loadCodexEnabledServers() (map[string]struct{}, error) {
 	if err != nil {
 		return result, err
 	}
-	path := filepath.Join(home, codexDirName, codexConfigFile)
+	path := filepath.Join(resolveCodexHome(home), codexConfigFile)
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -1392,7 +1391,7 @@ func codexConfigPath() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, codexDirName, codexConfigFile), nil
+	return filepath.Join(resolveCodexHome(home), codexConfigFile), nil
 }
 
 // antigravityMcpConfigPath Antigravity CLI 全局 MCP 配置：~/.gemini/config/mcp_config.json
