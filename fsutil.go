@@ -15,6 +15,11 @@ func writeFileAtomic(path string, data []byte, perm os.FileMode) error {
 	if resolved, err := filepath.EvalSymlinks(path); err == nil {
 		path = resolved
 	}
+	// 覆盖已有文件时不放宽组/其他用户权限：用户手动 chmod 600 的含密钥配置
+	// 不能因为本工具写一次就变回所有人可读；属主读写位仍按调用方要求
+	if info, err := os.Stat(path); err == nil && info.Mode().IsRegular() {
+		perm = perm&info.Mode().Perm() | perm&0o700
+	}
 	dir := filepath.Dir(path)
 	tmp, err := os.CreateTemp(dir, filepath.Base(path)+".tmp-*")
 	if err != nil {
