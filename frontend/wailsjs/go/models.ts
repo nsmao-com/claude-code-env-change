@@ -1010,6 +1010,7 @@ export namespace main {
 	    interval_seconds: number;
 	    timeout_seconds: number;
 	    keep_last: number;
+	    probe_mode: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new UptimeSettings(source);
@@ -1021,6 +1022,7 @@ export namespace main {
 	        this.interval_seconds = source["interval_seconds"];
 	        this.timeout_seconds = source["timeout_seconds"];
 	        this.keep_last = source["keep_last"];
+	        this.probe_mode = source["probe_mode"];
 	    }
 	}
 	export class UptimeSnapshot {
