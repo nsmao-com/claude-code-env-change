@@ -68,9 +68,16 @@ type App struct {
 
 // NewApp creates a new App application struct
 func NewApp() *App {
-	return &App{
+	a := &App{
 		configPath: resolveMainConfigPath(),
 	}
+	// 在 wails.Run 之前同步加载：OnStartup 跑在独立 goroutine 里，前端可能抢先
+	// 调用 GetConfig 拿到空配置，这时再触发保存就会把空配置盖回 config.json。
+	// 加载失败时 loadConfig 会记下 configLoadErr，saveConfig 据此拒绝写盘。
+	a.configMu.Lock()
+	_ = a.loadConfig()
+	a.configMu.Unlock()
+	return a
 }
 
 // OnStartup is called when the app starts up
@@ -79,22 +86,28 @@ func (a *App) OnStartup(ctx context.Context) {
 	initOutboundProxy()
 	go cleanupStaleUpdateTemp()
 	a.configMu.Lock()
-	if err := a.loadConfig(); err != nil {
+	if a.configLoadErr != nil {
 		// 配置读不出来时绝对不能继续往下写盘：早期版本会在这里直接 saveConfig，
 		// 把一份空配置盖回用户的 config.json，所有环境配置就此丢失。
-		runtime.LogErrorf(ctx, "配置加载失败，已暂停写入: %v", err)
+		runtime.LogErrorf(ctx, "配置加载失败，已暂停写入: %v", a.configLoadErr)
 		a.configMu.Unlock()
 		return
 	}
 	a.syncOpencodeAppliedFromDisk()
 	_ = a.saveConfig()
+	current := map[string]string{
+		"claude":         a.config.CurrentEnvClaude,
+		"claude_desktop": a.config.CurrentEnvClaudeDesktop,
+		"codex":          a.config.CurrentEnvCodex,
+		"antigravity":    a.config.CurrentEnvAntigravity,
+		"opencode":       a.config.CurrentEnvOpencode,
+		"grok":           a.config.CurrentEnvGrok,
+	}
 	a.configMu.Unlock()
-	_ = RecordEnvActivation("claude", a.config.CurrentEnvClaude, time.Now())
-	_ = RecordEnvActivation("claude_desktop", a.config.CurrentEnvClaudeDesktop, time.Now())
-	_ = RecordEnvActivation("codex", a.config.CurrentEnvCodex, time.Now())
-	_ = RecordEnvActivation("antigravity", a.config.CurrentEnvAntigravity, time.Now())
-	_ = RecordEnvActivation("opencode", a.config.CurrentEnvOpencode, time.Now())
-	_ = RecordEnvActivation("grok", a.config.CurrentEnvGrok, time.Now())
+	now := time.Now()
+	for provider, name := range current {
+		_ = RecordEnvActivation(provider, name, now)
+	}
 }
 
 // GetConfig 获取配置
