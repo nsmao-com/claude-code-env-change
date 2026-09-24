@@ -38,6 +38,8 @@ type UsageRecord struct {
 	SessionID        string  `json:"session_id"`
 	ProjectPath      string  `json:"project_path"`
 	Provider         string  `json:"provider,omitempty"`
+	// dedupKey 同一次 API 响应的唯一标识（Claude: message.id + requestId），用于去重
+	dedupKey string
 }
 
 // ModelStats 模型统计
@@ -92,10 +94,12 @@ type EnvUsageSummary struct {
 type claudeLogEntry struct {
 	Type      string         `json:"type"`
 	Timestamp string         `json:"timestamp"`
+	RequestID string         `json:"requestId"`
 	Message   *claudeMessage `json:"message"`
 }
 
 type claudeMessage struct {
+	ID    string       `json:"id"`
 	Model string       `json:"model"`
 	Usage *claudeUsage `json:"usage"`
 }
@@ -108,7 +112,8 @@ type claudeUsage struct {
 }
 
 // Model pricing (USD per 1M tokens)
-// Cache pricing: CacheCreate = 1.25 × Input, CacheRead = 0.1 × Input
+// Claude：缓存写入（5 分钟 TTL）= 1.25 × 输入价，缓存读取 = 0.1 × 输入价（Fable 5.1、Opus 5.5 例外）。
+// 键同时收录不带日期的别名与带日期的完整 ID；匹配时取最长的前缀，见 lookupModelPricing。
 // Reference: https://docs.anthropic.com/en/docs/about-claude/models
 var modelPricing = map[string]struct {
 	Input       float64
@@ -116,19 +121,42 @@ var modelPricing = map[string]struct {
 	CacheCreate float64
 	CacheRead   float64
 }{
-	// Claude Opus 4.5 ($5/$25)
+	// Claude Fable 5.1 ($10/$50，缓存读取 $0.25) / Fable 5 ($10/$50，缓存读取 $1)
+	"claude-fable-5-1": {Input: 10.0, Output: 50.0, CacheCreate: 12.5, CacheRead: 0.25},
+	"claude-fable-5":   {Input: 10.0, Output: 50.0, CacheCreate: 12.5, CacheRead: 1.0},
+	// Claude Mythos 5.1 / 5 与 Fable 同价（Mythos 5.1 的缓存读取价尚未公布，按 $1 估算）
+	"claude-mythos-5-1": {Input: 10.0, Output: 50.0, CacheCreate: 12.5, CacheRead: 1.0},
+	"claude-mythos-5":   {Input: 10.0, Output: 50.0, CacheCreate: 12.5, CacheRead: 1.0},
+	// Claude Opus 5.5 ($4/$20，缓存读取 $0.20)
+	"claude-opus-5-5": {Input: 4.0, Output: 20.0, CacheCreate: 5.0, CacheRead: 0.20},
+	// Claude Opus 5 / 4.8 / 4.7 / 4.6 / 4.5 ($5/$25)
+	"claude-opus-5":            {Input: 5.0, Output: 25.0, CacheCreate: 6.25, CacheRead: 0.50},
+	"claude-opus-4-8":          {Input: 5.0, Output: 25.0, CacheCreate: 6.25, CacheRead: 0.50},
+	"claude-opus-4-7":          {Input: 5.0, Output: 25.0, CacheCreate: 6.25, CacheRead: 0.50},
+	"claude-opus-4-6":          {Input: 5.0, Output: 25.0, CacheCreate: 6.25, CacheRead: 0.50},
+	"claude-opus-4-5":          {Input: 5.0, Output: 25.0, CacheCreate: 6.25, CacheRead: 0.50},
 	"claude-opus-4-5-20251101": {Input: 5.0, Output: 25.0, CacheCreate: 6.25, CacheRead: 0.50},
 	// Claude Opus 4 / 4.1 ($15/$75)
 	"claude-opus-4-20250514":   {Input: 15.0, Output: 75.0, CacheCreate: 18.75, CacheRead: 1.50},
+	"claude-opus-4-0":          {Input: 15.0, Output: 75.0, CacheCreate: 18.75, CacheRead: 1.50},
+	"claude-opus-4-1":          {Input: 15.0, Output: 75.0, CacheCreate: 18.75, CacheRead: 1.50},
 	"claude-opus-4-1-20250805": {Input: 15.0, Output: 75.0, CacheCreate: 18.75, CacheRead: 1.50},
 	// Claude 3 Opus ($15/$75)
 	"claude-3-opus-20240229": {Input: 15.0, Output: 75.0, CacheCreate: 18.75, CacheRead: 1.50},
-	// Claude Sonnet 4 / 4.5 / 3.7 / 3.5 ($3/$15)
-	"claude-sonnet-4-20250514":   {Input: 3.0, Output: 15.0, CacheCreate: 3.75, CacheRead: 0.30},
+	// Claude Sonnet 5 ($2/$10)
+	"claude-sonnet-5": {Input: 2.0, Output: 10.0, CacheCreate: 2.5, CacheRead: 0.20},
+	// Claude Sonnet 4.6 / 4.5 / 4 / 3.7 / 3.5 ($3/$15)
+	"claude-sonnet-4-6":          {Input: 3.0, Output: 15.0, CacheCreate: 3.75, CacheRead: 0.30},
+	"claude-sonnet-4-5":          {Input: 3.0, Output: 15.0, CacheCreate: 3.75, CacheRead: 0.30},
 	"claude-sonnet-4-5-20250929": {Input: 3.0, Output: 15.0, CacheCreate: 3.75, CacheRead: 0.30},
+	"claude-sonnet-4-0":          {Input: 3.0, Output: 15.0, CacheCreate: 3.75, CacheRead: 0.30},
+	"claude-sonnet-4-20250514":   {Input: 3.0, Output: 15.0, CacheCreate: 3.75, CacheRead: 0.30},
 	"claude-3-7-sonnet-20250219": {Input: 3.0, Output: 15.0, CacheCreate: 3.75, CacheRead: 0.30},
 	"claude-3-5-sonnet-20241022": {Input: 3.0, Output: 15.0, CacheCreate: 3.75, CacheRead: 0.30},
 	"claude-3-5-sonnet-20240620": {Input: 3.0, Output: 15.0, CacheCreate: 3.75, CacheRead: 0.30},
+	// Claude Haiku 4.5 ($1/$5)
+	"claude-haiku-4-5":          {Input: 1.0, Output: 5.0, CacheCreate: 1.25, CacheRead: 0.10},
+	"claude-haiku-4-5-20251001": {Input: 1.0, Output: 5.0, CacheCreate: 1.25, CacheRead: 0.10},
 	// Claude 3.5 Haiku ($0.80/$4)
 	"claude-3-5-haiku-20241022": {Input: 0.80, Output: 4.0, CacheCreate: 1.0, CacheRead: 0.08},
 	// Claude 3 Haiku ($0.25/$1.25)
@@ -139,12 +167,13 @@ var modelPricing = map[string]struct {
 	"gpt-4o":      {Input: 2.5, Output: 10.0, CacheCreate: 0, CacheRead: 0},
 	"gpt-4o-mini": {Input: 0.15, Output: 0.6, CacheCreate: 0, CacheRead: 0},
 	// Gemini series (https://ai.google.dev/gemini-api/docs/pricing)
-	"gemini-2.5-pro":   {Input: 1.25, Output: 10.0, CacheCreate: 0.3125, CacheRead: 0},
-	"gemini-2.5-flash": {Input: 0.15, Output: 0.60, CacheCreate: 0.0375, CacheRead: 0},
-	"gemini-2.0-flash": {Input: 0.10, Output: 0.40, CacheCreate: 0.025, CacheRead: 0},
-	"gemini-1.5-pro":   {Input: 1.25, Output: 5.0, CacheCreate: 0.3125, CacheRead: 0},
-	"gemini-1.5-flash": {Input: 0.075, Output: 0.3, CacheCreate: 0.01875, CacheRead: 0},
-	"gemini-3-pro":     {Input: 2.5, Output: 15.0, CacheCreate: 0.625, CacheRead: 0},
+	// 隐式缓存没有写入费用；表中缓存价是命中缓存的 token 单价（此前误填在 CacheCreate 列）
+	"gemini-2.5-pro":   {Input: 1.25, Output: 10.0, CacheCreate: 0, CacheRead: 0.3125},
+	"gemini-2.5-flash": {Input: 0.15, Output: 0.60, CacheCreate: 0, CacheRead: 0.0375},
+	"gemini-2.0-flash": {Input: 0.10, Output: 0.40, CacheCreate: 0, CacheRead: 0.025},
+	"gemini-1.5-pro":   {Input: 1.25, Output: 5.0, CacheCreate: 0, CacheRead: 0.3125},
+	"gemini-1.5-flash": {Input: 0.075, Output: 0.3, CacheCreate: 0, CacheRead: 0.01875},
+	"gemini-3-pro":     {Input: 2.5, Output: 15.0, CacheCreate: 0, CacheRead: 0.625},
 	// OpenAI Codex series (https://developers.openai.com/codex/pricing/)
 	"gpt-5.2-codex":      {Input: 1.75, Output: 14.0, CacheCreate: 0, CacheRead: 0.175},
 	"gpt-5.2":            {Input: 1.75, Output: 14.0, CacheCreate: 0, CacheRead: 0.175},
@@ -558,11 +587,13 @@ func (ls *LogService) readClaudeLogs(days int) ([]UsageRecord, error) {
 	}
 	pruneLogFileCache(alive)
 
-	return parseFilesConcurrently(paths, func(path string) []UsageRecord {
+	records := parseFilesConcurrently(paths, func(path string) []UsageRecord {
 		return cachedParseFile(path, func() ([]UsageRecord, error) {
 			return ls.parseJSONLFile(path, extractProjectPath(path), time.Time{})
 		}, cutoff)
-	}), nil
+	})
+	// 恢复/分叉的会话会把历史消息复制到新文件，跨文件也要去重
+	return dedupUsageRecords(records), nil
 }
 
 // parseFilesConcurrently 用 worker 池并发解析日志文件；parse 必须是并发安全的
@@ -757,21 +788,31 @@ func (ls *LogService) parseGeminiSession(path string, projectHash string, cutoff
 			model = "gemini-2.5-pro" // 默认模型
 		}
 
+		// Gemini 的 input（promptTokenCount）已包含命中缓存的 cached；
+		// thoughts 是推理 token，按输出计费。统一成与 Claude 相同的口径：
+		// InputTokens 为未命中缓存的输入，OutputTokens 含推理
+		cached := msg.Tokens.Cached
+		input := msg.Tokens.Input - cached
+		if input < 0 {
+			input = 0
+		}
+		output := msg.Tokens.Output + msg.Tokens.Thoughts
+
 		// 计算成本
 		cost := ls.calculateCost(
 			model,
-			msg.Tokens.Input,
-			msg.Tokens.Output,
+			input,
+			output,
 			0, // Gemini 没有 cache create 概念
-			msg.Tokens.Cached,
+			cached,
 		)
 
 		record := UsageRecord{
 			Timestamp:        ts.Local().Format(recordTimeLayout),
 			Model:            model,
-			InputTokens:      msg.Tokens.Input,
-			OutputTokens:     msg.Tokens.Output,
-			CacheReadTokens:  msg.Tokens.Cached,
+			InputTokens:      input,
+			OutputTokens:     output,
+			CacheReadTokens:  cached,
 			CacheWriteTokens: 0,
 			TotalCost:        cost,
 			SessionID:        session.SessionID,
@@ -800,6 +841,14 @@ func (ls *LogService) getClaudeProjectsDir() string {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return ""
+	}
+
+	// Claude Code 用 CLAUDE_CONFIG_DIR 覆盖 ~/.claude 时，会话日志也跟着搬过去
+	if configDir := strings.TrimSpace(os.Getenv("CLAUDE_CONFIG_DIR")); configDir != "" {
+		projects := filepath.Join(expandAndNormalizePath(configDir, homeDir, homeDir), "projects")
+		if _, err := os.Stat(projects); err == nil {
+			return projects
+		}
 	}
 
 	// 主要路径: ~/.claude/projects
@@ -912,28 +961,53 @@ func (ls *LogService) parseJSONLFile(path string, projectPath string, cutoff tim
 			SessionID:        sessionID,
 			ProjectPath:      projectPath,
 			Provider:         "claude",
+			dedupKey:         claudeDedupKey(entry),
 		}
 
 		records = append(records, record)
 	}
 
-	return records, nil
+	return dedupUsageRecords(records), nil
+}
+
+// claudeDedupKey Claude Code 会把一次响应的每个内容块（thinking / text / tool_use）
+// 各写一行，每行都带着同一份完整 usage；恢复会话时还会把历史消息复制进新文件。
+// 同一 message.id + requestId 只能计一次，否则 Token 与花费会成倍虚高。
+func claudeDedupKey(entry claudeLogEntry) string {
+	if entry.Message == nil || strings.TrimSpace(entry.Message.ID) == "" {
+		return ""
+	}
+	return entry.Message.ID + ":" + entry.RequestID
+}
+
+// dedupUsageRecords 按 dedupKey 去重（没有 key 的旧日志原样保留）。
+// 同一响应的多行 usage 通常一致；不一致时保留输出更多的那行（流式中途写入的行可能偏小）。
+func dedupUsageRecords(records []UsageRecord) []UsageRecord {
+	if len(records) == 0 {
+		return records
+	}
+	out := make([]UsageRecord, 0, len(records))
+	index := make(map[string]int, len(records))
+	for _, rec := range records {
+		if rec.dedupKey == "" {
+			out = append(out, rec)
+			continue
+		}
+		if i, seen := index[rec.dedupKey]; seen {
+			if rec.OutputTokens > out[i].OutputTokens {
+				out[i] = rec
+			}
+			continue
+		}
+		index[rec.dedupKey] = len(out)
+		out = append(out, rec)
+	}
+	return out
 }
 
 // calculateCost 计算成本 (包含缓存成本)
 func (ls *LogService) calculateCost(model string, inputTokens, outputTokens, cacheCreateTokens, cacheReadTokens int) float64 {
-	pricing, ok := modelPricing[model]
-	if !ok {
-		// 尝试模糊匹配
-		for name, p := range modelPricing {
-			if strings.Contains(strings.ToLower(model), strings.ToLower(name)) {
-				pricing = p
-				ok = true
-				break
-			}
-		}
-	}
-
+	pricing, ok := lookupModelPricing(model)
 	if !ok {
 		// 默认使用 sonnet 定价
 		pricing = modelPricing["claude-sonnet-4-20250514"]
@@ -946,6 +1020,39 @@ func (ls *LogService) calculateCost(model string, inputTokens, outputTokens, cac
 	cacheReadCost := float64(cacheReadTokens) * pricing.CacheRead / 1_000_000
 
 	return inputCost + outputCost + cacheCreateCost + cacheReadCost
+}
+
+// lookupModelPricing 精确匹配 → 最长前缀 → 最长包含。必须取"最长"：
+// 例如 gpt-5.1-codex-mini-2026xx 同时包含 gpt-5、gpt-5.1、gpt-5.1-codex，
+// 按 map 遍历顺序取第一个会让同一条记录每次算出不同的价格。
+// Bedrock / Vertex 等带前缀或后缀的 ID（us.anthropic.claude-sonnet-4-5-20250929-v1:0）走包含匹配。
+func lookupModelPricing(model string) (struct {
+	Input       float64
+	Output      float64
+	CacheCreate float64
+	CacheRead   float64
+}, bool) {
+	name := strings.ToLower(strings.TrimSpace(model))
+	if p, ok := modelPricing[name]; ok {
+		return p, true
+	}
+	best, bestLen, bestPrefix := "", 0, false
+	for key := range modelPricing {
+		k := strings.ToLower(key)
+		isPrefix := strings.HasPrefix(name, k)
+		if !isPrefix && !strings.Contains(name, k) {
+			continue
+		}
+		// 前缀匹配优先于包含匹配；同类取最长，等长时按字典序保证结果稳定
+		if (isPrefix && !bestPrefix) ||
+			(isPrefix == bestPrefix && (len(k) > bestLen || (len(k) == bestLen && k < best))) {
+			best, bestLen, bestPrefix = key, len(k), isPrefix
+		}
+	}
+	if best == "" {
+		return modelPricing[""], false
+	}
+	return modelPricing[best], true
 }
 
 // extractProjectPath 从文件路径提取项目路径
@@ -1132,9 +1239,15 @@ func (ls *LogService) parseCodexSession(path string, sessionID string, cutoff ti
 
 			// 只记录有增量的条目
 			if inputDelta > 0 || outputDelta > 0 {
+				// OpenAI 的 input_tokens 已包含 cached_input_tokens：未命中缓存的部分按输入价，
+				// 命中部分按缓存价，否则缓存 token 会被按全价和缓存价各算一次
+				uncached := inputDelta - cachedDelta
+				if uncached < 0 {
+					uncached = 0
+				}
 				cost := ls.calculateCost(
 					currentModel,
-					inputDelta,
+					uncached,
 					outputDelta,
 					0,
 					cachedDelta,
@@ -1143,7 +1256,7 @@ func (ls *LogService) parseCodexSession(path string, sessionID string, cutoff ti
 				record := UsageRecord{
 					Timestamp:        ts.Local().Format(recordTimeLayout),
 					Model:            currentModel,
-					InputTokens:      inputDelta,
+					InputTokens:      uncached,
 					OutputTokens:     outputDelta,
 					CacheReadTokens:  cachedDelta,
 					CacheWriteTokens: 0,
