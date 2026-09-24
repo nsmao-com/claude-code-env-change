@@ -13,5 +13,8 @@ func StartTray(a *App, ctx context.Context, router *RouterService) {}
 // StopTray 非 Windows 平台无托盘，无需清理。
 func StopTray() {}
 
+// trayAllowQuit 非 Windows 平台没有"关闭即隐藏"，无需放行。
+func trayAllowQuit() {}
+
 // trayShouldHideOnClose 非 Windows 平台保持"关闭即退出"。
 func trayShouldHideOnClose() bool { return false }

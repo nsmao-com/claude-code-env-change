@@ -224,6 +224,14 @@ func StopTray() {
 	tray = nil
 }
 
+// trayAllowQuit 程序主动退出（如在线更新）前调用。runtime.Quit 同样会经过
+// OnBeforeClose，不先放行就会被改成隐藏到托盘，进程不退出，等它退出的安装器也就不会启动。
+func trayAllowQuit() {
+	if tray != nil {
+		tray.quitting = true
+	}
+}
+
 // trayShouldHideOnClose 主窗口收到关闭请求时调用：返回 true 表示改为隐藏到托盘。
 func trayShouldHideOnClose() bool {
 	if tray == nil || tray.quitting {

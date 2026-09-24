@@ -99,6 +99,12 @@ func (a *App) OpenReleasePage() {
 	runtime.BrowserOpenURL(a.ctx, fmt.Sprintf("https://github.com/%s/%s/releases/latest", githubOwner, githubRepo))
 }
 
+// quitApp 真正退出进程：先让托盘放行，否则 Windows 上关闭请求会被改成隐藏到托盘
+func quitApp(ctx context.Context) {
+	trayAllowQuit()
+	runtime.Quit(ctx)
+}
+
 // CheckForUpdate 查询 GitHub Releases 最新版本
 func (a *App) CheckForUpdate() (UpdateInfo, error) {
 	info := UpdateInfo{
@@ -222,7 +228,7 @@ func (a *App) DownloadAndApplyUpdate() error {
 			a.emitUpdateProgress(UpdateProgress{Phase: "error", Message: err.Error()})
 			return err
 		}
-		runtime.Quit(a.ctx)
+		quitApp(a.ctx)
 		return nil
 	}
 
@@ -253,7 +259,7 @@ func (a *App) DownloadAndApplyUpdate() error {
 		a.emitUpdateProgress(UpdateProgress{Phase: "error", Message: err.Error()})
 		return err
 	}
-	runtime.Quit(a.ctx)
+	quitApp(a.ctx)
 	return nil
 }
 
