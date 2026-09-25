@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="build/appicon.png?v=2.6.5" width="72" height="72" alt="AI ENV monochrome icon" />
+  <img src="build/appicon.png?v=2.6.18" width="72" height="72" alt="AI ENV icon" />
 </p>
 
 <h1 align="center">AI ENV</h1>

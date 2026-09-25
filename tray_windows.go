@@ -4,6 +4,8 @@ package main
 
 import (
 	"context"
+	_ "embed"
+	"encoding/binary"
 	"log"
 	goruntime "runtime"
 	"sync"
@@ -13,6 +15,11 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 	"golang.org/x/sys/windows"
 )
+
+// 托盘图标用 exe 同一份 icon.ico，按 DPI 取对应尺寸的帧，小尺寸下比缩小 1024 大图清晰
+//
+//go:embed build/windows/icon.ico
+var trayIconICO []byte
 
 // 系统托盘（Windows）：
 //   - 托盘图标跑在独立线程（自建消息窗口 + 消息循环），左键切换主窗口显隐；
@@ -326,15 +333,19 @@ func (t *trayManager) hostWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 }
 
 func (t *trayManager) loadTrayIcon() {
-	// 托盘只认 HICON：把 PNG 直接交给 CreateIconFromResourceEx 解码
-	// （Vista+ 支持 PNG 数据），按系统 DPI 缩放到托盘小图标尺寸。
+	// 托盘只认 HICON：从 icon.ico 里挑与托盘尺寸最接近的一帧（16~32 是专为小尺寸画的简化版），
+	// 交给 CreateIconFromResourceEx 解码（Vista+ 支持 PNG 数据）；ICO 不可用时退回把 1024 大图缩小。
 	dpi := t.systemDPI()
 	size := 16 * dpi / 96
 	if size < 16 {
 		size = 16
 	}
+	data := pickIcoFrame(trayIconICO, int(size))
+	if len(data) == 0 {
+		data = appIcon
+	}
 	h, _, err := procCreateIconFromRes.Call(
-		uintptr(unsafe.Pointer(&appIcon[0])), uintptr(len(appIcon)),
+		uintptr(unsafe.Pointer(&data[0])), uintptr(len(data)),
 		1, 0x00030000, size, size, 0,
 	)
 	if h == 0 {
@@ -342,6 +353,38 @@ func (t *trayManager) loadTrayIcon() {
 		h, _, _ = procLoadIconW.Call(0, 32512)
 	}
 	t.hIcon = h
+}
+
+// pickIcoFrame 返回 ICO 中不小于 size 的最小一帧（都比 size 小就取最大帧）的原始数据（PNG 或 DIB）。
+func pickIcoFrame(ico []byte, size int) []byte {
+	if len(ico) < 6 || binary.LittleEndian.Uint16(ico[2:]) != 1 {
+		return nil
+	}
+	var best []byte
+	bestW := 0
+	count := int(binary.LittleEndian.Uint16(ico[4:]))
+	for i := 0; i < count; i++ {
+		e := 6 + 16*i
+		if e+16 > len(ico) {
+			break
+		}
+		w := int(ico[e])
+		if w == 0 {
+			w = 256
+		}
+		n := int(binary.LittleEndian.Uint32(ico[e+8:]))
+		off := int(binary.LittleEndian.Uint32(ico[e+12:]))
+		if n <= 0 || off < 0 || off > len(ico)-n {
+			continue
+		}
+		better := best == nil ||
+			(w >= size && (bestW < size || w < bestW)) ||
+			(w < size && bestW < size && w > bestW)
+		if better {
+			best, bestW = ico[off:off+n], w
+		}
+	}
+	return best
 }
 
 func (t *trayManager) addTrayIcon() {

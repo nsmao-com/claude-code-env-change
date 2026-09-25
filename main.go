@@ -15,8 +15,8 @@ import (
 //go:embed all:frontend/dist
 var assets embed.FS
 
-// Embed the same monochrome mark into native Linux/macOS window metadata.
-// Windows uses build/appicon.png during Wails resource generation.
+// App icon for native Linux/macOS window metadata; also the Windows tray fallback.
+// The Windows exe icon comes from build/windows/icon.ico.
 //
 //go:embed build/appicon.png
 var appIcon []byte
