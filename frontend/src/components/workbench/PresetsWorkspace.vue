@@ -1,4 +1,10 @@
 <script setup lang="ts">
+import { CheckboxGroupRoot } from 'reka-ui'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Textarea } from '@/components/ui/textarea'
 import { ref, reactive, computed } from 'vue'
 import { useWorkbench, workbench } from '@/composables/useWorkbench'
 import { callService } from '@/services/appBridge'
@@ -28,6 +34,10 @@ const form = reactive<ProjectPreset>({
   prompt: '',
 })
 const prompt = reactive<PromptPreset>({ name: '', content: '' })
+const promptSelection = computed({
+  get: () => form.prompt ? `prompt:${form.prompt}` : 'keep',
+  set: (value: string) => { form.prompt = value === 'keep' ? '' : value.slice('prompt:'.length) },
+})
 function editProject(p: ProjectPreset) {
   Object.assign(form, { ...p, mcp: [...p.mcp], skills: [...p.skills] })
   selected.value = `${p.provider}/${p.environment}`
@@ -127,62 +137,88 @@ void run(async () => {
     <form @submit.prevent="saveProject">
       <div class="wb-grid">
         <label
-          >{{ tx('套装名称', 'Preset name') }}<input v-model="form.name" required maxlength="100" /></label
+          >{{ tx('套装名称', 'Preset name') }}
+          <Input v-model="form.name" required maxlength="100" /></label
         ><label
           >{{ tx('环境', 'Environment')
-          }}<select v-model="selected" required>
-            <option value="" disabled>{{ tx('选择环境', 'Select environment') }}</option>
-            <option
-              v-for="e in config.environments"
-              :key="`${e.provider}/${e.name}`"
-              :value="`${e.provider}/${e.name}`"
-            >
-              {{ e.provider }} · {{ e.name }}
-            </option>
-          </select></label
+          }}
+          <Select v-model="selected" required :disabled="busy">
+            <SelectTrigger class="h-9 w-full min-w-0">
+              <SelectValue :placeholder="tx('选择环境', 'Select environment')" />
+            </SelectTrigger>
+            <SelectContent position="popper" align="start">
+              <SelectItem
+                v-for="e in config.environments"
+                :key="`${e.provider}/${e.name}`"
+                :value="`${e.provider}/${e.name}`"
+              >
+                {{ e.provider }}
+                ·
+                {{ e.name }}
+              </SelectItem>
+            </SelectContent>
+          </Select></label
         ><label
           >{{ tx('模型覆盖（可选）', 'Model override (optional)')
-          }}<input
-            v-model="form.model"
-            :placeholder="tx('沿用环境默认模型', 'Use environment default')" /></label
+          }}
+          <Input v-model="form.model" :placeholder="tx('沿用环境默认模型', 'Use environment default')" /></label
         ><label
           >{{ tx('提示词模板', 'Prompt preset')
-          }}<select v-model="form.prompt">
-            <option value="">{{ tx('保留当前提示词', 'Keep current prompt') }}</option>
-            <option v-for="p in prompts" :key="p.name">{{ p.name }}</option>
-          </select></label
+          }}
+          <Select v-model="promptSelection" :disabled="busy">
+            <SelectTrigger class="h-9 w-full min-w-0">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent position="popper" align="start">
+              <SelectItem value="keep">{{ tx('保留当前提示词', 'Keep current prompt') }}</SelectItem>
+              <SelectItem v-for="p in prompts" :key="p.name" :value="`prompt:${p.name}`">
+                {{ p.name }}
+              </SelectItem>
+            </SelectContent>
+          </Select></label
         >
       </div>
       <div class="wb-row mt-4">
-        <button type="button" :disabled="busy" @click="pick">
-          {{ tx('选择项目目录', 'Choose project folder') }}</button
-        ><span class="break-all text-xs text-muted-foreground">{{
+        <Button variant="outline" type="button" :disabled="busy" @click="pick">
+          {{ tx('选择项目目录', 'Choose project folder') }}
+        </Button>
+          <span class="break-all text-xs text-muted-foreground">{{
           form.directory || tx('尚未选择', 'No folder selected')
         }}</span>
       </div>
       <div class="wb-grid">
-        <fieldset class="rounded-lg border border-border p-3">
+        <CheckboxGroupRoot
+          v-model="form.mcp"
+          :disabled="busy"
+          :roving-focus="false"
+          as="fieldset"
+          class="rounded-lg border border-border p-3"
+        >
           <legend class="px-2 text-sm">MCP</legend>
-          <label class="wb-check mb-2" v-for="s in servers" :key="s.name"
-            ><input type="checkbox" v-model="form.mcp" :value="s.name" />{{ s.name }}</label
-          >
-          <p v-if="!servers.length" class="wb-hint">
-            {{ tx('请先在 MCP 页添加服务', 'Add servers in MCP first') }}
-          </p>
-        </fieldset>
-        <fieldset class="rounded-lg border border-border p-3">
+          <label class="wb-check mb-2" v-for="s in servers" :key="s.name">
+            <Checkbox :value="s.name" />
+            {{ s.name }}
+          </label>
+          <p v-if="!servers.length" class="wb-hint">{{ tx('请先在 MCP 页添加服务', 'Add servers in MCP first') }}</p>
+        </CheckboxGroupRoot>
+        <CheckboxGroupRoot
+          v-model="form.skills"
+          :disabled="busy"
+          :roving-focus="false"
+          as="fieldset"
+          class="rounded-lg border border-border p-3"
+        >
           <legend class="px-2 text-sm">Skills</legend>
-          <label class="wb-check mb-2" v-for="s in skills" :key="s.name"
-            ><input type="checkbox" v-model="form.skills" :value="s.name" />{{ s.name }}</label
-          >
-          <p v-if="!skills.length" class="wb-hint">
-            {{ tx('请先在 Skills 页安装技能', 'Install skills first') }}
-          </p>
-        </fieldset>
+          <label class="wb-check mb-2" v-for="s in skills" :key="s.name">
+            <Checkbox :value="s.name" />
+            {{ s.name }}
+          </label>
+          <p v-if="!skills.length" class="wb-hint">{{ tx('请先在 Skills 页安装技能', 'Install skills first') }}</p>
+        </CheckboxGroupRoot>
       </div>
-      <button class="primary mt-4" :disabled="busy || !env || !form.directory">
+      <Button variant="default" type="submit" class="mt-4" :disabled="busy || !env || !form.directory">
         {{ tx('保存套装', 'Save preset') }}
-      </button>
+      </Button>
     </form>
     <div class="wb-table mt-5" v-if="projects.length">
       <table>
@@ -195,15 +231,15 @@ void run(async () => {
             </td>
             <td>
               <div class="wb-row mb-0">
-                <button
-                  :disabled="busy"
-                  @click="editProject(p)"
-                >
-                  {{ tx('编辑', 'Edit') }}</button
-                ><button :disabled="busy" @click="applyProject(p)">{{ tx('应用', 'Apply') }}</button
-                ><button :disabled="busy" @click="remove('Project', p.name)">
+                <Button variant="outline" type="button" :disabled="busy" @click="editProject(p)">
+                  {{ tx('编辑', 'Edit') }}
+                </Button>
+                  <Button variant="outline" type="button" :disabled="busy" @click="applyProject(p)">
+                  {{ tx('应用', 'Apply') }}
+                </Button>
+                  <Button variant="outline" type="button" :disabled="busy" @click="remove('Project', p.name)">
                   {{ tx('删除', 'Delete') }}
-                </button>
+                </Button>
               </div>
             </td>
           </tr>
@@ -215,28 +251,48 @@ void run(async () => {
     <h2>{{ tx('提示词库', 'Prompt library') }}</h2>
     <form @submit.prevent="savePrompt">
       <label
-        >{{ tx('模板名称', 'Preset name') }}<input v-model="prompt.name" required maxlength="100" /></label
+        >{{ tx('模板名称', 'Preset name') }}
+        <Input v-model="prompt.name" required maxlength="100" /></label
       ><label class="mt-4"
         >{{ tx('提示词内容', 'Prompt content')
-        }}<textarea v-model="prompt.content" rows="7" required></textarea></label
-      ><button class="primary mt-4" :disabled="busy">{{ tx('保存提示词', 'Save prompt') }}</button>
+        }}
+        <Textarea v-model="prompt.content" rows="7" required>
+
+        </Textarea></label
+      >
+      <Button variant="default" type="submit" class="mt-4" :disabled="busy">
+        {{ tx('保存提示词', 'Save prompt') }}
+      </Button>
     </form>
     <label class="mt-5"
       >{{ tx('应用到工具', 'Apply to tool')
-      }}<select v-model="target">
-        <option value="claude">Claude Code</option>
-        <option value="codex">Codex</option>
-        <option value="antigravity">Gemini</option>
-        <option value="opencode">OpenCode</option>
-        <option value="grok">Grok</option>
-      </select></label
+      }}
+      <Select v-model="target" :disabled="busy">
+        <SelectTrigger class="h-9 w-full min-w-0">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent position="popper" align="start">
+          <SelectItem value="claude">Claude Code</SelectItem>
+          <SelectItem value="codex">Codex</SelectItem>
+          <SelectItem value="antigravity">Gemini</SelectItem>
+          <SelectItem value="opencode">OpenCode</SelectItem>
+          <SelectItem value="grok">Grok</SelectItem>
+        </SelectContent>
+      </Select></label
     >
     <div class="wb-list mt-4">
       <div v-for="p in prompts" :key="p.name" class="wb-row">
         <strong class="mr-auto">{{ p.name }}</strong
-        ><button :disabled="busy" @click="Object.assign(prompt, p)">{{ tx('编辑', 'Edit') }}</button
-        ><button :disabled="busy" @click="applyPrompt(p.name)">{{ tx('应用', 'Apply') }}</button
-        ><button :disabled="busy" @click="remove('Prompt', p.name)">{{ tx('删除', 'Delete') }}</button>
+        >
+        <Button variant="outline" type="button" :disabled="busy" @click="Object.assign(prompt, p)">
+          {{ tx('编辑', 'Edit') }}
+        </Button>
+        <Button variant="outline" type="button" :disabled="busy" @click="applyPrompt(p.name)">
+          {{ tx('应用', 'Apply') }}
+        </Button>
+        <Button variant="outline" type="button" :disabled="busy" @click="remove('Prompt', p.name)">
+          {{ tx('删除', 'Delete') }}
+        </Button>
       </div>
     </div>
   </section>

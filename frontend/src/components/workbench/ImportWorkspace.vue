@@ -1,4 +1,9 @@
 <script setup lang="ts">
+import { CheckboxGroupRoot } from 'reka-ui'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ref, reactive } from 'vue'
 import { useWorkbench, workbench } from '@/composables/useWorkbench'
 import { useConfigStore } from '@/stores/configStore'
@@ -86,27 +91,45 @@ async function saveUniversal() {
       }}
     </p>
     <div class="wb-row">
-      <button :disabled="busy" @click="file">{{ tx('选择配置文件', 'Choose configuration file') }}</button>
+      <Button variant="outline" type="button" :disabled="busy" @click="file">
+        {{ tx('选择配置文件', 'Choose configuration file') }}
+      </Button>
     </div>
     <form @submit.prevent="run(() => preview(link))">
       <label
         >{{ tx('粘贴分享链接', 'Paste a share link')
-        }}<input
+        }}
+        <Input
           v-model="link"
           type="password"
           autocomplete="off"
           placeholder="ccswitch://v1/import?…"
-          required /></label
-      ><button class="mt-3" :disabled="busy || !link">{{ tx('预览导入', 'Preview import') }}</button>
+          required
+        /></label
+      >
+      <Button variant="outline" type="submit" class="mt-3" :disabled="busy || !link">
+        {{ tx('预览导入', 'Preview import') }}
+      </Button>
     </form>
-    <div v-if="imports.length" class="mt-5">
-      <label v-for="(item, i) in imports" :key="i" class="wb-check mb-3"
-        ><input type="checkbox" v-model="selected" :value="i" /><strong>{{ item.name }}</strong
-        ><span class="text-muted-foreground">{{ item.provider }}</span></label
-      ><button class="primary" :disabled="busy || !selected.length" @click="commit">
-        {{ tx('导入所选配置', 'Import selected') }} ({{ selected.length }})
-      </button>
-    </div>
+    <CheckboxGroupRoot
+      v-if="imports.length"
+      v-model="selected"
+      :disabled="busy"
+      :roving-focus="false"
+      class="mt-5"
+    >
+      <label v-for="(item, i) in imports" :key="i" class="wb-check mb-3">
+        <Checkbox :value="i" />
+        <strong>{{ item.name }}</strong>
+        <span class="text-muted-foreground">{{ item.provider }}</span>
+      </label>
+      <Button variant="default" type="button" :disabled="busy || !selected.length" @click="commit">
+        {{ tx('导入所选配置', 'Import selected') }}
+        (
+        {{ selected.length }}
+        )
+      </Button>
+    </CheckboxGroupRoot>
   </section>
   <section class="wb-card">
     <h2>{{ tx('通用供应商', 'Universal provider') }}</h2>
@@ -122,33 +145,45 @@ async function saveUniversal() {
       <div class="wb-grid">
         <label
           >{{ tx('供应商名称', 'Provider name')
-          }}<input v-model="universal.name" required maxlength="100" /></label
+          }}
+          <Input v-model="universal.name" required maxlength="100" /></label
         ><label
-          >Base URL<input
-            v-model="universal.base_url"
-            type="url"
-            placeholder="https://api.example.com/v1"
-            required /></label
+          >Base URL
+          <Input v-model="universal.base_url" type="url" placeholder="https://api.example.com/v1" required /></label
         ><label
-          >API Key<input v-model="universal.api_key" type="password" autocomplete="off" required /></label
-        ><label>{{ tx('默认模型', 'Default model') }}<input v-model="universal.model" required /></label
+          >API Key
+          <Input v-model="universal.api_key" type="password" autocomplete="off" required /></label
+        ><label>{{ tx('默认模型', 'Default model') }}
+          <Input v-model="universal.model" required /></label
         ><label
           >{{ tx('上游协议', 'Upstream protocol')
-          }}<select v-model="universal.format">
-            <option value="chat_completions">OpenAI Chat Completions</option>
-            <option value="responses">OpenAI Responses</option>
-            <option value="anthropic_messages">Anthropic Messages</option>
-          </select></label
+          }}
+          <Select v-model="universal.format" :disabled="busy">
+            <SelectTrigger class="h-9 w-full min-w-0">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent position="popper" align="start">
+              <SelectItem value="chat_completions">OpenAI Chat Completions</SelectItem>
+              <SelectItem value="responses">OpenAI Responses</SelectItem>
+              <SelectItem value="anthropic_messages">Anthropic Messages</SelectItem>
+            </SelectContent>
+          </Select></label
         >
       </div>
-      <div class="wb-row mt-4">
-        <label class="wb-check" v-for="tool in tools" :key="tool.id"
-          ><input type="checkbox" v-model="universal.providers" :value="tool.id" />{{ tool.name }}</label
-        >
-      </div>
-      <button class="primary" :disabled="busy || !universal.providers.length">
+      <CheckboxGroupRoot
+        v-model="universal.providers"
+        :disabled="busy"
+        :roving-focus="false"
+        class="wb-row mt-4"
+      >
+        <label class="wb-check" v-for="tool in tools" :key="tool.id">
+          <Checkbox :value="tool.id" />
+          {{ tool.name }}
+        </label>
+      </CheckboxGroupRoot>
+      <Button variant="default" type="submit" :disabled="busy || !universal.providers.length">
         {{ tx('保存到所选工具', 'Save to selected tools') }}
-      </button>
+      </Button>
     </form>
   </section>
 </template>

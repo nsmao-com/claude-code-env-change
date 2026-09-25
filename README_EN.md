@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="build/appicon.png?v=2.7.1" width="72" height="72" alt="AI ENV icon" />
+  <img src="build/appicon.png?v=2.7.2" width="72" height="72" alt="AI ENV icon" />
 </p>
 
 <h1 align="center">AI ENV</h1>
@@ -51,6 +51,13 @@ The current version is the latest version listed in [GitHub Releases](https://gi
 | CLI | Detect local Claude / Codex / Antigravity / OpenCode / Grok; install/upgrade via pnpm, yarn, npm, official installer, or native update |
 | Config folders | Open each CLI’s config directory and key files |
 | Updates | GitHub Release check; Windows can download and replace in-app |
+
+## 2.7.2 Workbench controls
+
+- Use shared app components for workbench selects, inputs, textareas, checkboxes and buttons, with light/dark themes and keyboard support.
+- Add a calendar popover with clear and range controls; session filters cover full days in the local time zone.
+- Search model suggestions or enter a custom name. Number inputs provide step buttons, decimal precision and range limits.
+- Use custom collapsible configuration diffs and in-app form validation feedback.
 
 ## 2.7.1 Fixes
 

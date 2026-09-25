@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import { Button } from '@/components/ui/button'
 import { ref } from 'vue'
 import { useWorkbench } from '@/composables/useWorkbench'
+import { useToast } from '@/composables/useToast'
 import SessionsWorkspace from './SessionsWorkspace.vue'
 import ModelsWorkspace from './ModelsWorkspace.vue'
 import ToolsWorkspace from './ToolsWorkspace.vue'
@@ -8,6 +10,15 @@ import PresetsWorkspace from './PresetsWorkspace.vue'
 import ImportWorkspace from './ImportWorkspace.vue'
 import CostsWorkspace from './CostsWorkspace.vue'
 const { tx } = useWorkbench()
+const toast = useToast()
+function showValidationError(event: Event) {
+  const field = event.target
+  if (!(field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement || field instanceof HTMLSelectElement)) return
+  // Keep HTML constraints, but use the app feedback instead of browser validation popups.
+  if (field.form?.querySelector(':invalid') !== field) return
+  field.focus()
+  toast.error(field.validationMessage)
+}
 const tab = ref('sessions')
 const tabs = [
   { id: 'sessions', zh: '会话', en: 'Sessions', component: SessionsWorkspace },
@@ -19,7 +30,7 @@ const tabs = [
 ]
 </script>
 <template>
-  <div class="workbench h-full overflow-y-auto px-6 pb-8 pt-4">
+  <div class="workbench h-full overflow-y-auto px-6 pb-8 pt-4" @invalid.capture.prevent="showValidationError">
     <header class="mb-6">
       <h1 class="text-[2.5rem] font-semibold tracking-tight">{{ tx('工作台', 'Workbench') }}</h1>
       <p class="text-sm text-muted-foreground">
@@ -32,15 +43,16 @@ const tabs = [
       </p>
     </header>
     <nav class="wb-tabs" :aria-label="tx('工作台工具', 'Workbench tools')">
-      <button
+      <Button
+        type="button"
         v-for="item in tabs"
         :key="item.id"
         :aria-current="tab === item.id ? 'page' : undefined"
-        :class="{ active: tab === item.id }"
+        :variant="tab === item.id ? 'default' : 'ghost'"
         @click="tab = item.id"
       >
         {{ tx(item.zh, item.en) }}
-      </button>
+      </Button>
     </nav>
     <KeepAlive><component :is="tabs.find((item) => item.id === tab)?.component" /></KeepAlive>
   </div>
@@ -53,28 +65,6 @@ const tabs = [
   margin-bottom: 24px;
   border-bottom: 1px solid var(--border);
   padding-bottom: 12px;
-}
-.workbench button {
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 7px 12px;
-  font-size: 13px;
-  cursor: pointer;
-  background: var(--card);
-  transition: background 0.15s;
-}
-.workbench button:hover {
-  background: var(--muted);
-}
-.workbench button.active,
-.workbench button.primary {
-  background: var(--foreground);
-  color: var(--background);
-  border-color: var(--foreground);
-}
-.workbench button:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
 }
 .workbench :focus-visible {
   outline: 2px solid var(--ring);
@@ -111,10 +101,11 @@ const tabs = [
 }
 .workbench .wb-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr));
   gap: 16px;
 }
 .workbench label {
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -124,24 +115,31 @@ const tabs = [
   flex-direction: row;
   align-items: center;
 }
-.workbench input:not([type='checkbox']),
-.workbench select,
-.workbench textarea {
-  width: 100%;
-  min-height: 36px;
-  border: 1px solid var(--border);
-  border-radius: 7px;
-  background: var(--background);
-  padding: 8px 10px;
-  color: var(--foreground);
+/* Form controls use the same primitives and tokens as the rest of the app. */
+.workbench [data-slot='input'],
+.workbench [data-slot='textarea'] {
+  background-color: var(--background);
   font-size: 13px;
 }
-.workbench textarea {
-  resize: vertical;
-  min-height: 130px;
+.workbench [data-slot='input'] {
+  min-height: 36px;
 }
-.workbench input[type='checkbox'] {
-  accent-color: var(--foreground);
+.workbench [data-slot='textarea'] {
+  min-height: 130px;
+  resize: vertical;
+}
+.workbench .wb-list > button.active {
+  border-color: var(--primary);
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+.workbench .wb-list > button {
+  height: auto;
+  min-width: 0;
+  padding: 12px;
+  border-radius: 12px;
+  white-space: normal;
+  justify-content: stretch;
 }
 .workbench .wb-error {
   border: 1px solid var(--destructive);

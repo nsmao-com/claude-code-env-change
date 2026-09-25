@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import { Button } from '@/components/ui/button'
+import ModelCombobox from './ModelCombobox.vue'
+import WorkbenchNumberInput from './WorkbenchNumberInput.vue'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ref, reactive, computed, watch } from 'vue'
 import { useWorkbench, workbench } from '@/composables/useWorkbench'
 import { useConfigStore } from '@/stores/configStore'
@@ -146,45 +150,53 @@ void run(async () => {
     </p>
     <label
       >{{ tx('环境配置', 'Environment')
-      }}<select v-model="selected" :disabled="busy">
-        <option value="" disabled>{{ tx('选择环境', 'Select environment') }}</option>
-        <option v-for="e in envs" :key="`${e.provider}/${e.name}`" :value="`${e.provider}/${e.name}`">
-          {{ e.provider }} · {{ e.name }}
-        </option>
-      </select></label
+      }}
+      <Select v-model="selected" :disabled="busy">
+        <SelectTrigger class="h-9 w-full min-w-0">
+          <SelectValue :placeholder="tx('选择环境', 'Select environment')" />
+        </SelectTrigger>
+        <SelectContent position="popper" align="start">
+          <SelectItem v-for="e in envs" :key="`${e.provider}/${e.name}`" :value="`${e.provider}/${e.name}`">
+            {{ e.provider }}
+            ·
+            {{ e.name }}
+          </SelectItem>
+        </SelectContent>
+      </Select></label
     >
     <div v-if="!envs.length" class="wb-empty mt-4">
       {{ tx('请先在环境页添加 API 配置', 'Add an API environment first') }}
     </div>
     <form v-else @submit.prevent="save" class="mt-4">
       <div class="wb-row">
-        <button type="button" :disabled="busy || !env" @click="discover">
-          {{ tx('获取模型列表', 'Discover models') }}</button
-        ><span class="text-xs text-muted-foreground">{{ models.length }} {{ tx('个模型', 'models') }}</span>
+        <Button variant="outline" type="button" :disabled="busy || !env" @click="discover">
+          {{ tx('获取模型列表', 'Discover models') }}
+        </Button>
+          <span class="text-xs text-muted-foreground">{{ models.length }} {{ tx('个模型', 'models') }}</span>
       </div>
       <label
         >{{ tx('模型名称', 'Model name')
-        }}<input v-model="form.model" list="discovered-models" required placeholder="gpt-5.4" /><datalist
-          id="discovered-models"
-        >
-          <option v-for="m in models" :key="m.id" :value="m.id">{{ m.name }}</option>
-        </datalist></label
+        }}
+        <ModelCombobox v-model="form.model" :models="models" :disabled="busy" /></label
       >
       <div class="wb-grid mt-4">
         <label v-for="field in fields" :key="field.key"
           >{{ tx(field.zh, field.en)
-          }}<input
-            v-model.number="form[field.key]"
-            type="number"
-            min="0"
-            :step="field.key.includes('price') ? '0.001' : '1'"
-        /></label>
+          }}
+          <WorkbenchNumberInput
+            v-model="form[field.key]"
+            :disabled="busy"
+            :min="0"
+            :step="field.key.includes('price') ? 0.001 : 1"
+          /></label>
       </div>
       <div class="wb-row mt-4">
-        <button class="primary" :disabled="busy || !env">{{ tx('保存档案', 'Save profile') }}</button
-        ><button type="button" :disabled="busy || !env || !form.model" @click="test">
+        <Button variant="default" type="submit" :disabled="busy || !env">
+          {{ tx('保存档案', 'Save profile') }}
+        </Button>
+        <Button variant="outline" type="button" :disabled="busy || !env || !form.model" @click="test">
           {{ tx('测试模型（可能计费）', 'Test model (may incur cost)') }}
-        </button>
+        </Button>
       </div>
     </form>
     <p v-if="result" class="wb-hint">{{ result }}</p>
@@ -192,9 +204,13 @@ void run(async () => {
       <span class="text-xs"
         >{{ tx('Codex 认证', 'Codex auth') }} ·
         {{ env.variables.AI_ENV_AUTH_MODE || tx('兼容模式', 'Legacy') }}</span
-      ><button :disabled="busy" @click="auth('mixed')">
-        {{ tx('API + 保留官方登录', 'API + keep official login') }}</button
-      ><button :disabled="busy" @click="auth('api')">{{ tx('API 专用', 'API only') }}</button>
+      >
+      <Button variant="outline" type="button" :disabled="busy" @click="auth('mixed')">
+        {{ tx('API + 保留官方登录', 'API + keep official login') }}
+      </Button>
+        <Button variant="outline" type="button" :disabled="busy" @click="auth('api')">
+        {{ tx('API 专用', 'API only') }}
+      </Button>
     </div>
   </div>
   <div class="wb-card">
@@ -217,9 +233,15 @@ void run(async () => {
             <td>{{ p.context || '—' }} / {{ p.output || '—' }}</td>
             <td>
               <div class="wb-row mb-0">
-                <button :disabled="busy" @click="Object.assign(form, p)">{{ tx('编辑', 'Edit') }}</button
-                ><button :disabled="busy" @click="apply(p)">{{ tx('应用', 'Apply') }}</button
-                ><button :disabled="busy" @click="remove(p)">{{ tx('删除', 'Delete') }}</button>
+                <Button variant="outline" type="button" :disabled="busy" @click="Object.assign(form, p)">
+                  {{ tx('编辑', 'Edit') }}
+                </Button>
+                <Button variant="outline" type="button" :disabled="busy" @click="apply(p)">
+                  {{ tx('应用', 'Apply') }}
+                </Button>
+                <Button variant="outline" type="button" :disabled="busy" @click="remove(p)">
+                  {{ tx('删除', 'Delete') }}
+                </Button>
               </div>
             </td>
           </tr>

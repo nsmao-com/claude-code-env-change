@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ref, computed } from 'vue'
 import { useWorkbench, workbench } from '@/composables/useWorkbench'
 import { callApp, callService } from '@/services/appBridge'
@@ -107,25 +110,34 @@ void run(async () => {
     </p>
     <label
       >{{ tx('环境', 'Environment')
-      }}<select v-model="selected">
-        <option value="" disabled>{{ tx('请选择环境', 'Select an environment') }}</option>
-        <option
-          v-for="e in config.environments"
-          :key="`${e.provider}/${e.name}`"
-          :value="`${e.provider}/${e.name}`"
-        >
-          {{ e.provider }} · {{ e.name }}
-        </option>
-      </select></label
+      }}
+      <Select v-model="selected" :disabled="busy">
+        <SelectTrigger class="h-9 w-full min-w-0">
+          <SelectValue :placeholder="tx('请选择环境', 'Select an environment')" />
+        </SelectTrigger>
+        <SelectContent position="popper" align="start">
+          <SelectItem
+            v-for="e in config.environments"
+            :key="`${e.provider}/${e.name}`"
+            :value="`${e.provider}/${e.name}`"
+          >
+            {{ e.provider }}
+            ·
+            {{ e.name }}
+          </SelectItem>
+        </SelectContent>
+      </Select></label
     >
     <div class="wb-row mt-4">
       <label class="wb-check"
-        ><input type="checkbox" v-model="network" />{{
+        >
+        <Checkbox :model-value="network" :disabled="busy" @update:model-value="network = $event === true" />{{
           tx('包含联网与模型试请求', 'Include network and model request')
         }}</label
-      ><button class="primary" :disabled="busy || !env" @click="diagnose">
+      >
+      <Button variant="default" type="button" :disabled="busy || !env" @click="diagnose">
         {{ busy ? tx('处理中…', 'Working…') : tx('开始诊断', 'Run diagnostics') }}
-      </button>
+      </Button>
     </div>
     <div class="wb-table" v-if="diagnostics.length">
       <table>
@@ -152,7 +164,9 @@ void run(async () => {
   <section class="wb-card">
     <div class="wb-row justify-between">
       <h2>{{ tx('配置历史', 'Configuration history') }}</h2>
-      <button :disabled="busy" @click="run(load)">{{ tx('刷新', 'Refresh') }}</button>
+      <Button variant="outline" type="button" :disabled="busy" @click="run(load)">
+        {{ tx('刷新', 'Refresh') }}
+      </Button>
     </div>
     <p class="wb-hint">
       {{
@@ -171,31 +185,39 @@ void run(async () => {
       }}
     </div>
     <div class="wb-list max-h-80 overflow-auto">
-      <button
+      <Button
+        variant="outline"
+        type="button"
         v-for="h in history"
         :key="h.id"
         :disabled="busy"
         :class="{ active: historyID === h.id && preview }"
         @click="view(h)"
       >
-        <strong>{{ new Date(h.at).toLocaleString() }} · {{ h.reason }}</strong
-        ><span class="truncate text-xs opacity-70">{{ h.paths.join(' · ') }}</span>
-      </button>
+        <strong>
+          {{ new Date(h.at).toLocaleString() }}
+          ·
+          {{ h.reason }}
+        </strong>
+        <span class="truncate text-xs opacity-70">{{ h.paths.join(' · ') }}</span>
+      </Button>
     </div>
     <div v-if="preview" class="mt-5">
-      <DiffPreview :changes="preview.changes" v-model="files" /><button
-        class="primary mt-4"
-        :disabled="busy || !files.length"
-        @click="restore"
-      >
-        {{ tx('恢复所选文件', 'Restore selected files') }} ({{ files.length }})
-      </button>
+      <DiffPreview :changes="preview.changes" v-model="files" />
+      <Button variant="default" type="button" class="mt-4" :disabled="busy || !files.length" @click="restore">
+        {{ tx('恢复所选文件', 'Restore selected files') }}
+        (
+        {{ files.length }}
+        )
+      </Button>
     </div>
   </section>
   <section class="wb-card">
     <div class="wb-row justify-between">
       <h2>{{ tx('网关上游健康', 'Gateway upstream health') }}</h2>
-      <button :disabled="busy" @click="run(loadHealth)">{{ tx('刷新健康状态', 'Refresh health') }}</button>
+      <Button variant="outline" type="button" :disabled="busy" @click="run(loadHealth)">
+        {{ tx('刷新健康状态', 'Refresh health') }}
+      </Button>
     </div>
     <p class="wb-hint">
       {{

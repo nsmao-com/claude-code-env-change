@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="build/appicon.png?v=2.7.1" width="72" height="72" alt="AI ENV 图标" />
+  <img src="build/appicon.png?v=2.7.2" width="72" height="72" alt="AI ENV 图标" />
 </p>
 
 <h1 align="center">AI ENV</h1>
@@ -51,6 +51,13 @@
 | CLI | 检测本机 Claude Code / Codex / Antigravity / OpenCode / Grok，按 pnpm、yarn、npm、官方安装器或原生方式安装升级 |
 | 配置目录 | 打开各家 CLI 的本机配置目录和关键文件 |
 | 更新 | 检测 GitHub Release，Windows 可在应用内下载并替换 |
+
+## 2.7.2 工作台控件
+
+- 工作台下拉、输入框、文本域、复选框和按钮统一使用应用组件，适配浅色、深色主题与键盘操作。
+- 日期筛选改为日历弹层，支持清除和范围约束，按本地时区的完整自然日检索。
+- 模型候选支持搜索与自定义名称；数字输入提供加减按钮，保留小数精度和上下限。
+- 配置差异使用自定义展开面板，表单校验通过应用内提示反馈。
 
 ## 2.7.1 修复
 

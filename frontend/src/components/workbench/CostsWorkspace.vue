@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { Button } from '@/components/ui/button'
+import WorkbenchNumberInput from './WorkbenchNumberInput.vue'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ref, reactive, computed } from 'vue'
 import { useWorkbench, workbench } from '@/composables/useWorkbench'
 import { useConfigStore } from '@/stores/configStore'
@@ -59,7 +62,9 @@ void run(async () => {
   <section class="wb-card">
     <div class="wb-row justify-between">
       <h2>{{ tx('网关费用', 'Gateway costs') }}</h2>
-      <button :disabled="busy" @click="run(refresh)">{{ tx('刷新', 'Refresh') }}</button>
+      <Button variant="outline" type="button" :disabled="busy" @click="run(refresh)">
+        {{ tx('刷新', 'Refresh') }}
+      </Button>
     </div>
     <p class="wb-hint">
       {{
@@ -108,31 +113,31 @@ void run(async () => {
       <div class="wb-grid">
         <label
           >{{ tx('每日预算 / USD，0 关闭', 'Daily budget / USD, 0 disables')
-          }}<input v-model.number="costs.daily_budget" type="number" min="0" step="0.01" /></label
+          }}
+          <WorkbenchNumberInput :disabled="busy" v-model="costs.daily_budget" :min="0" :step="0.01" /></label
         ><label
           >{{ tx('每月预算 / USD，0 关闭', 'Monthly budget / USD, 0 disables')
-          }}<input v-model.number="costs.monthly_budget" type="number" min="0" step="0.01"
-        /></label>
+          }}
+          <WorkbenchNumberInput :disabled="busy" v-model="costs.monthly_budget" :min="0" :step="0.01" /></label>
       </div>
       <div class="wb-grid mt-4">
         <label
           v-for="e in config.environments.filter((e) => !e.official_login)"
           :key="`${e.provider}/${e.name}`"
           >{{ e.provider }} · {{ e.name
-          }}<input
-            type="number"
-            min="0"
-            max="1000"
-            step="0.01"
-            :value="costs.multipliers[`${e.provider}/${e.name}`] ?? 1"
-            @input="
-              costs.multipliers[`${e.provider}/${e.name}`] = Number(($event.target as HTMLInputElement).value)
-            "
-        /></label>
+          }}
+          <WorkbenchNumberInput
+            :disabled="busy"
+            :min="0"
+            :max="1000"
+            :step="0.01"
+            :model-value="costs.multipliers[`${e.provider}/${e.name}`] ?? 1"
+            @update:model-value="costs.multipliers[`${e.provider}/${e.name}`] = $event"
+          /></label>
       </div>
-      <button class="primary mt-4" :disabled="busy">
+      <Button variant="default" type="submit" class="mt-4" :disabled="busy">
         {{ tx('保存预算与倍率', 'Save budgets & multipliers') }}
-      </button>
+      </Button>
     </form>
   </section>
   <section class="wb-card">
@@ -148,27 +153,42 @@ void run(async () => {
     <div class="wb-grid">
       <label
         >{{ tx('环境', 'Environment')
-        }}<select v-model="selected">
-          <option value="" disabled>{{ tx('选择环境', 'Select environment') }}</option>
-          <option
-            v-for="e in config.environments.filter((e) => !e.official_login)"
-            :key="`${e.provider}/${e.name}`"
-            :value="`${e.provider}/${e.name}`"
-          >
-            {{ e.provider }} · {{ e.name }}
-          </option>
-        </select></label
+        }}
+        <Select v-model="selected" :disabled="busy">
+          <SelectTrigger class="h-9 w-full min-w-0">
+            <SelectValue :placeholder="tx('选择环境', 'Select environment')" />
+          </SelectTrigger>
+          <SelectContent position="popper" align="start">
+            <SelectItem
+              v-for="e in config.environments.filter((e) => !e.official_login)"
+              :key="`${e.provider}/${e.name}`"
+              :value="`${e.provider}/${e.name}`"
+            >
+              {{ e.provider }}
+              ·
+              {{ e.name }}
+            </SelectItem>
+          </SelectContent>
+        </Select></label
       ><label
         >{{ tx('余额接口', 'Balance API')
-        }}<select v-model="adapter">
-          <option value="openrouter">OpenRouter</option>
-          <option value="deepseek">DeepSeek</option>
-        </select></label
+        }}
+        <Select v-model="adapter" :disabled="busy">
+          <SelectTrigger class="h-9 w-full min-w-0">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent position="popper" align="start">
+            <SelectItem value="openrouter">OpenRouter</SelectItem>
+            <SelectItem value="deepseek">DeepSeek</SelectItem>
+          </SelectContent>
+        </Select></label
       >
     </div>
     <div class="wb-row mt-4">
-      <button :disabled="busy || !env" @click="check">{{ tx('查询余额', 'Check balance') }}</button
-      ><strong>{{ balance }}</strong>
+      <Button variant="outline" type="button" :disabled="busy || !env" @click="check">
+        {{ tx('查询余额', 'Check balance') }}
+      </Button>
+      <strong>{{ balance }}</strong>
     </div>
   </section>
 </template>
