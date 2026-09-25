@@ -28,8 +28,11 @@ ManifestDPIAware true
 !define MUI_TEXTCOLOR "171719"
 !define MUI_INSTALLCOLORS "171719 F7F7F8"
 !define MUI_COMPONENTSPAGE_SMALLDESC
-!define MUI_FINISHPAGE_RUN "$INSTDIR\${PRODUCT_EXECUTABLE}"
+!define MUI_FINISHPAGE_RUN
 !define MUI_FINISHPAGE_RUN_TEXT "立即打开 AI ENV"
+# 安装器是管理员权限，MUI 默认直接 Exec 会让程序继承管理员令牌；
+# 提权后的程序收不到 Explorer 发来的托盘点击、文件拖放（UIPI），所以改走 LaunchAppAsUser
+!define MUI_FINISHPAGE_RUN_FUNCTION LaunchAppAsUser
 !define MUI_FINISHPAGE_LINK "访问官网 www.nsmao.com"
 !define MUI_FINISHPAGE_LINK_LOCATION "https://www.nsmao.com"
 !define MUI_WELCOMEPAGE_TITLE "欢迎使用 AI ENV"
@@ -72,6 +75,11 @@ Function .onInit
             StrCpy $INSTDIR "$0"
         ${EndIf}
     ${EndIf}
+FunctionEnd
+
+# 交给正在运行的资源管理器去打开，程序即以当前用户的普通权限启动
+Function LaunchAppAsUser
+    Exec '"$WINDIR\explorer.exe" "$INSTDIR\${PRODUCT_EXECUTABLE}"'
 FunctionEnd
 
 Section "主程序（必需）" SEC_APP

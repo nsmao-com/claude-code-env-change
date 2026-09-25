@@ -64,6 +64,8 @@ const (
 	nifIcon   = 0x02
 	nifTip    = 0x04
 
+	msgfltAllow = 1
+
 	gwlUserData = ^uintptr(20) // GWLP_USERDATA (-21)
 	hwndTopmost = ^uintptr(0)  // HWND_TOPMOST (-1)
 )
@@ -98,6 +100,7 @@ var (
 	procAppendMenuW         = user32.NewProc("AppendMenuW")
 	procTrackPopupMenuEx    = user32.NewProc("TrackPopupMenuEx")
 	procDestroyMenu         = user32.NewProc("DestroyMenu")
+	procChangeWndMsgFilter  = user32.NewProc("ChangeWindowMessageFilterEx")
 
 	shell32              = windows.NewLazySystemDLL("shell32.dll")
 	procShellNotifyIconW = shell32.NewProc("Shell_NotifyIconW")
@@ -260,6 +263,13 @@ func (t *trayManager) run() {
 	t.hostHwnd = hwnd
 	procSetWindowLongPtrW.Call(hwnd, gwlUserData, uintptr(unsafe.Pointer(t)))
 	t.taskbarCreated, _, _ = procRegWindowMessageW.Call(uptr("TaskbarCreated"))
+	// 以管理员身份运行时（如被提权的安装器完成页拉起），UIPI 会拦下 Explorer（普通权限）
+	// 发来的托盘点击和 TaskbarCreated：托盘左右键全无反应，explorer 重启后图标也回不来
+	for _, m := range []uintptr{wmTrayCallback, t.taskbarCreated} {
+		if m != 0 {
+			procChangeWndMsgFilter.Call(hwnd, m, msgfltAllow, 0)
+		}
+	}
 
 	t.loadTrayIcon()
 	t.addTrayIcon()

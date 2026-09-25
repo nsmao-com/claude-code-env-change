@@ -129,11 +129,16 @@ func buildInstallerScript(pid int, installerPath, currentExe string) string {
 	b.WriteString("  Set-Content -LiteralPath $log -Value ('ERROR: ' + $_.Exception.Message) -Encoding UTF8\n")
 	b.WriteString("}\n")
 	// 安装器完成页可能已经把程序拉起来了，这里只在确实没有实例时补一次，避免开出两个窗口。
+	// 完成页经资源管理器转手启动（不继承安装器的管理员权限），进程出现得稍晚，轮询等一会儿再判断。
 	b.WriteString("try {\n")
 	b.WriteString("  if (Test-Path -LiteralPath $currentExe) {\n")
 	b.WriteString("    $exeName = [System.IO.Path]::GetFileNameWithoutExtension($currentExe)\n")
-	b.WriteString("    Start-Sleep -Milliseconds 900\n")
-	b.WriteString("    if (-not (Get-Process -Name $exeName -ErrorAction SilentlyContinue)) {\n")
+	b.WriteString("    $running = $false\n")
+	b.WriteString("    for ($i = 0; $i -lt 12; $i++) {\n")
+	b.WriteString("      Start-Sleep -Milliseconds 250\n")
+	b.WriteString("      if (Get-Process -Name $exeName -ErrorAction SilentlyContinue) { $running = $true; break }\n")
+	b.WriteString("    }\n")
+	b.WriteString("    if (-not $running) {\n")
 	b.WriteString("      Start-Process -FilePath $currentExe -WorkingDirectory $installDir\n")
 	b.WriteString("    }\n")
 	b.WriteString("  }\n")
