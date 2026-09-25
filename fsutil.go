@@ -10,6 +10,9 @@ import (
 // writeFileAtomic 先写临时文件再原子替换目标文件，避免进程中断时把用户配置截断成半截
 // JSON/TOML。Windows 上目标文件被占用时 rename 会失败，这里做有限次重试。
 func writeFileAtomic(path string, data []byte, perm os.FileMode) error {
+	if err := captureBeforeWrite(path, data); err != nil {
+		return fmt.Errorf("创建配置历史失败，已停止写入: %w", err)
+	}
 	// 目标是符号链接时（dotfiles 仓库管理的配置很常见）写到链接指向的真实文件，
 	// 否则 rename 会把链接本身替换成普通文件，用户的链接就断了
 	if resolved, err := filepath.EvalSymlinks(path); err == nil {

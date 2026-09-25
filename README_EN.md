@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="build/appicon.png?v=2.6.18" width="72" height="72" alt="AI ENV icon" />
+  <img src="build/appicon.png?v=2.7.0" width="72" height="72" alt="AI ENV icon" />
 </p>
 
 <h1 align="center">AI ENV</h1>
@@ -51,6 +51,23 @@ The current version is the latest version listed in [GitHub Releases](https://gi
 | CLI | Detect local Claude / Codex / Antigravity / OpenCode / Grok; install/upgrade via pnpm, yarn, npm, official installer, or native update |
 | Config folders | Open each CLI’s config directory and key files |
 | Updates | GitHub Release check; Windows can download and replace in-app |
+
+## 2.7 Workbench
+
+- **Sessions**: search local Claude Code, Codex and Gemini sessions with tool, project and date filters; paginate messages, export Markdown, open folders and resume through Claude/Codex CLI (Gemini is view/export only). AI ENV archives only hide entries in its list; native Codex archives remain read-only.
+- **Models**: discover and test models, save context/output/compaction limits and input/output/cache prices. Codex supports model catalogs and official-login, API and keep-login modes; keep-login stores credentials under the selected provider.
+- **Diagnostics and history**: inspect CLI availability, syntax, drift and optional network requests. MCP verifies stdio, Streamable HTTP and SSE using `initialize → initialized → tools/list`. Keep 100 pre-write snapshots, preview redacted changes and restore selected files with version checks.
+- **Full Skills**: import folders, ZIPs and GitHub branches/tags/commits with attachments and executable flags. Review source revisions, per-file changes and platform edits; preserve local edits by default and recover previous central packages through history. Unsafe paths and package symlinks are rejected. Limits: 8 MB per file, 24 MB attachments, 1000 attachments; oversized imports fail explicitly. `.git` and `node_modules` are excluded.
+- **Projects and prompts**: reusable prompt library and environment/model/MCP/Skills/prompt presets. Applying saves a snapshot first and switches the tool's global configuration, affecting other projects using that tool. Partial failures are reported and can be recovered through history.
+- **Providers**: preview CC Switch JSON, share links (including base64 JSON / Codex TOML) and AI ENV exports. A universal provider creates linked environments across tools; apply the saved environments separately.
+- **Gateway and costs**: priority, weighted and session routing; failure thresholds, cooldown and request-triggered recovery probes. View upstream health, actual token usage and streaming time to first token. Estimate USD costs with custom prices and multipliers, receive daily/monthly budget alerts and query OpenRouter / DeepSeek balances. Budgets do not block traffic.
+- **Logs and cloud**: incremental Claude/Codex usage parsing and WebDAV support. ETag conditional uploads prevent overwrites. Restore previews redact credentials and allow file selection; local or remote edits invalidate the preview. Safe sync requires HEAD, ETag and conditional PUT support.
+
+Gateway costs only include reported usage with a unique matching price profile. Ledgers rotate monthly and retain the current and two preceding months. CLI estimates use the environment activation timeline and remain separate to avoid double counting. Model test requests may incur provider charges.
+
+New local data is stored in `~/.claude-env-switcher/`: `workbench.json` for profiles/presets/budgets, `history/` for original configuration snapshots (including credentials), and `gateway-usage.jsonl` for current-month usage without request bodies. Previews redact credentials; protect snapshots like original configuration files and use a cloud encryption passphrase.
+
+Development verification uses an isolated home and local mock upstreams with real Wails/Vite dev and file writes. Regression checks: `go test ./...`, `go vet ./...`, and `cd frontend && pnpm exec vue-tsc --noEmit`.
 
 ## Install
 

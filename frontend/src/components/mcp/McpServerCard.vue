@@ -52,6 +52,7 @@
           <div v-if="!compact && server.tips" class="mt-1 line-clamp-2 break-words text-xs text-muted-foreground">
             {{ server.tips }}
           </div>
+          <details v-if="testResult" class="mt-2 text-xs text-muted-foreground"><summary class="cursor-pointer">MCP · {{ testResult.stage }} · {{ testResult.protocol }} · {{ testResult.tools?.length || 0 }} tools</summary><p class="mt-2 break-words">{{ testResult.message }}</p><ul class="mt-2 max-h-40 overflow-auto"><li v-for="tool in testResult.tools" :key="tool">{{ tool }}</li></ul></details>
         </div>
       </div>
 

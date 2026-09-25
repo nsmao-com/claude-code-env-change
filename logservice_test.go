@@ -1,13 +1,28 @@
 package main
 
 import (
+	"fmt"
 	"math"
+	"os"
+	"path/filepath"
 	"testing"
+	"time"
 )
 
 // TestStatsOverviewMatchesLegacy 验证合并接口与旧接口聚合结果一致。
-// 在真实机器上会带着本机日志数据运行；无日志数据时两者都为空，同样通过。
+// 使用固定临时日志，避免运行中的本机会话改变两次读取之间的数据。
 func TestStatsOverviewMatchesLegacy(t *testing.T) {
+	home := withHomeRoot(t)
+	t.Setenv("CLAUDE_CONFIG_DIR", filepath.Join(home, ".claude"))
+	t.Setenv("CODEX_HOME", filepath.Join(home, ".codex"))
+	dir := filepath.Join(home, ".claude", "projects", "fixture")
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	data := fmt.Sprintf(`{"type":"assistant","timestamp":%q,"message":{"id":"fixture","model":"claude-sonnet-4-20250514","usage":{"input_tokens":100,"output_tokens":20}}}`+"\n", time.Now().UTC().Format(time.RFC3339))
+	if err := os.WriteFile(filepath.Join(dir, "session.jsonl"), []byte(data), 0600); err != nil {
+		t.Fatal(err)
+	}
 	ls := NewLogService()
 
 	overview, err := ls.GetStatsOverview(7, 182, "all")

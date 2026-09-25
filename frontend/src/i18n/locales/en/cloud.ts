@@ -2,9 +2,9 @@ import type { DeepString } from '../../types'
 import type { zhCloud } from '../zh/cloud'
 
 export const enCloud: DeepString<typeof zhCloud> = {
-  panelHint: "Back up configs automatically to S3 / Aliyun OSS and pull them on another computer with the same credentials",
+  panelHint: "Back up configs automatically to S3 / Aliyun OSS / WebDAV and pull them on another computer with the same credentials",
   status: "Status",
-  statusDesc: "Backs up to object storage; pull on another computer with the same credentials",
+  statusDesc: "Backs up to cloud storage; pull on another computer with the same credentials",
   enabled: "On",
   disabled: "Off",
   lastPush: "Last upload",
@@ -16,15 +16,15 @@ export const enCloud: DeepString<typeof zhCloud> = {
   aliyun: "Aliyun OSS",
   tencent: "Tencent COS",
   custom: "Custom S3-compatible",
-  endpointHint: "https:// is optional. Aliyun example: oss-cn-hangzhou.aliyuncs.com",
+  endpointHint: "Use a full URL for WebDAV; https:// is optional for S3 / OSS. Aliyun example: oss-cn-hangzhou.aliyuncs.com",
   objectKey: "Object key",
   secretPlaceholder: "Leave empty to keep the current value",
   passphrase: "Encryption passphrase (recommended)",
   passphraseHint: "When set, the whole bundle is AES-GCM encrypted before upload. You must use the same passphrase when pulling on another computer. Upstream API keys are still stored in plain text in the local router.json / mcp.json, as before.",
   pathStyle: "Path-style access (needed by MinIO and some self-hosted S3)",
   autoPush: "Upload automatically when local configs change",
-  autoPull: "Pull from the cloud on startup (overwrites local)",
-  note: "Moving to another computer: enter the same OSS credentials there (or set CLAUDIA_OSS_BUCKET / ACCESS_KEY / SECRET_KEY), then click \"Pull from cloud\". Synced: environments, MCP, API routes, Skills and monitor rotation. The OSS credentials themselves stay in the local cloud.json and are never written into the backup.",
+  autoPull: "Pull on startup (preview required for local edits)",
+  note: "On another computer, enter the same cloud connection, preview changes and select files to restore. Sync includes environments, MCP, routes, full Skills, monitoring and Workbench. Connection credentials stay in local cloud.json. ETag and conditional writes are required; conflicting versions stop overwrites.",
   test: "Test connection",
   upload: "Upload now",
   download: "Pull from cloud",
@@ -44,5 +44,5 @@ export const enCloud: DeepString<typeof zhCloud> = {
   uploadFailed: "Upload failed: {error}",
   pullFailed: "Pull failed: {error}",
   pullTitle: "Pull from cloud",
-  pullMsg: "This overwrites local environments / MCP / routes / Skills / monitor settings with the cloud backup. OSS credentials are not overwritten. Continue?",
+  pullMsg: "Restore the selected files to their previewed cloud versions? Current content will be backed up. Cloud connection credentials stay unchanged.",
 }

@@ -11,6 +11,8 @@ export function GetRouterConfig():Promise<main.RouterConfig>;
 
 export function GetRouterLogs(arg1:main.RouterLogQuery):Promise<main.RouterLogPage>;
 
+export function GetUpstreamHealth():Promise<Array<main.UpstreamMetric>>;
+
 export function OnStartup(arg1:context.Context):Promise<void>;
 
 export function ReloadFromDisk():Promise<void>;

@@ -1245,7 +1245,7 @@ function collectVariablesAndTemplates(): { variables: Record<string, string>, te
       OPENCODE_CONFIG: form.value.opencode.configPath
     }
     if (isEditing.value && props.editConfig?.variables) {
-      for (const key of ['OPENCODE_PROVIDER_ID', 'OPENCODE_PROVIDER_NAME', 'OPENCODE_NPM', 'OPENCODE_MODELS']) {
+      for (const key of ['OPENCODE_PROVIDER_ID', 'OPENCODE_PROVIDER_NAME', 'OPENCODE_NPM', 'OPENCODE_MODELS', 'AI_ENV_MODEL_CONTEXT', 'AI_ENV_MODEL_OUTPUT']) {
         if (props.editConfig.variables[key]) variables[key] = props.editConfig.variables[key]
       }
     }
@@ -1269,11 +1269,17 @@ function collectVariablesAndTemplates(): { variables: Record<string, string>, te
       templates['config.toml'] = form.value.grok.configTemplate
     }
   }
+  if (form.value.provider === 'codex' && props.editConfig?.provider === 'codex') {
+    for (const key of ['AI_ENV_AUTH_MODE', 'model_catalog_json', 'model_auto_compact_token_limit']) {
+      if (props.editConfig.variables[key]) variables[key] = props.editConfig.variables[key]
+    }
+  }
   return { variables, templates }
 }
 
 function buildConfigData(variables: Record<string, string>, templates: Record<string, string>): EnvConfig {
   return {
+    universal_id: props.editConfig?.universal_id,
     name: form.value.name.trim(),
     description: form.value.description.trim(),
     provider: form.value.provider,

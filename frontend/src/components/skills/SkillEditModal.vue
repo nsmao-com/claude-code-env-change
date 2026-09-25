@@ -209,6 +209,9 @@ async function handleSubmit() {
   }
 
   const payload: Skill = {
+    files: props.editSkill?.files,
+    executable: props.editSkill?.executable,
+    source: props.editSkill?.source,
     name,
     content: form.value.content,
     enable_platform: [...form.value.enable_platform],

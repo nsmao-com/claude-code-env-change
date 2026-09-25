@@ -13,6 +13,7 @@ import { enUi } from './en/ui'
 import { enApp } from './en/app'
 export const en = {
   nav: {
+    workbench: 'Workbench',
     home: 'Home',
     env: 'Environments',
     mcp: 'MCP',

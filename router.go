@@ -46,7 +46,11 @@ type APIRoute struct {
 	DefaultModel string            `json:"default_model,omitempty"`
 	Enabled      bool              `json:"enabled"`
 	// Fallbacks 备用上游（与主上游同协议）：主上游网络错误、限流、鉴权/额度失败或 5xx 时依次切换
-	Fallbacks []RouteUpstream `json:"fallbacks,omitempty"`
+	Fallbacks        []RouteUpstream `json:"fallbacks,omitempty"`
+	FailureThreshold int             `json:"failure_threshold,omitempty"`
+	CooldownSeconds  int             `json:"cooldown_seconds,omitempty"`
+	Strategy         string          `json:"strategy,omitempty"`
+	Weight           int             `json:"weight,omitempty"`
 }
 
 // RouterConfig 网关配置
@@ -68,15 +72,21 @@ type RouteStats struct {
 
 // RouterLogEntry 请求日志
 type RouterLogEntry struct {
-	Time       string `json:"time"`
-	Route      string `json:"route"`
-	Path       string `json:"path"`
-	Model      string `json:"model,omitempty"`
-	StatusCode int    `json:"status_code"`
-	DurationMs int64  `json:"duration_ms"`
-	Error      string `json:"error,omitempty"`
-	Upstream   string `json:"upstream,omitempty"` // 实际响应的上游 host
-	Failover   string `json:"failover,omitempty"` // 被跳过的上游及原因
+	Time             string `json:"time"`
+	Route            string `json:"route"`
+	Path             string `json:"path"`
+	Model            string `json:"model,omitempty"`
+	StatusCode       int    `json:"status_code"`
+	DurationMs       int64  `json:"duration_ms"`
+	Error            string `json:"error,omitempty"`
+	Upstream         string `json:"upstream,omitempty"` // 实际响应的上游 host
+	Failover         string `json:"failover,omitempty"` // 被跳过的上游及原因
+	InputTokens      int    `json:"input_tokens,omitempty"`
+	OutputTokens     int    `json:"output_tokens,omitempty"`
+	CacheReadTokens  int    `json:"cache_read_tokens,omitempty"`
+	CacheWriteTokens int    `json:"cache_write_tokens,omitempty"`
+	FirstTokenMs     int64  `json:"first_token_ms,omitempty"`
+	UsageReported    bool   `json:"usage_reported,omitempty"`
 }
 
 // RouterLogQuery 完整日志查询
@@ -268,6 +278,9 @@ func (rs *RouterService) SaveRouterConfig(config RouterConfig) error {
 	seen := map[string]struct{}{}
 	for i := range config.Routes {
 		route := &config.Routes[i]
+		if err := validateRoutePolicy(*route); err != nil {
+			return err
+		}
 		route.Name = strings.TrimSpace(route.Name)
 		route.BaseURL = strings.TrimSpace(route.BaseURL)
 		route.SourceFormat = normalizeAPIFormat(route.SourceFormat)
@@ -1213,6 +1226,15 @@ func (rs *RouterService) finishRequest(_ http.ResponseWriter, route APIRoute, r 
 	if trace := gatewayTraceFrom(r); trace != nil {
 		entry.Upstream = trace.upstream
 		entry.Failover = strings.Join(trace.skipped, "；")
+		entry.InputTokens = trace.input
+		entry.OutputTokens = trace.output
+		entry.CacheReadTokens = trace.cacheRead
+		entry.CacheWriteTokens = trace.cacheWrite
+		entry.FirstTokenMs = trace.firstToken
+		entry.UsageReported = trace.reported
+		if trace.model != "" {
+			entry.Model = trace.model
+		}
 	}
 
 	rs.statsMu.Lock()
@@ -1249,6 +1271,7 @@ func (rs *RouterService) finishRequest(_ http.ResponseWriter, route APIRoute, r 
 
 	// 文件 IO 在锁外执行：高并发下持 statsMu 做同步写会放大每请求延迟
 	rs.persistLog(entry, snapshot, trimmed)
+	persistGatewayUsage(entry)
 }
 
 func (rs *RouterService) logFilePath() (string, error) {

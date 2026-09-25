@@ -80,3 +80,13 @@ export async function callApp<T>(name: string, ...args: unknown[]): Promise<T> {
   }
   throw new Error(useI18n().t('ui.backendNotReady', { name }))
 }
+
+export async function callService<T>(service: string, name: string, ...args: unknown[]): Promise<T> {
+  for (let i = 0; i < 25; i++) {
+    const root = (window as unknown as { go?: { main?: Record<string, Record<string, unknown>> } }).go?.main
+    const fn = root?.[service]?.[name]
+    if (typeof fn === 'function') return fn(...args) as Promise<T>
+    await new Promise(resolve => setTimeout(resolve, 100))
+  }
+  throw new Error(useI18n().t('ui.backendNotReady', { name }))
+}

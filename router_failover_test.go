@@ -1,13 +1,85 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 )
+
+func TestGatewayUsageMeasuresJSONAndSSE(t *testing.T) {
+	for _, stream := range []bool{false, true} {
+		t.Run(fmt.Sprint(stream), func(t *testing.T) {
+			up := newFakeUpstream(t, func(w http.ResponseWriter, r *http.Request) {
+				if stream {
+					w.Header().Set("Content-Type", "text/event-stream")
+					io.WriteString(w, "data: {\"id\":\"a\",\"model\":\"priced-model\",\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n\ndata: {\"choices\":[],\"usage\":{\"prompt_tokens\":100,\"completion_tokens\":20,\"prompt_tokens_details\":{\"cached_tokens\":40}}}\n\ndata: [DONE]\n\n")
+				} else {
+					w.Header().Set("Content-Type", "application/json")
+					io.WriteString(w, `{"model":"priced-model","usage":{"prompt_tokens":100,"completion_tokens":20,"prompt_tokens_details":{"cached_tokens":40}},"choices":[{"message":{"role":"assistant","content":"hi"},"finish_reason":"stop"}]}`)
+				}
+			})
+			rs := newTestRouter(t, APIRoute{Name: "usage", SourceFormat: "openai", TargetFormat: "openai", BaseURL: up.URL, Enabled: true})
+			body := fmt.Sprintf(`{"model":"client-model","messages":[{"role":"user","content":"hello"}],"stream":%t}`, stream)
+			req := httptest.NewRequest("POST", "http://127.0.0.1:8790/usage/v1/chat/completions", strings.NewReader(body))
+			req.Host = "127.0.0.1:8790"
+			rec := httptest.NewRecorder()
+			gatewayGuard(http.HandlerFunc(rs.handleRoot)).ServeHTTP(rec, req)
+			entry := lastLog(rs)
+			if !entry.UsageReported || entry.InputTokens != 60 || entry.OutputTokens != 20 || entry.CacheReadTokens != 40 || entry.Model != "priced-model" {
+				t.Fatalf("usage mismatch: %+v", entry)
+			}
+			if stream && entry.FirstTokenMs < 1 {
+				t.Fatal("missing first token latency")
+			}
+		})
+	}
+}
+func TestCircuitThresholdAndRecoveryProbe(t *testing.T) {
+	r := APIRoute{Name: "circuit-test", FailureThreshold: 2, CooldownSeconds: 60}
+	u := RouteUpstream{BaseURL: "http://unit.invalid"}
+	releaseUpstream(r, u, false, 5)
+	if !claimUpstream(r, u) {
+		t.Fatal("threshold reached too early")
+	}
+	releaseUpstream(r, u, false, 5)
+	if claimUpstream(r, u) {
+		t.Fatal("cooling upstream allowed")
+	}
+	policyState.Lock()
+	metricLocked(r, u).CoolUntil = time.Now().Add(-time.Second).UnixMilli()
+	policyState.Unlock()
+	if !claimUpstream(r, u) || claimUpstream(r, u) {
+		t.Fatal("half-open must allow exactly one probe")
+	}
+	releaseUpstream(r, u, true, 7)
+	if !claimUpstream(r, u) {
+		t.Fatal("recovered upstream blocked")
+	}
+}
+func TestWeightedAndSessionRouting(t *testing.T) {
+	r := APIRoute{Name: "weighted-test", BaseURL: "http://one.invalid", Weight: 3, Strategy: "weighted", Fallbacks: []RouteUpstream{{BaseURL: "http://two.invalid", Weight: 1}}}
+	counts := map[string]int{}
+	for i := 0; i < 40; i++ {
+		counts[policyUpstreams(r, nil)[0].BaseURL]++
+	}
+	if counts[r.BaseURL] != 30 {
+		t.Fatalf("weight distribution: %v", counts)
+	}
+	r.Strategy = "session"
+	req := httptest.NewRequest("GET", "/", nil)
+	req.Header.Set("X-Session-ID", "session-one")
+	first := policyUpstreams(r, req)[0]
+	for i := 0; i < 20; i++ {
+		if policyUpstreams(r, req)[0] != first {
+			t.Fatal("session affinity changed")
+		}
+	}
+}
 
 type fakeUpstream struct {
 	*httptest.Server
@@ -259,5 +331,16 @@ func TestRouterDoesNotDoubleV1(t *testing.T) {
 	}
 	if len(paths) != 2 || paths[0] != "/v1/responses" || paths[1] != "/v1/embeddings" {
 		t.Fatalf("上游收到的路径应为 /v1/responses、/v1/embeddings，实际 %v", paths)
+	}
+}
+
+func TestGatewayUsageFinalSSEWithoutNewline(t *testing.T) {
+	trace := &gatewayTrace{}
+	body := &meteredBody{ReadCloser: io.NopCloser(strings.NewReader(`data: {"model":"m","usage":{"prompt_tokens":12,"completion_tokens":3}}`)), trace: trace, start: time.Now(), stream: true}
+	if _, err := io.ReadAll(body); err != nil {
+		t.Fatal(err)
+	}
+	if !trace.reported || trace.input != 12 || trace.output != 3 {
+		t.Fatalf("final event lost: %+v", trace)
 	}
 }

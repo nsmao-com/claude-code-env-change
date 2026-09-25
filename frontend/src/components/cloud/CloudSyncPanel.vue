@@ -46,17 +46,18 @@
               <SelectItem value="r2">Cloudflare R2</SelectItem>
               <SelectItem value="minio">MinIO</SelectItem>
               <SelectItem value="custom">{{ t('cloud.custom') }}</SelectItem>
+              <SelectItem value="webdav">WebDAV</SelectItem>
             </SelectContent>
           </Select>
         </div>
-        <AppInput v-model="form.region" label="Region" :placeholder="regionPlaceholder" />
+        <AppInput v-if="form.provider !== 'webdav'" v-model="form.region" label="Region" :placeholder="regionPlaceholder" />
       </div>
 
       <AppInput v-model="form.endpoint" label="Endpoint" :placeholder="endpointPlaceholder" :hint="t('cloud.endpointHint')" />
-      <AppInput v-model="form.bucket" label="Bucket" placeholder="bucket-name" />
+      <AppInput v-if="form.provider !== 'webdav'" v-model="form.bucket" label="Bucket" placeholder="bucket-name" />
       <AppInput v-model="form.object_key" :label="t('cloud.objectKey')" placeholder="claude-env-switcher/backup.bin" />
-      <AppInput v-model="form.access_key" label="Access Key" placeholder="AccessKeyId" />
-      <AppInput v-model="form.secret_key" label="Secret Key" type="password" :placeholder="t('cloud.secretPlaceholder')" />
+      <AppInput v-model="form.access_key" :label="form.provider === 'webdav' ? tx('用户名', 'Username') : 'Access Key'" />
+      <AppInput v-model="form.secret_key" :label="form.provider === 'webdav' ? tx('密码 / 应用令牌', 'Password / app token') : 'Secret Key'" type="password" :placeholder="t('cloud.secretPlaceholder')" />
       <AppInput
         v-model="form.passphrase"
         :label="t('cloud.passphrase')"
@@ -64,7 +65,7 @@
         :hint="t('cloud.passphraseHint')"
       />
 
-      <div class="flex items-center gap-2">
+      <div v-if="form.provider !== 'webdav'" class="flex items-center gap-2">
         <Switch :checked="form.path_style" :disabled="busy" @update:checked="onFlag('path_style', $event)" />
         <Label>{{ t('cloud.pathStyle') }}</Label>
       </div>
@@ -82,6 +83,7 @@
       </p>
     </div>
 
+    <div v-if="restorePreview" class="workbench mt-5"><DiffPreview :changes="restorePreview.changes" v-model="restoreFiles"/><Button class="mt-4" :disabled="busy || !restoreFiles.length" @click="confirmRestore">{{ tx('确认恢复所选文件', 'Restore selected files') }}</Button></div>
     <template #footer>
       <div class="flex w-full items-center justify-between gap-3">
         <div class="flex gap-2">
@@ -109,6 +111,10 @@
 
 <script setup lang="ts">
 import { useI18n } from '@/composables/useI18n'
+import { useWorkbench } from '@/composables/useWorkbench'
+import { callService } from '@/services/appBridge'
+import type { HistoryPreview, Result } from '@/types/workbench'
+import DiffPreview from '@/components/workbench/DiffPreview.vue'
 import { computed, reactive, ref, watch } from 'vue'
 import { Download, Loader2, Unplug, Upload } from '@lucide/vue'
 import type { CloudConfig, CloudProvider } from '@/types'
@@ -126,6 +132,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch'
 
 const { t } = useI18n()
+const { tx } = useWorkbench()
+const restorePreview = ref<HistoryPreview | null>(null)
+const restoreFiles = ref<string[]>([])
 
 interface Props {
   modelValue: boolean
@@ -173,6 +182,8 @@ type FlagKey = 'enabled' | 'path_style' | 'auto_push' | 'auto_pull_on_start'
 
 const endpointPlaceholder = computed(() => {
   switch (form.provider) {
+    case 'webdav':
+      return 'https://dav.example.com/backup'
     case 'aliyun':
       return 'oss-cn-hangzhou.aliyuncs.com'
     case 's3':
@@ -298,27 +309,23 @@ async function upload() {
 }
 
 async function download() {
-  const ok = await confirm.show(
-    t('cloud.pullTitle'),
-    t('cloud.pullMsg'),
-    'warning'
-  )
-  if (!ok) return
   downloading.value = true
   try {
     await cloudStore.save({ ...form })
-    const result = await cloudService.download()
-    if (result.success) {
-      toast.success(result.message)
-      emit('pulled')
-    } else {
-      toast.error(result.message)
-    }
+    restorePreview.value = await callService<HistoryPreview>('CloudSyncService', 'PreviewCloudRestore')
+    restoreFiles.value = restorePreview.value.changes.filter(c => c.changed).map(c => c.path)
+  } catch (e: unknown) { toast.error(String(e)) }
+  finally { downloading.value = false }
+}
+async function confirmRestore() {
+  if (!restorePreview.value || !await confirm.show(t('cloud.pullTitle'), t('cloud.pullMsg'), 'warning')) return
+  downloading.value = true
+  try {
+    const result = await callService<Result>('CloudSyncService', 'ConfirmCloudRestore', restorePreview.value.token, restoreFiles.value)
+    if (!result.success) throw new Error(result.message)
+    toast.success(result.message); restorePreview.value = null; emit('pulled')
     await cloudStore.refreshStatus()
-  } catch (e: any) {
-    toast.error(t('cloud.pullFailed', { error: e?.message || String(e) }))
-  } finally {
-    downloading.value = false
-  }
+  } catch (e: unknown) { toast.error(String(e)) }
+  finally { downloading.value = false }
 }
 </script>

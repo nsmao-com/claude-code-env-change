@@ -36,6 +36,8 @@ func injectCodexExtras(payload map[string]any, vars map[string]string) {
 	setString("approval_policy", "approval_policy")
 	setString("sandbox_mode", "sandbox_mode")
 	setInt("model_context_window", "model_context_window")
+	setInt("model_auto_compact_token_limit", "model_auto_compact_token_limit")
+	setString("model_catalog_json", "model_catalog_json")
 	setInt("model_max_output_tokens", "model_max_output_tokens")
 	setInt("project_doc_max_bytes", "project_doc_max_bytes")
 }
@@ -125,7 +127,7 @@ func injectOpencodeThinking(payload map[string]any, vars map[string]string) {
 	effort := strings.TrimSpace(vars["OPENCODE_REASONING_EFFORT"])
 	summary := strings.TrimSpace(vars["OPENCODE_REASONING_SUMMARY"])
 	budget := strings.TrimSpace(vars["OPENCODE_THINKING_BUDGET"])
-	if effort == "" && summary == "" && budget == "" {
+	if effort == "" && summary == "" && budget == "" && vars["AI_ENV_MODEL_CONTEXT"] == "" && vars["AI_ENV_MODEL_OUTPUT"] == "" {
 		return
 	}
 	providers, _ := payload["provider"].(map[string]any)
@@ -169,6 +171,21 @@ func injectOpencodeThinking(payload map[string]any, vars map[string]string) {
 				}
 			}
 			model["options"] = options
+			selectedModel := strings.TrimPrefix(vars["OPENCODE_MODEL"], target+"/")
+			if id == selectedModel {
+				limit, _ := model["limit"].(map[string]any)
+				if limit == nil {
+					limit = map[string]any{}
+				}
+				for variable, field := range map[string]string{"AI_ENV_MODEL_CONTEXT": "context", "AI_ENV_MODEL_OUTPUT": "output"} {
+					if n, e := strconv.Atoi(vars[variable]); e == nil && n > 0 {
+						limit[field] = n
+					}
+				}
+				if len(limit) > 0 {
+					model["limit"] = limit
+				}
+			}
 			models[id] = model
 		}
 		entry["models"] = models

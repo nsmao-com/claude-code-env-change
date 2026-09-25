@@ -2,6 +2,7 @@ import type { DeepString } from '../../types'
 import type { zhApp } from '../zh/app'
 
 export const enApp: DeepString<typeof zhApp> = {
+  budgetReached: 'Gateway usage reached your budget. Review Workbench → Costs & budgets. Requests are not blocked.',
   refreshed: "Refreshed",
   cloudPullFailed: "Cloud pull on startup failed: {error}",
   unknownError: "unknown error",

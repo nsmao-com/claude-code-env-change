@@ -27,14 +27,17 @@ func NewSkillService() *SkillService {
 
 // Skill 前端展示/编辑结构
 type Skill struct {
-	Name                 string   `json:"name"`
-	Content              string   `json:"content"`
-	EnablePlatform       []string `json:"enable_platform"`
-	EnabledInClaude      bool     `json:"enabled_in_claude"`
-	EnabledInCodex       bool     `json:"enabled_in_codex"`
-	EnabledInAntigravity bool     `json:"enabled_in_antigravity"`
-	EnabledInOpencode    bool     `json:"enabled_in_opencode"`
-	EnabledInGrok        bool     `json:"enabled_in_grok"`
+	Executable           map[string]bool   `json:"executable,omitempty"`
+	Files                map[string][]byte `json:"files,omitempty"`
+	Source               *SkillSource      `json:"source,omitempty"`
+	Name                 string            `json:"name"`
+	Content              string            `json:"content"`
+	EnablePlatform       []string          `json:"enable_platform"`
+	EnabledInClaude      bool              `json:"enabled_in_claude"`
+	EnabledInCodex       bool              `json:"enabled_in_codex"`
+	EnabledInAntigravity bool              `json:"enabled_in_antigravity"`
+	EnabledInOpencode    bool              `json:"enabled_in_opencode"`
+	EnabledInGrok        bool              `json:"enabled_in_grok"`
 
 	// 仅用于展示（从 Content 解析）
 	FrontmatterName  string `json:"frontmatter_name"`
@@ -46,8 +49,13 @@ type Skill struct {
 }
 
 type rawSkill struct {
-	Content        string   `json:"content"`
-	EnablePlatform []string `json:"enable_platform"`
+	Executable      map[string]bool   `json:"executable,omitempty"`
+	PreviousContent string            `json:"-"`
+	PreserveLocal   bool              `json:"-"`
+	Files           map[string][]byte `json:"files,omitempty"`
+	Source          *SkillSource      `json:"source,omitempty"`
+	Content         string            `json:"content"`
+	EnablePlatform  []string          `json:"enable_platform"`
 }
 
 func (ss *SkillService) ListSkills() ([]Skill, error) {
@@ -84,6 +92,9 @@ func (ss *SkillService) ListSkills() ([]Skill, error) {
 		meta := parseSkillFrontmatter(content)
 
 		skills = append(skills, Skill{
+			Files:                entry.Files,
+			Executable:           entry.Executable,
+			Source:               entry.Source,
 			Name:                 name,
 			Content:              content,
 			EnablePlatform:       entry.EnablePlatform,
@@ -108,6 +119,9 @@ func (ss *SkillService) ListSkills() ([]Skill, error) {
 func (ss *SkillService) SaveSkill(skill Skill) error {
 	ss.mu.Lock()
 	defer ss.mu.Unlock()
+	return ss.saveSkillLocked(skill, false)
+}
+func (ss *SkillService) saveSkillLocked(skill Skill, preserveLocal bool) error {
 
 	name := strings.TrimSpace(skill.Name)
 	if name == "" {
@@ -143,7 +157,22 @@ func (ss *SkillService) SaveSkill(skill Skill) error {
 		return err
 	}
 
+	previous := config[name]
+	if skill.Files == nil {
+		skill.Files = previous.Files
+		skill.Executable = previous.Executable
+	}
+	if skill.Source == nil {
+		skill.Source = previous.Source
+	}
+	if err := validateSkillFiles(skill.Files); err != nil {
+		return err
+	}
 	config[name] = rawSkill{
+		PreviousContent: previous.Content, PreserveLocal: preserveLocal,
+		Files:          skill.Files,
+		Executable:     skill.Executable,
+		Source:         skill.Source,
 		Content:        content,
 		EnablePlatform: enablePlatform,
 	}
@@ -153,7 +182,7 @@ func (ss *SkillService) SaveSkill(skill Skill) error {
 	}
 
 	if err := ss.syncSkill(name, config[name]); err != nil {
-		return err
+		return fmt.Errorf("技能已保存，但部分平台写入失败，可从配置历史恢复: %w", err)
 	}
 	notifyCloudSync()
 	return nil
@@ -332,9 +361,14 @@ func (ss *SkillService) loadConfigWithImport() (map[string]rawSkill, bool, error
 				changed = true
 				continue
 			}
+			files, executable, err := readLocalSkillAssets(filepath.Join(item.root, trimmed))
+			if err != nil {
+				return nil, false, fmt.Errorf("读取技能 %s: %w", trimmed, err)
+			}
 			config[trimmed] = rawSkill{
 				Content:        content,
 				EnablePlatform: []string{item.platform},
+				Files:          files, Executable: executable,
 			}
 			changed = true
 		}
@@ -477,7 +511,13 @@ func (ss *SkillService) writeSkillFiles(name string, entry rawSkill, removeDisab
 			if err := os.MkdirAll(dir, 0o755); err != nil {
 				return err
 			}
-			if err := writeFileAtomic(file, []byte(entry.Content), 0o644); err != nil {
+			current, readErr := os.ReadFile(file)
+			if !entry.PreserveLocal || os.IsNotExist(readErr) || strings.TrimSpace(string(current)) == strings.TrimSpace(entry.PreviousContent) {
+				if err := writeFileAtomic(file, []byte(entry.Content), 0o644); err != nil {
+					return err
+				}
+			}
+			if err := syncSkillAssets(dir, entry.Files, entry.Executable); err != nil {
 				return err
 			}
 			continue
@@ -486,7 +526,13 @@ func (ss *SkillService) writeSkillFiles(name string, entry rawSkill, removeDisab
 		if !removeDisabled {
 			continue
 		}
-		// 安全卸载：仅删除 SKILL.md（如目录为空则顺带删除目录）
+		// 仅移除未被用户改动的托管附件；保留自建文件和修改后的附件。
+		if err := removeManagedSkillAssets(dir); err != nil {
+			return err
+		}
+		if err := captureBeforeWrite(file, nil); err != nil {
+			return err
+		}
 		if err := os.Remove(file); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return err
 		}
@@ -529,6 +575,12 @@ func (ss *SkillService) removeSkillFromAllPlatforms(name string) error {
 	for _, root := range roots {
 		dir := filepath.Join(root, name)
 		file := filepath.Join(dir, "SKILL.md")
+		if err := removeManagedSkillAssets(dir); err != nil {
+			return err
+		}
+		if err := captureBeforeWrite(file, nil); err != nil {
+			return err
+		}
 		if err := os.Remove(file); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return err
 		}

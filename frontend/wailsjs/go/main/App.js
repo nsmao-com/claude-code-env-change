@@ -158,6 +158,10 @@ export function ListConfigDirs() {
   return window['go']['main']['App']['ListConfigDirs']();
 }
 
+export function ListConfigHistory() {
+  return window['go']['main']['App']['ListConfigHistory']();
+}
+
 export function OnStartup(arg1) {
   return window['go']['main']['App']['OnStartup'](arg1);
 }
@@ -178,6 +182,10 @@ export function OpenReleasePage() {
   return window['go']['main']['App']['OpenReleasePage']();
 }
 
+export function PreviewConfigHistory(arg1) {
+  return window['go']['main']['App']['PreviewConfigHistory'](arg1);
+}
+
 export function ReadDroppedFile(arg1) {
   return window['go']['main']['App']['ReadDroppedFile'](arg1);
 }
@@ -192,6 +200,14 @@ export function RefreshRoutedProviders() {
 
 export function ReorderEnvs(arg1) {
   return window['go']['main']['App']['ReorderEnvs'](arg1);
+}
+
+export function RestoreConfigHistory(arg1, arg2) {
+  return window['go']['main']['App']['RestoreConfigHistory'](arg1, arg2);
+}
+
+export function RestoreConfigHistoryFiles(arg1, arg2, arg3) {
+  return window['go']['main']['App']['RestoreConfigHistoryFiles'](arg1, arg2, arg3);
 }
 
 export function SavePromptFile(arg1, arg2) {

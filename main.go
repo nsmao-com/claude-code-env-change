@@ -30,9 +30,12 @@ func main() {
 	uptimeService := NewUptimeService(app)
 	routerService := NewRouterService()
 	cloudSyncService := NewCloudSyncService(app, routerService, mcpService, skillService)
+	workbenchService := NewWorkbenchService(app, mcpService, skillService, routerService)
+	sessionService := NewSessionService(app)
 
 	onStartup := func(ctx context.Context) {
 		app.OnStartup(ctx)
+		workbenchService.startBudgetMonitor(ctx)
 		routerService.OnStartup(ctx)
 		cloudSyncService.OnStartup()
 		// Windows 系统托盘 + 右键面板（其它平台为空实现），独立 goroutine 不阻塞启动
@@ -82,6 +85,8 @@ func main() {
 			uptimeService,
 			routerService,
 			cloudSyncService,
+			workbenchService,
+			sessionService,
 		},
 	})
 

@@ -81,6 +81,8 @@ export function ListCliTools():Promise<Array<main.CliToolStatus>>;
 
 export function ListConfigDirs():Promise<Array<main.ConfigDirInfo>>;
 
+export function ListConfigHistory():Promise<Array<main.HistorySummary>>;
+
 export function OnStartup(arg1:context.Context):Promise<void>;
 
 export function OpenConfigDir(arg1:string):Promise<void>;
@@ -91,6 +93,8 @@ export function OpenProviderTerminal(arg1:string):Promise<void>;
 
 export function OpenReleasePage():Promise<void>;
 
+export function PreviewConfigHistory(arg1:string):Promise<main.HistoryPreview>;
+
 export function ReadDroppedFile(arg1:string):Promise<string>;
 
 export function RefreshConfig():Promise<void>;
@@ -98,6 +102,10 @@ export function RefreshConfig():Promise<void>;
 export function RefreshRoutedProviders():Promise<void>;
 
 export function ReorderEnvs(arg1:Array<string>):Promise<void>;
+
+export function RestoreConfigHistory(arg1:string,arg2:string):Promise<void>;
+
+export function RestoreConfigHistoryFiles(arg1:string,arg2:string,arg3:Array<string>):Promise<void>;
 
 export function SavePromptFile(arg1:string,arg2:string):Promise<void>;
 

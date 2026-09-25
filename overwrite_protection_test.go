@@ -10,6 +10,84 @@ import (
 	"github.com/pelletier/go-toml/v2"
 )
 
+func TestHistoryRedactionAndStaleRestore(t *testing.T) {
+	home := withHomeRoot(t)
+	p := filepath.Join(home, "config.json")
+	t.Setenv("CLAUDIA_CONFIG_PATH", p)
+	a := NewApp()
+	if e := a.AddEnv(EnvConfig{Name: "test", Provider: "codex", Variables: map[string]string{"OPENAI_API_KEY": "secret-one"}, Templates: map[string]string{"config.toml": "experimental_bearer_token = \"secret-template\""}}); e != nil {
+		t.Fatal(e)
+	}
+	if e := a.AddEnv(EnvConfig{Name: "test", Provider: "codex", Variables: map[string]string{"OPENAI_API_KEY": "secret-two"}}); e != nil {
+		t.Fatal(e)
+	}
+	history, e := a.ListConfigHistory()
+	if e != nil || len(history) == 0 {
+		t.Fatal("history absent", e)
+	}
+	preview, e := a.PreviewConfigHistory(history[0].ID)
+	if e != nil {
+		t.Fatal(e)
+	}
+	for _, c := range preview.Changes {
+		if strings.Contains(c.Before+c.After, "secret-one") || strings.Contains(c.After, "secret-template") {
+			t.Fatal("secret leaked in preview")
+		}
+	}
+	if e = a.AddEnv(EnvConfig{Name: "changed", Provider: "claude", Variables: map[string]string{}}); e != nil {
+		t.Fatal(e)
+	}
+	if e = a.RestoreConfigHistory(history[0].ID, preview.Token); e == nil {
+		t.Fatal("stale preview restored")
+	}
+}
+func TestUniversalProviderCollisionIsAtomic(t *testing.T) {
+	home := withHomeRoot(t)
+	t.Setenv("CLAUDIA_CONFIG_PATH", filepath.Join(home, "config.json"))
+	a := NewApp()
+	if e := a.AddEnv(EnvConfig{Name: "shared", Provider: "codex", Variables: map[string]string{}}); e != nil {
+		t.Fatal(e)
+	}
+	w := NewWorkbenchService(a, nil, nil, nil)
+	_, e := w.SaveUniversalProvider(UniversalProvider{Name: "shared", BaseURL: "https://api.example.com/v1", APIKey: "fixture", Format: "responses", Providers: []string{"claude", "codex"}})
+	if e == nil {
+		t.Fatal("collision accepted")
+	}
+	if a.findEnvIn("claude", "shared") != nil {
+		t.Fatal("failed operation partially modified config")
+	}
+}
+func TestCodexMixedProfileRoundTripHasNoDrift(t *testing.T) {
+	home := withHomeRoot(t)
+	t.Setenv("CODEX_HOME", filepath.Join(home, ".codex"))
+	t.Setenv("CLAUDIA_CONFIG_PATH", filepath.Join(home, "config.json"))
+	a := NewApp()
+	env := EnvConfig{Name: "profile", Provider: "codex", Variables: map[string]string{"base_url": "http://127.0.0.1:19871/v1", "OPENAI_API_KEY": "fixture", "model": "fixture", "AI_ENV_AUTH_MODE": "mixed", "model_context_window": "128000", "model_auto_compact_token_limit": "96000"}}
+	if e := a.AddEnv(env); e != nil {
+		t.Fatal(e)
+	}
+	if _, e := a.ApplyEnv(env.Name, env.Provider); e != nil {
+		t.Fatal(e)
+	}
+	if got := a.GetConfigDrift(); len(got) > 0 {
+		t.Fatalf("false drift after applying: %v", got)
+	}
+	read := a.GetCodexSettings()
+	if read["OPENAI_API_KEY"] != "fixture" || read["model_auto_compact_token_limit"] != "96000" {
+		t.Fatal("provider-scoped settings lost")
+	}
+}
+func TestCCSwitchLinkImportSupportsModelsAndEndpoints(t *testing.T) {
+	w := &WorkbenchService{}
+	envs, e := w.PreviewExternalImport("ccswitch://v1/import?resource=provider&app=claude&name=shared&endpoint=https%3A%2F%2Fa.example.com%2Chttps%3A%2F%2Fb.example.com&apiKey=fixture&model=main&haikuModel=small")
+	if e != nil || len(envs) != 2 {
+		t.Fatal("link import failed", e)
+	}
+	if envs[0].Variables["ANTHROPIC_DEFAULT_HAIKU_MODEL"] != "small" || envs[0].Name == envs[1].Name {
+		t.Fatal("import lost model mapping or unique name")
+	}
+}
+
 // withHomeRoot 把 HOME/USERPROFILE 指到临时目录，让 apply*/sync* 写进隔离环境
 func withHomeRoot(t *testing.T) string {
 	t.Helper()

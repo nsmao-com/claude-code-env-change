@@ -18,6 +18,10 @@ export function GetRouterLogs(arg1) {
   return window['go']['main']['RouterService']['GetRouterLogs'](arg1);
 }
 
+export function GetUpstreamHealth() {
+  return window['go']['main']['RouterService']['GetUpstreamHealth']();
+}
+
 export function OnStartup(arg1) {
   return window['go']['main']['RouterService']['OnStartup'](arg1);
 }

@@ -56,6 +56,7 @@
             <CloudSyncPanel v-else-if="page === 'cloud'" class="h-full min-h-0" embedded :model-value="true" @pulled="onCloudPulled" />
             <PromptEditorModal v-else-if="page === 'prompts'" class="h-full min-h-0" embedded :visible="true" @saved="onPromptSaved" />
             <StatsModal v-else-if="page === 'stats'" class="h-full min-h-0" embedded :model-value="true" />
+            <WorkbenchPanel v-else-if="page === 'workbench'" />
             <SettingsPanel
               v-else-if="page === 'settings'"
               class="h-full min-h-0"
@@ -128,6 +129,7 @@ import SkillsPanel from '@/components/skills/SkillsPanel.vue'
 import UptimePanel from '@/components/uptime/UptimePanel.vue'
 import RouterPanel from '@/components/router/RouterPanel.vue'
 import CloudSyncPanel from '@/components/cloud/CloudSyncPanel.vue'
+import WorkbenchPanel from '@/components/workbench/WorkbenchPanel.vue'
 import UpdateDialog from '@/components/common/UpdateDialog.vue'
 import SettingsPanel from '@/components/settings/SettingsPanel.vue'
 import CommandPalette from '@/components/common/CommandPalette.vue'
@@ -247,6 +249,7 @@ onMounted(async () => {
   EventsOn('cloud:pull-failed', (message: string) => {
     toast.error(t('app.cloudPullFailed', { error: message || t('app.unknownError') }))
   })
+  EventsOn('cost:budget', () => toast.info(t('app.budgetReached')))
 
   try {
     await configStore.loadConfig()
@@ -291,6 +294,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('drop', onWinDrop)
   try { OnFileDropOff() } catch { /* ignore */ }
   try {
+    EventsOff('cost:budget')
     EventsOff('tray:navigate')
     EventsOff('tray:applied')
     EventsOff('tray:router-changed')

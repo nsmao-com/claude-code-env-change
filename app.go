@@ -24,6 +24,7 @@ import (
 
 // EnvConfig 环境配置
 type EnvConfig struct {
+	UniversalID string            `json:"universal_id,omitempty"`
 	Name        string            `json:"name"`
 	Description string            `json:"description"`
 	Variables   map[string]string `json:"variables"`
@@ -889,6 +890,19 @@ func (a *App) getCodexSettingsLocked() map[string]string {
 			if v, ok := payload["model_provider"].(string); ok {
 				modelProvider = strings.TrimSpace(v)
 			}
+			if providers, ok := payload["model_providers"].(map[string]any); ok {
+				if active, ok := providers[modelProvider].(map[string]any); ok {
+					if key, ok := active["experimental_bearer_token"].(string); ok && key != "" {
+						result["OPENAI_API_KEY"] = key
+					}
+				}
+			}
+			if n, ok := asInt(payload["model_auto_compact_token_limit"]); ok {
+				result["model_auto_compact_token_limit"] = strconv.Itoa(n)
+			}
+			if path, ok := payload["model_catalog_json"].(string); ok {
+				result["model_catalog_json"] = path
+			}
 			if strings.TrimSpace(result["base_url"]) == "" {
 				if mp, ok := payload["model_providers"].(map[string]any); ok && len(mp) > 0 {
 					if modelProvider != "" {
@@ -1196,6 +1210,9 @@ func comparableEnvVariables(provider string, variables map[string]string) map[st
 	}
 	out := make(map[string]string, len(variables))
 	for key, value := range variables {
+		if strings.HasPrefix(key, "AI_ENV_") {
+			continue
+		}
 		if strings.TrimSpace(value) != "" {
 			out[key] = value
 		}
@@ -1369,9 +1386,51 @@ requires_openai_auth = true
 	if err != nil {
 		return "", fmt.Errorf("序列化 config.toml 失败: %v", err)
 	}
+	if variables["AI_ENV_AUTH_MODE"] == "mixed" {
+		if data, e := os.ReadFile(filepath.Join(codexDir, "auth.json")); e == nil {
+			var auth map[string]json.RawMessage
+			if json.Unmarshal(data, &auth) != nil {
+				return "", fmt.Errorf("官方登录文件格式错误，未修改配置")
+			}
+		} else if !os.IsNotExist(e) {
+			return "", e
+		}
+	}
 	backupFile(configFile)
 	if err := writeFileAtomic(configFile, configData, 0644); err != nil {
 		return "", fmt.Errorf("写入 config.toml 失败: %v", err)
+	}
+
+	// API Key 已写入当前供应商表；保留官方登录与纯 API 模式明确分离。
+	if mode := variables["AI_ENV_AUTH_MODE"]; mode == "mixed" || mode == "api" {
+		authFile := filepath.Join(codexDir, "auth.json")
+		if mode == "api" {
+			if err := captureBeforeWrite(authFile, nil); err != nil {
+				return "", err
+			}
+			if _, err := backupFile(authFile); err != nil {
+				return "", err
+			}
+			if err := os.Remove(authFile); err != nil && !os.IsNotExist(err) {
+				return "", err
+			}
+		} else if data, err := os.ReadFile(authFile); err == nil {
+			var auth map[string]json.RawMessage
+			if err := json.Unmarshal(data, &auth); err != nil {
+				return "", fmt.Errorf("官方登录文件格式错误，已保留原文件: %w", err)
+			}
+			delete(auth, "OPENAI_API_KEY")
+			out, err := json.MarshalIndent(auth, "", "  ")
+			if err != nil {
+				return "", err
+			}
+			if err := writeFileAtomic(authFile, out, 0600); err != nil {
+				return "", err
+			}
+		} else if !os.IsNotExist(err) {
+			return "", err
+		}
+		return "Codex 配置已应用（" + mode + "）", nil
 	}
 
 	// 2. 处理 auth.json
@@ -1444,6 +1503,9 @@ func buildCodexConfigData(configContent, configFile string, vars map[string]stri
 		}
 	}
 	sanitizeCodexConfigPayload(payload)
+	if err := configureCodexProvider(payload, vars); err != nil {
+		return nil, err
+	}
 	return toml.Marshal(payload)
 }
 
@@ -2306,6 +2368,9 @@ func (a *App) saveConfig() error {
 
 	// 先写临时文件再原子替换：中途崩溃/断电只会留下临时文件，
 	// 不会把 config.json 截断成半截 JSON（那正是下次启动解析失败的根源）。
+	if err := captureBeforeWrite(a.configPath, data); err != nil {
+		return fmt.Errorf("创建配置历史失败: %w", err)
+	}
 	tmp, err := os.CreateTemp(dir, ".config-*.tmp")
 	if err != nil {
 		return fmt.Errorf("保存配置文件失败 (%s): %v", a.configPath, err)

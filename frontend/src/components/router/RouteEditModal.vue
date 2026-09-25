@@ -90,6 +90,7 @@
           <span class="w-5 shrink-0 text-center text-xs text-muted-foreground">{{ i + 1 }}</span>
           <Input v-model="row.base_url" class="flex-[3] font-mono text-xs" :placeholder="t('router.edit.fallbackBaseUrl')" />
           <Input v-model="row.api_key" type="password" class="flex-[2] font-mono text-xs" :placeholder="t('router.edit.fallbackApiKey')" />
+          <Input v-model.number="row.weight" type="number" min="1" max="100" class="w-16" :aria-label="tx('上游权重', 'Upstream weight')" />
           <AppTooltip :content="t('router.edit.removeFallback')">
             <Button type="button" variant="ghost" size="icon-sm" @click="removeFallbackRow(i)">
               <X />
@@ -102,7 +103,7 @@
         <Button type="button" variant="ghost" size="sm" @click="showAdvanced = !showAdvanced">
           {{ showAdvanced ? t('router.edit.advancedCollapse') : t('router.edit.advanced') }}
         </Button>
-        <div v-if="showAdvanced" class="space-y-3">
+        <div v-if="showAdvanced" class="space-y-3"><div class="workbench"><div class="wb-grid"><label>{{ tx('连续失败阈值', 'Consecutive failure threshold') }}<input v-model.number="form.failure_threshold" type="number" min="1" max="100"></label><label>{{ tx('冷却秒数', 'Cooldown seconds') }}<input v-model.number="form.cooldown_seconds" type="number" min="1" max="86400"></label><label>{{ tx('分流策略', 'Routing strategy') }}<select v-model="form.strategy"><option value="priority">{{ tx('按优先级', 'Priority') }}</option><option value="weighted">{{ tx('加权轮询', 'Weighted round robin') }}</option><option value="session">{{ tx('会话粘性', 'Session affinity') }}</option></select></label><label>{{ tx('主上游权重', 'Primary weight') }}<input v-model.number="form.weight" type="number" min="1" max="100"></label></div><p class="wb-hint mt-3">{{ tx('冷却后允许一次恢复探测；会话粘性读取 X-Session-ID / Session_id，无会话头时按请求轮询。', 'Allows one recovery probe after cooldown. Session affinity uses X-Session-ID / Session_id; requests without a session header use round robin.') }}</p></div>
           <div>
             <div class="mb-1.5 flex items-center justify-between">
               <FieldLabel :label="t('router.edit.mapping')" :hint="tips.mapping" />
@@ -144,6 +145,8 @@
 </template>
 
 <script setup lang="ts">
+import { useWorkbench } from '@/composables/useWorkbench'
+const { tx } = useWorkbench()
 import { useI18n } from '@/composables/useI18n'
 import { ref, computed, watch } from 'vue'
 import { X } from '@lucide/vue'
@@ -257,14 +260,15 @@ const defaultForm = () => ({
   api_key: '',
   default_model: '',
   enabled: true,
+  failure_threshold: 1, cooldown_seconds: 60, strategy: 'priority', weight: 1,
 })
 
 const form = ref(defaultForm())
 const mappingRows = ref<{ source: string; target: string }[]>([{ source: '', target: '' }])
-const fallbackRows = ref<{ base_url: string; api_key: string }[]>([])
+const fallbackRows = ref<{ base_url: string; api_key: string; weight: number }[]>([])
 
 function addFallbackRow() {
-  fallbackRows.value.push({ base_url: '', api_key: '' })
+  fallbackRows.value.push({ base_url: '', api_key: '', weight: 1 })
 }
 
 function removeFallbackRow(index: number) {
@@ -287,7 +291,7 @@ function upstreamOfEnv(env: EnvConfig): { base_url: string; api_key: string } {
     case 'grok':
       return { base_url: v.XAI_BASE_URL || '', api_key: v.XAI_API_KEY || '' }
     default:
-      return { base_url: '', api_key: '' }
+  return { base_url: '', api_key: '' }
   }
 }
 
@@ -310,7 +314,7 @@ function importFallbackFromEnv(value: unknown) {
     toast.info(t('router.edit.alreadyInList', { name: env.name }))
     return
   }
-  fallbackRows.value.push({ base_url: base, api_key: up.api_key.trim() })
+  fallbackRows.value.push({ base_url: base, api_key: up.api_key.trim(), weight: 1 })
 }
 
 const isAutoRoute = computed(() => {
@@ -457,9 +461,10 @@ watch(
         api_key: route.api_key || '',
         default_model: route.default_model || '',
         enabled: route.enabled !== false,
+        failure_threshold: route.failure_threshold ?? 1, cooldown_seconds: route.cooldown_seconds || 60, strategy: route.strategy || 'priority', weight: route.weight || 1,
       }
       mappingRows.value = mappingFromRecord(route.model_mapping)
-      fallbackRows.value = (route.fallbacks || []).map(fb => ({ base_url: fb.base_url || '', api_key: fb.api_key || '' }))
+      fallbackRows.value = (route.fallbacks || []).map(fb => ({ base_url: fb.base_url || '', api_key: fb.api_key || '', weight: fb.weight || 1 }))
       showAdvanced.value = Object.keys(route.model_mapping || {}).length > 0
     } else {
       form.value = defaultForm()
@@ -503,7 +508,7 @@ async function handleSubmit() {
     return
   }
   const fallbacks = fallbackRows.value
-    .map(row => ({ base_url: row.base_url.trim(), api_key: row.api_key.trim() || undefined }))
+    .map(row => ({ base_url: row.base_url.trim(), api_key: row.api_key.trim() || undefined, weight: row.weight }))
     .filter(row => row.base_url)
   if (fallbacks.some(row => !/^https?:\/\//i.test(row.base_url))) {
     toast.error(t('router.edit.fallbackUrlInvalid'))
@@ -528,6 +533,7 @@ async function handleSubmit() {
     default_model: form.value.default_model.trim() || undefined,
     model_mapping: mappingToRecord(),
     enabled: form.value.enabled,
+    failure_threshold: form.value.failure_threshold, cooldown_seconds: form.value.cooldown_seconds, strategy: form.value.strategy, weight: form.value.weight,
     fallbacks: fallbacks.length > 0 ? fallbacks : undefined,
   }
 

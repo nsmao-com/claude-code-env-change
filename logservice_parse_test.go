@@ -10,6 +10,71 @@ import (
 	"time"
 )
 
+func TestIncrementalUsageAppendPartialAndTruncate(t *testing.T) {
+	home := withHomeRoot(t)
+	path := filepath.Join(home, "usage.jsonl")
+	ts := time.Now().UTC().Format(time.RFC3339)
+	a := claudeLine(ts, "one", "r1", "text", 10, 2, 0)
+	b := claudeLine(ts, "two", "r2", "text", 20, 4, 0)
+	ls := NewLogService()
+	if e := os.WriteFile(path, []byte(a+"\n"+b[:len(b)/2]), 0600); e != nil {
+		t.Fatal(e)
+	}
+	if got := ls.cachedIncremental(path, "claude", "project", time.Time{}); len(got) != 1 {
+		t.Fatalf("partial line counted: %d", len(got))
+	}
+	f, e := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0600)
+	if e != nil {
+		t.Fatal(e)
+	}
+	_, _ = f.WriteString(b[len(b)/2:])
+	f.Close()
+	got := ls.cachedIncremental(path, "claude", "project", time.Time{})
+	if len(got) != 2 || got[1].OutputTokens != 4 {
+		t.Fatalf("append mismatch: %+v", got)
+	}
+	if e = os.WriteFile(path, []byte(b), 0600); e != nil {
+		t.Fatal(e)
+	}
+	got = ls.cachedIncremental(path, "claude", "project", time.Time{})
+	if len(got) != 1 || got[0].OutputTokens != 4 {
+		t.Fatal("truncated file retained old data")
+	}
+}
+func TestSessionSearchPreviewAndArchive(t *testing.T) {
+	home := withHomeRoot(t)
+	t.Setenv("CODEX_HOME", filepath.Join(home, ".codex"))
+	dir := filepath.Join(home, ".claude", "projects", "project")
+	if e := os.MkdirAll(dir, 0700); e != nil {
+		t.Fatal(e)
+	}
+	line := `{"type":"user","sessionId":"4e82e22b-5403-4d64-8fd0-7b77f624a2f7","cwd":"/fixture","message":{"role":"user","content":"searchable session text"}}`
+	if e := os.WriteFile(filepath.Join(dir, "one.jsonl"), []byte(line), 0600); e != nil {
+		t.Fatal(e)
+	}
+	ss := NewSessionService(nil)
+	page, e := ss.ListSessions(SessionQuery{Keyword: "searchable"})
+	if e != nil || page.Total != 1 {
+		t.Fatalf("search failed: %+v %v", page, e)
+	}
+	id := page.Items[0].ID
+	detail, e := ss.GetSession(id, 0, 10)
+	if e != nil || len(detail.Messages) != 1 {
+		t.Fatal("preview failed", e)
+	}
+	md, e := ss.SessionMarkdown(id)
+	if e != nil || !strings.Contains(md, "searchable session text") {
+		t.Fatal("markdown failed", e)
+	}
+	if e = ss.ArchiveSession(id, true); e != nil {
+		t.Fatal(e)
+	}
+	page, e = ss.ListSessions(SessionQuery{Archived: true})
+	if e != nil || page.Total != 1 {
+		t.Fatal("archive failed", e)
+	}
+}
+
 func claudeLine(ts, msgID, reqID, blockType string, in, out, cacheRead int) string {
 	return fmt.Sprintf(`{"type":"assistant","timestamp":%q,"requestId":%q,"message":{"id":%q,"model":"claude-sonnet-4-5-20250929","content":[{"type":%q}],"usage":{"input_tokens":%d,"output_tokens":%d,"cache_read_input_tokens":%d,"cache_creation_input_tokens":0}}}`,
 		ts, reqID, msgID, blockType, in, out, cacheRead)

@@ -1,9 +1,66 @@
 package main
 
 import (
+	"archive/zip"
+	"bytes"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
+
+func TestSkillPackageIncludesAssetsAndProtectsLocalEdits(t *testing.T) {
+	home := withHomeRoot(t)
+	var b bytes.Buffer
+	z := zip.NewWriter(&b)
+	for path, content := range map[string]string{"repo/skills/demo/SKILL.md": "---\nname: demo\ndescription: fixture\n---\nbody", "repo/skills/demo/scripts/tool.py": "print('fixture')", "repo/skills/demo/references/guide.md": "guide"} {
+		f, e := z.Create(path)
+		if e != nil {
+			t.Fatal(e)
+		}
+		f.Write([]byte(content))
+	}
+	z.Close()
+	s, e := skillPackageFromZip(b.Bytes(), "skills/demo")
+	if e != nil || len(s.Files) != 2 {
+		t.Fatalf("package import: %+v %v", s, e)
+	}
+	service := NewSkillService()
+	if e = service.SaveSkill(s); e != nil {
+		t.Fatal(e)
+	}
+	dir := filepath.Join(home, ".claude", "skills", "demo")
+	file := filepath.Join(dir, "scripts", "tool.py")
+	if e = os.WriteFile(file, []byte("local edit"), 0600); e != nil {
+		t.Fatal(e)
+	}
+	s.Files["scripts/tool.py"] = []byte("upstream edit")
+	if e = service.SaveSkill(s); e != nil {
+		t.Fatal(e)
+	}
+	got, _ := os.ReadFile(file)
+	if string(got) != "local edit" {
+		t.Fatal("local edit overwritten")
+	}
+	if e = service.DeleteSkill(s.Name); e != nil {
+		t.Fatal(e)
+	}
+	if !fileExists(file) || fileExists(filepath.Join(dir, "references", "guide.md")) {
+		t.Fatal("uninstall did not distinguish local and managed files")
+	}
+}
+func TestSkillPackageRejectsTraversal(t *testing.T) {
+	var b bytes.Buffer
+	z := zip.NewWriter(&b)
+	f, _ := z.Create("demo/SKILL.md")
+	f.Write([]byte("---\nname: demo\ndescription: fixture\n---\nbody"))
+	f, _ = z.Create("demo/../escape.txt")
+	f.Write([]byte("escape"))
+	z.Close()
+	if _, e := skillPackageFromZip(b.Bytes(), "demo"); e == nil {
+		t.Fatal("unsafe ZIP accepted")
+	}
+}
 
 // metadata 等嵌套块里的 name/description 不能覆盖顶层字段
 func TestParseSkillFrontmatterIgnoresNestedKeys(t *testing.T) {
@@ -52,5 +109,30 @@ func TestAlignSkillFrontmatterEmptyNameKeepsNextLine(t *testing.T) {
 	meta := parseSkillFrontmatter(got)
 	if meta.Name != "my-skill" || meta.Description != "keep me" {
 		t.Fatalf("name/description = %q/%q\n%s", meta.Name, meta.Description, got)
+	}
+}
+
+func TestLocalSkillImportRejectsOversizedAsset(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "large.bin"), make([]byte, (8<<20)+1), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := readLocalSkillAssets(dir); err == nil {
+		t.Fatal("large attachment silently omitted")
+	}
+}
+func TestSkillZipPreservesExecutableMetadata(t *testing.T) {
+	var b bytes.Buffer
+	z := zip.NewWriter(&b)
+	f, _ := z.Create("demo/SKILL.md")
+	f.Write([]byte("---\nname: demo\ndescription: fixture\n---\nbody"))
+	h := &zip.FileHeader{Name: "demo/scripts/run.sh", Method: zip.Deflate}
+	h.SetMode(0755)
+	f, _ = z.CreateHeader(h)
+	f.Write([]byte("#!/bin/sh\ntrue\n"))
+	z.Close()
+	skill, err := skillPackageFromZip(b.Bytes(), "demo")
+	if err != nil || !skill.Executable["scripts/run.sh"] {
+		t.Fatalf("executable metadata lost: %+v %v", skill.Executable, err)
 	}
 }

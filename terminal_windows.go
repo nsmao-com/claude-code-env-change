@@ -3,11 +3,34 @@
 package main
 
 import (
+	"encoding/base64"
+	"encoding/binary"
 	"fmt"
 	"os"
 	"os/exec"
 	"strings"
+	"unicode/utf16"
 )
+
+func openCommandTerminal(command string, args []string, dir string) error {
+	bin, err := exec.LookPath(command)
+	if err != nil {
+		return fmt.Errorf("请先安装 %s", command)
+	}
+	quote := func(s string) string { return "'" + strings.ReplaceAll(s, "'", "''") + "'" }
+	script := "Set-Location -LiteralPath " + quote(dir) + "; & " + quote(bin)
+	for _, arg := range args {
+		script += " " + quote(arg)
+	}
+	units := utf16.Encode([]rune(script))
+	data := make([]byte, len(units)*2)
+	for i, u := range units {
+		binary.LittleEndian.PutUint16(data[i*2:], u)
+	}
+	cmd := exec.Command("powershell.exe", "-NoProfile", "-NoExit", "-EncodedCommand", base64.StdEncoding.EncodeToString(data))
+	cmd.Dir = dir
+	return cmd.Start()
+}
 
 // openTerminalWithEnv 打开一个新的终端窗口，并把 vars 注入其环境。
 // 用于「一键打开已配置的终端」：子终端继承注入的变量，agy 等只认环境变量的 CLI 可直接运行，

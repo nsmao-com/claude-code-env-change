@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="build/appicon.png?v=2.6.18" width="72" height="72" alt="AI ENV 图标" />
+  <img src="build/appicon.png?v=2.7.0" width="72" height="72" alt="AI ENV 图标" />
 </p>
 
 <h1 align="center">AI ENV</h1>
@@ -41,16 +41,33 @@
 | --- | --- |
 | 环境 | 多配置、按平台筛选、拖拽排序、一键写入对应 CLI、延迟测速、JSON 拖拽导入 |
 | MCP | 管理 stdio / HTTP 服务器，同步到 Claude Code / Claude Desktop / Codex / Antigravity / OpenCode / Grok（Claude Desktop 的远程服务器通过 `npx mcp-remote` 桥接，需本机有 Node.js） |
-| Skills | 编辑 `SKILL.md`，从在线市场 / 内置库导入，按平台启用 |
+| Skills | 完整技能包、在线市场、附件管理、来源更新与本地修改保护，按平台启用 |
 | API 路由 | 本机网关端口与按厂商开关；各平台可在 Anthropic Messages、Chat Completions、Responses 之间转换；每条路由可配备用上游，限流、Key 失效或宕机时自动切换 |
 | 监控 | 定时探测 Base URL，可选「用 Key 验证」发现 Key 失效 / 余额不足，按轮换组自动切配置 |
-| 云同步 | S3 / 阿里云 OSS / 兼容端点，scrypt + AES-GCM 加密后上传 |
+| 云同步 | S3 / 阿里云 OSS / WebDAV，scrypt + AES-GCM 加密、ETag 冲突保护、预览与选择恢复 |
 | 提示词 | 编辑各平台自定义系统提示词 |
 | 统计 | 请求量、Token、花费估算、模型分布、活动热力图 |
 | 设置 | 语言、主题、强调色、出站代理 |
 | CLI | 检测本机 Claude Code / Codex / Antigravity / OpenCode / Grok，按 pnpm、yarn、npm、官方安装器或原生方式安装升级 |
 | 配置目录 | 打开各家 CLI 的本机配置目录和关键文件 |
 | 更新 | 检测 GitHub Release，Windows 可在应用内下载并替换 |
+
+## 2.7 工作台
+
+- **会话**：搜索 Claude Code、Codex、Gemini 的本地会话，按工具、项目、日期筛选并分页；阅读消息、导出 Markdown、打开目录、通过 Claude/Codex CLI 继续会话（Gemini 仅查看和导出）。AI ENV 归档只影响列表，不移动原始日志；Codex 原生归档只读。
+- **模型**：从环境发现可用模型，发送最小测试请求；保存上下文、最大输出、自动压缩阈值以及输入/输出/缓存价格。Codex 支持模型目录及官方登录、API、保留官方登录三种模式；后者把 API 凭证放在指定 provider 下。
+- **诊断与历史**：检查 CLI、配置语法、配置漂移和可选网络请求；MCP 通过 `initialize → initialized → tools/list` 验证 stdio、Streamable HTTP 与 SSE。保留最近 100 份配置写入前快照，支持脱敏差异和按文件恢复；提交恢复时会重新核对本地版本。
+- **完整 Skills**：导入本地目录、ZIP 或指定 GitHub 分支/标签/commit 下的完整技能，保留附件和可执行脚本标记。显示来源 commit、逐文件更新差异及本地修改；默认保留本地修改，旧中央存储可从配置历史恢复。禁止越界路径和包内符号链接；单文件 8 MB、附件合计 24 MB、最多 1000 个附件，超限会明确拒绝。`.git` 和 `node_modules` 不导入。
+- **项目与提示词**：维护可复用提示词库，把环境、模型、MCP、Skills、提示词组合成项目套装。应用前保存配置快照；套装切换的是工具的全局配置，会影响使用同一工具的其他项目。多步应用失败时会报告已写入部分，可通过历史恢复。
+- **供应商**：预览导入 CC Switch JSON、分享链接（含 base64 JSON / Codex TOML 配置）及 AI ENV 配置；通用供应商可生成多个工具的关联环境。保存后需在环境页应用。
+- **网关策略与费用**：支持优先级、加权轮询、按会话分流，以及失败阈值、冷却和请求触发的恢复探测；显示健康状态、上游 Token 和流式首 Token 延迟。按上游实际返回用量、自定义美元价格与环境倍率估算费用，日/月预算仅提醒，不拦截请求；支持 OpenRouter / DeepSeek 余额接口。
+- **日志与云端**：Claude/Codex 用量日志增量解析；新增 WebDAV。上传用 ETag 条件写防覆盖，恢复先预览脱敏差异并按文件选择，本地或远端变更会让预览失效。安全同步要求存储支持 HEAD、ETag 和条件 PUT。
+
+费用统计只计入网关收到有效 usage 的请求，未上报或无法唯一匹配价格的请求不计费用；网关账本按月轮转，保留当月及前两个月。CLI 日志费用依据激活时间线归属环境，两种口径分开显示，不重复累加。模型连通性请求可能产生供应商费用。
+
+新增本地数据均位于 `~/.claude-env-switcher/`：`workbench.json` 保存模型/套装/预算，`history/` 保存原始配置快照（含凭证），`gateway-usage.jsonl` 保存当前月网关用量而不保存请求正文。差异界面会隐藏凭证，但本地快照仍需像原始配置一样保护；云备份建议设置加密口令。
+
+开发验证使用独立用户目录和本地模拟上游，覆盖真实 Wails/Vite dev 及配置落盘；自动回归可运行 `go test ./...`、`go vet ./...` 和 `cd frontend && pnpm exec vue-tsc --noEmit`。
 
 ## 安装
 

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -281,7 +282,7 @@ func (ls *LogService) loadRecordsForPlatform(days int, platform string) []UsageR
 	}
 
 	if len(readers) == 1 {
-		return readers[0]()
+		return repriceUsageRecords(readers[0]())
 	}
 
 	var (
@@ -301,7 +302,7 @@ func (ls *LogService) loadRecordsForPlatform(days int, platform string) []UsageR
 		}()
 	}
 	wg.Wait()
-	return records
+	return repriceUsageRecords(records)
 }
 
 // aggregateUsageStats 聚合用量统计；cutoff 非空时只统计 Timestamp >= cutoff 的记录
@@ -588,9 +589,7 @@ func (ls *LogService) readClaudeLogs(days int) ([]UsageRecord, error) {
 	pruneLogFileCache(alive)
 
 	records := parseFilesConcurrently(paths, func(path string) []UsageRecord {
-		return cachedParseFile(path, func() ([]UsageRecord, error) {
-			return ls.parseJSONLFile(path, extractProjectPath(path), time.Time{})
-		}, cutoff)
+		return ls.cachedIncremental(path, "claude", extractProjectPath(path), cutoff)
 	})
 	// 恢复/分叉的会话会把历史消息复制到新文件，跨文件也要去重
 	return dedupUsageRecords(records), nil
@@ -910,8 +909,11 @@ func (ls *LogService) parseJSONLFile(path string, projectPath string, cutoff tim
 	}
 	defer file.Close()
 
+	return ls.parseClaudeReader(file, path, projectPath, cutoff)
+}
+func (ls *LogService) parseClaudeReader(reader io.Reader, path, projectPath string, cutoff time.Time) ([]UsageRecord, error) {
 	var records []UsageRecord
-	scanner := bufio.NewScanner(file)
+	scanner := bufio.NewScanner(reader)
 	// 增大缓冲区以处理长行
 	buf := make([]byte, 0, 1024*1024)
 	scanner.Buffer(buf, 10*1024*1024)
@@ -967,7 +969,7 @@ func (ls *LogService) parseJSONLFile(path string, projectPath string, cutoff tim
 		records = append(records, record)
 	}
 
-	return dedupUsageRecords(records), nil
+	return dedupUsageRecords(records), scanner.Err()
 }
 
 // claudeDedupKey Claude Code 会把一次响应的每个内容块（thinking / text / tool_use）
@@ -1154,9 +1156,7 @@ func (ls *LogService) readCodexLogs(days int) ([]UsageRecord, error) {
 	}
 
 	return parseFilesConcurrently(paths, func(path string) []UsageRecord {
-		return cachedParseFile(path, func() ([]UsageRecord, error) {
-			return ls.parseCodexSession(path, filepath.Base(path), time.Time{})
-		}, cutoff)
+		return ls.cachedIncremental(path, "codex", strings.TrimSuffix(filepath.Base(path), ".jsonl"), cutoff)
 	}), nil
 }
 
@@ -1168,13 +1168,17 @@ func (ls *LogService) parseCodexSession(path string, sessionID string, cutoff ti
 	}
 	defer file.Close()
 
+	return ls.parseCodexReader(file, path, sessionID, cutoff, &codexScanState{Model: "gpt-5-codex"})
+}
+func (ls *LogService) parseCodexReader(reader io.Reader, path, sessionID string, cutoff time.Time, state *codexScanState) ([]UsageRecord, error) {
 	var records []UsageRecord
-	scanner := bufio.NewScanner(file)
+	scanner := bufio.NewScanner(reader)
 	buf := make([]byte, 0, 1024*1024)
 	scanner.Buffer(buf, 10*1024*1024)
 
-	var lastTotalTokens *codexTokenUsage
-	var currentModel string = "gpt-5-codex" // 默认模型
+	lastTotalTokens := state.Total
+	currentModel := state.Model
+	defer func() { state.Total = lastTotalTokens; state.Model = currentModel }()
 
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -1271,7 +1275,7 @@ func (ls *LogService) parseCodexSession(path string, sessionID string, cutoff ti
 		}
 	}
 
-	return records, nil
+	return records, scanner.Err()
 }
 
 // getCodexDir 获取 Codex CLI 目录路径

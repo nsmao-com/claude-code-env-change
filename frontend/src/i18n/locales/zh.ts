@@ -13,6 +13,7 @@ import { zhUi } from './zh/ui'
 import { zhApp } from './zh/app'
 export const zh = {
   nav: {
+    workbench: '工作台',
     home: '首页',
     env: '环境',
     mcp: 'MCP',

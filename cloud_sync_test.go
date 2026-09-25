@@ -5,11 +5,87 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 )
+
+func TestWebDAVPreviewRejectsLocalAndRemoteConflicts(t *testing.T) {
+	home := withHomeRoot(t)
+	p := filepath.Join(home, "config.json")
+	t.Setenv("CLAUDIA_CONFIG_PATH", p)
+	if e := os.WriteFile(p, []byte(`{"environments":[]}`), 0600); e != nil {
+		t.Fatal(e)
+	}
+	var mu sync.Mutex
+	version := `"one"`
+	payload := []byte(`{"version":1,"files":{"config.json":{"environments":[{"name":"remote","provider":"codex","variables":{}}]}}}`)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user, pass, ok := r.BasicAuth()
+		if !ok || user != "unit" || pass != "secret" {
+			w.WriteHeader(401)
+			return
+		}
+		mu.Lock()
+		defer mu.Unlock()
+		w.Header().Set("ETag", version)
+		if r.Method == "GET" {
+			w.Write(payload)
+		} else if r.Method == "PUT" {
+			if r.Header.Get("If-Match") != version {
+				w.WriteHeader(412)
+				return
+			}
+			payload, _ = io.ReadAll(r.Body)
+			version = `"uploaded"`
+			w.Header().Set("ETag", version)
+		}
+	}))
+	defer srv.Close()
+	a := NewApp()
+	cs := &CloudSyncService{app: a, httpClient: srv.Client(), config: CloudConfig{Provider: "webdav", Endpoint: srv.URL, AccessKey: "unit", SecretKey: "secret", ObjectKey: "backup.bin"}}
+	if r := cs.UploadToCloud(); r.Success {
+		t.Fatal("unseen remote was overwritten")
+	}
+	preview, e := cs.PreviewCloudRestore()
+	if e != nil {
+		t.Fatal(e)
+	}
+	if e = os.WriteFile(p, []byte(`{"environments":[],"current_env":"changed"}`), 0600); e != nil {
+		t.Fatal(e)
+	}
+	if r := cs.ConfirmCloudRestore(preview.Token, []string{"config.json"}); r.Success {
+		t.Fatal("local conflict ignored")
+	}
+	preview, e = cs.PreviewCloudRestore()
+	if e != nil {
+		t.Fatal(e)
+	}
+	mu.Lock()
+	version = `"two"`
+	mu.Unlock()
+	if r := cs.ConfirmCloudRestore(preview.Token, []string{"config.json"}); r.Success {
+		t.Fatal("remote conflict ignored")
+	}
+	preview, e = cs.PreviewCloudRestore()
+	if e != nil {
+		t.Fatal(e)
+	}
+	if r := cs.ConfirmCloudRestore(preview.Token, []string{"config.json"}); !r.Success {
+		t.Fatal(r.Message)
+	}
+	if r := cs.UploadToCloud(); !r.Success {
+		t.Fatal(r.Message)
+	}
+	if cs.config.RemoteETag != `"uploaded"` {
+		t.Fatal("upload revision not recorded")
+	}
+}
 
 func TestCloudPayloadRoundTrip(t *testing.T) {
 	plain := []byte(`{"version":1,"files":{"config.json":{"environments":[]}}}`)
@@ -164,5 +240,23 @@ func TestOSSKeyEncodingMatchesCanonicalURI(t *testing.T) {
 	}
 	if got := req.URL.EscapedPath(); got != "/k%2B1.bin" {
 		t.Fatalf("实际发送的路径应与签名一致，得到 %s", got)
+	}
+}
+
+func TestCloudBundleRejectsCorruptOptionalFile(t *testing.T) {
+	home := withHomeRoot(t)
+	dir := filepath.Join(home, mcpStoreDir)
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, mainConfigFile), []byte(`{"environments":[]}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, skillsStoreFile), []byte(`broken`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	cs := &CloudSyncService{}
+	if _, err := cs.buildBundle(); err == nil {
+		t.Fatal("corrupt skills silently omitted from backup")
 	}
 }

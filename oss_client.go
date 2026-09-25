@@ -26,11 +26,16 @@ type ossObjectClient struct {
 	secretKey string
 	pathStyle bool
 	client    *http.Client
+	etag      string
 }
 
 func newOSSObjectClient(cfg CloudConfig, httpClient *http.Client) *ossObjectClient {
 	if httpClient == nil {
 		httpClient = &http.Client{Timeout: 30 * time.Second}
+	}
+	copyClient := *httpClient
+	copyClient.CheckRedirect = func(_ *http.Request, _ []*http.Request) error {
+		return fmt.Errorf("云同步不允许重定向，请填写最终地址")
 	}
 	return &ossObjectClient{
 		provider:  strings.ToLower(strings.TrimSpace(cfg.Provider)),
@@ -40,7 +45,7 @@ func newOSSObjectClient(cfg CloudConfig, httpClient *http.Client) *ossObjectClie
 		accessKey: strings.TrimSpace(cfg.AccessKey),
 		secretKey: cfg.SecretKey,
 		pathStyle: cfg.PathStyle,
-		client:    httpClient,
+		client:    &copyClient,
 	}
 }
 
@@ -52,6 +57,11 @@ func (c *ossObjectClient) Put(key string, body []byte, contentType string) error
 	if err != nil {
 		return err
 	}
+	if c.etag == "*new*" {
+		req.Header.Set("If-None-Match", "*")
+	} else if c.etag != "" {
+		req.Header.Set("If-Match", c.etag)
+	}
 	resp, err := c.client.Do(req)
 	if err != nil {
 		return err
@@ -60,6 +70,7 @@ func (c *ossObjectClient) Put(key string, body []byte, contentType string) error
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return ossHTTPError("上传", resp)
 	}
+	c.etag = resp.Header.Get("ETag")
 	return nil
 }
 
@@ -73,7 +84,13 @@ func (c *ossObjectClient) Get(key string) ([]byte, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	data, _ := io.ReadAll(io.LimitReader(resp.Body, 32<<20))
+	data, readErr := io.ReadAll(io.LimitReader(resp.Body, (128<<20)+1))
+	if readErr != nil {
+		return nil, readErr
+	}
+	if len(data) > 128<<20 {
+		return nil, fmt.Errorf("备份超过 128 MB")
+	}
 	if resp.StatusCode == http.StatusNotFound {
 		return nil, fmt.Errorf("云端还没有备份（对象不存在）")
 	}
@@ -118,6 +135,25 @@ func ossHTTPError(action string, resp *http.Response) error {
 }
 
 func (c *ossObjectClient) newRequest(method, key string, body []byte, contentType string) (*http.Request, error) {
+	if c.provider == "webdav" {
+		if err := validEndpoint(c.endpoint); err != nil {
+			return nil, err
+		}
+		for _, part := range strings.Split(key, "/") {
+			if part == ".." || part == "." {
+				return nil, fmt.Errorf("备份路径无效")
+			}
+		}
+		req, err := http.NewRequest(method, strings.TrimRight(c.endpoint, "/")+"/"+encodeOSSPath(strings.TrimLeft(key, "/")), strings.NewReader(string(body)))
+		if err != nil {
+			return nil, err
+		}
+		req.SetBasicAuth(c.accessKey, c.secretKey)
+		if contentType != "" {
+			req.Header.Set("Content-Type", contentType)
+		}
+		return req, nil
+	}
 	if c.bucket == "" || c.accessKey == "" || c.secretKey == "" {
 		return nil, fmt.Errorf("请填写 Bucket、Access Key、Secret Key")
 	}

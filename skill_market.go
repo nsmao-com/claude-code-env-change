@@ -137,31 +137,14 @@ func (ss *SkillService) ImportSkillMarketplace(id string) (Skill, error) {
 	if err != nil {
 		return Skill{}, err
 	}
-	body, err := downloadGitHubSkillMD(item.Repo, item.Path)
+	skill, err := downloadSkillPackage(item.Repo, item.Path, "main")
+	if err != nil {
+		skill, err = downloadSkillPackage(item.Repo, item.Path, "master")
+	}
 	if err != nil {
 		return Skill{}, err
 	}
-	content := strings.TrimSpace(string(body))
-	if content == "" {
-		return Skill{}, fmt.Errorf("SKILL.md 为空")
-	}
-	name := slugMarketName(item.Name)
-	if !skillDirNamePattern.MatchString(name) {
-		name = slugMarketName(lastPathSegment(item.Path))
-	}
-	content = alignSkillFrontmatter(content, name, item.Description)
-	meta := parseSkillFrontmatter(content)
-	return Skill{
-		Name:             name,
-		Content:          content,
-		EnablePlatform:   []string{platClaudeCode, platCodex, platAntigravity, platOpencode, platGrok},
-		FrontmatterName:  meta.Name,
-		Description:      firstNonEmpty(meta.Description, item.Description),
-		HasFrontmatter:   meta.HasFrontmatter,
-		HasName:          meta.HasName,
-		HasDescription:   meta.HasDescription,
-		FrontmatterError: meta.Error,
-	}, nil
+	return skill, nil
 }
 
 func builtinSkillMarketItems() []SkillMarketItem {
@@ -660,71 +643,15 @@ func splitSkillsShID(id string) (repo, path string) {
 }
 
 func importSkillsSh(id string) (Skill, error) {
-	id = strings.Trim(id, "/")
-	if id == "" {
-		return Skill{}, fmt.Errorf("技能 ID 无效")
+	repo, dir := splitSkillsShID(strings.Trim(id, "/"))
+	if repo == "" {
+		return Skill{}, fmt.Errorf("该市场条目未提供完整仓库来源，请使用 GitHub 导入")
 	}
-	data, err := marketHTTPGet("https://skills.sh/api/v1/skills/"+id, 15*time.Second)
-	content := ""
-	name := slugMarketName(lastPathSegment(id))
-	desc := ""
-	if err == nil {
-		var detail struct {
-			Name        string `json:"name"`
-			Slug        string `json:"slug"`
-			Description string `json:"description"`
-			Files       []struct {
-				Path     string `json:"path"`
-				Contents string `json:"contents"`
-			} `json:"files"`
-		}
-		if json.Unmarshal(data, &detail) == nil {
-			desc = strings.TrimSpace(detail.Description)
-			if strings.TrimSpace(detail.Slug) != "" {
-				name = slugMarketName(detail.Slug)
-			} else if strings.TrimSpace(detail.Name) != "" {
-				name = slugMarketName(detail.Name)
-			}
-			for _, file := range detail.Files {
-				if strings.EqualFold(lastPathSegment(file.Path), "SKILL.md") && strings.TrimSpace(file.Contents) != "" {
-					content = strings.TrimSpace(file.Contents)
-					break
-				}
-			}
-		}
+	skill, err := downloadSkillPackage(repo, dir, "main")
+	if err != nil {
+		skill, err = downloadSkillPackage(repo, dir, "master")
 	}
-	if content == "" {
-		repo, path := splitSkillsShID(id)
-		if repo != "" {
-			if path == "" {
-				path = lastPathSegment(id)
-			}
-			body, downErr := downloadGitHubSkillMD(repo, path)
-			if downErr != nil {
-				return Skill{}, fmt.Errorf("下载 SKILL.md 失败: %v", downErr)
-			}
-			content = strings.TrimSpace(string(body))
-		}
-	}
-	if content == "" {
-		return Skill{}, fmt.Errorf("没有找到 SKILL.md")
-	}
-	if !skillDirNamePattern.MatchString(name) {
-		name = slugMarketName(lastPathSegment(id))
-	}
-	content = alignSkillFrontmatter(content, name, desc)
-	meta := parseSkillFrontmatter(content)
-	return Skill{
-		Name:             name,
-		Content:          content,
-		EnablePlatform:   []string{platClaudeCode, platCodex, platAntigravity, platOpencode, platGrok},
-		FrontmatterName:  meta.Name,
-		Description:      firstNonEmpty(meta.Description, desc),
-		HasFrontmatter:   meta.HasFrontmatter,
-		HasName:          meta.HasName,
-		HasDescription:   meta.HasDescription,
-		FrontmatterError: meta.Error,
-	}, nil
+	return skill, err
 }
 
 func parseClaudeMarketplace(src skillMarketSource, data []byte) []SkillMarketItem {

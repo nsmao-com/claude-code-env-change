@@ -16,6 +16,7 @@
           <Store />
           {{ t('skills.library') }}
         </Button>
+        <Button variant="outline" size="sm" @click="showPackages = true">{{ tx('技能包与更新', 'Packages & updates') }}</Button>
         <Button variant="outline" size="sm" :disabled="isRefreshing" @click="refreshSkills">
           <Loader2 v-if="isRefreshing" class="animate-spin" />
           <RefreshCw v-else />
@@ -125,10 +126,15 @@
     </div>
 
     <SkillEditModal v-model="showEditModal" :edit-skill="editingSkill" @saved="onSaved" />
+    <SkillPackagesPanel v-if="showPackages" v-model="showPackages" @saved="onSaved" />
   </AppModal>
 </template>
 
 <script setup lang="ts">
+import SkillPackagesPanel from './SkillPackagesPanel.vue'
+import { useWorkbench } from '@/composables/useWorkbench'
+const { tx } = useWorkbench()
+const showPackages = ref(false)
 import { useI18n } from '@/composables/useI18n'
 import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import { Download, Layers, LayoutGrid, List, Loader2, Plus, RefreshCw, Store } from '@lucide/vue'

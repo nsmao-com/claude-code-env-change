@@ -131,7 +131,7 @@
               >
                 {{ log.status_code }}
               </TableCell>
-              <TableCell class="w-16 text-right text-muted-foreground">{{ log.duration_ms }}ms</TableCell>
+              <TableCell class="w-24 text-right text-muted-foreground"><div>{{ log.duration_ms }}ms</div><div v-if="log.first_token_ms" class="text-[10px]">TTFT {{ log.first_token_ms }}ms</div><div v-if="log.usage_reported" class="text-[10px]">{{ log.input_tokens || 0 }} ↑ {{ log.output_tokens || 0 }} ↓</div></TableCell>
             </TableRow>
           </TableBody>
         </Table>

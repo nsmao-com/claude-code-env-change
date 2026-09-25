@@ -22,6 +22,7 @@ const upstreamCooldown = 60 * time.Second
 type RouteUpstream struct {
 	BaseURL string `json:"base_url"`
 	APIKey  string `json:"api_key,omitempty"`
+	Weight  int    `json:"weight,omitempty"`
 }
 
 type upstreamHealth struct {
@@ -57,7 +58,7 @@ func (h *upstreamHealth) cooling(routeName string, up RouteUpstream, now time.Ti
 // upstreams 主上游在前、备用按配置顺序在后
 func (rt *APIRoute) upstreams() []RouteUpstream {
 	list := make([]RouteUpstream, 0, 1+len(rt.Fallbacks))
-	list = append(list, RouteUpstream{BaseURL: rt.BaseURL, APIKey: rt.APIKey})
+	list = append(list, RouteUpstream{BaseURL: rt.BaseURL, APIKey: rt.APIKey, Weight: rt.Weight})
 	for _, fb := range rt.Fallbacks {
 		if strings.TrimSpace(fb.BaseURL) != "" {
 			list = append(list, fb)
@@ -102,13 +103,17 @@ func isFailoverStatus(status int) bool {
 // doWithFailover 依次尝试各上游。build 负责为给定上游构造请求（每次重建，保证请求体可重发）。
 // 最后一个上游的响应无论成败都原样交回调用方处理。
 func (rs *RouterService) doWithFailover(r *http.Request, route APIRoute, build func(APIRoute) (*http.Request, error)) (*http.Response, error) {
-	candidates := orderedUpstreams(route, time.Now())
+	candidates := policyUpstreams(route, r)
 	trace := gatewayTraceFrom(r)
 	var lastErr error
 	for i, up := range candidates {
+		if !claimUpstream(route, up) {
+			continue
+		}
 		last := i == len(candidates)-1
 		req, err := build(route.withUpstream(up))
 		if err != nil {
+			releaseUpstream(route, up, false, 0)
 			lastErr = err
 			if trace != nil {
 				trace.skip(up, err.Error())
@@ -118,9 +123,10 @@ func (rs *RouterService) doWithFailover(r *http.Request, route APIRoute, build f
 		if r != nil {
 			req = req.WithContext(r.Context())
 		}
+		attemptStart := time.Now()
 		resp, err := rs.client.Do(req)
 		if err != nil {
-			routeUpstreamHealth.markFailed(route.Name, up)
+			releaseUpstream(route, up, false, time.Since(attemptStart).Milliseconds())
 			lastErr = fmt.Errorf("上游请求失败: %v", err)
 			if r != nil && r.Context().Err() != nil {
 				// 客户端已断开，没必要再换上游
@@ -132,7 +138,7 @@ func (rs *RouterService) doWithFailover(r *http.Request, route APIRoute, build f
 			continue
 		}
 		if isFailoverStatus(resp.StatusCode) {
-			routeUpstreamHealth.markFailed(route.Name, up)
+			releaseUpstream(route, up, false, time.Since(attemptStart).Milliseconds())
 			if !last {
 				_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 64*1024))
 				resp.Body.Close()
@@ -142,10 +148,11 @@ func (rs *RouterService) doWithFailover(r *http.Request, route APIRoute, build f
 				continue
 			}
 		} else {
-			routeUpstreamHealth.markOK(route.Name, up)
+			releaseUpstream(route, up, true, time.Since(attemptStart).Milliseconds())
 		}
 		if trace != nil {
 			trace.upstream = upstreamHost(up.BaseURL)
+			resp.Body = &meteredBody{ReadCloser: resp.Body, trace: trace, start: attemptStart, stream: strings.Contains(resp.Header.Get("Content-Type"), "text/event-stream")}
 		}
 		return resp, nil
 	}
@@ -164,8 +171,12 @@ func upstreamHost(baseURL string) string {
 
 // gatewayTrace 记录一次网关请求实际用到的上游与被跳过的上游，写进请求日志
 type gatewayTrace struct {
-	upstream string
-	skipped  []string
+	upstream                             string
+	skipped                              []string
+	input, output, cacheRead, cacheWrite int
+	firstToken                           int64
+	reported                             bool
+	model                                string
 }
 
 func (t *gatewayTrace) skip(up RouteUpstream, reason string) {

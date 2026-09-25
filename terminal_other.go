@@ -73,6 +73,49 @@ func mergedEnvWithOverrides(vars map[string]string) []string {
 
 var shellVarNamePattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 
+func openCommandTerminal(command string, args []string, dir string) error {
+	bin, err := exec.LookPath(command)
+	if err != nil {
+		return fmt.Errorf("请先安装 %s", command)
+	}
+	if runtime.GOOS == "darwin" {
+		quote := func(s string) string { return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'" }
+		f, err := os.CreateTemp("", "ai-env-session-*.command")
+		if err != nil {
+			return err
+		}
+		text := "#!/bin/sh\nrm -- \"$0\"\ncd " + quote(dir) + " || exit 1\n" + quote(bin)
+		for _, arg := range args {
+			text += " " + quote(arg)
+		}
+		text += "\n"
+		_, err = f.WriteString(text)
+		f.Close()
+		if err != nil {
+			os.Remove(f.Name())
+			return err
+		}
+		if err = os.Chmod(f.Name(), 0700); err != nil {
+			os.Remove(f.Name())
+			return err
+		}
+		time.AfterFunc(2*time.Minute, func() { _ = os.Remove(f.Name()) })
+		return exec.Command("open", f.Name()).Start()
+	}
+	for _, terminal := range []string{"x-terminal-emulator", "gnome-terminal", "konsole", "kitty"} {
+		if path, e := exec.LookPath(terminal); e == nil {
+			argv := []string{"-e", bin}
+			if terminal == "gnome-terminal" {
+				argv = []string{"--", bin}
+			}
+			cmd := exec.Command(path, append(argv, args...)...)
+			cmd.Dir = dir
+			return cmd.Start()
+		}
+	}
+	return fmt.Errorf("未找到可用终端")
+}
+
 // openMacTerminalWithEnv macOS 上的终端由 launchd 拉起，不继承本进程环境，上面那些
 // Linux 终端也都不存在。改为生成一次性 .command 脚本：导出变量后进入登录 shell，
 // 脚本一运行就删除自身（里面有 API Key）。

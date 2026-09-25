@@ -1,4 +1,5 @@
 export const zhApp = {
+  budgetReached: '网关用量已达到预算，请到工作台 → 费用与预算查看。请求不会被自动阻止。',
   refreshed: "已刷新",
   cloudPullFailed: "启动时从云端拉取失败：{error}",
   unknownError: "未知错误",

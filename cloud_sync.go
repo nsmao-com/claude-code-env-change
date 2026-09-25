@@ -62,6 +62,8 @@ type CloudConfig struct {
 	LastPushAt      int64  `json:"last_push_at,omitempty"`
 	LastPullAt      int64  `json:"last_pull_at,omitempty"`
 	LastError       string `json:"last_error,omitempty"`
+	RemoteETag      string `json:"remote_etag,omitempty"`
+	LocalBaseline   string `json:"local_baseline,omitempty"`
 }
 
 // CloudSyncResult 一次上传/下载/测试的结果
@@ -102,6 +104,7 @@ type CloudSyncService struct {
 	timer      *time.Timer
 	pushing    bool
 	applying   bool
+	pending    *cloudRestorePending
 }
 
 func NewCloudSyncService(app *App, router *RouterService, mcp *MCPService, skills *SkillService) *CloudSyncService {
@@ -217,9 +220,7 @@ func (cs *CloudSyncService) persistLocked() error {
 }
 
 func (cs *CloudSyncService) isConfiguredLocked() bool {
-	return strings.TrimSpace(cs.config.Bucket) != "" &&
-		strings.TrimSpace(cs.config.AccessKey) != "" &&
-		strings.TrimSpace(cs.config.SecretKey) != ""
+	return csConfigured(cs.config)
 }
 
 func (cs *CloudSyncService) GetCloudConfig() CloudConfig {
@@ -261,6 +262,13 @@ func (cs *CloudSyncService) SaveCloudConfig(cfg CloudConfig) error {
 	defer cs.mu.Unlock()
 	cfg.LastPushAt = cs.config.LastPushAt
 	cfg.LastPullAt = cs.config.LastPullAt
+	if cfg.Provider == cs.config.Provider && cfg.Endpoint == cs.config.Endpoint && cfg.Bucket == cs.config.Bucket && cfg.ObjectKey == cs.config.ObjectKey {
+		cfg.RemoteETag = cs.config.RemoteETag
+		cfg.LocalBaseline = cs.config.LocalBaseline
+	} else {
+		cfg.RemoteETag = ""
+		cfg.LocalBaseline = ""
+	}
 	if cfg.ClearSecrets {
 		// 显式清除凭证：空 SecretKey 不再回落旧值，用户可以在 UI 里换号
 		cfg.SecretKey = ""
@@ -295,7 +303,7 @@ func (cs *CloudSyncService) TestCloudConnection() CloudSyncResult {
 func (cs *CloudSyncService) UploadToCloud() CloudSyncResult {
 	start := time.Now()
 	cs.mu.Lock()
-	if cs.applying {
+	if cs.applying || cs.pushing {
 		cs.mu.Unlock()
 		return CloudSyncResult{Success: true, Message: "正在从云端恢复，跳过上传", Latency: 0}
 	}
@@ -337,12 +345,31 @@ func (cs *CloudSyncService) UploadToCloud() CloudSyncResult {
 	if key == "" {
 		key = defaultCloudKey
 	}
+	etag, exists, err := client.Version(key)
+	if err != nil {
+		cs.recordError(err.Error())
+		return CloudSyncResult{Message: err.Error()}
+	}
+	if exists && (cfg.RemoteETag == "" || cfg.RemoteETag != etag) {
+		msg := "云端已有未确认的新版本，请先预览恢复并处理差异"
+		cs.recordError(msg)
+		return CloudSyncResult{Message: msg}
+	}
+	if exists && etag == "" {
+		return CloudSyncResult{Message: "存储服务未返回 ETag，无法安全覆盖备份"}
+	}
+	client.etag = etag
+	if !exists {
+		client.etag = "*new*"
+	}
 	if err := client.Put(key, payload, contentType); err != nil {
 		cs.recordError(err.Error())
 		return CloudSyncResult{Success: false, Message: err.Error(), Latency: time.Since(start).Milliseconds()}
 	}
 
 	cs.mu.Lock()
+	cs.config.RemoteETag = client.etag
+	cs.config.LocalBaseline = bundleFingerprint(*bundle)
 	cs.config.LastPushAt = time.Now().UnixMilli()
 	cs.config.LastError = ""
 	_ = cs.persistLocked()
@@ -356,65 +383,25 @@ func (cs *CloudSyncService) UploadToCloud() CloudSyncResult {
 }
 
 func (cs *CloudSyncService) DownloadFromCloud() CloudSyncResult {
-	start := time.Now()
+	preview, err := cs.PreviewCloudRestore()
+	if err != nil {
+		return CloudSyncResult{Message: err.Error()}
+	}
 	cs.mu.Lock()
-	if cs.pushing {
-		cs.mu.Unlock()
-		return CloudSyncResult{Success: false, Message: "正在上传备份，请稍后再拉取", Latency: 0}
-	}
-	cfg := cs.config
-	cs.applying = true
+	baseline := cs.config.LocalBaseline
 	cs.mu.Unlock()
-	defer func() {
-		cs.mu.Lock()
-		cs.applying = false
-		cs.mu.Unlock()
-	}()
-
-	if !csConfigured(cfg) {
-		return CloudSyncResult{Success: false, Message: "请先填写 Bucket 与密钥", Latency: time.Since(start).Milliseconds()}
-	}
-
-	client := newOSSObjectClient(cfg, cs.httpClient)
-	key := cfg.ObjectKey
-	if key == "" {
-		key = defaultCloudKey
-	}
-	raw, err := client.Get(key)
+	local, err := cs.buildBundle()
 	if err != nil {
-		cs.recordError(err.Error())
-		return CloudSyncResult{Success: false, Message: err.Error(), Latency: time.Since(start).Milliseconds()}
+		return CloudSyncResult{Message: err.Error()}
 	}
-
-	payload, err := decryptCloudPayload(raw, cfg.Passphrase)
-	if err != nil {
-		cs.recordError(err.Error())
-		return CloudSyncResult{Success: false, Message: err.Error(), Latency: time.Since(start).Milliseconds()}
+	if baseline == "" || baseline != bundleFingerprint(*local) {
+		return CloudSyncResult{Message: "本地有未确认的配置，请在云同步页预览并选择恢复文件"}
 	}
-
-	var bundle cloudBundle
-	if err := json.Unmarshal(payload, &bundle); err != nil {
-		cs.recordError("备份内容无法解析")
-		return CloudSyncResult{Success: false, Message: "备份内容无法解析，请确认加密口令是否正确", Latency: time.Since(start).Milliseconds()}
+	names := []string{}
+	for _, c := range preview.Changes {
+		names = append(names, c.Path)
 	}
-
-	message, err := cs.restoreBundle(bundle)
-	if err != nil {
-		cs.recordError(err.Error())
-		return CloudSyncResult{Success: false, Message: err.Error(), Latency: time.Since(start).Milliseconds()}
-	}
-
-	cs.mu.Lock()
-	cs.config.LastPullAt = time.Now().UnixMilli()
-	cs.config.LastError = ""
-	_ = cs.persistLocked()
-	cs.mu.Unlock()
-
-	return CloudSyncResult{
-		Success: true,
-		Message: message,
-		Latency: time.Since(start).Milliseconds(),
-	}
+	return cs.ConfirmCloudRestore(preview.Token, names)
 }
 
 // restoreBundle 把备份写回本机：先覆盖中央存储，再让各服务重新加载，
@@ -425,15 +412,19 @@ func (cs *CloudSyncService) restoreBundle(bundle cloudBundle) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if cs.router != nil {
-		_ = cs.router.ReloadFromDisk()
+	var syncErrs []string
+	if _, ok := bundle.Files["router.json"]; ok && cs.router != nil {
+		if err := cs.router.ReloadFromDisk(); err != nil {
+			syncErrs = append(syncErrs, "Router: "+err.Error())
+		}
 	}
-	if cs.app != nil {
-		_ = cs.app.RefreshConfig()
+	if _, ok := bundle.Files["config.json"]; ok && cs.app != nil {
+		if err := cs.app.RefreshConfig(); err != nil {
+			syncErrs = append(syncErrs, "Config: "+err.Error())
+		}
 	}
 
 	message := fmt.Sprintf("已从云端恢复 %d 个配置文件", n)
-	var syncErrs []string
 	if _, ok := bundle.Files["mcp.json"]; ok && cs.mcp != nil {
 		if err := cs.mcp.applyStoreToPlatforms(); err != nil {
 			syncErrs = append(syncErrs, "MCP: "+err.Error())
@@ -445,12 +436,15 @@ func (cs *CloudSyncService) restoreBundle(bundle cloudBundle) (string, error) {
 		}
 	}
 	if len(syncErrs) > 0 {
-		message += "；⚠ 写回平台失败: " + strings.Join(syncErrs, "；")
+		return "", fmt.Errorf("%s；部分平台未生效，请修复后重试或从配置历史恢复: %s", message, strings.Join(syncErrs, "；"))
 	}
 	return message, nil
 }
 
 func csConfigured(cfg CloudConfig) bool {
+	if cfg.Provider == "webdav" {
+		return validEndpoint(cfg.Endpoint) == nil && strings.TrimSpace(cfg.AccessKey) != "" && cfg.SecretKey != ""
+	}
 	return strings.TrimSpace(cfg.Bucket) != "" &&
 		strings.TrimSpace(cfg.AccessKey) != "" &&
 		strings.TrimSpace(cfg.SecretKey) != ""
@@ -524,15 +518,17 @@ func (cs *CloudSyncService) buildBundle() (*cloudBundle, error) {
 			return nil, err
 		}
 	}
-	addOptional := func(name, path string) {
-		if err := addFile(name, path); err != nil {
-			delete(bundle.Files, name)
+	for _, name := range []string{mcpStoreFile, routerStoreFile, skillsStoreFile, uptimeStoreFile, "workbench.json"} {
+		p := filepath.Join(dir, name)
+		if _, err := os.Stat(p); os.IsNotExist(err) {
+			continue
+		} else if err != nil {
+			return nil, err
+		}
+		if err := addFile(name, p); err != nil {
+			return nil, err
 		}
 	}
-	addOptional("mcp.json", filepath.Join(dir, mcpStoreFile))
-	addOptional("router.json", filepath.Join(dir, routerStoreFile))
-	addOptional("skills.json", filepath.Join(dir, skillsStoreFile))
-	addOptional("uptime.json", filepath.Join(dir, uptimeStoreFile))
 
 	if len(bundle.Files) == 0 {
 		return nil, fmt.Errorf("没有可上传的本地配置")
@@ -541,11 +537,39 @@ func (cs *CloudSyncService) buildBundle() (*cloudBundle, error) {
 }
 
 func (cs *CloudSyncService) applyBundle(bundle cloudBundle) (int, error) {
+	if err := validateCloudBundle(bundle); err != nil {
+		return 0, err
+	}
 	dir, err := cs.storeDir()
 	if err != nil {
 		return 0, err
 	}
 	n := 0
+	type previousFile struct {
+		path   string
+		data   []byte
+		exists bool
+	}
+	previous := []previousFile{}
+	rollback := func(cause error) (int, error) {
+		errs := []string{}
+		for i := len(previous) - 1; i >= 0; i-- {
+			old := previous[i]
+			var e error
+			if old.exists {
+				e = writeFileAtomic(old.path, old.data, 0600)
+			} else {
+				e = os.Remove(old.path)
+			}
+			if e != nil && !os.IsNotExist(e) {
+				errs = append(errs, e.Error())
+			}
+		}
+		if len(errs) > 0 {
+			return 0, fmt.Errorf("%v；恢复原配置失败，请查看配置历史: %s", cause, strings.Join(errs, "；"))
+		}
+		return 0, fmt.Errorf("%v；已恢复原配置", cause)
+	}
 	write := func(path string, raw json.RawMessage) error {
 		if len(raw) == 0 {
 			return nil
@@ -585,11 +609,18 @@ func (cs *CloudSyncService) applyBundle(bundle cloudBundle) (int, error) {
 			path = filepath.Join(dir, skillsStoreFile)
 		case "uptime.json":
 			path = filepath.Join(dir, uptimeStoreFile)
+		case "workbench.json":
+			path = filepath.Join(dir, "workbench.json")
 		default:
 			continue
 		}
+		old, readErr := os.ReadFile(path)
+		if readErr != nil && !os.IsNotExist(readErr) {
+			return rollback(readErr)
+		}
+		previous = append(previous, previousFile{path, old, readErr == nil})
 		if err := write(path, raw); err != nil {
-			return n, fmt.Errorf("写入 %s 失败: %v", name, err)
+			return rollback(fmt.Errorf("写入 %s 失败: %v", name, err))
 		}
 		n++
 	}

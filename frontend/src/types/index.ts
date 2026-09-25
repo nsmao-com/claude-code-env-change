@@ -2,6 +2,7 @@
 export type UpstreamFormat = '' | 'chat_completions' | 'anthropic_messages' | 'responses'
 
 export interface EnvConfig {
+	 universal_id?: string
   name: string
   description: string
   variables: Record<string, string>
@@ -53,6 +54,9 @@ export interface MCPServer {
 
 // MCP 测试结果
 export interface MCPTestResult {
+	stage?: string
+	tools?: string[]
+	protocol?: string
   success: boolean
   message: string
   latency: number
@@ -60,6 +64,9 @@ export interface MCPTestResult {
 
 // Skills 类型
 export interface Skill {
+	files?: Record<string, string>
+ executable?: Record<string, boolean>
+	source?: { repo: string; path: string; ref: string; revision: string; hashes: Record<string, string> }
   name: string
   content: string
   enable_platform: string[]
@@ -117,6 +124,10 @@ export interface McpMarketPage {
 export type APIFormat = 'anthropic' | 'openai' | 'responses'
 
 export interface APIRoute {
+	failure_threshold?: number
+	cooldown_seconds?: number
+	strategy?: string
+	weight?: number
   name: string
   description?: string
   source_format: APIFormat
@@ -131,6 +142,7 @@ export interface APIRoute {
 }
 
 export interface RouteUpstream {
+	weight?: number
   base_url: string
   api_key?: string
 }
@@ -151,6 +163,10 @@ export interface RouteStats {
 }
 
 export interface RouterLogEntry {
+	input_tokens?: number
+	output_tokens?: number
+	first_token_ms?: number
+	usage_reported?: boolean
   time: string
   route: string
   path: string
@@ -188,7 +204,7 @@ export interface RouterTestResult {
   latency: number
 }
 
-export type CloudProvider = 's3' | 'aliyun' | 'tencent' | 'r2' | 'minio' | 'custom'
+export type CloudProvider = 's3' | 'aliyun' | 'tencent' | 'r2' | 'minio' | 'custom' | 'webdav'
 
 export interface CloudConfig {
   enabled: boolean
@@ -278,7 +294,7 @@ export interface ProviderPreset {
 // Provider 类型
 export type Provider = 'claude' | 'claude_desktop' | 'codex' | 'antigravity' | 'opencode' | 'grok'
 
-export type AppPage = 'home' | 'env' | 'mcp' | 'skills' | 'router' | 'uptime' | 'cloud' | 'prompts' | 'stats' | 'settings'
+export type AppPage = 'home' | 'env' | 'mcp' | 'skills' | 'router' | 'uptime' | 'cloud' | 'prompts' | 'stats' | 'settings' | 'workbench'
 
 export interface OutboundProxySettings {
   enabled: boolean

@@ -22,6 +22,7 @@ export interface AppPageMeta {
 }
 
 export const APP_PAGES: AppPageMeta[] = [
+  { id: 'workbench', label: '工作台', title: '工作台', subtitle: '会话、模型、项目与配置维护。', icon: Layers },
   { id: 'home', label: '首页', title: '首页', subtitle: '总览各平台环境健康度与写入状态。', icon: House },
   { id: 'env', label: '环境', title: '环境', subtitle: '查看并应用各 CLI 的环境配置。', icon: Layers },
   { id: 'mcp', label: 'MCP', title: 'MCP', subtitle: '管理 Model Context Protocol 服务器。', icon: Plug },

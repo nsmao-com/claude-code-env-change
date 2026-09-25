@@ -1737,19 +1737,17 @@ func collectPlaceholders(set map[string]struct{}, value string) {
 
 // MCPTestResult MCP 服务器测试结果
 type MCPTestResult struct {
-	Success bool   `json:"success"`
-	Message string `json:"message"`
-	Latency int64  `json:"latency"` // 毫秒
+	Success  bool     `json:"success"`
+	Message  string   `json:"message"`
+	Latency  int64    `json:"latency"` // 毫秒
+	Stage    string   `json:"stage,omitempty"`
+	Tools    []string `json:"tools,omitempty"`
+	Protocol string   `json:"protocol,omitempty"`
 }
 
 // TestServer 测试 MCP 服务器是否可用
 func (ms *MCPService) TestServer(server MCPServer) MCPTestResult {
-	start := time.Now()
-
-	if server.Type == "http" || server.Type == "sse" {
-		return ms.testHTTPServer(server.URL, start)
-	}
-	return ms.testStdioServer(server.Command, server.Args, server.Env, start)
+	return probeMCP(server)
 }
 
 // testHTTPServer 测试 HTTP 类型的 MCP 服务器
