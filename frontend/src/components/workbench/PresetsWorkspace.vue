@@ -28,6 +28,10 @@ const form = reactive<ProjectPreset>({
   prompt: '',
 })
 const prompt = reactive<PromptPreset>({ name: '', content: '' })
+function editProject(p: ProjectPreset) {
+  Object.assign(form, { ...p, mcp: [...p.mcp], skills: [...p.skills] })
+  selected.value = `${p.provider}/${p.environment}`
+}
 async function load() {
   const c = await workbench<WorkbenchConfig>('GetWorkbench')
   projects.value = c.projects || []
@@ -193,10 +197,7 @@ void run(async () => {
               <div class="wb-row mb-0">
                 <button
                   :disabled="busy"
-                  @click="
-                    Object.assign(form, { ...p, mcp: [...p.mcp], skills: [...p.skills] })
-                    selected = `${p.provider}/${p.environment}`
-                  "
+                  @click="editProject(p)"
                 >
                   {{ tx('编辑', 'Edit') }}</button
                 ><button :disabled="busy" @click="applyProject(p)">{{ tx('应用', 'Apply') }}</button

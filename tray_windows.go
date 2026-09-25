@@ -41,8 +41,9 @@ const (
 	wmSetFocus   = 0x0007
 	wmDpiChanged = 0x02E0
 
-	wmLButtonUp = 0x0202
-	wmRButtonUp = 0x0205
+	wmLButtonUp   = 0x0202
+	wmRButtonUp   = 0x0205
+	wmContextMenu = 0x007B
 
 	wsPopup        = 0x80000000
 	wsExTopMost    = 0x00000008
@@ -66,10 +67,11 @@ const (
 	mfString       = 0x0000
 	mfSeparator    = 0x0800
 
-	nimAdd    = 0
-	nimDelete = 2
-	nifIcon   = 0x02
-	nifTip    = 0x04
+	nimAdd     = 0
+	nimDelete  = 2
+	nifMessage = 0x01
+	nifIcon    = 0x02
+	nifTip     = 0x04
 
 	msgfltAllow = 1
 
@@ -164,20 +166,18 @@ type wndClassEx struct {
 	HIconSm       uintptr
 }
 
-// notifyIconData 与 NOTIFYICONDATAW 的 x64/arm64 内存布局一致
+// notifyIconData 与 NOTIFYICONDATAW 对齐，指针字段由 Go 按目标架构自动填充。
 type notifyIconData struct {
 	CbSize           uint32
-	_                [4]byte
 	HWnd             uintptr
 	UID              uint32
 	UFlags           uint32
 	UCallbackMessage uint32
-	_                [4]byte
 	HIcon            uintptr
 	SzTip            [128]uint16
 	DwState          uint32
 	DwStateMask      uint32
-	SzInfo           [128]uint16
+	SzInfo           [256]uint16
 	UVersion         uint32
 	SzInfoTitle      [64]uint16
 	DwInfoFlags      uint32
@@ -305,7 +305,7 @@ func (t *trayManager) hostWndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 		switch lParam & 0xFFFF {
 		case wmLButtonUp:
 			t.toggleMain()
-		case wmRButtonUp:
+		case wmRButtonUp, wmContextMenu:
 			t.showPanelRequest()
 		}
 		return 0
@@ -394,7 +394,8 @@ func (t *trayManager) addTrayIcon() {
 	var nid notifyIconData
 	nid.CbSize = uint32(unsafe.Sizeof(nid))
 	nid.HWnd = t.hostHwnd
-	nid.UFlags = nifTip
+	// 未设置 NIF_MESSAGE 时，Shell 会忽略回调消息，即使图标可见也收不到点击。
+	nid.UFlags = nifMessage | nifTip
 	nid.UCallbackMessage = wmTrayCallback
 	if t.hIcon != 0 {
 		nid.UFlags |= nifIcon
@@ -403,7 +404,9 @@ func (t *trayManager) addTrayIcon() {
 	if tip, err := windows.UTF16FromString("AI ENV - AI CLI 环境与配置管理"); err == nil {
 		copy(nid.SzTip[:], tip)
 	}
-	procShellNotifyIconW.Call(nimAdd, uintptr(unsafe.Pointer(&nid)))
+	if ok, _, err := procShellNotifyIconW.Call(nimAdd, uintptr(unsafe.Pointer(&nid))); ok == 0 {
+		log.Printf("注册托盘图标失败: %v", err)
+	}
 }
 
 func (t *trayManager) removeTrayIcon() {
@@ -474,6 +477,10 @@ func (t *trayManager) getPanel() *trayPanel {
 func (t *trayManager) setPanel(p *trayPanel) {
 	t.mu.Lock()
 	t.panel = p
+	t.panelStarting = false
+	if p != nil {
+		t.panelFailed = false
+	}
 	t.mu.Unlock()
 }
 
@@ -481,12 +488,6 @@ func (t *trayManager) isPanelFailed() bool {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	return t.panelFailed
-}
-
-func (t *trayManager) isPanelStarting() bool {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	return t.panelStarting
 }
 
 // ensurePanelAsync 在独立线程创建面板：WebView2 Embed 会自旋泵消息，
@@ -527,8 +528,8 @@ func (t *trayManager) ensurePanelAsync() {
 	}()
 }
 
-// showPanelRequest 右键：面板就绪就显示；首次还在创建就等一小会儿；
-// 创建失败则回退系统原生菜单。
+// showPanelRequest 右键：面板就绪就显示，否则立即回退原生菜单。
+// 不在窗口消息回调里等待 WebView2，确保首次右键及初始化失败时也有响应。
 func (t *trayManager) showPanelRequest() {
 	t.mu.Lock()
 	p := t.panel
@@ -539,23 +540,8 @@ func (t *trayManager) showPanelRequest() {
 		if !starting && !t.isPanelFailed() {
 			t.ensurePanelAsync()
 		}
-		deadline := time.Now().Add(3 * time.Second)
-		for p == nil && time.Now().Before(deadline) {
-			time.Sleep(60 * time.Millisecond)
-			if t.isPanelFailed() {
-				break
-			}
-			if !t.isPanelStarting() {
-				break
-			}
-			p = t.getPanel()
-		}
-		if p == nil {
-			if t.isPanelFailed() {
-				t.fallbackMenu()
-			}
-			return
-		}
+		t.fallbackMenu()
+		return
 	}
 	p.show()
 	p.pushState()
@@ -578,6 +564,8 @@ func (t *trayManager) fallbackMenu() {
 	procSetForegroundWindow.Call(t.hostHwnd)
 	cmd, _, _ := procTrackPopupMenuEx.Call(hmenu, tpmReturnCmd|tpmRightButton|tpmNoNotify,
 		uintptr(pt.X), uintptr(pt.Y), t.hostHwnd, 0)
+	// Shell 菜单约定：结束菜单跟踪后发送 WM_NULL，保证后续点击可正常关闭/重开。
+	procPostMessageW.Call(t.hostHwnd, 0, 0, 0)
 	procDestroyMenu.Call(hmenu)
 	switch cmd {
 	case 1:

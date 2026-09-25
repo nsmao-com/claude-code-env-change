@@ -38,6 +38,10 @@ async function load(reset = false) {
   }
 }
 let timer: ReturnType<typeof setTimeout>
+function changePage(delta: number) {
+  query.offset = Math.max(0, query.offset + delta)
+  void load()
+}
 watch(
   () => [query.keyword, query.provider, query.project, query.archived, from.value, to.value],
   () => {
@@ -134,18 +138,12 @@ void load()
       <div class="wb-row mt-4">
         <button
           :disabled="query.offset === 0 || searching"
-          @click="
-            query.offset -= 20
-            load()
-          "
+          @click="changePage(-20)"
         >
           {{ tx('上一页', 'Previous') }}</button
         ><button
           :disabled="query.offset + 20 >= page.total || searching"
-          @click="
-            query.offset += 20
-            load()
-          "
+          @click="changePage(20)"
         >
           {{ tx('下一页', 'Next') }}
         </button>

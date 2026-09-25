@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="build/appicon.png?v=2.7.0" width="72" height="72" alt="AI ENV 图标" />
+  <img src="build/appicon.png?v=2.7.1" width="72" height="72" alt="AI ENV 图标" />
 </p>
 
 <h1 align="center">AI ENV</h1>
@@ -51,6 +51,12 @@
 | CLI | 检测本机 Claude Code / Codex / Antigravity / OpenCode / Grok，按 pnpm、yarn、npm、官方安装器或原生方式安装升级 |
 | 配置目录 | 打开各家 CLI 的本机配置目录和关键文件 |
 | 更新 | 检测 GitHub Release，Windows 可在应用内下载并替换 |
+
+## 2.7.1 修复
+
+- 应用、托盘与安装图标统一为黑色。
+- 修复 Windows 托盘右键不响应；面板未就绪时立即显示原生菜单，并修复高 DPI 下的重复缩放。
+- 修复工作台会话分页和项目编辑按钮的模板编译问题。
 
 ## 2.7 工作台
 

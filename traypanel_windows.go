@@ -106,7 +106,8 @@ func newTrayPanel(m *trayManager) (*trayPanel, error) {
 		_ = settings.PutIsStatusBarEnabled(false)
 		_ = settings.PutAreBrowserAcceleratorKeysEnabled(false)
 	}
-	chromium.PutZoomFactor(p.scale)
+	// WebView2 已随宿主窗口自动适配 DPI；页面缩放保持 100%，避免重复放大。
+	chromium.PutZoomFactor(1)
 	chromium.Resize()
 	chromium.NavigateToString(trayPanelHTML)
 	chromium.Hide()
@@ -145,7 +146,7 @@ func (p *trayPanel) wndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 			p.chromium.Focus()
 		}
 	case wmDpiChanged:
-		// DPI 变化：按新 DPI 重算窗口尺寸并同步 WebView 缩放（位置下次打开时再校正）
+		// DPI 变化：重算原生窗口尺寸；WebView2 自动调整渲染比例。
 		if dpi := wParam & 0xFFFF; dpi > 0 {
 			p.scale = float64(dpi) / 96
 			w := int32(float64(trayPanelLogicalW+trayPanelShadowPad*2) * p.scale)
@@ -153,7 +154,6 @@ func (p *trayPanel) wndProc(hwnd, msg, wParam, lParam uintptr) uintptr {
 			procSetWindowPos.Call(hwnd, 0, 0, 0, uintptr(w), uintptr(h),
 				swpNoZOrder|swpNoActivate|swpNoMove)
 			if p.chromium != nil {
-				p.chromium.PutZoomFactor(p.scale)
 				p.chromium.Resize()
 			}
 		}

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="build/appicon.png?v=2.7.0" width="72" height="72" alt="AI ENV icon" />
+  <img src="build/appicon.png?v=2.7.1" width="72" height="72" alt="AI ENV icon" />
 </p>
 
 <h1 align="center">AI ENV</h1>
@@ -51,6 +51,12 @@ The current version is the latest version listed in [GitHub Releases](https://gi
 | CLI | Detect local Claude / Codex / Antigravity / OpenCode / Grok; install/upgrade via pnpm, yarn, npm, official installer, or native update |
 | Config folders | Open each CLI’s config directory and key files |
 | Updates | GitHub Release check; Windows can download and replace in-app |
+
+## 2.7.1 Fixes
+
+- Use black icons throughout the app, system tray and installer.
+- Restore Windows tray right-click handling, show a native menu while the panel initializes, and prevent double scaling on high-DPI displays.
+- Fix template compilation for workbench session pagination and project editing.
 
 ## 2.7 Workbench
 
