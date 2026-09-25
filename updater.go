@@ -21,7 +21,7 @@ import (
 )
 
 // 与 wails.json info.productVersion 保持一致
-const appVersion = "2.6.16"
+const appVersion = "2.6.17"
 
 const (
 	githubOwner = "nsmao-com"
