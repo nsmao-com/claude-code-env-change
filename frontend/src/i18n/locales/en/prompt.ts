@@ -2,8 +2,10 @@ import type { DeepString } from '../../types'
 import type { zhPrompt } from '../zh/prompt'
 
 export const enPrompt: DeepString<typeof zhPrompt> = {
-  panelHint: "Edit the custom prompts of five platforms; saving overwrites the local file directly. Claude Desktop uses its own config file",
-  desktopNote: "Claude Desktop has no separate global prompt file. Edit its configLibrary JSON under Environments; the files shown here belong to Claude Code, Codex, Antigravity, OpenCode and Grok.",
+  desktopTitle: "Claude Desktop prompts are not connected",
+  showSupported: "Edit prompts for other tools",
+  panelHint: "Edit custom prompts for five CLI tools; saving overwrites the local file directly",
+  desktopNote: "AI ENV currently edits local CLI prompt files and does not manage Claude Desktop prompts. Manage those instructions in Claude Desktop, or select another tool to edit its prompts.",
   exists: "Exists",
   notCreated: "Not created",
   delete: "Delete",

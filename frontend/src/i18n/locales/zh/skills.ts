@@ -1,4 +1,7 @@
 export const zhSkills = {
+  desktopTitle: "暂不支持同步 Claude Desktop 技能",
+  desktopNote: "AI ENV 当前只能同步 CLI 工具的本地技能目录，尚未接入 Claude Desktop 的技能管理。请选择其他工具管理技能。",
+  showSupported: "管理已支持工具的技能",
   panelHint: "刷新会检查 Claude / Codex / Antigravity / OpenCode / Grok 目录里是否已有这些 Skill",
   new: "新建",
   library: "技能库",

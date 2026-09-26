@@ -138,7 +138,7 @@ function defaultForm() {
   const platform = tool === 'all' ? 'claude-code' : toolToPlatform(tool)
   return {
     name: '',
-    enable_platform: [platform] as string[],
+    enable_platform: platform === 'claude-desktop' ? [] as string[] : [platform],
     content: ''
   }
 }

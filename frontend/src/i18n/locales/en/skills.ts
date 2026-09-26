@@ -2,6 +2,9 @@ import type { DeepString } from '../../types'
 import type { zhSkills } from '../zh/skills'
 
 export const enSkills: DeepString<typeof zhSkills> = {
+  desktopTitle: "Claude Desktop skill sync is not supported",
+  desktopNote: "AI ENV currently syncs local CLI skill folders and does not manage Claude Desktop skills. Select another tool to manage its skills.",
+  showSupported: "Manage skills for supported tools",
   panelHint: "Refresh checks whether these skills already exist in the Claude / Codex / Antigravity / OpenCode / Grok directories",
   new: "New",
   library: "Library",

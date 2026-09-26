@@ -1,12 +1,12 @@
 <template>
   <div v-if="plain" class="flex h-full min-h-0 flex-col overflow-hidden bg-background">
-    <div v-if="title || $slots.header" class="flex shrink-0 items-end justify-between gap-4 px-6 pt-4 pb-4" :class="plainWidthClass">
+    <div v-if="title || $slots.header" class="flex shrink-0 flex-wrap items-end justify-between gap-4 px-6 pt-4 pb-4" :class="plainWidthClass">
       <div class="min-w-0">
         <slot name="header">
           <h1 class="text-[2.5rem] leading-none font-semibold tracking-tight">{{ title }}</h1>
         </slot>
       </div>
-      <div class="flex shrink-0 flex-wrap items-center justify-end gap-2 pb-0.5">
+      <div class="flex min-w-0 max-w-full flex-wrap items-center justify-end gap-2 pb-0.5">
         <slot name="actions">
           <ToolFilterChips v-if="toolFilter" />
         </slot>

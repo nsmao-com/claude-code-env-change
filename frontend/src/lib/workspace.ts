@@ -18,8 +18,9 @@ export function toolLabel(tool: WorkspaceTool) {
   return WORKSPACE_TOOLS.find(item => item.id === tool)?.label || useI18n().t('ui.all')
 }
 
-export function toolToPlatform(tool: WorkspaceTool): string {
+export function toolToPlatform(tool: WorkspaceTool) {
   if (tool === 'all') return 'all'
   if (tool === 'claude') return 'claude-code'
+  if (tool === 'claude_desktop') return 'claude-desktop'
   return tool
 }

@@ -273,12 +273,15 @@ func (ls *LogService) loadRecordsForPlatform(days int, platform string) []UsageR
 	}
 
 	readers := map[string][]func() []UsageRecord{
+		"all":         {readClaude, readGemini, readCodex},
+		"":            {readClaude, readGemini, readCodex},
 		"claude":      {readClaude},
 		"antigravity": {readGemini},
 		"codex":       {readCodex},
 	}[platform]
 	if readers == nil {
-		readers = []func() []UsageRecord{readClaude, readGemini, readCodex}
+		// Unsupported tools must not inherit other providers' usage.
+		return nil
 	}
 
 	if len(readers) == 1 {

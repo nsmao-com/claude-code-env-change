@@ -4,6 +4,7 @@
       v-for="item in WORKSPACE_TOOLS"
       :key="item.id"
       type="button"
+      :aria-pressed="configStore.currentFilter === item.id"
       class="inline-flex h-8.5 shrink-0 items-center gap-2 rounded-[10px] border border-border bg-card px-3 text-[13px] font-medium text-muted-foreground shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition-all duration-150 hover:border-foreground/20 hover:text-foreground active:scale-[0.97]"
       :class="configStore.currentFilter === item.id ? 'text-foreground shadow-[0_1px_3px_rgba(16,24,40,0.1)] ring-1 ring-black/[0.06]' : ''"
       @click="onTool(item.id)"
@@ -19,8 +20,7 @@
 <script setup lang="ts">
 import { useI18n } from '@/composables/useI18n'
 import { Check } from '@lucide/vue'
-import type { Provider } from '@/types'
-import { WORKSPACE_TOOLS } from '@/lib/workspace'
+import { WORKSPACE_TOOLS, type WorkspaceTool } from '@/lib/workspace'
 import { useConfigStore } from '@/stores/configStore'
 import BrandIcon from '@/components/common/BrandIcon.vue'
 
@@ -30,6 +30,7 @@ const configStore = useConfigStore()
 
 const ICON_COLORS: Record<string, string> = {
   claude: 'text-[#D97757]',
+  claude_desktop: 'text-[#D97757]',
   codex: 'text-[#1A1D21] dark:text-white/80',
   antigravity: 'text-[#4F6BED]',
   opencode: 'text-[#131010] dark:text-white/80',
@@ -40,9 +41,7 @@ function iconColor(id: string) {
   return ICON_COLORS[id] || 'text-muted-foreground'
 }
 
-function onTool(value: string) {
-  if (value === 'all' || value === 'claude' || value === 'codex' || value === 'antigravity' || value === 'opencode' || value === 'grok') {
-    configStore.setFilter(value as Provider | 'all')
-  }
+function onTool(value: WorkspaceTool) {
+  configStore.setFilter(value)
 }
 </script>

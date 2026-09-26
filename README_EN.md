@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="build/appicon.png?v=2.7.2" width="72" height="72" alt="AI ENV icon" />
+  <img src="build/appicon.png?v=2.7.3" width="72" height="72" alt="AI ENV icon" />
 </p>
 
 <h1 align="center">AI ENV</h1>
@@ -51,6 +51,12 @@ The current version is the latest version listed in [GitHub Releases](https://gi
 | CLI | Detect local Claude / Codex / Antigravity / OpenCode / Grok; install/upgrade via pnpm, yarn, npm, official installer, or native update |
 | Config folders | Open each CLI’s config directory and key files |
 | Updates | GitHub Release check; Windows can download and replace in-app |
+
+## 2.7.3 Tool filter fixes
+
+- Fix the shared tool selector ignoring Claude Desktop in Prompts, Statistics, MCP and Skills.
+- Show clear availability messages and a way back to supported tools for Claude Desktop prompts, skills and local usage statistics. Unsupported statistics filters no longer display all tools' data.
+- Prevent stale statistics requests from overwriting a new selection, allow filter headers to wrap, and correct unsupported rotation-group defaults.
 
 ## 2.7.2 Workbench controls
 

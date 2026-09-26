@@ -5,7 +5,16 @@
       <p class="mt-2 text-sm text-muted-foreground">{{ t('skills.panelHint') }}</p>
     </template>
 
-    <div class="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
+    <Empty v-if="isDesktopFilter" class="min-h-64">
+      <EmptyHeader>
+        <EmptyMedia variant="icon"><Layers /></EmptyMedia>
+        <EmptyTitle>{{ t('skills.desktopTitle') }}</EmptyTitle>
+        <EmptyDescription>{{ t('skills.desktopNote') }}</EmptyDescription>
+      </EmptyHeader>
+      <Button variant="outline" @click="configStore.setFilter('all')">{{ t('skills.showSupported') }}</Button>
+    </Empty>
+
+    <div v-else class="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
     <div class="mb-4 flex shrink-0 flex-wrap items-center justify-between gap-3">
       <div class="flex items-center gap-2">
         <Button size="sm" @click="openCreate">
@@ -160,8 +169,6 @@ import { toolToPlatform } from '@/lib/workspace'
 
 const { t } = useI18n()
 
-type PlatformFilter = 'all' | 'claude-code' | 'codex' | 'antigravity' | 'opencode' | 'grok'
-
 interface Props {
   modelValue: boolean
   embedded?: boolean
@@ -197,7 +204,8 @@ function onView(value: string) {
   if (value === 'cards' || value === 'list') setViewMode(value)
 }
 
-const currentPlatform = ref<PlatformFilter>('all')
+const isDesktopFilter = computed(() => configStore.currentFilter === 'claude_desktop')
+const currentPlatform = computed(() => toolToPlatform(configStore.currentFilter))
 
 const filteredSkills = computed(() => {
   if (currentPlatform.value === 'all') return skillStore.skills
@@ -214,10 +222,6 @@ watch(isOpen, async (open) => {
   } else {
     showPresets.value = false
   }
-}, { immediate: true })
-
-watch(() => configStore.currentFilter, (tool) => {
-  currentPlatform.value = toolToPlatform(tool) as PlatformFilter
 }, { immediate: true })
 
 const isRefreshing = ref(false)

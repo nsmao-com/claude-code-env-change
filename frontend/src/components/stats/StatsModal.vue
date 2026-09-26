@@ -8,7 +8,7 @@
     </template>
     <template #actions>
       <ToolFilterChips />
-      <Select :model-value="String(days)" @update:model-value="onDays">
+      <Select v-if="platform" :model-value="String(days)" @update:model-value="onDays">
         <SelectTrigger class="h-9 gap-2 rounded-full border-0 bg-card px-3 shadow-none ring-1 ring-black/[0.06] dark:ring-white/10">
           <Calendar class="size-3.5 text-muted-foreground" />
           <SelectValue />
@@ -23,12 +23,21 @@
         <Loader2 class="size-3.5 animate-spin" />
         {{ t('stats.loading') }}
       </span>
-      <Button variant="ghost" size="icon-sm" class="rounded-full" :disabled="loading" @click="refresh">
+      <Button v-if="platform" variant="ghost" size="icon-sm" class="rounded-full" :disabled="loading" @click="refresh">
         <RefreshCw :class="['size-3.5', loading && 'animate-spin']" />
       </Button>
     </template>
 
-    <div class="relative min-h-[200px]">
+    <Empty v-if="!platform" class="min-h-64">
+      <EmptyHeader>
+        <ChartLine class="size-8 text-muted-foreground" />
+        <EmptyTitle>{{ t('stats.unsupportedTitle', { tool: toolLabel(configStore.currentFilter) }) }}</EmptyTitle>
+        <EmptyDescription>{{ t('stats.unsupportedNote') }}</EmptyDescription>
+      </EmptyHeader>
+      <Button variant="outline" @click="configStore.setFilter('all')">{{ t('stats.showSupported') }}</Button>
+    </Empty>
+
+    <div v-else class="relative min-h-[200px]">
       <div
         v-if="loading"
         class="sticky top-0 z-20 mb-3 flex items-center gap-2 rounded-xl border bg-background/95 px-3 py-2 text-sm text-muted-foreground shadow-sm backdrop-blur"
@@ -300,7 +309,7 @@
 
 <script setup lang="ts">
 import { useI18n } from '@/composables/useI18n'
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import { motion } from 'motion-v'
 import { Activity, Calendar, ChartLine, ChevronLeft, ChevronRight, Coins, Database, FolderOpen, Loader2, RefreshCw } from '@lucide/vue'
 import { Bar, Doughnut, Line } from 'vue-chartjs'
@@ -322,11 +331,12 @@ import ToolFilterChips from '@/components/layout/ToolFilterChips.vue'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
-import { Empty, EmptyHeader, EmptyTitle } from '@/components/ui/empty'
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Progress } from '@/components/ui/progress'
-import { getStatsOverview, getUsageStats, getHeatmapData, getLogDirectory, getEnvUsageSummary, type UsageStats, type HeatmapData, type ModelStats, type StatsPlatform, type EnvUsageSummary } from '@/services/logService'
+import { getStatsOverview, getUsageStats, getHeatmapData, getLogDirectory, getEnvUsageSummary, type UsageStats, type HeatmapData, type ModelStats, type StatsPlatform, type StatsOverview, type EnvUsageSummary } from '@/services/logService'
 import { useConfigStore } from '@/stores/configStore'
+import { toolLabel } from '@/lib/workspace'
 import { useToast } from '@/composables/useToast'
 
 const { t, locale } = useI18n()
@@ -361,7 +371,10 @@ const configStore = useConfigStore()
 const { error: toastError } = useToast()
 const loading = ref(false)
 const days = ref(7)
-const platform = ref<StatsPlatform>('all')
+const platform = computed<StatsPlatform | null>(() => {
+  const tool = configStore.currentFilter
+  return tool === 'all' || tool === 'claude' || tool === 'codex' || tool === 'antigravity' ? tool : null
+})
 const stats = ref<UsageStats | null>(null)
 const heatmap = ref<HeatmapData[]>([])
 const envSummary = ref<Record<string, EnvUsageSummary>>({})
@@ -755,47 +768,63 @@ async function refresh() {
   await loadData()
 }
 
+let loadGeneration = 0
+
 async function loadData() {
-  loading.value = true
+  const generation = ++loadGeneration
+  const selectedPlatform = platform.value
+  const selectedDays = days.value
+  stats.value = null
+  heatmap.value = []
+  envSummary.value = {}
+  logDirectory.value = ''
+  loading.value = selectedPlatform !== null
+  if (!selectedPlatform) return
+
   try {
-    const data = await getStatsOverview(days.value, heatmapWeeks * 7, platform.value)
+    let data: StatsOverview
+    try {
+      data = await getStatsOverview(selectedDays, heatmapWeeks * 7, selectedPlatform)
+    } catch {
+      if (generation !== loadGeneration) return
+      const [statsData, heatmapData, directory, summary] = await Promise.all([
+        getUsageStats(selectedDays, selectedPlatform),
+        getHeatmapData(heatmapWeeks * 7, selectedPlatform),
+        getLogDirectory().catch(() => ''),
+        getEnvUsageSummary(selectedDays).catch(() => ({})),
+      ])
+      data = { stats: statsData, heatmap: heatmapData, log_directory: directory, env_summary: summary }
+    }
+    if (generation !== loadGeneration) return
+    const summary: Record<string, EnvUsageSummary> = data.env_summary ?? await getEnvUsageSummary(selectedDays).catch(() => ({}))
+    if (generation !== loadGeneration) return
+
     const nextStats = data.stats
     if (nextStats?.series) nextStats.series = compactSeries(nextStats.series)
     stats.value = nextStats
     heatmap.value = data.heatmap || []
     logDirectory.value = data.log_directory || ''
-    envSummary.value = data.env_summary != null
-      ? data.env_summary
-      : await getEnvUsageSummary(days.value).catch(() => ({}))
-  } catch {
-    try {
-      const [statsData, heatmapData] = await Promise.all([
-        getUsageStats(days.value, platform.value),
-        getHeatmapData(heatmapWeeks * 7, platform.value),
-      ])
-      if (statsData?.series) statsData.series = compactSeries(statsData.series)
-      stats.value = statsData
-      heatmap.value = heatmapData || []
-      logDirectory.value = await getLogDirectory().catch(() => '')
-      envSummary.value = await getEnvUsageSummary(days.value).catch(() => ({}))
-    } catch (err) {
+    envSummary.value = Object.fromEntries(
+      Object.entries(summary).filter(([, item]) => selectedPlatform === 'all' || item.provider === selectedPlatform),
+    )
+  } catch (err) {
+    if (generation === loadGeneration) {
       toastError(t('stats.loadFailed', { error: err instanceof Error ? err.message : String(err) }))
     }
   } finally {
-    loading.value = false
+    if (generation === loadGeneration) loading.value = false
   }
 }
 
-watch(isOpen, (open) => {
+watch([isOpen, platform], ([open]) => {
+  modelPage.value = 0
   if (open) {
-    modelPage.value = 0
-    loadData()
-  }}, { immediate: true })
-
-watch(() => configStore.currentFilter, (tool) => {
-  const next: StatsPlatform = tool === 'claude' || tool === 'codex' || tool === 'antigravity' ? tool : 'all'
-  if (platform.value === next) return
-  platform.value = next
-  if (isOpen.value) loadData()
+    void loadData()
+  } else {
+    loadGeneration++
+    loading.value = false
+  }
 }, { immediate: true })
+
+onBeforeUnmount(() => { loadGeneration++ })
 </script>

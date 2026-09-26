@@ -1,6 +1,8 @@
 export const zhPrompt = {
-  panelHint: "编辑五个平台的自定义提示词，保存会直接覆盖对应本机文件；Claude Desktop 使用独立配置文件",
-  desktopNote: "Claude Desktop 没有独立的全局提示词文件。请在环境配置中编辑它的 configLibrary JSON；这里显示的是 Claude Code、Codex、Antigravity、OpenCode 和 Grok 的提示词文件。",
+  desktopTitle: "Claude Desktop 提示词暂未接入",
+  showSupported: "编辑其他工具的提示词",
+  panelHint: "编辑五个 CLI 工具的自定义提示词，保存会直接覆盖对应本机文件",
+  desktopNote: "AI ENV 当前仅编辑 CLI 工具的本地提示词文件，尚未接入 Claude Desktop。请在 Claude Desktop 中管理相关指令，或选择其他工具编辑提示词。",
   exists: "已存在",
   notCreated: "未创建",
   delete: "删除",

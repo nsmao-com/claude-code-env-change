@@ -1,4 +1,7 @@
 export const zhStats = {
+  unsupportedTitle: "{tool} 本地用量统计暂未接入",
+  unsupportedNote: "此页目前读取 Claude Code、Codex 和 Antigravity 的本地日志。所选工具暂未接入，不会显示其他工具的数据。通过 AI ENV 网关产生的费用可在工作台「费用与预算」查看。",
+  showSupported: "查看已支持工具的统计",
   panelHint: "查看各平台请求量、Token 消耗与花费估算。",
   loading: "加载中",
   loadingData: "正在加载统计数据...",

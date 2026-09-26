@@ -163,9 +163,7 @@ const providers = [
 ]
 
 function providerFromFilter(): Provider {
-  const filter = configStore.currentFilter
-  if (filter === 'claude_desktop' || filter === 'codex' || filter === 'antigravity' || filter === 'opencode' || filter === 'grok') return filter
-  return 'claude'
+  return providers.find(item => item.value === configStore.currentFilter)?.value || 'claude'
 }
 
 function defaultForm(): RotationGroup {

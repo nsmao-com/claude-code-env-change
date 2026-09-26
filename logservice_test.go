@@ -29,6 +29,9 @@ func TestStatsOverviewMatchesLegacy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetStatsOverview: %v", err)
 	}
+	if overview.Stats.TotalRequests != 1 {
+		t.Fatalf("expected one fixture request, got %d", overview.Stats.TotalRequests)
+	}
 
 	legacyStats, err := ls.GetUsageStats(7, "all")
 	if err != nil {
@@ -68,4 +71,20 @@ func TestStatsOverviewMatchesLegacy(t *testing.T) {
 
 	t.Logf("overview: requests=%d series=%d heatmapDays=%d logDir=%s",
 		overview.Stats.TotalRequests, len(overview.Stats.Series), len(overview.Heatmap), overview.LogDirectory)
+
+	for _, platform := range []string{"claude_desktop", "opencode", "grok", "unknown"} {
+		t.Run(platform+"_does_not_fall_back_to_all", func(t *testing.T) {
+			filtered, err := ls.GetStatsOverview(7, 182, platform)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if filtered.Stats.TotalRequests != 0 || len(filtered.Heatmap) != 0 || len(filtered.EnvSummary) != 0 {
+				t.Fatalf("unsupported platform returned another tool's usage: %+v", filtered)
+			}
+			logs, err := ls.GetRecentLogs(50, platform)
+			if err != nil || len(logs) != 0 {
+				t.Fatalf("unsupported platform returned logs: %v, %v", logs, err)
+			}
+		})
+	}
 }

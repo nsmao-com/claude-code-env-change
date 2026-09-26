@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="build/appicon.png?v=2.7.2" width="72" height="72" alt="AI ENV 图标" />
+  <img src="build/appicon.png?v=2.7.3" width="72" height="72" alt="AI ENV 图标" />
 </p>
 
 <h1 align="center">AI ENV</h1>
@@ -51,6 +51,12 @@
 | CLI | 检测本机 Claude Code / Codex / Antigravity / OpenCode / Grok，按 pnpm、yarn、npm、官方安装器或原生方式安装升级 |
 | 配置目录 | 打开各家 CLI 的本机配置目录和关键文件 |
 | 更新 | 检测 GitHub Release，Windows 可在应用内下载并替换 |
+
+## 2.7.3 工具页签修复
+
+- 修复公共工具筛选器遗漏 Claude Desktop，提示词、统计、MCP、Skills 页签现在可以正常选择。
+- 为尚未接入的 Claude Desktop 提示词、Skills 及本地用量统计显示明确说明和切换入口；统计页不再把未支持的平台回退成全部数据。
+- 修复快速切换统计平台时旧请求覆盖新选择、窄窗口筛选栏挤压标题，以及轮换组的无效默认平台。
 
 ## 2.7.2 工作台控件
 

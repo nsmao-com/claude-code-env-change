@@ -7,9 +7,18 @@
       </div>
     </template>
 
-    <Tabs v-model="activeTab">
+    <Empty v-if="isDesktopFilter" class="min-h-64">
+      <EmptyHeader>
+        <BrandIcon provider="claude_desktop" class="size-8 text-muted-foreground" />
+        <EmptyTitle>{{ t('prompt.desktopTitle') }}</EmptyTitle>
+        <EmptyDescription>{{ t('prompt.desktopNote') }}</EmptyDescription>
+      </EmptyHeader>
+      <Button variant="outline" @click="configStore.setFilter('all')">{{ t('prompt.showSupported') }}</Button>
+    </Empty>
+
+    <Tabs v-else v-model="activeTab">
       <SegmentedPills
-        v-if="configStore.currentFilter === 'all' || configStore.currentFilter === 'claude_desktop'"
+        v-if="configStore.currentFilter === 'all'"
         class="mb-4"
         :model-value="activeTab"
         layout-id="prompt-tab-pill"
@@ -27,11 +36,8 @@
       </div>
 
       <template v-else>
-        <div v-if="configStore.currentFilter === 'claude_desktop'" class="rounded-xl border border-border/70 bg-muted/30 p-4 text-sm text-muted-foreground">
-          {{ t('prompt.desktopNote') }}
-        </div>
         <template v-for="tab in tabs" :key="tab.value">
-          <TabsContent v-if="!isDesktopFilter" :value="tab.value" class="flex flex-col gap-3">
+          <TabsContent :value="tab.value" class="flex flex-col gap-3">
             <div class="flex items-center justify-between gap-3">
               <div class="flex min-w-0 items-center gap-3">
                 <AppTooltip :content="fileOf(tab.value)?.path" wrap :disabled="!fileOf(tab.value)?.path" class="min-w-0 max-w-md">
@@ -65,7 +71,7 @@
       </template>
     </Tabs>
 
-    <template #footer>
+    <template v-if="!isDesktopFilter" #footer>
       <div class="flex items-center justify-between gap-3">
         <p class="flex items-center text-xs text-muted-foreground">
           <Info class="mr-1.5 size-3.5" />
@@ -97,6 +103,7 @@ import AppTooltip from '@/components/common/AppTooltip.vue'
 import BrandIcon from '@/components/common/BrandIcon.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty'
 
 import { Tabs, TabsContent } from '@/components/ui/tabs'
 import SegmentedPills from '@/components/layout/SegmentedPills.vue'

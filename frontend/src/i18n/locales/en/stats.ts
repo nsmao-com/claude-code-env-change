@@ -2,6 +2,9 @@ import type { DeepString } from '../../types'
 import type { zhStats } from '../zh/stats'
 
 export const enStats: DeepString<typeof zhStats> = {
+  unsupportedTitle: "Local usage statistics for {tool} are not connected",
+  unsupportedNote: "This page reads local logs from Claude Code, Codex and Antigravity. The selected tool is not connected, so other tools’ data is not shown. For traffic through the AI ENV gateway, see Costs & budgets in the Workbench.",
+  showSupported: "View statistics for supported tools",
   panelHint: "Requests, token usage and estimated cost per platform.",
   loading: "Loading",
   loadingData: "Loading statistics...",
