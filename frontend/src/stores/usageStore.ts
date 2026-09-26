@@ -22,8 +22,8 @@ export const useUsageStore = defineStore('usage', () => {
     Object.values(byEnv.value).reduce((sum, item) => sum + (item.total_cost || 0), 0)
   )
 
-  function getForEnv(name: string): EnvUsageSummary | null {
-    return byEnv.value[name] || null
+  function getForEnv(name: string, provider: string): EnvUsageSummary | null {
+    return byEnv.value[`${provider}::${name}`] || null
   }
 
   return {

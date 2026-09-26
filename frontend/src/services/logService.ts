@@ -47,6 +47,7 @@ export interface HeatmapData {
 }
 
 export interface EnvUsageSummary {
+  env_name: string
   provider: string
   requests: number
   input_tokens: number

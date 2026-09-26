@@ -484,6 +484,7 @@ export namespace main {
 	}
 	
 	export class EnvUsageSummary {
+	    env_name: string;
 	    provider: string;
 	    requests: number;
 	    input_tokens: number;
@@ -499,6 +500,7 @@ export namespace main {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.env_name = source["env_name"];
 	        this.provider = source["provider"];
 	        this.requests = source["requests"];
 	        this.input_tokens = source["input_tokens"];

@@ -250,14 +250,14 @@
           </div>
         </div>
         <div class="flex w-full gap-1">
-          <div class="flex w-5 shrink-0 flex-col gap-0.5 pt-0 text-[9px] text-muted-foreground">
-            <span class="flex aspect-square items-center" />
-            <span class="flex aspect-square items-center">{{ t('stats.mon') }}</span>
-            <span class="flex aspect-square items-center" />
-            <span class="flex aspect-square items-center">{{ t('stats.wed') }}</span>
-            <span class="flex aspect-square items-center" />
-            <span class="flex aspect-square items-center">{{ t('stats.fri') }}</span>
-            <span class="flex aspect-square items-center" />
+          <div class="grid w-5 shrink-0 grid-rows-7 gap-0.5 text-[9px] text-muted-foreground">
+            <span />
+            <span class="flex items-center">{{ t('stats.mon') }}</span>
+            <span />
+            <span class="flex items-center">{{ t('stats.wed') }}</span>
+            <span />
+            <span class="flex items-center">{{ t('stats.fri') }}</span>
+            <span />
           </div>
           <div class="flex min-w-0 flex-1 gap-0.5">
             <div v-for="(week, weekIdx) in heatmapGrid" :key="weekIdx" class="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -293,10 +293,10 @@
       </Card>
 
       <div class="mt-4 rounded-2xl bg-muted/50 p-3">
-        <div class="flex items-center gap-2 text-xs text-muted-foreground">
-          <FolderOpen class="size-3.5" />
-          <span>{{ t('stats.source') }}</span>
-          <code class="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px]">{{ logDirectory || t('stats.notDetected') }}</code>
+        <div class="flex items-start gap-2 text-xs text-muted-foreground">
+          <FolderOpen class="size-3.5 shrink-0" />
+          <span class="shrink-0">{{ t('stats.source') }}</span>
+          <code class="min-w-0 break-all rounded bg-muted px-1.5 py-0.5 font-mono text-[10px]">{{ logDirectory || t('stats.notDetected') }}</code>
         </div>
       </div>
     </div>
@@ -335,6 +335,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Progress } from '@/components/ui/progress'
 import { getStatsOverview, getUsageStats, getHeatmapData, getLogDirectory, getEnvUsageSummary, type UsageStats, type HeatmapData, type ModelStats, type StatsPlatform, type StatsOverview, type EnvUsageSummary } from '@/services/logService'
+import { providerLabel } from '@/lib/configImport'
 import { useConfigStore } from '@/stores/configStore'
 import { toolLabel } from '@/lib/workspace'
 import { useToast } from '@/composables/useToast'
@@ -380,6 +381,7 @@ const heatmap = ref<HeatmapData[]>([])
 const envSummary = ref<Record<string, EnvUsageSummary>>({})
 const logDirectory = ref('')
 const heatmapWeeks = 26
+const heatmapToday = ref(new Date())
 
 
 
@@ -524,7 +526,7 @@ const modelCostBars = computed(() => {
 const envBarData = computed(() => {
   const entries = Object.entries(envSummary.value || {}).sort((a, b) => b[1].requests - a[1].requests).slice(0, 8)
   return {
-    labels: entries.map(([name]) => name),
+    labels: entries.map(([key, item]) => `${item.env_name || key} · ${providerLabel(item.provider)}`),
     datasets: [{
       label: t('stats.requests'),
       data: entries.map(([, item]) => item.requests),
@@ -626,20 +628,30 @@ interface HeatmapCell {
   isToday: boolean
 }
 
+function localDateKey(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
+
+const heatmapStart = computed(() => {
+  const start = new Date(heatmapToday.value)
+  start.setHours(0, 0, 0, 0)
+  // 从周日开始，最后一列包含本周；日期键与后端本地日志日期一致。
+  start.setDate(start.getDate() - (heatmapWeeks - 1) * 7 - start.getDay())
+  return start
+})
+
 const heatmapGrid = computed(() => {
   const grid: HeatmapCell[][] = []
-  const today = new Date()
+  const today = heatmapToday.value
   const heatmapMap = new Map<string, HeatmapData>()
   heatmap.value.forEach(d => heatmapMap.set(d.date, d))
-  const startDate = new Date(today)
-  startDate.setDate(startDate.getDate() - (heatmapWeeks * 7) - today.getDay() + 1)
-  const currentDate = new Date(startDate)
+  const currentDate = new Date(heatmapStart.value)
   for (let week = 0; week < heatmapWeeks; week++) {
     const weekCells: HeatmapCell[] = []
     for (let day = 0; day < 7; day++) {
-      const dateStr = currentDate.toISOString().split('T')[0]
+      const dateStr = localDateKey(currentDate)
       const data = heatmapMap.get(dateStr)
-      const isToday = dateStr === today.toISOString().split('T')[0]
+      const isToday = dateStr === localDateKey(today)
       if (currentDate <= today) {
         weekCells.push({
           date: dateStr,
@@ -660,11 +672,8 @@ const heatmapGrid = computed(() => {
 
 const monthLabels = computed(() => {
   const labels: { name: string; left: string }[] = []
-  const today = new Date()
-  const startDate = new Date(today)
-  startDate.setDate(startDate.getDate() - (heatmapWeeks * 7) - today.getDay() + 1)
   let lastMonth = -1
-  const currentDate = new Date(startDate)
+  const currentDate = new Date(heatmapStart.value)
   for (let week = 0; week < heatmapWeeks; week++) {
     const month = currentDate.getMonth()
     if (month !== lastMonth) {
@@ -771,6 +780,7 @@ async function refresh() {
 let loadGeneration = 0
 
 async function loadData() {
+  heatmapToday.value = new Date()
   const generation = ++loadGeneration
   const selectedPlatform = platform.value
   const selectedDays = days.value

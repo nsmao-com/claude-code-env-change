@@ -72,13 +72,22 @@ func TestStatsOverviewMatchesLegacy(t *testing.T) {
 	t.Logf("overview: requests=%d series=%d heatmapDays=%d logDir=%s",
 		overview.Stats.TotalRequests, len(overview.Stats.Series), len(overview.Heatmap), overview.LogDirectory)
 
+	for platform, directory := range map[string]string{
+		"claude": ls.getClaudeProjectsDir(), "codex": ls.getCodexDir(), "antigravity": ls.getGeminiTmpDir(),
+	} {
+		filtered, err := ls.GetStatsOverview(7, 182, platform)
+		if err != nil || filtered.LogDirectory != directory {
+			t.Errorf("%s log directory: got %q, want %q, error: %v", platform, filtered.LogDirectory, directory, err)
+		}
+	}
+
 	for _, platform := range []string{"claude_desktop", "opencode", "grok", "unknown"} {
 		t.Run(platform+"_does_not_fall_back_to_all", func(t *testing.T) {
 			filtered, err := ls.GetStatsOverview(7, 182, platform)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if filtered.Stats.TotalRequests != 0 || len(filtered.Heatmap) != 0 || len(filtered.EnvSummary) != 0 {
+			if filtered.Stats.TotalRequests != 0 || len(filtered.Heatmap) != 0 || len(filtered.EnvSummary) != 0 || filtered.LogDirectory != "" {
 				t.Fatalf("unsupported platform returned another tool's usage: %+v", filtered)
 			}
 			logs, err := ls.GetRecentLogs(50, platform)
@@ -86,5 +95,33 @@ func TestStatsOverviewMatchesLegacy(t *testing.T) {
 				t.Fatalf("unsupported platform returned logs: %v, %v", logs, err)
 			}
 		})
+	}
+}
+
+func TestEnvUsageSeparatesSameNameAcrossProviders(t *testing.T) {
+	withHomeRoot(t)
+	now := time.Now().Truncate(time.Second)
+	for _, provider := range []string{"claude", "codex"} {
+		if err := RecordEnvActivation(provider, "shared::name", now.Add(-time.Hour)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	records := []UsageRecord{
+		{Provider: "claude", Timestamp: now.Add(-time.Minute).Format(recordTimeLayout), InputTokens: 10, OutputTokens: 20, CacheReadTokens: 3, CacheWriteTokens: 4, TotalCost: 0.25},
+		{Provider: "codex", Timestamp: now.Format(recordTimeLayout), InputTokens: 100, OutputTokens: 200, CacheReadTokens: 30, CacheWriteTokens: 40, TotalCost: 1.5},
+		{Provider: "claude", Timestamp: now.Format(recordTimeLayout), InputTokens: 5, OutputTokens: 6, TotalCost: 0.125},
+	}
+	got := NewLogService().aggregateEnvUsage(records, 7)
+	want := map[string]EnvUsageSummary{
+		"claude::shared::name": {EnvName: "shared::name", Provider: "claude", Requests: 2, InputTokens: 15, OutputTokens: 26, CacheReadTokens: 3, CacheWriteTokens: 4, TotalCost: 0.375, LastTimestamp: now.Format(recordTimeLayout)},
+		"codex::shared::name":  {EnvName: "shared::name", Provider: "codex", Requests: 1, InputTokens: 100, OutputTokens: 200, CacheReadTokens: 30, CacheWriteTokens: 40, TotalCost: 1.5, LastTimestamp: now.Format(recordTimeLayout)},
+	}
+	if len(got) != len(want) {
+		t.Fatalf("same-name environments were merged: %+v", got)
+	}
+	for key, expected := range want {
+		if got[key] != expected {
+			t.Errorf("%s: got %+v, want %+v", key, got[key], expected)
+		}
 	}
 }

@@ -8,6 +8,7 @@ export const enPrompt: DeepString<typeof zhPrompt> = {
   desktopNote: "AI ENV currently edits local CLI prompt files and does not manage Claude Desktop prompts. Manage those instructions in Claude Desktop, or select another tool to edit its prompts.",
   exists: "Exists",
   notCreated: "Not created",
+  unsaved: "Unsaved",
   delete: "Delete",
   restartHint: "Restart the CLI for changes to take effect",
   loadFailed: "Load failed: {error}",

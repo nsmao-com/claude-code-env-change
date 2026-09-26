@@ -47,11 +47,13 @@
                 </AppTooltip>
                 <Badge v-if="fileOf(tab.value)?.exists">{{ t('prompt.exists') }}</Badge>
                 <Badge v-else variant="outline">{{ t('prompt.notCreated') }}</Badge>
+                <Badge v-if="dirtyProviders.includes(tab.value)" variant="outline">{{ t('prompt.unsaved') }}</Badge>
               </div>
               <Button
                 v-if="fileOf(tab.value)?.exists"
                 variant="destructive"
                 size="sm"
+                :disabled="isSaving || isDeleting"
                 @click="deleteFile(tab.value)"
               >
                 <Trash2 />
@@ -64,6 +66,7 @@
               class="min-h-64 resize-y font-mono text-sm"
               :placeholder="getPlaceholder(tab.value)"
               spellcheck="false"
+              :disabled="isDeleting"
               @update:model-value="(v) => setFileContent(tab.value, v)"
             />
           </TabsContent>
@@ -79,7 +82,7 @@
         </p>
         <div class="flex items-center gap-3">
           <Button v-if="!embedded" variant="secondary" @click="close">{{ t('common.cancel') }}</Button>
-          <Button :disabled="isSaving || !editableFile || isDesktopFilter" @click="save">
+          <Button :disabled="isLoading || isSaving || isDeleting || !editableFile || isDesktopFilter" @click="save">
             <Loader2 v-if="isSaving" class="animate-spin" />
             <Save v-else />
             {{ t('common.save') }}
@@ -92,9 +95,9 @@
 
 <script setup lang="ts">
 import { useI18n } from '@/composables/useI18n'
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onScopeDispose } from 'vue'
 import { Info, Loader2, Save, Trash2 } from '@lucide/vue'
-import { GetPromptFiles, SavePromptFile, DeletePromptFile } from '../../../wailsjs/go/main/App'
+import { GetPromptFiles, GetPromptFile, SavePromptFile, DeletePromptFile } from '../../../wailsjs/go/main/App'
 import { useConfirm } from '@/composables/useConfirm'
 import { useToast } from '@/composables/useToast'
 import { useConfigStore } from '@/stores/configStore'
@@ -151,6 +154,8 @@ const tabs = [
 const activeTab = ref('claude')
 const isLoading = ref(false)
 const isSaving = ref(false)
+const isDeleting = ref(false)
+let generation = 0
 const files = ref<PromptFile[]>([])
 // 磁盘快照：用于判断哪些标签被改过（保存全部脏标签）
 const originals = ref<Record<string, string>>({})
@@ -176,66 +181,82 @@ function getPlaceholder(provider?: string): string {
 }
 
 async function loadFiles() {
+  const current = ++generation
   isLoading.value = true
   try {
-    files.value = await GetPromptFiles()
+    const loaded = await GetPromptFiles()
+    if (current !== generation) return
+    files.value = loaded
     originals.value = Object.fromEntries(files.value.map(item => [item.provider, item.content]))
-  } catch (e: any) {
-    toast.error(t('prompt.loadFailed', { error: e?.message || String(e) }))
+  } catch (e: unknown) {
+    if (current === generation) toast.error(t('prompt.loadFailed', { error: e instanceof Error ? e.message : String(e) }))
   } finally {
-    isLoading.value = false
+    if (current === generation) isLoading.value = false
   }
 }
 
 async function save() {
+  if (isLoading.value || isSaving.value || isDeleting.value || isDesktopFilter.value) return
   // 逐个标签编辑时用户往往改了多个标签才点一次保存：
   // 只保存当前标签会让其余改动静默丢失，这里保存全部与磁盘不一致的标签
   const dirty = files.value.filter(item => dirtyProviders.value.includes(item.provider))
-  const targets = dirty.length ? dirty : files.value.filter(item => item.provider === activeTab.value)
+  const targets = (dirty.length ? dirty : files.value.filter(item => item.provider === activeTab.value))
+    .map(item => ({ ...item }))
   if (!targets.length) {
     toast.error(t('prompt.notLoaded'))
     return
   }
   isSaving.value = true
+  const current = generation
   try {
     for (const file of targets) {
       await SavePromptFile(file.provider, file.content)
+      const saved = await GetPromptFile(file.provider)
+      if (!saved.exists || saved.content !== file.content) throw new Error(t('prompt.verifyFailed'))
+      if (current === generation) {
+        // 只提交本次快照；保存期间输入的新草稿仍留在编辑器中。
+        originals.value[file.provider] = saved.content
+        const draft = fileOf(file.provider)
+        if (draft) {
+          draft.exists = saved.exists
+          draft.path = saved.path
+        }
+      }
     }
-    const refreshed = await GetPromptFiles()
-    files.value = files.value.map(item => refreshed.find(r => r.provider === item.provider) || item)
-    originals.value = Object.fromEntries(files.value.map(item => [item.provider, item.content]))
-    for (const file of targets) {
-      const saved = refreshed.find(item => item.provider === file.provider)
-      if (!saved || saved.content !== file.content) throw new Error(t('prompt.verifyFailed'))
-    }
-    emit('saved')
-  } catch (e: any) {
-    toast.error(t('prompt.saveFailed', { error: e?.message || String(e) }))
+    if (current === generation) emit('saved')
+  } catch (e: unknown) {
+    if (current === generation) toast.error(t('prompt.saveFailed', { error: e instanceof Error ? e.message : String(e) }))
   } finally {
     isSaving.value = false
   }
 }
 
 async function deleteFile(provider = activeTab.value) {
-  const ok = await confirm.show(
-    t('prompt.deleteTitle'),
-    t('prompt.deleteMsg', { name: provider.toUpperCase() }),
-    'danger'
-  )
-  if (!ok) return
-
+  if (isLoading.value || isSaving.value || isDeleting.value) return
+  const current = generation
+  isDeleting.value = true
   try {
+    const ok = await confirm.show(
+      t('prompt.deleteTitle'),
+      t('prompt.deleteMsg', { name: provider.toUpperCase() }),
+      'danger'
+    )
+    if (!ok || current !== generation) return
     await DeletePromptFile(provider)
+    if (current !== generation) return
 
     const file = fileOf(provider)
     if (file) {
       file.content = ''
       file.exists = false
     }
+    originals.value[provider] = ''
 
     emit('saved')
-  } catch (e: any) {
-    toast.error(t('prompt.deleteFailed', { error: e?.message || String(e) }))
+  } catch (e: unknown) {
+    if (current === generation) toast.error(t('prompt.deleteFailed', { error: e instanceof Error ? e.message : String(e) }))
+  } finally {
+    isDeleting.value = false
   }
 }
 
@@ -246,8 +267,12 @@ function close() {
 watch(() => props.visible, (newVal) => {
   if (newVal) {
     loadFiles()
+  } else {
+    generation++
   }
 }, { immediate: true })
+
+onScopeDispose(() => { generation++ })
 
 watch(() => configStore.currentFilter, (tool) => {
   if (tool === 'claude' || tool === 'codex' || tool === 'antigravity' || tool === 'opencode' || tool === 'grok') {

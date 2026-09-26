@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="build/appicon.png?v=2.7.3" width="72" height="72" alt="AI ENV 图标" />
+  <img src="build/appicon.png?v=2.7.4" width="72" height="72" alt="AI ENV 图标" />
 </p>
 
 <h1 align="center">AI ENV</h1>
@@ -51,6 +51,14 @@
 | CLI | 检测本机 Claude Code / Codex / Antigravity / OpenCode / Grok，按 pnpm、yarn、npm、官方安装器或原生方式安装升级 |
 | 配置目录 | 打开各家 CLI 的本机配置目录和关键文件 |
 | 更新 | 检测 GitHub Release，Windows 可在应用内下载并替换 |
+
+## 2.7.4 提示词保存与统计修复
+
+- 修复删除提示词后保存其他页签会重建已删除文件的问题；保存和删除操作互斥，防止重复提交。
+- 提示词按点击保存时的内容快照逐项校验，保留保存期间的新输入并显示“未保存”；部分失败时只重试尚未保存的改动。
+- 配置用量按工具和名称分别聚合，Claude / Codex 的同名配置不再混算，图表明确显示工具名称。
+- 统计页日志来源随工具筛选切换，全部视图列出各工具目录，并支持长路径换行。
+- 修复活动热力图遗漏本周、UTC 日期导致本地记录错位，以及星期标签未对齐的问题。
 
 ## 2.7.3 工具页签修复
 

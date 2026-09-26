@@ -81,6 +81,7 @@ type HeatmapData struct {
 
 // EnvUsageSummary 单个配置的用量汇总（按“配置切换时间线”近似归因）
 type EnvUsageSummary struct {
+	EnvName          string  `json:"env_name"`
 	Provider         string  `json:"provider"`
 	Requests         int     `json:"requests"`
 	InputTokens      int64   `json:"input_tokens"`
@@ -248,11 +249,22 @@ func (ls *LogService) GetStatsOverview(statsDays, heatmapDays int, platform stri
 
 	statsCutoff := time.Now().AddDate(0, 0, -statsDays).Format(recordTimeLayout)
 	heatmapCutoff := time.Now().AddDate(0, 0, -heatmapDays).Format(recordTimeLayout)
+	var logDirectory string
+	switch platform {
+	case "claude":
+		logDirectory = ls.getClaudeProjectsDir()
+	case "codex":
+		logDirectory = ls.getCodexDir()
+	case "antigravity":
+		logDirectory = ls.getGeminiTmpDir()
+	case "all", "":
+		logDirectory = strings.Join([]string{ls.getClaudeProjectsDir(), ls.getCodexDir(), ls.getGeminiTmpDir()}, " | ")
+	}
 
 	return StatsOverview{
 		Stats:        aggregateUsageStats(records, statsCutoff),
 		Heatmap:      aggregateHeatmap(records, heatmapCutoff),
-		LogDirectory: ls.getClaudeProjectsDir(),
+		LogDirectory: logDirectory,
 		EnvSummary:   ls.aggregateEnvUsage(records, statsDays),
 	}, nil
 }
@@ -477,7 +489,10 @@ func (ls *LogService) aggregateEnvUsage(records []UsageRecord, days int) map[str
 		if strings.TrimSpace(envName) == "" {
 			continue
 		}
-		item := byEnv[envName]
+		// 配置名称只在同一工具内唯一，跨工具同名配置必须独立归因。
+		key := provider + "::" + envName
+		item := byEnv[key]
+		item.EnvName = envName
 		item.Provider = provider
 		item.Requests++
 		item.InputTokens += int64(record.InputTokens)
@@ -488,7 +503,7 @@ func (ls *LogService) aggregateEnvUsage(records []UsageRecord, days int) map[str
 		if item.LastTimestamp == "" || record.Timestamp > item.LastTimestamp {
 			item.LastTimestamp = record.Timestamp
 		}
-		byEnv[envName] = item
+		byEnv[key] = item
 	}
 	return byEnv
 }

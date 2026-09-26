@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="build/appicon.png?v=2.7.3" width="72" height="72" alt="AI ENV icon" />
+  <img src="build/appicon.png?v=2.7.4" width="72" height="72" alt="AI ENV icon" />
 </p>
 
 <h1 align="center">AI ENV</h1>
@@ -51,6 +51,14 @@ The current version is the latest version listed in [GitHub Releases](https://gi
 | CLI | Detect local Claude / Codex / Antigravity / OpenCode / Grok; install/upgrade via pnpm, yarn, npm, official installer, or native update |
 | Config folders | Open each CLI’s config directory and key files |
 | Updates | GitHub Release check; Windows can download and replace in-app |
+
+## 2.7.4 Prompt persistence and statistics fixes
+
+- Saving another prompt tab no longer recreates a deleted file; save and delete actions cannot overlap or submit twice.
+- Prompt saves verify each file against its submitted snapshot, preserve edits made while saving, and mark them as unsaved. Partial failures leave only remaining changes pending for retry.
+- Environment usage is grouped by both tool and name, keeping same-name Claude / Codex environments separate and labeling their tools in the chart.
+- Statistics show the selected tool's log directory, list all supported directories in the combined view, and wrap long paths.
+- Activity heatmaps include the current week, match local log dates instead of UTC dates, and align weekday labels with their rows.
 
 ## 2.7.3 Tool filter fixes
 

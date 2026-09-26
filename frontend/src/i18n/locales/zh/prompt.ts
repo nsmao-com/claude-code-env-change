@@ -5,6 +5,7 @@ export const zhPrompt = {
   desktopNote: "AI ENV 当前仅编辑 CLI 工具的本地提示词文件，尚未接入 Claude Desktop。请在 Claude Desktop 中管理相关指令，或选择其他工具编辑提示词。",
   exists: "已存在",
   notCreated: "未创建",
+  unsaved: "未保存",
   delete: "删除",
   restartHint: "修改后需要重启 CLI 工具生效",
   loadFailed: "加载失败: {error}",
