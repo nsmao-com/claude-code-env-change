@@ -243,6 +243,15 @@ func trayAllowQuit() {
 }
 
 // trayShouldHideOnClose 主窗口收到关闭请求时调用：返回 true 表示改为隐藏到托盘。
+// trayHideMain 界面上的关闭按钮：经托盘隐藏主窗口（记录显隐状态并触发轻量模式）
+func trayHideMain() bool {
+	if tray == nil {
+		return false
+	}
+	tray.hideMain()
+	return true
+}
+
 func trayShouldHideOnClose() bool {
 	if tray == nil || tray.quitting {
 		return false
@@ -450,6 +459,7 @@ func (t *trayManager) toggleMain() {
 }
 
 func (t *trayManager) showMain() {
+	lightweightOnShow(t.ctx)
 	runtime.WindowUnminimise(t.ctx)
 	runtime.WindowShow(t.ctx)
 	t.mainVisible = true
@@ -458,6 +468,7 @@ func (t *trayManager) showMain() {
 func (t *trayManager) hideMain() {
 	runtime.WindowHide(t.ctx)
 	t.mainVisible = false
+	lightweightOnHide(t.ctx)
 }
 
 func (t *trayManager) quit() {
@@ -574,7 +585,7 @@ func (t *trayManager) fallbackMenu() {
 		t.hideMain()
 	case 3:
 		t.showMain()
-		runtime.EventsEmit(t.ctx, "tray:navigate", "settings")
+		emitAppEvent(t.ctx, "tray:navigate", "settings")
 	case 4:
 		t.quit()
 	}

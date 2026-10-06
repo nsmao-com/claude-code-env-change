@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Button } from '@/components/ui/button'
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
+import { pendingImportLink } from '@/lib/deepLink'
 import { useWorkbench } from '@/composables/useWorkbench'
 import { useToast } from '@/composables/useToast'
 import SessionsWorkspace from './SessionsWorkspace.vue'
@@ -9,6 +10,8 @@ import ToolsWorkspace from './ToolsWorkspace.vue'
 import PresetsWorkspace from './PresetsWorkspace.vue'
 import ImportWorkspace from './ImportWorkspace.vue'
 import CostsWorkspace from './CostsWorkspace.vue'
+import QuotaWorkspace from './QuotaWorkspace.vue'
+import AgentsWorkspace from './AgentsWorkspace.vue'
 const { tx } = useWorkbench()
 const toast = useToast()
 function showValidationError(event: Event) {
@@ -20,12 +23,21 @@ function showValidationError(event: Event) {
   toast.error(field.validationMessage)
 }
 const tab = ref('sessions')
+watch(
+  pendingImportLink,
+  (link) => {
+    if (link) tab.value = 'import'
+  },
+  { immediate: true },
+)
 const tabs = [
   { id: 'sessions', zh: '会话', en: 'Sessions', component: SessionsWorkspace },
+  { id: 'quota', zh: '额度与余额', en: 'Allowances & balances', component: QuotaWorkspace },
   { id: 'models', zh: '模型', en: 'Models', component: ModelsWorkspace },
   { id: 'tools', zh: '诊断与历史', en: 'Diagnostics & history', component: ToolsWorkspace },
   { id: 'presets', zh: '项目与提示词', en: 'Projects & prompts', component: PresetsWorkspace },
   { id: 'import', zh: '供应商导入', en: 'Providers', component: ImportWorkspace },
+  { id: 'agents', zh: '更多 Agent', en: 'More agents', component: AgentsWorkspace },
   { id: 'costs', zh: '费用与预算', en: 'Costs & budgets', component: CostsWorkspace },
 ]
 </script>

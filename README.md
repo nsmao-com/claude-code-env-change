@@ -40,14 +40,21 @@
 | 模块 | 说明 |
 | --- | --- |
 | 环境 | 多配置、按平台筛选、拖拽排序、一键写入对应 CLI、延迟测速、JSON 拖拽导入 |
-| MCP | 管理 stdio / HTTP 服务器，同步到 Claude Code / Claude Desktop / Codex / Antigravity / OpenCode / Grok（Claude Desktop 的远程服务器通过 `npx mcp-remote` 桥接，需本机有 Node.js） |
+| MCP | 管理 stdio / HTTP 服务器，同步到 Claude Code / Claude Desktop / Codex / Antigravity / OpenCode / Grok（Claude Desktop 的远程服务器通过 `npx mcp-remote` 桥接，需本机有 Node.js）；远程服务器可 OAuth 登录，授权一次后各工具经本机网关访问并自动带上令牌；内置生图与联网搜索（Tavily / Brave / Exa / 博查）MCP |
 | Skills | 完整技能包、在线市场、附件管理、来源更新与本地修改保护，按平台启用 |
-| API 路由 | 本机网关端口与按厂商开关；各平台可在 Anthropic Messages、Chat Completions、Responses 之间转换；每条路由可配备用上游，限流、Key 失效或宕机时自动切换 |
+| API 路由 | 本机网关端口与按厂商开关；各平台可在 Anthropic Messages、Chat Completions、Responses 之间转换；每条路由可配备用上游，限流、Key 失效或宕机时自动切换；局域网共享 + 网关密钥（可停用 / 轮换 / 限定路由 / 按日周月限 Token 或费用）；curl、Python、Node 与环境变量接入示例；Chat / Anthropic 协议的客户端也能用只说 Responses 的上游；新增 Gemini 协议入口（Gemini CLI 等可用任意上游）；备用上游可直接用本机已登录的 Codex（ChatGPT）/ GitHub Copilot / Claude 订阅（Claude 订阅由本机 claude 命令行生成回复，调用方的工具经 MCP 桥接，同一对话的后续轮次复用进程、命中缓存）；可选记录请求与响应内容（密钥脱敏）、标注实际服务的上游，并导出 OpenTelemetry / Langfuse 追踪 |
 | 监控 | 定时探测 Base URL，可选「用 Key 验证」发现 Key 失效 / 余额不足，按轮换组自动切配置 |
-| 云同步 | S3 / 阿里云 OSS / WebDAV，scrypt + AES-GCM 加密、ETag 冲突保护、预览与选择恢复 |
+| 云同步 | S3 / 阿里云 OSS / WebDAV，scrypt + AES-GCM 加密、ETag 冲突保护、预览与选择恢复；也可导出 / 导入本地加密备份文件（`.aienv-backup`） |
 | 提示词 | 编辑各平台自定义系统提示词 |
-| 统计 | 请求量、Token、花费估算、模型分布、活动热力图 |
-| 设置 | 语言、主题、强调色、出站代理 |
+| 统计 | 请求量、Token、花费估算、模型分布、活动热力图；网关账单按月导出 CSV，并按官方定价估算同等用量的花费 |
+| 模型目录 | 从 models.dev 同步模型的上下文长度、输出上限、价格与能力，填写模型时可一键带入；无内置价格的模型按目录估算花费 |
+| 额度与余额 | Claude Code / Codex / GitHub Copilot 订阅的 5 小时、每周、每月额度窗口；DeepSeek、Moonshot、OpenRouter、SiliconFlow、StepFun、AiHubMix、New API / One API 中转站及自定义接口余额；阈值与低余额提醒（应用内 + 系统通知）；额度预热（定时或额度重置后发一条极短请求，让新窗口提前开始计时）；托盘面板显示订阅额度 |
+| 会话洞察 | 按时间范围统计 Claude Code / Codex 会话的提问、工具调用、Skills、MCP、模型、项目、时段分布与最耗 Token 的会话；会话可删除到回收站并恢复 |
+| 更多 Agent | 一键把 Crush、Kimi CLI、Droid、Pi、Cline、Qwen Code、Gemini CLI、VS Code Chat、Zed、Goose、Command Code、Empryo、ZCode 接到本机网关，断开时还原原配置；可选给 Claude Code / Codex 等启用 RTK 压缩命令输出、节省 Token |
+| 导入链接 | 注册 `aienv://import?...` 协议（参数同 CC Switch 分享链接），点击后打开预览，确认后才保存 |
+| 设置 | 语言、主题、强调色、文字大小、出站代理；轻量模式（隐藏到托盘后把内存交还给系统）；其它程序改动配置文件后自动重新载入 |
+| 浏览器模式 | `claude-env-switcher web` 不开窗口，用网页提供同一套界面，适合 NAS / Linux 服务器；对外监听需设置访问口令；附 Dockerfile |
+| 命令行 | `claude-env-switcher list / use / quota [wait] / balance / sessions / gateway / gateway-key / catalog sync / mcp / web` 在终端查看额度、切换环境、管理网关密钥 |
 | CLI | 检测本机 Claude Code / Codex / Antigravity / OpenCode / Grok，按 pnpm、yarn、npm、官方安装器或原生方式安装升级 |
 | 配置目录 | 打开各家 CLI 的本机配置目录和关键文件 |
 | 更新 | 检测 GitHub Release，Windows 可在应用内下载并替换 |
@@ -132,6 +139,32 @@ wails build -platform windows/amd64 -nsis -webview2 download
 
 产物在 `build/bin/`。
 
+## 浏览器模式与 Docker
+
+不开桌面窗口，用浏览器访问同一套界面（适合 NAS、Linux 服务器）：
+
+```bash
+claude-env-switcher web
+```
+
+默认只听 `127.0.0.1:3430`。给其它机器访问时必须设置口令：
+
+```bash
+claude-env-switcher web --addr 0.0.0.0:3430 --password 你的口令
+```
+
+也可以用 Docker（镜像里的家目录是 `/data`，配置都在这个卷里）：
+
+```bash
+docker build -t aienv .
+```
+
+```bash
+docker run -d --name aienv -p 3430:3430 -e AIENV_WEB_PASSWORD=你的口令 -v aienv-data:/data aienv
+```
+
+网关在容器里默认只听本机；要给其它机器用，在“路由”页打开局域网共享并创建网关密钥，再映射 `18790` 端口。浏览器模式里的“导出”会直接下载文件，“导入”会弹出网页里的文件选择框，文件上传到运行 AI ENV 的那台机器上处理。
+
 ## 数据放在哪
 
 主配置目录：
@@ -142,6 +175,11 @@ wails build -platform windows/amd64 -nsis -webview2 download
   mcp.json               MCP 服务器
   skills.json            Skills 索引
   outbound-proxy.json    出站代理
+  session-trash/         会话回收站（清空后才真正删除）
+  models-catalog.json    models.dev 模型目录缓存
+  mcp-oauth.json         MCP OAuth 令牌
+  agents.json            接入网关前各 Agent 的原配置，用于断开时还原
+  ui.json                轻量模式等界面偏好
 ```
 
 应用写入的 CLI 文件（按平台）：
@@ -188,9 +226,10 @@ wails build -platform windows/amd64 -nsis -webview2 download
 
 - 配置默认只写本机磁盘，不上传任何服务。
 - 云同步需要你自己提供对象存储凭证；对象内容用 scrypt 从口令派生密钥后 AES-GCM 加密。设置了口令时，拉到未加密的备份会拒绝恢复，防止存储桶被人篡改。
-- 本机路由网关只接受 127.0.0.1 / localhost 的非浏览器请求，网页无法借它盗用你的 API Key。
+- 本机路由网关默认只接受 127.0.0.1 / localhost 的非浏览器请求，网页无法借它盗用你的 API Key。开启局域网共享后，其它电脑必须携带有效的网关密钥，网关密钥不会转发给上游。
 - 存有 Key 的本地文件（`config.json`、`mcp.json`、`cloud.json` 等）在 macOS / Linux 上权限为 600，只对当前用户可读。
 - 列表里的 API Key 会做掩码；完整值只在编辑表单中出现。
+- MCP OAuth 令牌只保存在本机 `mcp-oauth.json`，写进各工具的是本机网关地址，不含令牌；记录的请求内容会对密钥做脱敏。
 - 不要把 `config.json` 或导出的备份提交到 Git。
 
 ## 开发约定

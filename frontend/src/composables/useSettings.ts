@@ -3,12 +3,17 @@ import { isLocale, type Locale } from '@/i18n'
 
 export type ThemeMode = 'system' | 'light' | 'dark'
 export type AccentId = 'orange' | 'blue' | 'emerald' | 'violet' | 'rose' | 'zinc'
+export type TextSize = 'small' | 'default' | 'large' | 'xlarge'
+
+// 文字大小：调整根字号，界面中以 rem 计的文字与间距等比缩放
+export const TEXT_SIZES: Record<TextSize, string> = { small: '15px', default: '16px', large: '17px', xlarge: '18px' }
 
 export interface AppSettings {
   language: Locale
   theme: ThemeMode
   accent: AccentId
   reducedMotion: boolean
+  textSize: TextSize
   checkUpdateOnLaunch: boolean
   restoreLastPage: boolean
 }
@@ -34,6 +39,7 @@ const defaults: AppSettings = {
   theme: 'light',
   accent: 'orange',
   reducedMotion: false,
+  textSize: 'default',
   checkUpdateOnLaunch: true,
   restoreLastPage: false,
 }
@@ -89,6 +95,7 @@ function applyDocument() {
   document.documentElement.classList.toggle('dark', dark)
   document.documentElement.dataset.accent = state.accent
   document.documentElement.dataset.reduceMotion = state.reducedMotion ? 'true' : 'false'
+  document.documentElement.style.fontSize = TEXT_SIZES[state.textSize] || TEXT_SIZES.default
 }
 
 function onSystemTheme() {
@@ -110,6 +117,7 @@ export function initSettings() {
   }
   if (ACCENTS.some(item => item.id === stored.accent)) state.accent = stored.accent as AccentId
   if (typeof stored.reducedMotion === 'boolean') state.reducedMotion = stored.reducedMotion
+  if (stored.textSize && stored.textSize in TEXT_SIZES) state.textSize = stored.textSize
   if (typeof stored.checkUpdateOnLaunch === 'boolean') state.checkUpdateOnLaunch = stored.checkUpdateOnLaunch
   if (typeof stored.restoreLastPage === 'boolean') state.restoreLastPage = stored.restoreLastPage
 

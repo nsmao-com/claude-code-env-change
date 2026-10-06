@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"embed"
+	"os"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
@@ -22,25 +23,18 @@ var assets embed.FS
 var appIcon []byte
 
 func main() {
-	// Create an instance of the app structure
-	app := NewApp()
-	mcpService := NewMCPService()
-	logService := NewLogService()
-	skillService := NewSkillService()
-	uptimeService := NewUptimeService(app)
-	routerService := NewRouterService()
-	cloudSyncService := NewCloudSyncService(app, routerService, mcpService, skillService)
-	workbenchService := NewWorkbenchService(app, mcpService, skillService, routerService)
-	sessionService := NewSessionService(app)
-
-	onStartup := func(ctx context.Context) {
-		app.OnStartup(ctx)
-		workbenchService.startBudgetMonitor(ctx)
-		routerService.OnStartup(ctx)
-		cloudSyncService.OnStartup()
-		// Windows 系统托盘 + 右键面板（其它平台为空实现），独立 goroutine 不阻塞启动
-		go StartTray(app, ctx, routerService)
+	// 带子命令运行时进入命令行模式，不启动窗口
+	if args := os.Args[1:]; isCLIInvocation(args) {
+		// mcp 子命令通过标准输入输出与 Agent 通信，不能借用控制台；tui 自己开控制台窗口
+		if len(args) == 0 || args[0] != "mcp" && args[0] != "tui" {
+			attachParentConsole()
+		}
+		os.Exit(runCLI(args))
 	}
+	svc := newAppServices()
+	app := svc.app
+	setPendingDeepLink(extractDeepLink(os.Args[1:]))
+	onStartup := func(ctx context.Context) { svc.startup(ctx, true) }
 
 	// Create application with options
 	err := wails.Run(&options.App{
@@ -61,6 +55,7 @@ func main() {
 		},
 		OnShutdown: func(ctx context.Context) {
 			StopTray()
+			globalClaudeBridge.abortAll()
 		},
 		WindowStartState: options.Normal,
 		Frameless:        true, // 启用无边框模式
@@ -77,17 +72,12 @@ func main() {
 		},
 		Mac:   &mac.Options{About: &mac.AboutInfo{Title: "AI ENV", Message: "AI CLI 环境与配置管理工具", Icon: appIcon}},
 		Linux: &linux.Options{Icon: appIcon, ProgramName: "AI ENV"},
-		Bind: []interface{}{
-			app,
-			mcpService,
-			logService,
-			skillService,
-			uptimeService,
-			routerService,
-			cloudSyncService,
-			workbenchService,
-			sessionService,
+		// 单实例：再次启动（含点击 aienv:// 导入链接）时唤起已运行的窗口
+		SingleInstanceLock: &options.SingleInstanceLock{
+			UniqueId:               singleInstanceID(),
+			OnSecondInstanceLaunch: app.handleSecondInstance,
 		},
+		Bind: svc.bind(),
 	})
 
 	if err != nil {

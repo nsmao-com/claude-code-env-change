@@ -18,3 +18,6 @@ func trayAllowQuit() {}
 
 // trayShouldHideOnClose 非 Windows 平台保持"关闭即退出"。
 func trayShouldHideOnClose() bool { return false }
+
+// trayHideMain 非 Windows 平台没有托盘，不处理。
+func trayHideMain() bool { return false }

@@ -206,6 +206,8 @@ func (ms *MCPService) SaveServers(servers []MCPServer) error {
 
 // syncAllPlatforms 把中央存储下发到全部平台。removed 是本次从存储中删掉的服务器名（小写）
 func (ms *MCPService) syncAllPlatforms(servers []MCPServer, removed map[string]struct{}) error {
+	// 已 OAuth 登录的远程服务器改为经本机网关转发（网关负责带上并刷新令牌）
+	servers = withMCPRelays(servers)
 	if err := ms.syncClaudeServers(servers); err != nil {
 		return err
 	}
@@ -1747,7 +1749,7 @@ type MCPTestResult struct {
 
 // TestServer 测试 MCP 服务器是否可用
 func (ms *MCPService) TestServer(server MCPServer) MCPTestResult {
-	return probeMCP(server)
+	return probeMCP(withMCPOAuthHeader(server))
 }
 
 // testHTTPServer 测试 HTTP 类型的 MCP 服务器

@@ -219,8 +219,8 @@
           <Moon v-else class="size-4" />
         </button>
       </AppTooltip>
-      <span class="mx-0.5 h-5 w-px bg-border" />
-      <div class="flex items-center gap-0.5">
+      <span v-if="!isWebMode" class="mx-0.5 h-5 w-px bg-border" />
+      <div v-if="!isWebMode" class="flex items-center gap-0.5">
         <AppTooltip :content="t('titlebar.minimize')">
           <button type="button" class="flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground" @click="minimizeWindow">
             <Minus class="size-4" />
@@ -269,6 +269,7 @@ import { useTheme } from '@/composables/useTheme'
 import { useI18n } from '@/composables/useI18n'
 import { useToast } from '@/composables/useToast'
 import { updateService } from '@/services/updateService'
+import { callApp } from '@/services/appBridge'
 import AppLogo from '@/components/common/AppLogo.vue'
 import AppTooltip from '@/components/common/AppTooltip.vue'
 import BrandIcon from '@/components/common/BrandIcon.vue'
@@ -396,10 +397,14 @@ onMounted(async () => {
 
 // Windows 上有托盘：点关闭=隐藏到托盘，退出走托盘面板；其它平台仍是退出
 const isWindows = /Windows/i.test(navigator.userAgent)
+// 浏览器模式（claude-env-switcher web）没有窗口，不显示最小化 / 最大化 / 关闭
+const isWebMode = !!(window as unknown as { __AIENV_WEB__?: boolean }).__AIENV_WEB__
 
-function closeWindow() {
+async function closeWindow() {
   if (isWindows) {
-    window.runtime?.WindowHide()
+    // 经后端托盘隐藏：托盘记住显隐状态，轻量模式也从这里开始计时
+    const hidden = await callApp<boolean>('HideToTray').catch(() => false)
+    if (!hidden) window.runtime?.WindowHide()
   } else {
     window.runtime?.Quit()
   }

@@ -18,7 +18,6 @@ import (
 	"sync"
 	"time"
 
-	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 	"golang.org/x/crypto/scrypt"
 )
 
@@ -131,9 +130,9 @@ func (cs *CloudSyncService) OnStartup() {
 		result := cs.DownloadFromCloud()
 		if cs.app != nil && cs.app.ctx != nil {
 			if result.Success {
-				wailsruntime.EventsEmit(cs.app.ctx, "cloud:pulled", result.Message)
+				emitAppEvent(cs.app.ctx, "cloud:pulled", result.Message)
 			} else {
-				wailsruntime.EventsEmit(cs.app.ctx, "cloud:pull-failed", result.Message)
+				emitAppEvent(cs.app.ctx, "cloud:pull-failed", result.Message)
 			}
 		}
 	}

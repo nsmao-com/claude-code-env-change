@@ -8,8 +8,19 @@ import { callService } from '@/services/appBridge'
 import { Checkbox } from '@/components/ui/checkbox'
 import type { DateValue } from 'reka-ui'
 import WorkbenchDatePicker from './WorkbenchDatePicker.vue'
+import SegmentedPills from '@/components/layout/SegmentedPills.vue'
+import SessionInsights from './SessionInsights.vue'
+import SessionTrash from './SessionTrash.vue'
+import { useConfirm } from '@/composables/useConfirm'
 import type { SessionPage, SessionDetail, SessionSummary } from '@/types/workbench'
 const { tx, busy, error, run } = useWorkbench()
+const confirm = useConfirm()
+const view = ref<'list' | 'insights' | 'trash'>('list')
+const viewItems = computed(() => [
+  { value: 'list', label: tx('会话列表', 'Sessions') },
+  { value: 'insights', label: tx('使用洞察', 'Insights') },
+  { value: 'trash', label: tx('回收站', 'Recycle bin') },
+])
 const query = reactive({
   keyword: '',
   provider: '',
@@ -82,9 +93,33 @@ async function archive() {
     await load()
   })
 }
+async function remove() {
+  if (!detail.value) return
+  const item = detail.value.session
+  const ok = await confirm.show(
+    tx('删除会话', 'Delete session'),
+    tx(
+      `「${item.title}」的原始日志会移到回收站，可随时恢复。若会话仍在 CLI 中运行，请先结束再删除。`,
+      `The original log of “${item.title}” moves to the recycle bin and can be restored any time. End the session in the CLI first if it is still running.`,
+    ),
+    'warning',
+  )
+  if (!ok) return
+  await run(async () => {
+    await callService('SessionService', 'DeleteSession', item.id)
+    detail.value = null
+    await load()
+  }, tx('已移到回收站', 'Moved to the recycle bin'))
+}
 void load()
 </script>
 <template>
+  <div class="mb-4">
+    <SegmentedPills v-model="view" layout-id="sessions-view" :items="viewItems" />
+  </div>
+  <SessionInsights v-if="view === 'insights'" />
+  <SessionTrash v-else-if="view === 'trash'" @restored="load()" />
+  <template v-else>
   <div role="alert" v-if="error" class="wb-error">{{ error }}</div>
   <div class="wb-card">
     <div class="wb-grid">
@@ -221,6 +256,16 @@ void load()
         >
           {{ detail.session.archived ? tx('恢复到列表', 'Unarchive') : tx('归档', 'Archive') }}
         </Button>
+        <Button
+          variant="ghost"
+          type="button"
+          class="text-destructive"
+          v-if="detail.session.provider !== 'antigravity'"
+          :disabled="busy"
+          @click="remove"
+        >
+          {{ tx('删除到回收站', 'Move to recycle bin') }}
+        </Button>
       </div>
       <article v-for="(msg, i) in detail.messages" :key="messageOffset + i" class="mb-4">
         <div class="wb-row text-xs text-muted-foreground">
@@ -254,4 +299,5 @@ void load()
       {{ tx('选择左侧会话查看消息', 'Select a session to read its messages') }}
     </div>
   </div>
+  </template>
 </template>

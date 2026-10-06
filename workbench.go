@@ -47,13 +47,32 @@ type BalanceSource struct {
 	Provider    string `json:"provider"`
 	Environment string `json:"environment"`
 	Adapter     string `json:"adapter"`
+	// 自定义接口：同主机的余额地址、JSON 字段路径、换算除数与币种
+	URL      string  `json:"url,omitempty"`
+	Path     string  `json:"path,omitempty"`
+	Divisor  float64 `json:"divisor,omitempty"`
+	Currency string  `json:"currency,omitempty"`
+	// AlertBelow 余额低于该值时提醒，0 不提醒
+	AlertBelow float64 `json:"alert_below,omitempty"`
+}
+
+// QuotaSettings 订阅额度与余额提醒
+type QuotaSettings struct {
+	AlertPercent   int            `json:"alert_percent"`   // 订阅窗口用量达到该百分比时提醒，0 关闭
+	MonitorMinutes int            `json:"monitor_minutes"` // 后台检查间隔（分钟），0 关闭
+	DesktopNotify  bool           `json:"desktop_notify"`  // 同时发送系统通知
+	Saved          bool           `json:"saved,omitempty"` // 用户保存过；未保存时使用默认值
+	Warmup         WarmupSettings `json:"warmup"`
 }
 type WorkbenchConfig struct {
-	Models           []ModelProfile  `json:"models"`
-	Prompts          []PromptPreset  `json:"prompts"`
-	Projects         []ProjectPreset `json:"projects"`
-	Costs            CostSettings    `json:"costs"`
-	ArchivedSessions []string        `json:"archived_sessions"`
+	Models           []ModelProfile      `json:"models"`
+	Prompts          []PromptPreset      `json:"prompts"`
+	Projects         []ProjectPreset     `json:"projects"`
+	Costs            CostSettings        `json:"costs"`
+	Quota            QuotaSettings       `json:"quota"`
+	Tools            BuiltinToolSettings `json:"tools"`
+	Otel             OtelSettings        `json:"otel"`
+	ArchivedSessions []string            `json:"archived_sessions"`
 }
 
 var workbenchMu sync.Mutex

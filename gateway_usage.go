@@ -102,6 +102,9 @@ func (b *meteredBody) consumeObject(m map[string]any) {
 	if model := asString(m["model"]); model != "" {
 		t.model = model
 	}
+	if provider := strings.TrimSpace(asString(m["provider"])); provider != "" && len(provider) <= 64 {
+		t.servedBy = provider
+	}
 	u := object(m, "usage")
 	gemini := false
 	if u == nil {

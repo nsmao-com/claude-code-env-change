@@ -44,6 +44,13 @@
         {{ t('router.logs.query') }}
       </Button>
     </div>
+    <div class="mb-3 flex items-start gap-2 rounded-lg bg-muted/60 px-3 py-2">
+      <Switch :checked="captureOn" size="sm" :disabled="captureBusy" :aria-label="t('router.capture.toggle')" @update:checked="toggleCapture" />
+      <div class="text-xs">
+        <p class="font-medium">{{ t('router.capture.toggle') }}</p>
+        <p class="text-muted-foreground">{{ t('router.capture.toggleHint') }}</p>
+      </div>
+    </div>
 
     <div class="max-h-[46vh] overflow-auto rounded-lg border">
       <Table class="font-mono text-[11px]">
@@ -65,7 +72,10 @@
           </TableEmpty>
           <TableRow v-for="(log, i) in items" :key="i + log.time + log.path">
             <TableCell class="text-muted-foreground">{{ log.time }}</TableCell>
-            <TableCell class="font-bold">{{ log.route }}</TableCell>
+            <TableCell class="font-bold">
+              {{ log.route }}
+              <span v-if="log.caller_name" class="block text-[10px] font-normal text-muted-foreground">{{ log.caller_name }}{{ log.client ? ` · ${log.client}` : '' }}</span>
+            </TableCell>
             <TableCell class="max-w-[220px] truncate text-muted-foreground">
               <AppTooltip :content="log.path" wrap :disabled="!log.path">
                 <span class="block truncate">{{ log.path }}</span>
@@ -86,10 +96,19 @@
                   <span v-if="log.failover" class="shrink-0 rounded bg-amber-500/15 px-1 text-amber-600 dark:text-amber-400">{{ t('router.logs.switched') }}</span>
                   <span class="truncate">{{ log.upstream }}</span>
                 </span>
+                <span v-if="log.served_by" class="block truncate text-[10px]">{{ t('router.capture.servedBy', { name: log.served_by }) }}</span>
               </AppTooltip>
             </TableCell>
             <TableCell :class="log.status_code >= 400 ? 'font-bold text-red-500' : 'text-green-600'">
               {{ log.status_code }}
+              <button
+                v-if="log.captured && log.id"
+                type="button"
+                class="ml-1 rounded bg-muted px-1 text-[10px] font-normal text-foreground hover:bg-accent"
+                @click="openCapture(log.id)"
+              >
+                {{ t('router.capture.view') }}
+              </button>
             </TableCell>
             <TableCell class="text-right text-muted-foreground">{{ log.duration_ms }}ms</TableCell>
             <TableCell class="max-w-[240px] truncate text-red-500">
@@ -116,6 +135,7 @@
         <Button type="button" variant="secondary" @click="isOpen = false">{{ t('router.logs.close') }}</Button>
       </div>
     </template>
+    <RequestCaptureDialog v-model="captureOpen" :request-id="captureId" />
   </AppModal>
 </template>
 
@@ -137,6 +157,8 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Table, TableBody, TableEmpty, TableHead, TableHeader, TableRow, TableCell } from '@/components/ui/table'
+import RequestCaptureDialog from './RequestCaptureDialog.vue'
+import { callService } from '@/services/appBridge'
 
 const { t } = useI18n()
 
@@ -171,12 +193,37 @@ const routeNames = computed(() => routerStore.config.routes.map((r) => r.name))
 const page = computed(() => Math.floor(offset.value / pageSize) + 1)
 const pageCount = computed(() => Math.max(1, Math.ceil(total.value / pageSize)))
 
+const captureOn = ref(false)
+const captureBusy = ref(false)
+const captureOpen = ref(false)
+const captureId = ref('')
+
 watch(isOpen, (open) => {
   if (open) {
     offset.value = 0
+    captureOn.value = !!routerStore.config.capture_bodies
     reload(true)
   }
 })
+
+async function toggleCapture(on: boolean) {
+  captureBusy.value = true
+  try {
+    await callService('RouterService', 'SetCaptureBodies', on)
+    captureOn.value = on
+    await routerStore.loadConfig()
+    toast.success(on ? t('router.capture.on') : t('router.capture.off'))
+  } catch (e) {
+    toast.error(e instanceof Error ? e.message : String(e))
+  } finally {
+    captureBusy.value = false
+  }
+}
+
+function openCapture(id: string) {
+  captureId.value = id
+  captureOpen.value = true
+}
 
 function onRouteFilter(value: unknown) {
   routeFilter.value = !value || value === '__all__' ? '' : String(value)

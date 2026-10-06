@@ -1,0 +1,9 @@
+.git
+.claude
+build/bin
+frontend/node_modules
+frontend/dist
+frontend/*.tsbuildinfo
+*.exe
+*.exe~
+/claude-model-switcher

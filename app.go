@@ -78,19 +78,24 @@ func NewApp() *App {
 	a.configMu.Lock()
 	_ = a.loadConfig()
 	a.configMu.Unlock()
+	globalApp = a
 	return a
 }
+
+// globalApp 供网关等后台服务读取当前环境配置
+var globalApp *App
 
 // OnStartup is called when the app starts up
 func (a *App) OnStartup(ctx context.Context) {
 	a.ctx = ctx
 	initOutboundProxy()
 	go cleanupStaleUpdateTemp()
+	go func() { _ = registerURLProtocol() }()
 	a.configMu.Lock()
 	if a.configLoadErr != nil {
 		// 配置读不出来时绝对不能继续往下写盘：早期版本会在这里直接 saveConfig，
 		// 把一份空配置盖回用户的 config.json，所有环境配置就此丢失。
-		runtime.LogErrorf(ctx, "配置加载失败，已暂停写入: %v", a.configLoadErr)
+		logAppError(ctx, "配置加载失败，已暂停写入: %v", a.configLoadErr)
 		a.configMu.Unlock()
 		return
 	}

@@ -164,6 +164,29 @@
   .env .check svg { width: 15px; height: 15px; display: block; }
   .empty { padding: 28px 12px; text-align: center; font-size: 12.5px; color: #A8B0BF; }
 
+  /* ---------- 订阅额度子页 ---------- */
+  .subhead .refresh {
+    margin-left: auto; display: flex; align-items: center; justify-content: center;
+    width: 30px; height: 30px; border-radius: 9px; color: #5A6472;
+  }
+  .subhead .refresh:hover { background: #E9EBEE; }
+  .subhead .refresh svg { width: 16px; height: 16px; }
+  .qcard { padding: 10px 10px 6px; border-radius: 10px; }
+  .qcard + .qcard { border-top: 1px solid #F1F2F4; }
+  .qcard .qh { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; }
+  .qcard .qh .tag { font-weight: 400; }
+  .qcard .qs { margin-top: 4px; font-size: 11.5px; color: #98A1B2; }
+  .qwin { margin-top: 8px; }
+  .qwin .qt { display: flex; justify-content: space-between; font-size: 11.5px; color: #5A6472; }
+  .qwin .bar { margin-top: 4px; height: 5px; border-radius: 999px; background: #EEF0F3; overflow: hidden; }
+  .qwin .bar i { display: block; height: 100%; border-radius: 999px; background: #D97757; }
+  .qwin .bar i.warn { background: #D9A441; }
+  .qwin .bar i.bad { background: #D93A3A; }
+  .qwin .qr { margin-top: 3px; font-size: 10.5px; color: #A8B0BF; }
+  .bal { display: flex; justify-content: space-between; gap: 8px; padding: 6px 10px; font-size: 12px; }
+  .bal .v { font-weight: 600; }
+  .bal .v.low { color: #D93A3A; }
+
   /* ---------- 提示 ---------- */
   .toast {
     position: absolute; left: 50%; bottom: 22px;
@@ -230,6 +253,11 @@
       <div class="rlb">快速切换</div>
       <div class="chev" data-icon="chev-r"></div>
     </div>
+    <div class="row" data-act="quota">
+      <div class="ric" data-icon="gauge"></div>
+      <div class="rlb">订阅额度<span class="hint" id="quota-hint"></span></div>
+      <div class="chev" data-icon="chev-r"></div>
+    </div>
     <div class="row" data-act="open-router">
       <div class="ric" data-icon="route"></div>
       <div class="rlb">路由设置<span class="hint" id="router-hint"></span></div>
@@ -265,6 +293,15 @@
     <div class="envlist" id="envlist"></div>
   </div>
 
+  <div class="subview" id="quotaview">
+    <div class="subhead">
+      <div class="back" data-act="back" data-icon="chev-l"></div>
+      <div class="st">订阅额度与余额</div>
+      <div class="refresh" data-act="refresh-quota" title="立即读取" data-icon="refresh"></div>
+    </div>
+    <div class="envlist" id="quotalist"></div>
+  </div>
+
   <div class="toast" id="toast"></div>
 </div>
 
@@ -283,7 +320,8 @@
     power: '<path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/>',
     'chev-r': '<path d="m9 18 6-6-6-6"/>',
     'chev-l': '<path d="m15 18-6-6 6-6"/>',
-    check: '<polyline points="20 6 9 17 4 12"/>'
+    check: '<polyline points="20 6 9 17 4 12"/>',
+    gauge: '<path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/>'
   };
   function svg(name) {
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + ICONS[name] + '</svg>';
@@ -308,6 +346,61 @@
   var elProviders = document.getElementById('providers');
   var elEnvList = document.getElementById('envlist');
   var elToast = document.getElementById('toast');
+  var elQuotaView = document.getElementById('quotaview');
+  var elQuotaList = document.getElementById('quotalist');
+  var elQuotaHint = document.getElementById('quota-hint');
+  var WIN_NAMES = { '5h': '5 小时', '7d': '7 天', 'Premium': '高级请求', 'Chat': '对话', 'Completions': '代码补全' };
+  function winName(n) {
+    if (WIN_NAMES[n]) return WIN_NAMES[n];
+    if (n.indexOf('7d · ') === 0) return '7 天 · ' + n.slice(5);
+    return n;
+  }
+  function resetText(ms) {
+    if (!ms) return '';
+    var left = Math.round((ms - Date.now()) / 60000);
+    if (left <= 0) return '已重置';
+    var d = Math.floor(left / 1440), h = Math.floor((left % 1440) / 60), m = left % 60;
+    return (d > 0 ? d + ' 天 ' + h + ' 小时' : h > 0 ? h + ' 小时 ' + m + ' 分' : m + ' 分钟') + '后重置';
+  }
+  var STATUS_TEXT = { signed_out: '未登录', not_installed: '未安装 CLI', expired: '登录已过期', api_billing: '按 API 计费，无订阅窗口', pending: '尚未读取', error: '读取失败' };
+  function renderQuota() {
+    if (!state) return;
+    var quotas = state.quotas || [], balances = state.balances || [];
+    var worst = null;
+    quotas.forEach(function (q) {
+      (q.windows || []).forEach(function (w) {
+        if (!worst || w.used > worst.used) worst = { name: q.name, win: w.name, used: w.used };
+      });
+    });
+    var lowCount = balances.filter(function (b) { return b.low; }).length;
+    var hint = worst ? (worst.name.replace('GitHub ', '') + ' ' + winName(worst.win) + ' ' + Math.round(worst.used) + '%') : '打开读取';
+    if (lowCount) hint += ' · ' + lowCount + ' 个余额偏低';
+    elQuotaHint.textContent = hint;
+    var html = '';
+    quotas.forEach(function (q) {
+      var tags = q.plan ? '<span class="tag off">' + esc(q.plan) + '</span>' : '';
+      html += '<div class="qcard"><div class="qh">' + esc(q.name) + tags + '</div>';
+      if (!q.windows || !q.windows.length) {
+        html += '<div class="qs">' + esc(STATUS_TEXT[q.status] || '没有额度窗口') + '</div>';
+      }
+      (q.windows || []).forEach(function (w) {
+        var pct = Math.max(0, Math.min(100, w.used));
+        var cls = pct >= 95 ? 'bad' : pct >= 80 ? 'warn' : '';
+        html += '<div class="qwin"><div class="qt"><span>' + esc(winName(w.name)) + '</span><span>' + Math.round(pct) + '%</span></div>' +
+          '<div class="bar"><i class="' + cls + '" style="width:' + pct + '%"></i></div>' +
+          (w.resetsAt ? '<div class="qr">' + esc(resetText(w.resetsAt)) + '</div>' : '') + '</div>';
+      });
+      html += '</div>';
+    });
+    if (balances.length) {
+      html += '<div class="qcard"><div class="qh">供应商余额</div></div>';
+      balances.forEach(function (b) {
+        html += '<div class="bal"><span>' + esc(b.vendor) + '</span><span class="v' + (b.low ? ' low' : '') + '">' + (b.error ? '读取失败' : esc(b.display)) + '</span></div>';
+      });
+    }
+    if (!html) html = '<div class="empty">还没有读取额度，点右上角刷新，或在主窗口「工作台 → 额度与余额」查看</div>';
+    elQuotaList.innerHTML = html;
+  }
 
   function post(action, extra) {
     var payload = extra || {};
@@ -350,6 +443,7 @@
     }
     renderProviders();
     renderEnvs();
+    renderQuota();
   }
 
   function findProvider() {
@@ -434,6 +528,17 @@
         post('check-update');
         break;
       case 'quick-switch': openSwitch(); break;
+      case 'quota':
+        renderQuota();
+        elQuotaView.classList.add('show');
+        if (state && (!state.quotas || !state.quotas.length) && !busy['refresh-quota']) { busy['refresh-quota'] = true; post('refresh-quota'); }
+        break;
+      case 'refresh-quota':
+        if (busy['refresh-quota']) return;
+        busy['refresh-quota'] = true;
+        toast('正在读取额度…');
+        post('refresh-quota');
+        break;
       case 'open-router': post('open-page', { page: 'router' }); break;
       case 'open-settings': post('open-page', { page: 'settings' }); break;
       case 'autostart-toggle':
@@ -443,13 +548,14 @@
         break;
       case 'help': post('help'); break;
       case 'quit': post('quit'); break;
-      case 'back': elSubView.classList.remove('show'); break;
+      case 'back': elSubView.classList.remove('show'); elQuotaView.classList.remove('show'); break;
     }
   });
 
   document.addEventListener('keydown', function (ev) {
     if (ev.key === 'Escape') {
       if (elSubView.classList.contains('show')) elSubView.classList.remove('show');
+      else if (elQuotaView.classList.contains('show')) elQuotaView.classList.remove('show');
       else post('hide-panel');
     }
   });

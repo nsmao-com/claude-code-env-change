@@ -98,6 +98,10 @@
       </CardContent>
     </Card>
 
+    <GatewayAccessCard @changed="access = $event" />
+    <GatewayConnectCard :access="access" />
+    <OtelExportCard />
+
     <div class="mt-4">
       <div class="mb-2 flex items-center justify-between gap-2">
         <span class="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{{ t('router.recent') }}</span>
@@ -114,7 +118,10 @@
           <TableBody>
             <TableRow v-for="(log, i) in recentLogs" :key="i">
               <TableCell class="w-20 text-muted-foreground">{{ shortTime(log.time) }}</TableCell>
-              <TableCell class="font-bold">{{ log.route }}</TableCell>
+              <TableCell class="font-bold">
+                {{ log.route }}
+                <span v-if="log.caller_name" class="block text-[10px] font-normal text-muted-foreground">{{ log.caller_name }}{{ log.client ? ` · ${log.client}` : '' }}</span>
+              </TableCell>
               <TableCell class="max-w-[180px] truncate text-muted-foreground">
                 <AppTooltip :content="log.path" wrap :disabled="!log.path">
                   <span class="block truncate">{{ log.path }}</span>
@@ -147,7 +154,7 @@
 import { useI18n } from '@/composables/useI18n'
 import { ref, computed, watch, onUnmounted } from 'vue'
 import { Loader2, Play, RefreshCw, Square } from '@lucide/vue'
-import type { APIRoute, Provider } from '@/types'
+import type { APIRoute, GatewayAccessInfo, Provider } from '@/types'
 import { useRouterStore } from '@/stores/routerStore'
 import { useToast } from '@/composables/useToast'
 import AppModal from '@/components/common/AppModal.vue'
@@ -162,6 +169,9 @@ import { Switch } from '@/components/ui/switch'
 import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table'
 import RouterLogsModal from './RouterLogsModal.vue'
 import RouteEditModal from './RouteEditModal.vue'
+import GatewayAccessCard from './GatewayAccessCard.vue'
+import GatewayConnectCard from './GatewayConnectCard.vue'
+import OtelExportCard from './OtelExportCard.vue'
 
 const { t } = useI18n()
 
@@ -191,6 +201,7 @@ const autoStartInput = ref(true)
 const showLogsModal = ref(false)
 const showRouteEditor = ref(false)
 const editingRoute = ref<APIRoute | null>(null)
+const access = ref<GatewayAccessInfo | null>(null)
 
 // 应用路由按模型商 id 命名；开启路由并应用过一次配置后才会生成
 function routeFor(provider: Provider): APIRoute | undefined {

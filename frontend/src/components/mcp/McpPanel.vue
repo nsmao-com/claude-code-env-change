@@ -32,6 +32,10 @@
           <Store />
           {{ t('mcp.market') }}
         </Button>
+        <Button size="sm" variant="outline" @click="showBuiltinTools = true">
+          <Wrench />
+          {{ locale === 'zh' ? '内置工具' : 'Built-in tools' }}
+        </Button>
         <ApplyToPlatformMenu
           :items="MCP_PLATFORM_ITEMS"
           :disabled="mcpStore.servers.length === 0"
@@ -160,6 +164,9 @@
           :test-result="mcpStore.getTestResult(item.server.name)"
           :is-testing="testingIndex === item.index"
           :compact="viewMode === 'list'"
+          :oauth="oauthStatus[item.server.name.toLowerCase()]"
+          @oauth-login="oauthLogin(item.server.name)"
+          @oauth-logout="oauthLogout(item.server.name)"
           @test="testSingle(item.index)"
           @edit="editServer(item.index)"
           @delete="deleteServer(item.index)"
@@ -186,6 +193,8 @@
       v-model="showExportModal"
       :servers="mcpStore.servers"
     />
+
+    <BuiltinToolsDialog v-model="showBuiltinTools" @installed="refreshServers" />
   </AppModal>
 </template>
 
@@ -193,6 +202,7 @@
 import { useI18n } from '@/composables/useI18n'
 import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import {
+  Wrench,
   Download,
   FileDown,
   FileJson,
@@ -227,8 +237,10 @@ import McpServerCard from './McpServerCard.vue'
 import McpEditModal from './McpEditModal.vue'
 import McpJsonImport from './McpJsonImport.vue'
 import McpExportModal from './McpExportModal.vue'
+import BuiltinToolsDialog from './BuiltinToolsDialog.vue'
+import { callService, onAppEvent } from '@/services/appBridge'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 type PlatformFilter = 'all' | 'claude-code' | 'claude-desktop' | 'codex' | 'antigravity' | 'opencode' | 'grok'
 
@@ -256,6 +268,47 @@ const isOpen = computed({
 const showEditModal = ref(false)
 const showJsonImport = ref(false)
 const showExportModal = ref(false)
+const showBuiltinTools = ref(false)
+
+// MCP OAuth 登录状态（按服务器名小写）
+interface OAuthStatus { server: string; signed_in: boolean; pending: boolean; error?: string }
+const oauthStatus = ref<Record<string, OAuthStatus>>({})
+async function loadOAuth() {
+  try {
+    const list = await callService<OAuthStatus[]>('MCPService', 'GetMCPOAuthStatuses')
+    oauthStatus.value = Object.fromEntries((list || []).map((s) => [s.server, s]))
+  } catch {
+    /* 旧后端没有该接口 */
+  }
+}
+async function oauthLogin(name: string) {
+  try {
+    await callService('MCPService', 'StartMCPOAuth', name)
+    toast.info(locale.value === 'zh' ? '已在浏览器打开授权页，完成后会自动生效' : 'The sign-in page opened in your browser; it applies once you approve')
+  } catch (e) {
+    toast.error(e instanceof Error ? e.message : String(e))
+  }
+  await loadOAuth()
+}
+async function oauthLogout(name: string) {
+  const ok = await confirm.show(
+    locale.value === 'zh' ? '退出 OAuth 登录' : 'Sign out',
+    locale.value === 'zh' ? `将删除 ${name} 的登录令牌，各工具改回直连原地址（需要它们自己登录）。` : `The token for ${name} is removed and tools connect to the original URL again (they must sign in themselves).`,
+    'warning',
+  )
+  if (!ok) return
+  try {
+    await callService('MCPService', 'SignOutMCPOAuth', name)
+  } catch (e) {
+    toast.error(e instanceof Error ? e.message : String(e))
+  }
+  await loadOAuth()
+}
+const offOAuth = onAppEvent('mcp:oauth', () => {
+  void loadOAuth()
+  void mcpStore.loadServers?.()
+})
+void loadOAuth()
 const editingServer = ref<MCPServer | null>(null)
 const editingIndex = ref<number | undefined>(undefined)
 const testingIndex = ref<number | null>(null)
@@ -329,7 +382,10 @@ watch(marketQuery, () => {
   marketTimer = window.setTimeout(() => loadMarket(false), 350)
 })
 // 面板随页面切换销毁，防抖回调可能在卸载后触发 loadMarket
-onBeforeUnmount(() => window.clearTimeout(marketTimer))
+onBeforeUnmount(() => {
+  window.clearTimeout(marketTimer)
+  offOAuth()
+})
 
 function toggleMarket() {
   showMarket.value = !showMarket.value

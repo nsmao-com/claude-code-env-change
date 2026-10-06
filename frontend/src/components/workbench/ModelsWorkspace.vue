@@ -7,7 +7,7 @@ import { ref, reactive, computed, watch } from 'vue'
 import { useWorkbench, workbench } from '@/composables/useWorkbench'
 import { useConfigStore } from '@/stores/configStore'
 import { useConfirm } from '@/composables/useConfirm'
-import type { ModelProfile, WorkbenchConfig, Result } from '@/types/workbench'
+import type { ModelProfile, WorkbenchConfig, Result, CatalogModel, CatalogStatus } from '@/types/workbench'
 const { tx, busy, error, run } = useWorkbench()
 const config = useConfigStore(),
   confirm = useConfirm()
@@ -47,6 +47,54 @@ watch(selected, () => {
   models.value = []
   result.value = ''
 })
+// models.dev 目录：按模型名查参考上限与公开价格
+const catalog = ref<CatalogStatus | null>(null)
+const syncing = ref(false)
+const reference = ref<CatalogModel | null>(null)
+let lookupTimer: ReturnType<typeof setTimeout>
+watch(
+  () => form.model,
+  (name) => {
+    clearTimeout(lookupTimer)
+    reference.value = null
+    if (!name.trim()) return
+    lookupTimer = setTimeout(async () => {
+      try {
+        reference.value = (await workbench<CatalogModel | null>('LookupModelCatalog', name)) || null
+      } catch {
+        reference.value = null
+      }
+    }, 300)
+  },
+)
+function compactTokens(n?: number) {
+  if (!n) return '—'
+  return n >= 1e6 ? `${+(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `${Math.round(n / 1e3)}K` : String(n)
+}
+function fillFromCatalog() {
+  const r = reference.value
+  if (!r) return
+  if (r.context) form.context = r.context
+  if (r.output) form.output = r.output
+  if (r.priced) {
+    form.input_price = r.input || 0
+    form.output_price = r.output_cost || 0
+    form.cache_read_price = r.cache_read || 0
+    form.cache_write_price = r.cache_write || 0
+  }
+}
+async function syncCatalog() {
+  if (syncing.value) return
+  syncing.value = true
+  try {
+    catalog.value = await workbench<CatalogStatus>('SyncModelCatalog')
+    if (form.model) reference.value = (await workbench<CatalogModel | null>('LookupModelCatalog', form.model)) || null
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : String(e)
+  } finally {
+    syncing.value = false
+  }
+}
 async function load() {
   profiles.value = (await workbench<WorkbenchConfig>('GetWorkbench')).models || []
 }
@@ -130,6 +178,7 @@ async function auth(mode: string) {
     tx('认证方式已保存', 'Authentication mode saved'),
   )
 }
+void workbench<CatalogStatus>('GetModelCatalogStatus').then((s) => (catalog.value = s)).catch(() => {})
 void run(async () => {
   await config.loadConfig()
   selected.value = envs.value[0] ? `${envs.value[0].provider}/${envs.value[0].name}` : ''
@@ -148,6 +197,20 @@ void run(async () => {
         )
       }}
     </p>
+    <div class="wb-row text-xs text-muted-foreground">
+      <span v-if="catalog?.count">
+        {{
+          tx(
+            `models.dev 目录：${catalog.count} 个模型，更新于 ${new Date(catalog.updated_at).toLocaleDateString()}`,
+            `models.dev catalog: ${catalog.count} models, updated ${new Date(catalog.updated_at).toLocaleDateString()}`,
+          )
+        }}
+      </span>
+      <span v-else>{{ tx('还没有 models.dev 目录，同步后可一键填入上限与公开价格。', 'No models.dev catalog yet. Sync it to fill limits and list prices in one click.') }}</span>
+      <Button variant="ghost" size="sm" type="button" :disabled="syncing" @click="syncCatalog">
+        {{ syncing ? tx('同步中…', 'Syncing…') : tx('同步目录', 'Sync catalog') }}
+      </Button>
+    </div>
     <label
       >{{ tx('环境配置', 'Environment')
       }}
@@ -179,6 +242,23 @@ void run(async () => {
         }}
         <ModelCombobox v-model="form.model" :models="models" :disabled="busy" /></label
       >
+      <div v-if="reference" class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-muted px-3 py-2 text-xs">
+        <span class="font-medium">{{ tx('models.dev 参考', 'models.dev reference') }} · {{ reference.name || reference.id }} ({{ reference.maker }})</span>
+        <span>{{ tx('上下文', 'Context') }} {{ compactTokens(reference.context) }}</span>
+        <span>{{ tx('输出', 'Output') }} {{ compactTokens(reference.output) }}</span>
+        <span v-if="reference.priced">
+          ${{ reference.input }} / ${{ reference.output_cost }}
+          <template v-if="reference.cache_read || reference.cache_write">
+            · {{ tx('缓存', 'cache') }} ${{ reference.cache_read || 0 }} / ${{ reference.cache_write || 0 }}
+          </template>
+        </span>
+        <Button variant="outline" size="sm" type="button" class="ml-auto h-7" :disabled="busy" @click="fillFromCatalog">
+          {{ tx('填入这些数值', 'Fill these values') }}
+        </Button>
+        <span class="basis-full text-muted-foreground">
+          {{ tx('价格为厂商官方价；中转站请按实际倍率调整。', 'Prices are the maker’s list prices; adjust for your relay’s rate.') }}
+        </span>
+      </div>
       <div class="wb-grid mt-4">
         <label v-for="field in fields" :key="field.key"
           >{{ tx(field.zh, field.en)

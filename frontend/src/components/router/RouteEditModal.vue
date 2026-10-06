@@ -70,7 +70,7 @@
         <div class="flex items-center justify-between gap-2">
           <FieldLabel :label="t('router.edit.fallbacks')" :hint="tips.fallbacks" />
           <div class="flex items-center gap-1">
-            <Select v-if="importableEnvs.length > 0" :model-value="''" @update:model-value="importFallbackFromEnv">
+            <Select :model-value="''" @update:model-value="importFallbackFromEnv">
               <SelectTrigger size="sm" class="h-7 w-auto gap-1 text-xs">
                 <SelectValue :placeholder="t('router.edit.importFromConfig')" />
               </SelectTrigger>
@@ -78,6 +78,9 @@
                 <SelectItem v-for="env in importableEnvs" :key="env.name" :value="env.name">
                   {{ env.name }}
                 </SelectItem>
+                <SelectItem value="account://codex">{{ tx('ChatGPT 订阅（Codex 登录）', 'ChatGPT subscription (Codex sign-in)') }}</SelectItem>
+                <SelectItem value="account://copilot">{{ tx('GitHub Copilot 订阅', 'GitHub Copilot subscription') }}</SelectItem>
+                <SelectItem value="account://claude">{{ tx('Claude 订阅（本机 Claude Code，需上游格式为 Anthropic）', 'Claude subscription (local Claude Code; Anthropic upstream format)') }}</SelectItem>
               </SelectContent>
             </Select>
             <Button type="button" variant="link" size="sm" @click="addFallbackRow">{{ t('router.edit.addFallback') }}</Button>
@@ -88,8 +91,14 @@
         </p>
         <div v-for="(row, i) in fallbackRows" :key="i" class="flex items-center gap-2">
           <span class="w-5 shrink-0 text-center text-xs text-muted-foreground">{{ i + 1 }}</span>
-          <Input v-model="row.base_url" class="flex-[3] font-mono text-xs" :placeholder="t('router.edit.fallbackBaseUrl')" />
-          <Input v-model="row.api_key" type="password" class="flex-[2] font-mono text-xs" :placeholder="t('router.edit.fallbackApiKey')" />
+          <Input v-model="row.base_url" class="flex-[3] font-mono text-xs" :readonly="isAccountURL(row.base_url)" :placeholder="t('router.edit.fallbackBaseUrl')" />
+          <Input
+            v-model="row.api_key"
+            type="password"
+            class="flex-[2] font-mono text-xs"
+            :disabled="isAccountURL(row.base_url)"
+            :placeholder="isAccountURL(row.base_url) ? tx('使用本机订阅登录', 'Uses the local sign-in') : t('router.edit.fallbackApiKey')"
+          />
           <Input v-model.number="row.weight" type="number" min="1" max="100" class="w-16" :aria-label="tx('上游权重', 'Upstream weight')" />
           <AppTooltip :content="t('router.edit.removeFallback')">
             <Button type="button" variant="ghost" size="icon-sm" @click="removeFallbackRow(i)">
@@ -304,7 +313,18 @@ const importableEnvs = computed(() => {
   )
 })
 
+// 订阅账号上游：网关用本机 Codex（ChatGPT）、Copilot 登录或本机 Claude Code，不需要 Key
+function isAccountURL(url: string) {
+  return /^account:\/\/(codex|copilot|claude)\/?$/i.test(url.trim())
+}
+
 function importFallbackFromEnv(value: unknown) {
+  if (typeof value === 'string' && isAccountURL(value)) {
+    if (fallbackRows.value.some(row => row.base_url.trim().toLowerCase() === value)) return
+    fallbackRows.value.push({ base_url: value, api_key: '', weight: 1 })
+    toast.info(tx('订阅账号属于在官方客户端之外使用订阅，供应商可能限制账号，请自行评估风险。', 'Using a subscription outside its official client may get the account limited; weigh the risk.'))
+    return
+  }
   const env = importableEnvs.value.find(item => item.name === value)
   if (!env) return
   const up = upstreamOfEnv(env)
@@ -510,7 +530,7 @@ async function handleSubmit() {
   const fallbacks = fallbackRows.value
     .map(row => ({ base_url: row.base_url.trim(), api_key: row.api_key.trim() || undefined, weight: row.weight }))
     .filter(row => row.base_url)
-  if (fallbacks.some(row => !/^https?:\/\//i.test(row.base_url))) {
+  if (fallbacks.some(row => !/^https?:\/\//i.test(row.base_url) && !isAccountURL(row.base_url))) {
     toast.error(t('router.edit.fallbackUrlInvalid'))
     return
   }

@@ -84,6 +84,8 @@
     </div>
 
     <div v-if="restorePreview" class="workbench mt-5"><DiffPreview :changes="restorePreview.changes" v-model="restoreFiles"/><Button class="mt-4" :disabled="busy || !restoreFiles.length" @click="confirmRestore">{{ tx('确认恢复所选文件', 'Restore selected files') }}</Button></div>
+
+    <BackupFileCard class="mt-6" @restored="emit('pulled')" />
     <template #footer>
       <div class="flex w-full items-center justify-between gap-3">
         <div class="flex gap-2">
@@ -115,6 +117,7 @@ import { useWorkbench } from '@/composables/useWorkbench'
 import { callService } from '@/services/appBridge'
 import type { HistoryPreview, Result } from '@/types/workbench'
 import DiffPreview from '@/components/workbench/DiffPreview.vue'
+import BackupFileCard from './BackupFileCard.vue'
 import { computed, reactive, ref, watch } from 'vue'
 import { Download, Loader2, Unplug, Upload } from '@lucide/vue'
 import type { CloudConfig, CloudProvider } from '@/types'

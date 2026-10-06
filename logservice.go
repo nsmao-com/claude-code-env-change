@@ -1027,6 +1027,12 @@ func dedupUsageRecords(records []UsageRecord) []UsageRecord {
 
 // calculateCost 计算成本 (包含缓存成本)
 func (ls *LogService) calculateCost(model string, inputTokens, outputTokens, cacheCreateTokens, cacheReadTokens int) float64 {
+	// 内置价目没有精确条目时，先查 models.dev 目录，再退回内置价目的模糊匹配
+	if _, exact := modelPricing[strings.ToLower(strings.TrimSpace(model))]; !exact {
+		if cost, ok := catalogPriceCost(model, inputTokens, outputTokens, cacheReadTokens, cacheCreateTokens); ok {
+			return cost
+		}
+	}
 	pricing, ok := lookupModelPricing(model)
 	if !ok {
 		// 默认使用 sonnet 定价

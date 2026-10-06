@@ -87,6 +87,16 @@
             </button>
           </div>
           <p class="mt-2 text-xs text-muted-foreground">{{ accentLabel }}</p>
+          <Label class="mt-5 block">{{ t('settings.textSize') }}</Label>
+          <div class="mt-3">
+            <SegmentedPills
+              :model-value="settings.textSize"
+              layout-id="settings-text-size"
+              :items="textSizeItems"
+              @update:model-value="settings.textSize = $event as TextSize"
+            />
+          </div>
+          <p class="mt-2 text-xs text-muted-foreground">{{ t('settings.textSizeHint') }}</p>
         </CardContent>
       </Card>
 
@@ -122,6 +132,13 @@
               <p class="mt-0.5 text-xs text-muted-foreground">{{ t('settings.autostartHint') }}</p>
             </div>
             <Switch :checked="autostart" :disabled="autostartBusy" @update:checked="onAutostart" />
+          </div>
+          <div v-if="hasTray" class="flex items-start justify-between gap-4">
+            <div class="min-w-0">
+              <p class="text-sm font-medium">{{ t('settings.lightweight') }}</p>
+              <p class="mt-0.5 text-xs text-muted-foreground">{{ t('settings.lightweightHint') }}</p>
+            </div>
+            <Switch :checked="lightweightMode" :disabled="lightweightBusy" @update:checked="onLightweight" />
           </div>
         </CardContent>
       </Card>
@@ -224,7 +241,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ArrowUpCircle, Check, Download, FolderGit2, Loader2, Upload, Wifi } from '@lucide/vue'
-import { ACCENTS, useSettings, type AccentId, type ThemeMode } from '@/composables/useSettings'
+import { ACCENTS, useSettings, type AccentId, type TextSize, type ThemeMode } from '@/composables/useSettings'
 import { useI18n } from '@/composables/useI18n'
 import { useToast } from '@/composables/useToast'
 import { updateService } from '@/services/updateService'
@@ -295,6 +312,30 @@ async function onAutostart(value: boolean) {
     autostartBusy.value = false
   }
 }
+// ===== 轻量模式（隐藏到托盘后释放界面内存，仅 Windows 桌面版有托盘） =====
+const hasTray = /Windows/i.test(navigator.userAgent) && !(window as unknown as { __AIENV_WEB__?: boolean }).__AIENV_WEB__
+const lightweightMode = ref(false)
+const lightweightBusy = ref(false)
+
+async function loadLightweight() {
+  try {
+    lightweightMode.value = await callApp<boolean>('GetLightweightMode')
+  } catch { /* 旧后端没有该接口 */ }
+}
+
+async function onLightweight(value: boolean) {
+  if (lightweightBusy.value) return
+  lightweightBusy.value = true
+  try {
+    await callApp('SetLightweightMode', value)
+    lightweightMode.value = value
+    toast.success(value ? t('settings.lightweightOn') : t('settings.lightweightOff'))
+  } catch (e: unknown) {
+    toast.error(e instanceof Error ? e.message : String(e))
+  } finally {
+    lightweightBusy.value = false
+  }
+}
 const proxySaving = ref(false)
 const proxyTesting = ref(false)
 const proxyTestText = ref('')
@@ -302,6 +343,12 @@ const proxyTestText = ref('')
 const proxyProtocol = computed(() => proxy.url.trim().toLowerCase().startsWith('socks5') ? 'socks5' : 'http')
 
 const accentLabel = computed(() => t(`settings.accent${capitalize(settings.accent)}`))
+const textSizeItems = computed(() => [
+  { value: 'small', label: t('settings.textSizeSmall') },
+  { value: 'default', label: t('settings.textSizeDefault') },
+  { value: 'large', label: t('settings.textSizeLarge') },
+  { value: 'xlarge', label: t('settings.textSizeXLarge') },
+])
 
 function capitalize(id: AccentId) {
   return id.charAt(0).toUpperCase() + id.slice(1)
@@ -425,6 +472,7 @@ onMounted(async () => {
     appVersion.value = await updateService.version()
   } catch { /* ignore */ }
   void loadAutostart()
+  void loadLightweight()
   try {
     const current = await callApp<OutboundProxySettings>('GetOutboundProxy')
     proxy.enabled = pickBool(current, 'enabled', 'Enabled')

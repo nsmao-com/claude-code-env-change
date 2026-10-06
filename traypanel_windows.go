@@ -32,7 +32,7 @@ var trayPanelHTML string
 
 const (
 	trayPanelLogicalW  = 372 // 面板 CSS 像素宽度（与 traypanel.html 布局对应）
-	trayPanelLogicalH  = 460 // 面板 CSS 像素高度
+	trayPanelLogicalH  = 504 // 面板 CSS 像素高度
 	trayPanelShadowPad = 18  // 窗口四周留白，给 CSS 阴影留空间
 	projectRepoURL     = "https://github.com/nsmao-com/claude-code-env-change"
 )
@@ -321,7 +321,7 @@ func (p *trayPanel) onMessage(message string, _ *edge.ICoreWebView2, _ *edge.ICo
 				p.toastMsg("全部应用失败: "+err.Error(), true)
 				return
 			}
-			runtime.EventsEmit(m.ctx, "tray:applied", msg)
+			emitAppEvent(m.ctx, "tray:applied", msg)
 			p.toastMsg(abbreviate(msg, 120), false)
 			p.pushState()
 		}()
@@ -332,7 +332,7 @@ func (p *trayPanel) onMessage(message string, _ *edge.ICoreWebView2, _ *edge.ICo
 				p.toastMsg("应用「"+req.Name+"」失败: "+err.Error(), true)
 				return
 			}
-			runtime.EventsEmit(m.ctx, "tray:applied", "已应用 "+req.Name)
+			emitAppEvent(m.ctx, "tray:applied", "已应用 "+req.Name)
 			p.toastMsg("已应用「"+req.Name+"」", false)
 			p.pushState()
 		}()
@@ -349,7 +349,7 @@ func (p *trayPanel) onMessage(message string, _ *edge.ICoreWebView2, _ *edge.ICo
 				p.toastMsg("路由切换失败: "+err.Error(), true)
 				return
 			}
-			runtime.EventsEmit(m.ctx, "tray:router-changed", m.router.GetGatewayStatus().Running)
+			emitAppEvent(m.ctx, "tray:router-changed", m.router.GetGatewayStatus().Running)
 			p.pushState()
 		}()
 	case "autostart-toggle":
@@ -381,7 +381,7 @@ func (p *trayPanel) onMessage(message string, _ *edge.ICoreWebView2, _ *edge.ICo
 			} else {
 				p.toastMsg("已是最新版本 v"+info.CurrentVersion, false)
 			}
-			runtime.EventsEmit(m.ctx, "tray:update-status", info.Available)
+			emitAppEvent(m.ctx, "tray:update-status", info.Available)
 			p.pushState()
 		}()
 	case "open-page":
@@ -389,8 +389,17 @@ func (p *trayPanel) onMessage(message string, _ *edge.ICoreWebView2, _ *edge.ICo
 			req.Page = "home"
 		}
 		m.showMain()
-		runtime.EventsEmit(m.ctx, "tray:navigate", req.Page)
+		emitAppEvent(m.ctx, "tray:navigate", req.Page)
 		p.hide()
+	case "refresh-quota":
+		go func() {
+			if globalQuotaService != nil {
+				globalQuotaService.readQuotas(true, true)
+				globalQuotaService.GetBalances(true)
+			}
+			p.resetBusy("refresh-quota")
+			p.pushState()
+		}()
 	case "help":
 		runtime.BrowserOpenURL(m.ctx, projectRepoURL)
 		p.hide()
@@ -415,7 +424,29 @@ type trayProviderDto struct {
 	Envs  []trayEnvDto `json:"envs"`
 }
 
+type trayQuotaWindowDto struct {
+	Name     string  `json:"name"`
+	Used     float64 `json:"used"`
+	ResetsAt int64   `json:"resetsAt,omitempty"`
+}
+
+type trayQuotaDto struct {
+	Name    string               `json:"name"`
+	Plan    string               `json:"plan,omitempty"`
+	Status  string               `json:"status"`
+	Windows []trayQuotaWindowDto `json:"windows"`
+}
+
+type trayBalanceDto struct {
+	Vendor  string `json:"vendor"`
+	Display string `json:"display"`
+	Low     bool   `json:"low"`
+	Error   bool   `json:"error"`
+}
+
 type trayPanelState struct {
+	Quotas          []trayQuotaDto    `json:"quotas"`
+	Balances        []trayBalanceDto  `json:"balances"`
 	Version         string            `json:"version"`
 	ManagedCount    int               `json:"managedCount"`
 	RouterRunning   bool              `json:"routerRunning"`
@@ -445,6 +476,22 @@ func buildTrayPanelState(m *trayManager) trayPanelState {
 	m.mu.Lock()
 	st.UpdateAvailable = m.updateAvailable
 	m.mu.Unlock()
+	st.Quotas, st.Balances = []trayQuotaDto{}, []trayBalanceDto{}
+	if globalQuotaService != nil {
+		quotas, balances := globalQuotaService.cachedSnapshot()
+		for _, q := range quotas {
+			dto := trayQuotaDto{Name: q.Name, Plan: q.Plan, Status: q.Status, Windows: []trayQuotaWindowDto{}}
+			for _, w := range q.Windows {
+				if !w.Unlimited {
+					dto.Windows = append(dto.Windows, trayQuotaWindowDto{Name: w.Name, Used: w.Used, ResetsAt: w.ResetsAt})
+				}
+			}
+			st.Quotas = append(st.Quotas, dto)
+		}
+		for _, b := range balances {
+			st.Balances = append(st.Balances, trayBalanceDto{Vendor: b.Vendor, Display: b.Display, Low: b.Low, Error: b.Error != ""})
+		}
+	}
 
 	for _, def := range trayProviderDefs {
 		dto := trayProviderDto{ID: def.id, Label: def.label, Color: def.color}

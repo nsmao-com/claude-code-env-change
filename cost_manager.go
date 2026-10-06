@@ -4,9 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	"io"
 	"math"
-	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -45,10 +43,12 @@ func repriceUsageRecords(records []UsageRecord) []UsageRecord {
 }
 
 type CostOverview struct {
-	Today           float64            `json:"today"`
-	Month           float64            `json:"month"`
-	Requests        int                `json:"requests"`
-	Unpriced        int                `json:"unpriced"`
+	Today    float64 `json:"today"`
+	Month    float64 `json:"month"`
+	Requests int     `json:"requests"`
+	Unpriced int     `json:"unpriced"`
+	// ListEstimate 未匹配模型档案的请求按内置公开价目估算的金额，单独展示，不计入预算
+	ListEstimate    float64            `json:"list_estimate"`
 	Input           int64              `json:"input"`
 	Output          int64              `json:"output"`
 	DailyExceeded   bool               `json:"daily_exceeded"`
@@ -72,8 +72,8 @@ func (w *WorkbenchService) SaveCostSettings(s CostSettings) error {
 		}
 	}
 	for _, b := range s.BalanceSources {
-		if b.Adapter != "openrouter" && b.Adapter != "deepseek" {
-			return fmt.Errorf("不支持的余额适配器")
+		if err := validateBalanceSource(b); err != nil {
+			return err
 		}
 	}
 	workbenchMu.Lock()
@@ -82,6 +82,9 @@ func (w *WorkbenchService) SaveCostSettings(s CostSettings) error {
 	if e != nil {
 		return e
 	}
+	// 余额接口由「额度与余额」页通过 SaveBalanceSource 维护，这里保留磁盘上的值，
+	// 避免预算页的旧快照把新配置的余额接口覆盖掉
+	s.BalanceSources = c.Costs.BalanceSources
 	c.Costs = s
 	return saveWorkbench(c)
 }
@@ -137,6 +140,9 @@ func (w *WorkbenchService) GetCostOverview() (CostOverview, error) {
 		}
 		if price == nil {
 			out.Unpriced++
+			if lp, ok := listPriceCost(r); ok {
+				out.ListEstimate += lp
+			}
 			continue
 		}
 		multiplier := 1.0
@@ -159,53 +165,17 @@ func (w *WorkbenchService) CheckBalance(source BalanceSource) (BalanceResult, er
 	if e != nil {
 		return BalanceResult{}, e
 	}
+	if e = validateBalanceSource(source); e != nil {
+		return BalanceResult{}, e
+	}
 	base, key, _ := upstreamVarsForEnv(&env)
-	if e = validEndpoint(base); e != nil {
-		return BalanceResult{}, e
-	}
-	path := ""
-	switch source.Adapter {
-	case "openrouter":
-		path = "/credits"
-	case "deepseek":
-		path = "/user/balance"
-	default:
-		return BalanceResult{}, fmt.Errorf("请选择 OpenRouter 或 DeepSeek 余额接口")
-	}
-	req, e := http.NewRequest(http.MethodGet, strings.TrimRight(base, "/")+path, nil)
+	r, e := queryBalance(base, key, source)
 	if e != nil {
 		return BalanceResult{}, e
 	}
-	req.Header.Set("Authorization", "Bearer "+key)
-	resp, e := credentialClient(20 * time.Second).Do(req)
-	if e != nil {
-		return BalanceResult{}, e
+	msg := r.display
+	if msg == "" {
+		msg = formatMoney(r.amount, r.currency)
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != 200 {
-		return BalanceResult{}, fmt.Errorf("余额接口返回 HTTP %d", resp.StatusCode)
-	}
-	var data map[string]any
-	if e = json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&data); e != nil {
-		return BalanceResult{}, e
-	}
-	if source.Adapter == "openrouter" {
-		d := object(data, "data")
-		total, ok := d["total_credits"].(float64)
-		usage, ok2 := d["total_usage"].(float64)
-		if !ok || !ok2 {
-			return BalanceResult{}, fmt.Errorf("供应商未返回可识别余额")
-		}
-		return BalanceResult{total - usage, "USD", ""}, nil
-	}
-	items, _ := data["balance_infos"].([]any)
-	if len(items) == 0 {
-		return BalanceResult{}, fmt.Errorf("供应商未返回余额")
-	}
-	item, _ := items[0].(map[string]any)
-	var amount float64
-	if _, e = fmt.Sscan(asString(item["total_balance"]), &amount); e != nil {
-		return BalanceResult{}, fmt.Errorf("余额格式无效")
-	}
-	return BalanceResult{amount, asString(item["currency"]), ""}, nil
+	return BalanceResult{r.amount, strings.ToUpper(r.currency), msg}, nil
 }

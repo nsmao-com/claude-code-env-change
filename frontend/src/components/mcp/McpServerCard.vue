@@ -41,6 +41,17 @@
               <Check v-if="testResult.success" />
               {{ testResult.latency }}ms
             </Badge>
+            <Badge v-if="oauth?.signed_in" variant="outline" class="border-green-500/20 bg-green-500/10 text-[10px] text-green-600">
+              {{ locale === 'zh' ? 'OAuth 已登录' : 'OAuth signed in' }}
+            </Badge>
+            <Badge v-else-if="oauth?.pending" variant="outline" class="text-[10px]">
+              {{ locale === 'zh' ? '等待浏览器授权…' : 'Waiting for browser…' }}
+            </Badge>
+            <AppTooltip v-else-if="oauth?.error" :content="oauth.error" wrap>
+              <Badge variant="outline" class="border-red-500/20 bg-red-500/10 text-[10px] text-red-500">
+                {{ locale === 'zh' ? 'OAuth 登录失败' : 'OAuth failed' }}
+              </Badge>
+            </AppTooltip>
           </div>
 
           <AppTooltip v-if="!compact" :content="detailInfo" wrap class="mt-1 block w-full min-w-0">
@@ -71,6 +82,23 @@
         >
           <Loader2 v-if="isTesting" class="animate-spin" />
           <Zap v-else />
+        </Button>
+        </AppTooltip>
+        <AppTooltip
+          v-if="server.type === 'http'"
+          :content="oauth?.signed_in
+            ? (locale === 'zh' ? '退出 OAuth 登录（各工具恢复直连原地址）' : 'Sign out (tools go back to the original URL)')
+            : (locale === 'zh' ? 'OAuth 登录：授权一次后，各工具经本机网关访问并自动带上令牌' : 'OAuth sign-in: authorize once, tools reach it through the local gateway with the token added')"
+          wrap
+        >
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          :disabled="oauth?.pending"
+          :aria-label="oauth?.signed_in ? 'OAuth sign out' : 'OAuth sign in'"
+          @click="oauth?.signed_in ? $emit('oauth-logout') : $emit('oauth-login')"
+        >
+          <KeyRound :class="oauth?.signed_in ? 'text-green-600' : ''" />
         </Button>
         </AppTooltip>
         <AppTooltip v-if="server.website" :content="t('mcp.card.website')">
@@ -119,7 +147,7 @@
 <script setup lang="ts">
 import { useI18n } from '@/composables/useI18n'
 import { computed } from 'vue'
-import { Check, ExternalLink, Globe, Loader2, Pencil, Terminal, Trash2, TriangleAlert, Zap } from '@lucide/vue'
+import { Check, ExternalLink, Globe, KeyRound, Loader2, Pencil, Terminal, Trash2, TriangleAlert, Zap } from '@lucide/vue'
 import type { MCPServer, MCPTestResult } from '@/types'
 import AppTooltip from '@/components/common/AppTooltip.vue'
 import PlatformChips from '@/components/common/PlatformChips.vue'
@@ -127,13 +155,14 @@ import { MCP_PLATFORM_ITEMS } from '@/lib/platforms'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 interface Props {
   server: MCPServer
   testResult?: MCPTestResult
   isTesting?: boolean
   compact?: boolean
+  oauth?: { signed_in: boolean; pending: boolean; error?: string }
 }
 
 const props = defineProps<Props>()
@@ -143,6 +172,8 @@ defineEmits<{
   edit: []
   delete: []
   'toggle-platform': [platform: string]
+  'oauth-login': []
+  'oauth-logout': []
 }>()
 
 const platforms = computed(() => props.server.enable_platform || [])

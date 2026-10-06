@@ -124,7 +124,7 @@ func (rs *RouterService) doWithFailover(r *http.Request, route APIRoute, build f
 			req = req.WithContext(r.Context())
 		}
 		attemptStart := time.Now()
-		resp, err := rs.client.Do(req)
+		resp, err := rs.sendUpstream(req, up.BaseURL)
 		if err != nil {
 			releaseUpstream(route, up, false, time.Since(attemptStart).Milliseconds())
 			lastErr = fmt.Errorf("上游请求失败: %v", err)
@@ -162,6 +162,26 @@ func (rs *RouterService) doWithFailover(r *http.Request, route APIRoute, build f
 	return nil, lastErr
 }
 
+// sendUpstream 发送上游请求；account:// 上游先改写成订阅账号的请求
+func (rs *RouterService) sendUpstream(req *http.Request, baseURL string) (*http.Response, error) {
+	kind, ok := accountKind(baseURL)
+	if !ok {
+		return rs.client.Do(req)
+	}
+	if kind == "claude" {
+		return globalClaudeBridge.roundTrip(req)
+	}
+	out, fix, err := prepareAccountRequest(req, kind)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := rs.client.Do(out)
+	if err != nil {
+		return nil, err
+	}
+	return fix.apply(resp), nil
+}
+
 func upstreamHost(baseURL string) string {
 	if u, err := url.Parse(strings.TrimSpace(baseURL)); err == nil && u.Host != "" {
 		return u.Host
@@ -177,6 +197,7 @@ type gatewayTrace struct {
 	firstToken                           int64
 	reported                             bool
 	model                                string
+	servedBy                             string // 聚合平台回复里的实际供应商（OpenRouter 的 provider 字段）
 }
 
 func (t *gatewayTrace) skip(up RouteUpstream, reason string) {

@@ -83,7 +83,7 @@ func (a *App) emitUpdateProgress(p UpdateProgress) {
 	if a == nil || a.ctx == nil {
 		return
 	}
-	runtime.EventsEmit(a.ctx, updateEvent, p)
+	emitAppEvent(a.ctx, updateEvent, p)
 }
 
 // GetAppVersion 当前软件版本

@@ -45,10 +45,16 @@ func universalEnvironment(p UniversalProvider, provider string) EnvConfig {
 }
 func (w *WorkbenchService) SaveUniversalProvider(p UniversalProvider) (int, error) {
 	p.Name = strings.TrimSpace(p.Name)
-	if p.Name == "" || len(p.Name) > 100 || strings.TrimSpace(p.APIKey) == "" {
+	_, account := accountKind(p.BaseURL)
+	if p.Name == "" || len(p.Name) > 100 || strings.TrimSpace(p.APIKey) == "" && !account {
 		return 0, fmt.Errorf("请填写供应商名称与 API Key")
 	}
-	if e := validEndpoint(p.BaseURL); e != nil {
+	if account {
+		p.BaseURL = strings.ToLower(strings.TrimSpace(p.BaseURL))
+		if p.APIKey == "" {
+			p.APIKey = "account" // 占位：订阅账号由网关鉴权，不需要 Key
+		}
+	} else if e := validEndpoint(p.BaseURL); e != nil {
 		return 0, e
 	}
 	if len(p.Providers) == 0 {
@@ -170,7 +176,7 @@ func parseCCProvider(provider string, raw map[string]any) (EnvConfig, error) {
 	return env, nil
 }
 func (w *WorkbenchService) PreviewExternalImport(text string) ([]EnvConfig, error) {
-	text = strings.TrimSpace(strings.TrimPrefix(text, "\ufeff"))
+	text = normalizeDeepLink(strings.TrimSpace(strings.TrimPrefix(text, "\ufeff")))
 	if len(text) > 8<<20 {
 		return nil, fmt.Errorf("导入内容不可超过 8 MB")
 	}

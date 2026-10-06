@@ -16,8 +16,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 type cliSpec struct {
@@ -614,7 +612,7 @@ func (a *App) emitCliProgress(id, phase, message string) {
 	if a == nil || a.ctx == nil {
 		return
 	}
-	wailsruntime.EventsEmit(a.ctx, "cli:progress", map[string]string{
+	emitAppEvent(a.ctx, "cli:progress", map[string]string{
 		"id":      id,
 		"phase":   phase,
 		"message": message,

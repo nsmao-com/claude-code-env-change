@@ -2,7 +2,7 @@
 import { Button } from '@/components/ui/button'
 import WorkbenchNumberInput from './WorkbenchNumberInput.vue'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive } from 'vue'
 import { useWorkbench, workbench } from '@/composables/useWorkbench'
 import { useConfigStore } from '@/stores/configStore'
 import { useToast } from '@/composables/useToast'
@@ -16,11 +16,10 @@ const costs = reactive<CostSettings>({
   multipliers: {},
   balance_sources: [],
 })
-const overview = ref<CostOverview | null>(null),
-  selected = ref(''),
-  adapter = ref('openrouter'),
-  balance = ref('')
-const env = computed(() => config.environments.find((e) => `${e.provider}/${e.name}` === selected.value))
+const overview = ref<CostOverview | null>(null)
+const ledgerMonths = ref<string[]>([])
+const ledgerMonth = ref('')
+const exporting = ref(false)
 async function refresh() {
   overview.value = await workbench('GetCostOverview')
   if (overview.value?.daily_exceeded || overview.value?.monthly_exceeded)
@@ -35,26 +34,25 @@ async function save() {
     tx('预算与倍率已保存', 'Budgets and multipliers saved'),
   )
 }
-async function check() {
-  if (!env.value) return
-  await run(async () => {
-    const source = { provider: env.value!.provider, environment: env.value!.name, adapter: adapter.value }
-    const r = await workbench<{ amount: number; currency: string }>('CheckBalance', source)
-    balance.value = `${r.amount.toFixed(4)} ${r.currency}`
-    costs.balance_sources = [
-      ...costs.balance_sources.filter(
-        (b) => b.provider !== source.provider || b.environment !== source.environment,
-      ),
-      source,
-    ]
-    await workbench('SaveCostSettings', { ...costs })
-  })
+async function exportLedger() {
+  if (exporting.value || !ledgerMonth.value) return
+  exporting.value = true
+  try {
+    const path = await workbench<string>('ExportGatewayLedger', ledgerMonth.value)
+    if (path) toast.success(tx(`已导出到 ${path}`, `Exported to ${path}`))
+  } catch (e) {
+    toast.error(e instanceof Error ? e.message : String(e))
+  } finally {
+    exporting.value = false
+  }
 }
 void run(async () => {
   await config.loadConfig()
   const c = await workbench<WorkbenchConfig>('GetWorkbench')
   Object.assign(costs, c.costs)
   await refresh()
+  ledgerMonths.value = (await workbench<string[]>('ListGatewayLedgerMonths')) || []
+  ledgerMonth.value = ledgerMonths.value[0] || ''
 })
 </script>
 <template>
@@ -97,6 +95,14 @@ void run(async () => {
           'Some models have no unique matching pricing profile and are excluded from costs. Add prices in Models.',
         )
       }}
+      <template v-if="overview.list_estimate > 0">
+        {{
+          tx(
+            `按官方公开价目参考估算约 $${overview.list_estimate.toFixed(4)}（中转站实际价格可能不同，不计入预算）。`,
+            `At official list prices they come to about $${overview.list_estimate.toFixed(4)} (relays may charge differently; not counted toward budgets).`,
+          )
+        }}
+      </template>
     </p>
     <p v-if="overview?.daily_exceeded || overview?.monthly_exceeded" role="alert" class="wb-error mt-4">
       {{
@@ -141,54 +147,35 @@ void run(async () => {
     </form>
   </section>
   <section class="wb-card">
-    <h2>{{ tx('查询供应商余额', 'Provider balance') }}</h2>
+    <h2>{{ tx('导出请求账本', 'Export request ledger') }}</h2>
     <p class="wb-hint">
       {{
         tx(
-          '使用已保存的凭证请求供应商余额接口，不运行自定义脚本。Base URL 应包含供应商要求的 API 前缀。',
-          'Uses saved credentials to call the provider balance API. No custom scripts are executed. Include the provider’s API prefix in Base URL.',
+          '把网关每条有用量的请求导出为 CSV（含 Token、首 Token 延迟、估算费用、调用方网关密钥），可用 Excel 打开对账。保留当月与前两个月。',
+          'Exports every gateway request with usage as CSV (tokens, first-token latency, estimated cost, caller gateway key) for reconciling in Excel. The current and previous two months are kept.',
         )
       }}
     </p>
-    <div class="wb-grid">
-      <label
-        >{{ tx('环境', 'Environment')
-        }}
-        <Select v-model="selected" :disabled="busy">
-          <SelectTrigger class="h-9 w-full min-w-0">
-            <SelectValue :placeholder="tx('选择环境', 'Select environment')" />
-          </SelectTrigger>
-          <SelectContent position="popper" align="start">
-            <SelectItem
-              v-for="e in config.environments.filter((e) => !e.official_login)"
-              :key="`${e.provider}/${e.name}`"
-              :value="`${e.provider}/${e.name}`"
-            >
-              {{ e.provider }}
-              ·
-              {{ e.name }}
-            </SelectItem>
-          </SelectContent>
-        </Select></label
-      ><label
-        >{{ tx('余额接口', 'Balance API')
-        }}
-        <Select v-model="adapter" :disabled="busy">
-          <SelectTrigger class="h-9 w-full min-w-0">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent position="popper" align="start">
-            <SelectItem value="openrouter">OpenRouter</SelectItem>
-            <SelectItem value="deepseek">DeepSeek</SelectItem>
-          </SelectContent>
-        </Select></label
-      >
-    </div>
-    <div class="wb-row mt-4">
-      <Button variant="outline" type="button" :disabled="busy || !env" @click="check">
-        {{ tx('查询余额', 'Check balance') }}
+    <div class="wb-row !mb-0">
+      <Select v-model="ledgerMonth" :disabled="exporting">
+        <SelectTrigger class="h-9 w-40 min-w-0" :aria-label="tx('月份', 'Month')">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent position="popper" align="start">
+          <SelectItem v-for="m in ledgerMonths" :key="m" :value="m">{{ m }}</SelectItem>
+        </SelectContent>
+      </Select>
+      <Button variant="outline" type="button" :disabled="exporting || !ledgerMonth" @click="exportLedger">
+        {{ exporting ? tx('导出中…', 'Exporting…') : tx('导出 CSV', 'Export CSV') }}
       </Button>
-      <strong>{{ balance }}</strong>
     </div>
   </section>
+  <p class="wb-hint">
+    {{
+      tx(
+        '供应商余额与订阅额度已移到「额度与余额」页签，支持更多供应商、中转站与低余额提醒。',
+        'Provider balances and subscription allowances now live in the “Allowances & balances” tab, with more vendors, relays and low-balance alerts.',
+      )
+    }}
+  </p>
 </template>

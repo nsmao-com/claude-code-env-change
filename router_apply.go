@@ -164,6 +164,15 @@ func sourceFormatForEnv(env *EnvConfig) string {
 }
 
 func targetFormatForEnv(env *EnvConfig) string {
+	// 订阅账号上游只认各自的协议
+	if base, _, _ := upstreamVarsForEnv(env); base != "" {
+		switch kind, _ := accountKind(base); kind {
+		case "claude":
+			return "anthropic"
+		case "codex":
+			return "responses"
+		}
+	}
 	format := normalizeUpstreamFormat(env.UpstreamFormat)
 	switch format {
 	case UpstreamAnthropicMessages:
@@ -266,6 +275,12 @@ func prepareLiveEnv(env *EnvConfig) (*EnvConfig, error) {
 	live := cloneEnvConfig(env)
 	if live == nil {
 		return nil, fmt.Errorf("环境配置为空")
+	}
+	// 订阅账号上游（account://）只能经本机网关访问：自动打开该工具的应用路由
+	if !isAppRoutingOn(live.Provider) && envUsesAccount(live) && globalRouterService != nil {
+		if err := globalRouterService.SetAppRouting(live.Provider, true); err != nil {
+			return nil, fmt.Errorf("订阅账号上游需要开启应用路由: %v", err)
+		}
 	}
 	if isAppRoutingOn(live.Provider) {
 		localBase, err := wireRouterForEnv(live)

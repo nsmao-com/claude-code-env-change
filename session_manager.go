@@ -140,7 +140,7 @@ func parseSessionLine(line []byte, s *SessionSummary) []SessionMessage {
 	if strings.TrimSpace(text) == "" {
 		return nil
 	}
-	if role == "user" && (s.Title == "" || s.Title == "未命名会话") {
+	if role == "user" && (s.Title == "" || s.Title == "未命名会话") && !(s.Provider == "codex" && isCodexInjected(text)) {
 		runes := []rune(text)
 		if len(runes) > 100 {
 			runes = runes[:100]

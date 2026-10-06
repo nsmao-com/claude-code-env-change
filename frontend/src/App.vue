@@ -137,6 +137,7 @@ import { OnFileDrop, OnFileDropOff, EventsOn, EventsOff } from '../wailsjs/runti
 import { Upload } from '@lucide/vue'
 import { classifyImportPayload } from '@/lib/configImport'
 import { callApp } from '@/services/appBridge'
+import { pendingImportLink } from '@/lib/deepLink'
 
 const configStore = useConfigStore()
 const uptimeStore = useUptimeStore()
@@ -250,7 +251,22 @@ onMounted(async () => {
     toast.error(t('app.cloudPullFailed', { error: message || t('app.unknownError') }))
   })
   EventsOn('cost:budget', () => toast.info(t('app.budgetReached')))
+  EventsOn('deeplink:import', (link: string) => openImportLink(link))
+  // 命令行或手动修改了配置文件：重新加载，避免界面用旧数据覆盖
+  EventsOn('config:external-change', () => { void configStore.loadConfig() })
+  EventsOn('router:external-change', () => {
+    void routerStore.loadConfig().then(() => routerStore.refreshStatus()).catch(() => {})
+  })
+  EventsOn('quota:alert', (alert: { title?: string, message?: string }) => {
+    if (alert?.message) toast.error(`${alert.title ? `${alert.title}：` : ''}${alert.message}`)
+  })
 
+  try {
+    const link = await callApp<string>('TakePendingDeepLink')
+    if (link) openImportLink(link)
+  } catch {
+    /* 旧后端没有该方法时忽略 */
+  }
   try {
     await configStore.loadConfig()
     const drift = await callApp<string[]>('GetConfigDrift')
@@ -295,12 +311,23 @@ onBeforeUnmount(() => {
   try { OnFileDropOff() } catch { /* ignore */ }
   try {
     EventsOff('cost:budget')
+    EventsOff('quota:alert')
+    EventsOff('deeplink:import')
+    EventsOff('config:external-change')
+    EventsOff('router:external-change')
     EventsOff('tray:navigate')
     EventsOff('tray:applied')
     EventsOff('tray:router-changed')
     EventsOff('tray:update-status')
   } catch { /* ignore */ }
 })
+
+// aienv:// 导入链接：切到工作台的供应商导入，只做预览，用户确认后才保存
+function openImportLink(link: string) {
+  if (typeof link !== 'string' || !link.trim()) return
+  pendingImportLink.value = link.trim()
+  page.value = 'workbench'
+}
 
 function openAddConfig() {
   editingConfig.value = null

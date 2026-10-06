@@ -152,6 +152,42 @@ export interface RouterConfig {
   auto_start: boolean
   routes: APIRoute[]
   app_routing?: Record<string, boolean>
+  lan_share?: boolean
+  gateway_keys?: GatewayKey[]
+  capture_bodies?: boolean
+}
+
+export interface GatewayKey {
+  id: string
+  name: string
+  key: string
+  enabled: boolean
+  created_at: number
+  routes?: string[]
+  limit_period?: '' | 'day' | 'week' | 'month'
+  limit_tokens?: number
+  limit_cost?: number
+}
+
+export interface GatewayKeyUsage {
+  tokens: number
+  cost: number
+  requests: number
+  resets_at?: number
+  exceeded: boolean
+}
+
+export interface GatewayKeyView extends GatewayKey {
+  usage: GatewayKeyUsage
+}
+
+export interface GatewayAccessInfo {
+  lan_share: boolean
+  port: number
+  running: boolean
+  addresses: string[]
+  keys: GatewayKeyView[]
+  routes: string[]
 }
 
 export interface RouteStats {
@@ -176,6 +212,25 @@ export interface RouterLogEntry {
   error?: string
   upstream?: string
   failover?: string
+  caller_name?: string
+  client?: string
+  id?: string
+  captured?: boolean
+  served_by?: string
+}
+
+export interface RequestCapture {
+  id: string
+  time: string
+  method: string
+  path: string
+  request_headers: Record<string, string>
+  request_body: string
+  request_truncated?: boolean
+  status: number
+  response_headers: Record<string, string>
+  response_body: string
+  response_truncated?: boolean
 }
 
 export interface RouterLogQuery {

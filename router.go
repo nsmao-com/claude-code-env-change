@@ -59,6 +59,11 @@ type RouterConfig struct {
 	AutoStart  bool            `json:"auto_start"`
 	Routes     []APIRoute      `json:"routes"`
 	AppRouting map[string]bool `json:"app_routing,omitempty"` // 按模型商开关：claude/codex/antigravity/opencode/grok
+	// LANShare 局域网共享：监听 0.0.0.0，非本机请求必须携带网关密钥
+	LANShare    bool         `json:"lan_share,omitempty"`
+	GatewayKeys []GatewayKey `json:"gateway_keys,omitempty"`
+	// CaptureBodies 在内存中保留最近请求的请求 / 响应内容，便于排查
+	CaptureBodies bool `json:"capture_bodies,omitempty"`
 }
 
 // RouteStats 路由运行统计
@@ -87,6 +92,12 @@ type RouterLogEntry struct {
 	CacheWriteTokens int    `json:"cache_write_tokens,omitempty"`
 	FirstTokenMs     int64  `json:"first_token_ms,omitempty"`
 	UsageReported    bool   `json:"usage_reported,omitempty"`
+	CallerKey        string `json:"caller_key,omitempty"`  // 调用方使用的网关密钥 ID
+	CallerName       string `json:"caller_name,omitempty"` // 网关密钥名称
+	Client           string `json:"client,omitempty"`      // 局域网调用方 IP
+	ID               string `json:"id,omitempty"`          // 请求 ID，用于查看记录的请求内容
+	Captured         bool   `json:"captured,omitempty"`    // 是否记录了请求内容
+	ServedBy         string `json:"served_by,omitempty"`   // 聚合平台（如 OpenRouter）实际转给的供应商
 }
 
 // RouterLogQuery 完整日志查询
@@ -298,7 +309,7 @@ func (rs *RouterService) SaveRouterConfig(config RouterConfig) error {
 		if route.BaseURL == "" {
 			return fmt.Errorf("路由 %s 必须填写上游 Base URL", route.Name)
 		}
-		if !strings.HasPrefix(route.BaseURL, "http://") && !strings.HasPrefix(route.BaseURL, "https://") {
+		if _, account := accountKind(route.BaseURL); !account && !strings.HasPrefix(route.BaseURL, "http://") && !strings.HasPrefix(route.BaseURL, "https://") {
 			return fmt.Errorf("路由 %s 的 Base URL 必须以 http:// 或 https:// 开头", route.Name)
 		}
 		fallbacks := make([]RouteUpstream, 0, len(route.Fallbacks))
@@ -308,7 +319,7 @@ func (rs *RouterService) SaveRouterConfig(config RouterConfig) error {
 			if fb.BaseURL == "" {
 				continue
 			}
-			if !strings.HasPrefix(fb.BaseURL, "http://") && !strings.HasPrefix(fb.BaseURL, "https://") {
+			if _, account := accountKind(fb.BaseURL); !account && !strings.HasPrefix(fb.BaseURL, "http://") && !strings.HasPrefix(fb.BaseURL, "https://") {
 				return fmt.Errorf("路由 %s 的备用上游 %d 必须以 http:// 或 https:// 开头", route.Name, i+1)
 			}
 			fallbacks = append(fallbacks, fb)
@@ -320,15 +331,21 @@ func (rs *RouterService) SaveRouterConfig(config RouterConfig) error {
 	if err != nil {
 		return err
 	}
+
+	rs.mu.Lock()
+	// 局域网共享与网关密钥由专用接口维护，这里沿用当前值，避免前端旧快照覆盖新建的密钥
+	config.LANShare = rs.config.LANShare
+	config.GatewayKeys = rs.config.GatewayKeys
+	config.CaptureBodies = rs.config.CaptureBodies
 	data, err := json.MarshalIndent(config, "", "  ")
 	if err != nil {
+		rs.mu.Unlock()
 		return err
 	}
 	if err := writeFileAtomic(path, data, 0o600); err != nil {
+		rs.mu.Unlock()
 		return err
 	}
-
-	rs.mu.Lock()
 	wasRunning := rs.running
 	rs.config = config
 	rs.mu.Unlock()
@@ -374,13 +391,17 @@ func (rs *RouterService) StartGateway() error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", rs.handleRoot)
 
-	ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", rs.config.Port))
+	host := "127.0.0.1"
+	if rs.config.LANShare {
+		host = "0.0.0.0"
+	}
+	ln, err := net.Listen("tcp", fmt.Sprintf("%s:%d", host, rs.config.Port))
 	if err != nil {
-		return fmt.Errorf("监听 127.0.0.1:%d 失败: %v", rs.config.Port, err)
+		return fmt.Errorf("监听 %s:%d 失败: %v", host, rs.config.Port, err)
 	}
 
 	server := &http.Server{
-		Handler:           gatewayGuard(mux),
+		Handler:           rs.accessGuard(mux),
 		ReadHeaderTimeout: 30 * time.Second,
 		IdleTimeout:       120 * time.Second,
 		// 故意不设 WriteTimeout：会掐断 SSE 流式响应
@@ -481,7 +502,7 @@ func (rs *RouterService) GetRouterLogs(query RouterLogQuery) RouterLogPage {
 			continue
 		}
 		if keyword != "" {
-			blob := strings.ToLower(entry.Route + " " + entry.Path + " " + entry.Model + " " + entry.Error + " " + entry.Upstream + " " + entry.Failover)
+			blob := strings.ToLower(entry.Route + " " + entry.Path + " " + entry.Model + " " + entry.Error + " " + entry.Upstream + " " + entry.Failover + " " + entry.CallerName + " " + entry.Client)
 			if !strings.Contains(blob, keyword) {
 				continue
 			}
@@ -620,7 +641,7 @@ func (rs *RouterService) testUpstream(route APIRoute) RouterTestResult {
 		return RouterTestResult{Success: false, Message: err.Error(), Latency: time.Since(start).Milliseconds()}
 	}
 
-	resp, err := rs.client.Do(req)
+	resp, err := rs.sendUpstream(req, route.BaseURL)
 	latency := time.Since(start).Milliseconds()
 	if err != nil {
 		return RouterTestResult{Success: false, Message: fmt.Sprintf("连接失败: %v", err), Latency: latency}
@@ -695,6 +716,19 @@ func (rs *RouterService) handleRoot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if parts[0] == claudeBridgePrefix && len(parts) == 2 {
+		globalClaudeBridge.serveCallback(w, r, parts[1])
+		return
+	}
+	if parts[0] == mcpRelayPrefix && len(parts) >= 2 {
+		name, err := url.PathUnescape(parts[1])
+		if err != nil {
+			writeJSONError(w, http.StatusBadRequest, "MCP 服务器名称无效")
+			return
+		}
+		rs.serveMCPRelay(w, r, name)
+		return
+	}
 	route, ok := rs.findRoute(parts[0])
 	if !ok {
 		writeJSONError(w, http.StatusNotFound, fmt.Sprintf("路由 %q 不存在", parts[0]))
@@ -706,6 +740,11 @@ func (rs *RouterService) handleRoot(w http.ResponseWriter, r *http.Request) {
 	}
 
 	endpoint := strings.TrimPrefix(strings.Join(parts[1:], "/"), "v1/")
+	// Gemini 协议请求转换后交给上游；Antigravity 自身的路由上游本就说 Gemini，照旧透传
+	if model, method, ok := parseGeminiEndpoint(strings.Join(parts[1:], "/")); ok && !geminiNativeRoute(route) {
+		rs.serveGeminiEndpoint(w, r, route, model, method)
+		return
+	}
 
 	switch endpoint {
 	case "messages":
@@ -783,6 +822,13 @@ func (rs *RouterService) serveAnthropicEndpoint(w http.ResponseWriter, r *http.R
 			return
 		}
 		rs.proxyResponse(w, resp, route, r, start, inboundModel)
+		return
+	}
+
+	if target == "responses" {
+		chat := anthropicRequestToOpenAI(req, mappedModel)
+		chat.Stream = req.Stream
+		rs.serveChatViaResponses(w, r, route, chat, mappedModel, inboundModel, start, true)
 		return
 	}
 
@@ -882,6 +928,11 @@ func (rs *RouterService) serveOpenAIEndpoint(w http.ResponseWriter, r *http.Requ
 			return
 		}
 		rs.proxyResponse(w, resp, route, r, start, inboundModel)
+		return
+	}
+
+	if target == "responses" {
+		rs.serveChatViaResponses(w, r, route, req, mappedModel, inboundModel, start, false)
 		return
 	}
 
@@ -1223,6 +1274,11 @@ func (rs *RouterService) finishRequest(_ http.ResponseWriter, route APIRoute, r 
 	if reqErr != nil {
 		entry.Error = reqErr.Error()
 	}
+	if caller := callerFrom(r); caller != nil {
+		entry.CallerKey, entry.CallerName, entry.Client = caller.id, caller.name, caller.client
+	}
+	entry.ID = requestIDFrom(r)
+	entry.Captured = entry.ID != "" && rs.captureEnabled()
 	if trace := gatewayTraceFrom(r); trace != nil {
 		entry.Upstream = trace.upstream
 		entry.Failover = strings.Join(trace.skipped, "；")
@@ -1232,6 +1288,7 @@ func (rs *RouterService) finishRequest(_ http.ResponseWriter, route APIRoute, r 
 		entry.CacheWriteTokens = trace.cacheWrite
 		entry.FirstTokenMs = trace.firstToken
 		entry.UsageReported = trace.reported
+		entry.ServedBy = trace.servedBy
 		if trace.model != "" {
 			entry.Model = trace.model
 		}
@@ -1272,6 +1329,8 @@ func (rs *RouterService) finishRequest(_ http.ResponseWriter, route APIRoute, r 
 	// 文件 IO 在锁外执行：高并发下持 statsMu 做同步写会放大每请求延迟
 	rs.persistLog(entry, snapshot, trimmed)
 	persistGatewayUsage(entry)
+	recordCallerUse(entry)
+	otelRecordEntry(entry, start)
 }
 
 func (rs *RouterService) logFilePath() (string, error) {
