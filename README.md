@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="build/appicon.png?v=2.7.4" width="72" height="72" alt="AI ENV 图标" />
+  <img src="build/appicon.png?v=2.8.0" width="72" height="72" alt="AI ENV 图标" />
 </p>
 
 <h1 align="center">AI ENV</h1>
@@ -58,6 +58,18 @@
 | CLI | 检测本机 Claude Code / Codex / Antigravity / OpenCode / Grok，按 pnpm、yarn、npm、官方安装器或原生方式安装升级 |
 | 配置目录 | 打开各家 CLI 的本机配置目录和关键文件 |
 | 更新 | 检测 GitHub Release，Windows 可在应用内下载并替换 |
+
+## 2.8.0 订阅额度、网关增强与更多 Agent
+
+- **额度与余额**：Claude Code / Codex / GitHub Copilot 订阅的 5 小时、每周、每月额度；DeepSeek、Moonshot、OpenRouter、SiliconFlow、StepFun、AiHubMix、New API / One API 中转站余额；阈值提醒、额度预热，托盘面板显示额度。
+- **会话**：按时间范围的使用洞察（提问、工具、Skills、MCP、模型、项目、时段），会话可删除到回收站并恢复。
+- **网关**：局域网共享与网关密钥（停用、轮换、限定路由、按日周月限额）；接入示例；账单按月导出 CSV；可选记录请求内容（密钥脱敏）；标注聚合平台实际服务的上游；OpenTelemetry / Langfuse 导出。
+- **协议**：Chat / Anthropic 客户端可用只说 Responses 的上游；新增 Gemini 协议入口，Gemini CLI 可用任意上游。
+- **订阅上游**：路由与备用上游可直接用本机已登录的 Codex（ChatGPT）、GitHub Copilot、Claude 订阅；Claude 订阅由本机 claude 命令行生成回复，调用方的工具经 MCP 桥接，同一对话复用进程、命中缓存。Copilot 有多个登录时自动选可用的那个。
+- **MCP**：远程服务器 OAuth 登录（各工具经本机网关访问，自动带令牌）；内置生图与联网搜索 MCP。
+- **更多 Agent**：一键把 Crush、Kimi CLI、Droid、Pi、Cline、Qwen Code、Gemini CLI、VS Code Chat、Zed、Goose、Command Code、Empryo、ZCode 接到本机网关，断开时还原原配置；可选启用 RTK。
+- **其它**：models.dev 模型目录；本地加密备份文件（`.aienv-backup`）；`aienv://import` 导入链接；其它程序改动配置后自动重新载入；文字大小；轻量模式。
+- **命令行**：`list / use / quota / balance / sessions / gateway / gateway-key / catalog / mcp`，终端界面 `tui`，浏览器模式 `web`（附 Dockerfile，适合 NAS / 服务器）。
 
 ## 2.7.4 提示词保存与统计修复
 

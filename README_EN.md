@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="build/appicon.png?v=2.7.4" width="72" height="72" alt="AI ENV icon" />
+  <img src="build/appicon.png?v=2.8.0" width="72" height="72" alt="AI ENV icon" />
 </p>
 
 <h1 align="center">AI ENV</h1>
@@ -58,6 +58,18 @@ The current version is the latest version listed in [GitHub Releases](https://gi
 | CLI | Detect local Claude / Codex / Antigravity / OpenCode / Grok; install/upgrade via pnpm, yarn, npm, official installer, or native update |
 | Config folders | Open each CLI’s config directory and key files |
 | Updates | GitHub Release check; Windows can download and replace in-app |
+
+## 2.8.0 Allowances, gateway upgrades and more agents
+
+- **Allowances & balances**: 5-hour, weekly and monthly windows of Claude Code / Codex / GitHub Copilot subscriptions; balances for DeepSeek, Moonshot, OpenRouter, SiliconFlow, StepFun, AiHubMix and New API / One API relays; threshold alerts, allowance warm-up, allowances in the tray panel.
+- **Sessions**: usage insights over a range (prompts, tools, skills, MCP, models, projects, hours); sessions can be moved to a recycle bin and restored.
+- **Gateway**: LAN sharing with gateway keys (disable, rotate, restrict routes, daily/weekly/monthly caps); connect snippets; monthly ledger CSV; optional request capture (secrets masked); the upstream an aggregator actually used; OpenTelemetry / Langfuse export.
+- **Protocols**: Chat and Anthropic clients can use Responses-only upstreams; a new Gemini-protocol entry lets Gemini CLI use any upstream.
+- **Subscription upstreams**: routes and backups can use the Codex (ChatGPT), GitHub Copilot or Claude subscription signed in on this machine; Claude replies come from the local claude CLI with the caller's tools bridged over MCP, and a conversation keeps its process so the prompt cache hits. With several Copilot logins the working one is picked.
+- **MCP**: OAuth sign-in for remote servers (tools reach them through the local gateway with the token added); built-in image generation and web search MCP servers.
+- **More agents**: connect Crush, Kimi CLI, Droid, Pi, Cline, Qwen Code, Gemini CLI, VS Code Chat, Zed, Goose, Command Code, Empryo and ZCode to the local gateway in one click and restore their config on disconnect; optional RTK.
+- **Also**: models.dev catalog; local encrypted backup files (`.aienv-backup`); `aienv://import` links; reload when another program edits the config; text size; lightweight mode.
+- **Command line**: `list / use / quota / balance / sessions / gateway / gateway-key / catalog / mcp`, a terminal UI (`tui`) and browser mode (`web`, with a Dockerfile for a NAS or server).
 
 ## 2.7.4 Prompt persistence and statistics fixes
 
