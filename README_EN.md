@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="build/appicon.png?v=2.8.0" width="72" height="72" alt="AI ENV icon" />
+  <img src="build/appicon.png?v=2.9.0" width="72" height="72" alt="AI ENV icon" />
 </p>
 
 <h1 align="center">AI ENV</h1>
@@ -50,7 +50,7 @@ The current version is the latest version listed in [GitHub Releases](https://gi
 | Model catalog | Syncs context window, output limit, pricing and capabilities from models.dev; fill a model's fields in one click; models without a built-in price are costed from the catalog |
 | Allowances & balances | 5-hour, weekly and monthly windows of Claude Code / Codex / GitHub Copilot subscriptions; balances for DeepSeek, Moonshot, OpenRouter, SiliconFlow, StepFun, AiHubMix, New API / One API relays and custom endpoints; threshold and low-balance alerts (in-app + system notification); allowance warm-up (a tiny request on a schedule or right after a reset so the next window starts early); allowances in the tray panel |
 | Session insights | Prompts, tool calls, skills, MCP, models, projects, hour-of-day and the costliest sessions of Claude Code / Codex over a range; sessions can be moved to a recycle bin and restored |
-| More agents | Connect Crush, Kimi CLI, Droid, Pi, Cline, Qwen Code, Gemini CLI, VS Code Chat, Zed, Goose, Command Code, Empryo and ZCode to the local gateway in one click and restore their original config on disconnect; optionally enable RTK for Claude Code / Codex and others to compress command output and save tokens |
+| More agents | Connect Crush, Kimi CLI, Droid, Pi, Cline, Qwen Code, Gemini CLI, VS Code Chat, Zed, Goose, Command Code, Empryo, ZCode, Qoder, Qoder CN, MiMo Code, OmO, fx, T3 Code, Muse Code, Hermes Agent, MiniMax Code, Mister Morph, omp, WorkBuddy and AtomCode to the local gateway in one click and restore their original config on disconnect; optionally enable RTK for Claude Code / Codex and others to compress command output and save tokens |
 | Import links | Registers `aienv://import?...` (same parameters as CC Switch share links); opening one shows a preview and saves nothing until confirmed |
 | Settings | Language, theme, accent, text size, outbound proxy; lightweight mode (hands memory back to the system while hidden in the tray); reloads automatically when another program edits the config files |
 | Browser mode | `claude-env-switcher web` serves the same interface as a web page with no window, for a NAS or Linux server; listening beyond localhost needs a password; a Dockerfile is included |
@@ -58,6 +58,13 @@ The current version is the latest version listed in [GitHub Releases](https://gi
 | CLI | Detect local Claude / Codex / Antigravity / OpenCode / Grok; install/upgrade via pnpm, yarn, npm, official installer, or native update |
 | Config folders | Open each CLI’s config directory and key files |
 | Updates | GitHub Release check; Windows can download and replace in-app |
+
+## 2.9.0 Thirteen more agents
+
+- One-click connection for Qoder CLI, Qoder CN, MiMo Code, OmO (oh-my-openagent), fx, T3 Code, Muse Code, Hermes Agent, MiniMax Code, Mister Morph, omp (oh-my-pi), WorkBuddy and AtomCode, 26 agents in all; disconnecting restores their config.
+- YAML configs (Hermes, MiniMax Code, Mister Morph, omp) are edited key by key, keeping their comments.
+- The gateway serves Muse Code its model list at `/muse-code/models`.
+- Fix: Kimi, Droid and Cline left an empty file or field behind on disconnect when they had no config before.
 
 ## 2.8.0 Allowances, gateway upgrades and more agents
 

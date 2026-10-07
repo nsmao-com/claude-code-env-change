@@ -440,6 +440,13 @@ func extraAgents() []extraAgent {
 					return h == "providers."+agentProviderID || strings.HasPrefix(h, `models."`+agentProviderID+"/") || strings.HasPrefix(h, `models.'`+agentProviderID+"/")
 				}
 				text, _ := editKimiTOML(string(raw), drop, &restore, "")
+				if strings.TrimSpace(text) == "" {
+					// 文件原本不存在：本程序写入的内容去掉后不留空文件
+					if _, err := backupFile(path); err != nil {
+						return err
+					}
+					return os.Remove(path)
+				}
 				return writeAgentFile(path, []byte(text))
 			},
 			connected: func() (bool, string) {
@@ -503,7 +510,11 @@ func extraAgents() []extraAgent {
 					}
 					kept = append(kept, item)
 				}
-				doc["customModels"] = kept
+				if len(kept) == 0 && len(list) > 0 {
+					delete(doc, "customModels")
+				} else {
+					doc["customModels"] = kept
+				}
 				restoreJSON(prev, "default", doc, "sessionDefaultSettings.model")
 				if s, ok := doc["sessionDefaultSettings"].(map[string]any); ok && len(s) == 0 {
 					delete(doc, "sessionDefaultSettings")
@@ -523,59 +534,7 @@ func extraAgents() []extraAgent {
 				return false, ""
 			},
 		},
-		{
-			id: "pi", name: "Pi", command: "pi",
-			paths: func() []string {
-				return []string{filepath.Join(piDir(), "settings.json"), filepath.Join(piDir(), "models.json")}
-			},
-			connect: func(gw, model string, prev map[string]json.RawMessage) error {
-				modelsPath, settingsPath := filepath.Join(piDir(), "models.json"), filepath.Join(piDir(), "settings.json")
-				models, err := readJSONDoc(modelsPath)
-				if err != nil {
-					return err
-				}
-				settings, err := readJSONDoc(settingsPath)
-				if err != nil {
-					return err
-				}
-				ctx, out := modelLimits(model)
-				jsonSet(models, "providers."+agentProviderID, map[string]any{
-					"baseUrl": gw, "api": "openai-completions", "apiKey": agentProviderID,
-					"models": []any{map[string]any{"id": model, "name": model, "reasoning": false, "contextWindow": ctx, "maxTokens": out}},
-				})
-				stashJSON(prev, "provider", settings, "defaultProvider")
-				stashJSON(prev, "model", settings, "defaultModel")
-				settings["defaultProvider"], settings["defaultModel"] = agentProviderID, model
-				if err := writeJSONDoc(modelsPath, models); err != nil {
-					return err
-				}
-				return writeJSONDoc(settingsPath, settings)
-			},
-			disconnect: func(prev map[string]json.RawMessage) error {
-				modelsPath, settingsPath := filepath.Join(piDir(), "models.json"), filepath.Join(piDir(), "settings.json")
-				if settings, err := readJSONDoc(settingsPath); err == nil {
-					restoreJSON(prev, "provider", settings, "defaultProvider")
-					restoreJSON(prev, "model", settings, "defaultModel")
-					if err := writeJSONDocOrRemove(settingsPath, settings); err != nil {
-						return err
-					}
-				}
-				models, err := readJSONDoc(modelsPath)
-				if err != nil {
-					return err
-				}
-				jsonDelete(models, "providers."+agentProviderID)
-				return writeJSONDocOrRemove(modelsPath, models)
-			},
-			connected: func() (bool, string) {
-				settings, err := readJSONDoc(filepath.Join(piDir(), "settings.json"))
-				if err != nil || settings["defaultProvider"] != agentProviderID {
-					return false, ""
-				}
-				m, _ := settings["defaultModel"].(string)
-				return true, m
-			},
-		},
+		piLikeAgent("pi", "Pi", "pi", piDir),
 		{
 			id: "cline", name: "Cline CLI", command: "cline",
 			paths: func() []string { return []string{clineProvidersPath()} },
@@ -589,6 +548,9 @@ func extraAgents() []extraAgent {
 				stashJSON(prev, "entry", doc, "providers.openai-compatible")
 				if _, ok := doc["version"]; !ok {
 					doc["version"] = 1
+					if _, done := prev["version"]; !done {
+						prev["version"] = json.RawMessage("null")
+					}
 				}
 				jsonSet(doc, "providers.openai-compatible", map[string]any{
 					"settings":    map[string]any{"provider": "openai-compatible", "apiKey": agentProviderID, "model": model, "baseUrl": gw},
@@ -606,6 +568,7 @@ func extraAgents() []extraAgent {
 				}
 				restoreJSON(prev, "entry", doc, "providers.openai-compatible")
 				restoreJSON(prev, "last", doc, "lastUsedProvider")
+				restoreJSON(prev, "version", doc, "version")
 				return writeJSONDocOrRemove(path, doc)
 			},
 			connected: func() (bool, string) {
@@ -686,7 +649,7 @@ func extraAgents() []extraAgent {
 				return true, ms
 			},
 		},
-	}, moreAgents()...)
+	}, append(moreAgents(), batch3Agents()...)...)
 }
 
 func findExtraAgent(id string) (extraAgent, bool) {

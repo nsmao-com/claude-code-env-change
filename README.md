@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="build/appicon.png?v=2.8.0" width="72" height="72" alt="AI ENV 图标" />
+  <img src="build/appicon.png?v=2.9.0" width="72" height="72" alt="AI ENV 图标" />
 </p>
 
 <h1 align="center">AI ENV</h1>
@@ -50,7 +50,7 @@
 | 模型目录 | 从 models.dev 同步模型的上下文长度、输出上限、价格与能力，填写模型时可一键带入；无内置价格的模型按目录估算花费 |
 | 额度与余额 | Claude Code / Codex / GitHub Copilot 订阅的 5 小时、每周、每月额度窗口；DeepSeek、Moonshot、OpenRouter、SiliconFlow、StepFun、AiHubMix、New API / One API 中转站及自定义接口余额；阈值与低余额提醒（应用内 + 系统通知）；额度预热（定时或额度重置后发一条极短请求，让新窗口提前开始计时）；托盘面板显示订阅额度 |
 | 会话洞察 | 按时间范围统计 Claude Code / Codex 会话的提问、工具调用、Skills、MCP、模型、项目、时段分布与最耗 Token 的会话；会话可删除到回收站并恢复 |
-| 更多 Agent | 一键把 Crush、Kimi CLI、Droid、Pi、Cline、Qwen Code、Gemini CLI、VS Code Chat、Zed、Goose、Command Code、Empryo、ZCode 接到本机网关，断开时还原原配置；可选给 Claude Code / Codex 等启用 RTK 压缩命令输出、节省 Token |
+| 更多 Agent | 一键把 Crush、Kimi CLI、Droid、Pi、Cline、Qwen Code、Gemini CLI、VS Code Chat、Zed、Goose、Command Code、Empryo、ZCode、Qoder、Qoder CN、MiMo Code、OmO、fx、T3 Code、Muse Code、Hermes Agent、MiniMax Code、Mister Morph、omp、WorkBuddy、AtomCode 接到本机网关，断开时还原原配置；可选给 Claude Code / Codex 等启用 RTK 压缩命令输出、节省 Token |
 | 导入链接 | 注册 `aienv://import?...` 协议（参数同 CC Switch 分享链接），点击后打开预览，确认后才保存 |
 | 设置 | 语言、主题、强调色、文字大小、出站代理；轻量模式（隐藏到托盘后把内存交还给系统）；其它程序改动配置文件后自动重新载入 |
 | 浏览器模式 | `claude-env-switcher web` 不开窗口，用网页提供同一套界面，适合 NAS / Linux 服务器；对外监听需设置访问口令；附 Dockerfile |
@@ -58,6 +58,13 @@
 | CLI | 检测本机 Claude Code / Codex / Antigravity / OpenCode / Grok，按 pnpm、yarn、npm、官方安装器或原生方式安装升级 |
 | 配置目录 | 打开各家 CLI 的本机配置目录和关键文件 |
 | 更新 | 检测 GitHub Release，Windows 可在应用内下载并替换 |
+
+## 2.9.0 再接入 13 个 Agent
+
+- 新增 Qoder CLI、Qoder CN、MiMo Code、OmO（oh-my-openagent）、fx、T3 Code、Muse Code、Hermes Agent、MiniMax Code、Mister Morph、omp（oh-my-pi）、WorkBuddy、AtomCode 的一键接入，共支持 26 个 Agent；断开时还原原配置。
+- YAML 配置（Hermes、MiniMax Code、Mister Morph、omp）只改相关的键，原有注释保留。
+- 网关为 Muse Code 提供 `/muse-code/models` 模型列表。
+- 修复：Kimi、Droid、Cline 在原本没有配置文件时，断开后会留下空文件或空字段。
 
 ## 2.8.0 订阅额度、网关增强与更多 Agent
 

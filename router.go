@@ -716,6 +716,10 @@ func (rs *RouterService) handleRoot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if parts[0] == "muse-code" && len(parts) == 2 && parts[1] == "models" {
+		rs.serveMuseModels(w)
+		return
+	}
 	if parts[0] == claudeBridgePrefix && len(parts) == 2 {
 		globalClaudeBridge.serveCallback(w, r, parts[1])
 		return
